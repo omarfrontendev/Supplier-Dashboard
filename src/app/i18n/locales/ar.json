@@ -1,0 +1,605 @@
+{
+  "login": {
+    "brandTitle": "لوحة تحكم عملاء Hoteliana",
+    "brandSubtitle": "وحدة إدارة العملاء",
+    "heroTitle": "مركز قيادة العملاء",
+    "heroDescription": "تحكم كامل في المناطق، المولات، الأكشاك وإدارة الفريق.",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "enterPassword": "أدخل كلمة المرور",
+    "rememberDevice": "تذكر هذا الجهاز",
+    "next": "التالي",
+    "signIn": "تسجيل الدخول",
+    "processing": "جاري المعالجة...",
+    "twoFactorTitle": "المصادقة الثنائية",
+    "twoFactorSubtitle": "أدخل الرمز المكون من 6 أرقام من تطبيق المصادقة",
+    "authCode": "رمز التحقق",
+    "securityNotice": "إشعار أمني",
+    "securityMessage": "يتم تسجيل ومراقبة جميع إجراءات إدارة العملاء.",
+    "authorizedOnly": "للمخولين فقط",
+    "contactSecurity": "التواصل مع الدعم",
+    "forgetPassword": "نسيت كلمة المرور؟",
+    "adminAccess": "دخول المسؤول",
+    "platformCenter": "مركز قيادة المنصة",
+    "platformCenterDesc": "تحكم كامل بالمنصة مع إدارة العملاء، إعدادات النظام، والتحليلات المتقدمة.",
+    "msgSuccess": "مرحبًا بعودتك! تم تسجيل الدخول بنجاح.",
+    "authorizedonly": "للموظفين المصرح لهم فقط",
+    "verify": "تحقق وإعادة تعيين كلمة المرور",
+    "advancedSecurity": "أمان متقدم",
+    "twoFactorRequired": "المصادقة الثنائية مطلوبة",
+    "accountDeactivated": "تم إيقاف حسابك!",
+    "loginFailedMessage": "فشل تسجيل الدخول. يرجى التحقق من بياناتك والمحاولة مرة أخرى.",
+    "loginFailed": "فشل تسجيل الدخول",
+    "otpVerificationFailed": "فشل التحقق من رمز OTP"
+  },
+  "forgetPassword": {
+    "title": "نسيت كلمة المرور"
+  },
+  "features": {
+    "manageRegions": "إنشاء وإدارة المناطق",
+    "manageMalls": "إنشاء وإدارة المولات",
+    "manageBooths": "إنشاء وإدارة الأكشاك",
+    "manageUsers": "إدارة أعضاء الفريق والصلاحيات"
+  },
+  "sidebar": {
+    "main": "الرئيسية",
+    "overview": "نظرة عامة",
+    "areas": "المناطق",
+    "regions": "الأقاليم",
+    "subRegions": "الأقاليم الفرعية",
+    "malls": "المولات",
+    "shifts": "الورديات",
+    "booths": "الأكشاك",
+    "users": "المستخدمون",
+    "title": "إدارة العملاء",
+    "search": "بحث في الوحدات...",
+    "logout": "تسجيل الخروج",
+    "organization": "المؤسسة",
+    "dashboardUsers": "مستخدمو لوحة التحكم",
+    "mobileUsers": "مستخدمو الجوال",
+    "vendors": "المورّدون",
+    "view": "عرض",
+    "roles": "الأدوار",
+    "vendor-organization": "مؤسسة المورّد",
+    "profilePermissions": "صلاحيات الملف الشخصي",
+    "hrModule": "وحدة الموارد البشرية",
+    "providerConsole": "لوحة المزود"
+  },
+  "header": {
+    "title": "لوحة مزود Hoteliana",
+    "subtitle": "إدارة وتشغيل المنصة"
+  },
+  "roles": {
+    "ClientAdmin": "مسؤول العميل",
+    "ClientMobileSupervisor": "مشرف الجوال",
+    "MobileSales": "مبيعات الجوال",
+    "ClientSuperAdmin": "المسؤول العام للعميل",
+    "title": "الأدوار",
+    "activeRoles_zero": "لا توجد أدوار",
+    "activeRoles_one": "دور واحد",
+    "activeRoles_two": "دوران",
+    "activeRoles_few": "{{count}} أدوار",
+    "activeRoles_many": "{{count}} دورًا",
+    "activeRoles_other": "{{count}} دور",
+    "searchPlaceholder": "ابحث بالاسم",
+    "create": "إنشاء دور",
+    "update": "تحديث دور",
+    "successCreate": "تم إنشاء الدور بنجاح",
+    "successUpdated": "تم تحديث الدور بنجاح",
+    "successDeleted": "تم حذف الدور بنجاح",
+    "createDescription": "إنشاء دور جديد مع الاسم (عربي، إنجليزي) والصلاحيات",
+    "updateDescription": "تحديث دور موجود مع الاسم (عربي، إنجليزي) والصلاحيات",
+    "deleteTitle": "حذف دور"
+  },
+  "fields": {
+    "actions": "الإجراءات",
+    "area": "المنطقة",
+    "region": "الإقليم",
+    "subregion": "الإقليم الفرعي",
+    "mall": "المول",
+    "shift": "الوردية",
+    "searchNameOrCode": "",
+    "cameraUserName": "اسم المستخدم (الكاميرا)",
+    "rtspUrl": "رابط RTSP (الكاميرا)",
+    "cameraPassword": "كلمة المرور (الكاميرا)",
+    "name": {
+      "label": "الاسم",
+      "placeholder": "أدخل الاسم"
+    },
+    "nameEn": {
+      "label": "الاسم (بالإنجليزية)",
+      "placeholder": "أدخل الاسم بالإنجليزية"
+    },
+    "nameAr": {
+      "label": "الاسم (بالعربية)",
+      "placeholder": "أدخل الاسم بالعربية"
+    },
+    "code": {
+      "label": "الرمز",
+      "placeholder": "أدخل الرمز"
+    },
+    "day": {
+      "label": "اليوم",
+      "placeholder": "اختر اليوم..."
+    },
+    "startTime": {
+      "label": "وقت البدء",
+      "placeholder": "أدخل وقت البدء"
+    },
+    "endTime": {
+      "label": "وقت الانتهاء",
+      "placeholder": "أدخل وقت الانتهاء"
+    },
+    "coords": {
+      "label": "حدد الإحداثيات على الخريطة"
+    },
+    "firstName": {
+      "label": "الاسم الأول",
+      "placeholder": "أدخل الاسم الأول"
+    },
+    "lastName": {
+      "label": "اسم العائلة",
+      "placeholder": "أدخل اسم العائلة"
+    },
+    "email": {
+      "label": "البريد الإلكتروني",
+      "placeholder": "أدخل البريد الإلكتروني"
+    },
+    "phone": {
+      "label": "الهاتف",
+      "placeholder": "أدخل رقم الهاتف"
+    },
+    "nationalId": {
+      "label": "الرقم الوطني",
+      "placeholder": "أدخل الرقم الوطني"
+    },
+    "employeeCode": {
+      "label": "رمز الموظف",
+      "placeholder": "أدخل رمز الموظف"
+    },
+    "profilePhoto": {
+      "label": "الصورة الشخصية",
+      "placeholder": "أدخل رمز الموظف"
+    },
+    "dealerId": {
+      "label": "معرف التاجر",
+      "placeholder": "أدخل معرف التاجر"
+    },
+    "confirmPassword": {
+      "label": "تأكيد كلمة المرور",
+      "placeholder": "أدخل تأكيد كلمة المرور"
+    },
+    "address": {
+      "label": "العنوان",
+      "placeholder": "أدخل العنوان"
+    },
+    "password": {
+      "label": "كلمة المرور",
+      "placeholder": "أدخل كلمة المرور"
+    },
+    "role": {
+      "label": "الدور",
+      "placeholder": "اختر الدور"
+    },
+    "client": {
+      "label": "العميل",
+      "placeholder": "اختر العميل"
+    },
+    "status": {
+      "label": "الحالة"
+    },
+    "otp": {
+      "label": "رمز التحقق",
+      "text": "أدخل الرمز من تطبيق المصادقة"
+    }
+  },
+  "buttons": {
+    "polygon": "مضلع",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "deleting": "جاري الحذف...",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "saving": "جاري الحفظ...",
+    "activate": "تفعيل",
+    "deactivate": "إلغاء التفعيل",
+    "backLogin": "العودة لتسجيل الدخول",
+    "back": "رجوع",
+    "activated": "تم التفعيل",
+    "deactivated": "تم إلغاء التفعيل",
+    "processing": "جاري المعالجة..."
+  },
+  "dialog": {
+    "deleteDescription": "هل أنت متأكد أنك تريد حذف",
+    "deactivate": "إلغاء تفعيل المستخدم",
+    "activate": "تفعيل المستخدم",
+    "confirmStatusChange": "هل أنت متأكد أنك تريد {{action}} {{name}}؟"
+  },
+  "validation": {
+    "nameRequired": "الاسم مطلوب",
+    "roleRequired": "الدور مطلوب",
+    "passwordRequired": "كلمة المرور مطلوبة",
+    "emailRequired": "البريد الإلكتروني مطلوب",
+    "invalidEmail": "يرجى إدخال بريد إلكتروني صحيح",
+    "addressRequired": "العنوان مطلوب",
+    "arabicLettersNotAllowed": "الأحرف العربية غير مسموح بها",
+    "englishLettersNotAllowed": "الأحرف الإنجليزية غير مسموح بها",
+    "coordinatesRequired": "الإحداثيات مطلوبة",
+    "areaRequired": "المنطقة مطلوبة",
+    "regionRequired": "الإقليم مطلوب",
+    "subRegionRequired": "الإقليم الفرعي مطلوب",
+    "mallRequired": "المول مطلوب",
+    "codeRequired": "الرمز مطلوب",
+    "shiftRequired": "الوردية مطلوبة",
+    "dayRequired": "اليوم مطلوب",
+    "phoneRequired": "رقم الهاتف مطلوب",
+    "nationalIdRequired": "الرقم الوطني مطلوب",
+    "employeeCodeRequired": "رمز الموظف مطلوب",
+    "dealerIdRequired": "معرف التاجر مطلوب",
+    "startTimeRequired": "وقت البدء مطلوب",
+    "endTimeRequired": "وقت الانتهاء مطلوب",
+    "invalidTime": "تنسيق الوقت غير صالح",
+    "endAfterStart": "يجب أن يكون وقت الانتهاء بعد وقت البدء",
+    "invalidURL": "رابط غير صالح"
+  },
+  "filters": {
+    "status": "الحالة"
+  },
+  "entities": {
+    "area": "المنطقة",
+    "regions": "الأقاليم",
+    "region": "الإقليم",
+    "subregion": "الإقليم الفرعي",
+    "mall": "المول",
+    "booth": "الكشك",
+    "user": "المستخدم",
+    "vendor": "المورّد",
+    "shift": "الوردية",
+    "role": "الدور"
+  },
+  "areas": {
+    "title": "المناطق",
+    "activeAreas_zero": "لا توجد مناطق",
+    "activeAreas_one": "منطقة واحدة",
+    "activeAreas_two": "منطقتان",
+    "activeAreas_few": "{{count}} مناطق",
+    "activeAreas_many": "{{count}} منطقة",
+    "activeAreas_other": "{{count}} منطقة",
+    "create": "إنشاء منطقة",
+    "update": "تحديث منطقة",
+    "searchPlaceholder": "ابحث باسم المنطقة أو رمز المنطقة",
+    "deleteTitle": "حذف منطقة",
+    "areaSuccessDeleted": "تم حذف المنطقة بنجاح",
+    "successUpdated": "تم تحديث المنطقة بنجاح",
+    "successCreate": "تم إنشاء المنطقة بنجاح",
+    "createDescription": "إنشاء منطقة جديدة بالاسم (عربي، إنجليزي)، الرمز والمضلع",
+    "updateDescription": "تحديث منطقة موجودة بالاسم (عربي، إنجليزي)، الرمز والمضلع"
+  },
+  "regions": {
+    "title": "الأقاليم",
+    "activeRegions_zero": "لا توجد أقاليم",
+    "activeRegions_one": "إقليم واحد",
+    "activeRegions_two": "إقليمان",
+    "activeRegions_few": "{{count}} أقاليم",
+    "activeRegions_many": "{{count}} إقليمًا",
+    "activeRegions_other": "{{count}} إقليم",
+    "create": "إنشاء إقليم",
+    "searchPlaceholder": "ابحث باسم الإقليم أو رمز الإقليم",
+    "deleteTitle": "حذف إقليم",
+    "regionSuccessDeleted": "تم حذف الإقليم بنجاح",
+    "successUpdated": "تم تحديث الإقليم بنجاح",
+    "successCreate": "تم إنشاء الإقليم بنجاح",
+    "selectArea": "اختر منطقة...",
+    "noAreaTitle": "لم يتم اختيار {{entity}}",
+    "noAreaDescription": "يرجى اختيار {{entity}} من القائمة لعرض {{parent}}.",
+    "createDescription": "إنشاء إقليم جديد بالاسم (عربي، إنجليزي)، الرمز والمضلع بناءً على المنطقة المختارة",
+    "updateDescription": "تحديث إقليم موجود بالاسم (عربي، إنجليزي)، الرمز والمضلع بناءً على المنطقة المختارة"
+  },
+  "subregions": {
+    "title": "الأقاليم الفرعية",
+    "activeSubregions_zero": "لا توجد أقاليم فرعية",
+    "activeSubregions_one": "إقليم فرعي واحد",
+    "activeSubregions_two": "إقليمان فرعيان",
+    "activeSubregions_few": "{{count}} أقاليم فرعية",
+    "activeSubregions_many": "{{count}} إقليمًا فرعيًا",
+    "activeSubregions_other": "{{count}} إقليم فرعي",
+    "create": "إنشاء إقليم فرعي",
+    "update": "تحديث إقليم فرعي",
+    "searchPlaceholder": "ابحث باسم الإقليم الفرعي أو رمز الإقليم الفرعي",
+    "deleteTitle": "حذف إقليم فرعي",
+    "subregionSuccessDeleted": "تم حذف الإقليم الفرعي بنجاح",
+    "successUpdated": "تم تحديث الإقليم الفرعي بنجاح",
+    "successCreate": "تم إنشاء الإقليم الفرعي بنجاح",
+    "selectRegion": "اختر إقليم...",
+    "createDescription": "إنشاء إقليم فرعي جديد بالاسم (عربي، إنجليزي)، الرمز والمضلع بناءً على الإقليم المختار",
+    "updateDescription": "تحديث إقليم فرعي موجود بالاسم (عربي، إنجليزي)، الرمز والمضلع بناءً على الإقليم المختار"
+  },
+  "malls": {
+    "title": "المولات",
+    "activeMalls_zero": "لا توجد مولات نشطة",
+    "activeMalls_one": "مول نشط واحد",
+    "activeMalls_two": "مولان نشطان",
+    "activeMalls_few": "{{count}} مولات نشطة",
+    "activeMalls_many": "{{count}} مول نشط",
+    "activeMalls_other": "{{count}} مول نشط",
+    "create": "إنشاء مول",
+    "update": "تحديث مول",
+    "searchPlaceholder": "ابحث باسم المول أو رمز المول",
+    "deleteTitle": "حذف مول",
+    "mallsSuccessDeleted": "تم حذف المول بنجاح",
+    "successUpdated": "تم تحديث المول بنجاح",
+    "successCreate": "تم إنشاء المول بنجاح",
+    "selectSubregion": "اختر إقليم فرعي...",
+    "createDescription": "إنشاء مول جديد بالاسم (عربي، إنجليزي)، الرمز والمضلع بناءً على الإقليم الفرعي المختار",
+    "updateDescription": "تحديث مول موجود بالاسم (عربي، إنجليزي)، الرمز والمضلع بناءً على الإقليم الفرعي المختار",
+    "mallAdress": "عنوان المول"
+  },
+  "booths": {
+    "title": "الأكشاك",
+    "activeBooths_zero": "لا توجد أكشاك نشطة",
+    "activeBooths_one": "كشك نشط واحد",
+    "activeBooths_two": "كشكان نشطان",
+    "activeBooths_few": "{{count}} أكشاك نشطة",
+    "activeBooths_many": "{{count}} كشكًا نشطًا",
+    "activeBooths_other": "{{count}} كشك نشط",
+    "create": "إنشاء كشك",
+    "update": "تحديث كشك",
+    "searchPlaceholder": "ابحث باسم الكشك أو رمز الكشك",
+    "deleteTitle": "حذف كشك",
+    "SuccessDeleted": "تم حذف الكشك بنجاح",
+    "successUpdated": "تم تحديث الكشك بنجاح",
+    "successCreate": "تم إنشاء الكشك بنجاح",
+    "selectMall": "اختر مول...",
+    "createDescription": "إنشاء كشك جديد بالاسم، الرمز، والمول",
+    "updateDescription": "تحديث كشك موجود بالاسم، الرمز، والمول"
+  },
+  "shifts": {
+    "title": "الورديات",
+    "activeShifts_zero": "لا توجد ورديات",
+    "activeShifts_one": "وردية واحدة",
+    "activeShifts_two": "ورديتان",
+    "activeShifts_few": "{{count}} ورديات",
+    "activeShifts_many": "{{count}} وردية",
+    "activeShifts_other": "{{count}} وردية",
+    "create": "إنشاء وردية",
+    "update": "تحديث وردية",
+    "searchPlaceholder": "ابحث باسم المول أو رمز المول",
+    "deleteTitle": "حذف وردية",
+    "SuccessDeleted": "تم حذف الوردية بنجاح",
+    "successUpdated": "تم تحديث الوردية بنجاح",
+    "successCreate": "تم إنشاء الوردية بنجاح",
+    "createDescription": "إنشاء وردية جديدة مع اليوم، وقت البدء ووقت الانتهاء",
+    "updateDescription": "تحديث وردية موجودة مع اليوم، وقت البدء ووقت الانتهاء"
+  },
+  "users": {
+    "title": "مستخدمو لوحة التحكم",
+    "activeUsers_zero": "لا يوجد مستخدمون",
+    "activeUsers_one": "مستخدم واحد",
+    "activeUsers_two": "مستخدمان",
+    "activeUsers_few": "{{count}} مستخدمين",
+    "activeUsers_many": "{{count}} مستخدمًا",
+    "activeUsers_other": "{{count}} مستخدم",
+    "create": "إنشاء مستخدم لوحة تحكم",
+    "update": "تحديث مستخدم لوحة تحكم",
+    "searchPlaceholder": "ابحث بالاسم أو البريد الإلكتروني",
+    "deleteTitle": "حذف مستخدم",
+    "SuccessDeleted": "تم حذف المستخدم بنجاح",
+    "successUpdated": "تم تحديث المستخدم بنجاح",
+    "successCreate": "تم إنشاء المستخدم بنجاح",
+    "createDescription": "إنشاء مستخدم جديد بالاسم الأول، اسم العائلة، الدور، البريد الإلكتروني، كلمة المرور وتعيينه لعميل",
+    "updateDescription": "تحديث مستخدم موجود بالاسم الأول، اسم العائلة، الدور، البريد الإلكتروني، كلمة المرور وتعيينه لعميل",
+    "baseInfo": "المعلومات الأساسية",
+    "personalInfo": "المعلومات الشخصية",
+    "accountSecurity": "أمان الحساب",
+    "mobile": {
+      "title": "مستخدمو الجوال",
+      "create": "إنشاء مستخدم جوال",
+      "update": "تحديث مستخدم جوال"
+    }
+  },
+  "vendors": {
+    "title": "المورّدون",
+    "create": "إنشاء مورّد",
+    "activeVendors_zero": "لا يوجد مورّدون",
+    "activeVendors_one": "مورّد واحد",
+    "activeVendors_two": "مورّدان",
+    "activeVendors_few": "{{count}} مورّدين",
+    "activeVendors_many": "{{count}} مورّدًا",
+    "activeVendors_other": "{{count}} مورّد",
+    "searchPlaceholder": "ابحث بالاسم",
+    "vendorDetails": "تفاصيل المورّد",
+    "createDescription": "إنشاء مورّد جديد بالاسم (عربي، إنجليزي)، البريد الإلكتروني والهاتف",
+    "successCreate": "تم إنشاء المورّد بنجاح",
+    "successUpdated": "تم تحديث المورّد بنجاح",
+    "successDeleted": "تم حذف المورّد بنجاح",
+    "successToggled": "تم تحديث حالة المورّد بنجاح"
+  },
+  "common": {
+    "searchAreaPlaceholder": "ابحث باسم المنطقة",
+    "selectAreaTitle": "اختر منطقة",
+    "selectAreaDescription": "اختر المنطقة التي تقع بها الأقاليم المتوقعة.",
+    "searchRegionPlaceholder": "ابحث باسم الإقليم",
+    "selectRegionTitle": "اختر إقليم",
+    "selectRegionDescription": "اختر الإقليم الذي تقع به الأقاليم الفرعية المتوقعة.",
+    "searchSubRegionPlaceholder": "ابحث باسم الإقليم الفرعي",
+    "selectSubRegionTitle": "اختر إقليمًا فرعيًا",
+    "selectSubRegionDescription": "اختر الإقليم الفرعي الذي تقع به المولات المتوقعة.",
+    "selectMallTitle": "اختر مول",
+    "selectMallDescription": "اختر المول الذي تقع به الأكشاك المتوقعة.",
+    "searchMallPlaceholder": "ابحث باسم المول",
+    "noDataAvailable": "لا توجد بيانات متاحة",
+    "errorTitle": "حدث خطأ ما",
+    "errorFallback": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
+    "thisUser": "هذا المستخدم",
+    "success": "تم بنجاح!",
+    "saveFailed": "فشل حفظ {{entity}}",
+    "deleteFailed": "فشل حذف {{entity}}"
+  },
+  "language": {
+    "englishShort": "EN",
+    "arabicShort": "AR"
+  },
+  "ui": {
+    "toggleTheme": "تبديل المظهر",
+    "tableView": "عرض جدولي",
+    "gridView": "عرض شبكي",
+    "close": "إغلاق",
+    "more": "المزيد",
+    "toggleSidebar": "تبديل الشريط الجانبي",
+    "pagination": "التنقل بين الصفحات",
+    "sidebarTitle": "الشريط الجانبي",
+    "sidebarDescription": "يعرض الشريط الجانبي على الهاتف.",
+    "breadcrumb": "مسار التنقل",
+    "previousSlide": "الشريحة السابقة",
+    "nextSlide": "الشريحة التالية",
+    "searchPlaceholder": "بحث...",
+    "selectPlaceholder": "اختر...",
+    "commandPaletteTitle": "لوحة الأوامر",
+    "commandPaletteDescription": "ابحث عن أمر للتشغيل...",
+    "goToPreviousPage": "انتقل إلى الصفحة السابقة",
+    "goToNextPage": "انتقل إلى الصفحة التالية",
+    "previous": "السابق",
+    "next": "التالي",
+    "morePages": "صفحات إضافية",
+    "selectRow": "تحديد الصف",
+    "selectAll": "تحديد الكل",
+    "loading": "جارٍ التحميل...",
+    "deleteItem": "حذف عنصر",
+    "deleteConfirmation": "هل أنت متأكد أنك تريد حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.",
+    "noOptions": "لا توجد خيارات"
+  },
+  "map": {
+    "searchPlaceholder": "ابحث عن مكان...",
+    "polygonBoundaryError": "يجب أن يكون المضلع داخل المنطقة المسموح بها!",
+    "editedPolygonBoundaryError": "يجب أن يظل المضلع المعدل داخل المنطقة المسموح بها!"
+  },
+  "overview": {
+    "title": "نظرة تنفيذية عامة",
+    "subtitle": "لقطة لحظية لصحة المنصة وأداء الأعمال",
+    "createTenant": "إنشاء عميل",
+    "publishFeatureFlag": "نشر علامة ميزة",
+    "openIncident": "فتح حادث",
+    "kpis": {
+      "activeTenants": "العملاء النشطون",
+      "mrr": "الإيراد الشهري المتكرر",
+      "arr": "الإيراد السنوي المتكرر",
+      "churnRate": "معدل التسرب",
+      "thisMonth": "هذا الشهر",
+      "vsLastMonth": "مقارنة بالشهر الماضي",
+      "yoyGrowth": "نمو سنوي"
+    },
+    "usage": {
+      "title": "مؤشرات استخدام المنصة",
+      "cvComputeHours": "ساعات حوسبة الرؤية الحاسوبية",
+      "eventsProcessed": "الأحداث المعالجة",
+      "storageConsumption": "استهلاك التخزين",
+      "apiRequests": "طلبات API",
+      "hoursUnit": "ساعة",
+      "eventsUnit": "حدث",
+      "terabytesUnit": "تيرابايت",
+      "requestsUnit": "طلب"
+    },
+    "uptime": {
+      "title": "توافر النظام والالتزام باتفاقية SLA",
+      "last24h": "آخر 24 ساعة",
+      "last7d": "آخر 7 أيام",
+      "last30d": "آخر 30 يومًا",
+      "last90d": "آخر 90 يومًا"
+    },
+    "topGrowth": {
+      "title": "أعلى العملاء نموًا",
+      "usersSuffix": "مستخدم"
+    },
+    "incidents": {
+      "title": "الحوادث الحرجة المفتوحة",
+      "statusInProgress": "قيد التنفيذ",
+      "statusInvestigating": "جارٍ التحقيق",
+      "ownerLabel": "المسؤول",
+      "impactedSuffix": "متأثر",
+      "azureLatencyTitle": "ارتفاع زمن استجابة Azure CV API - إقليم أوروبا",
+      "webhookDelaysTitle": "تأخر تسليم Webhook - الشرق الأوسط وشمال إفريقيا",
+      "time23mAgo": "منذ 23 دقيقة",
+      "time1hAgo": "منذ ساعة"
+    },
+    "releases": {
+      "title": "نِسَب إطلاق الإصدارات النشطة",
+      "tenantsSuffix": "عميل",
+      "featureHeatmap": "تحليلات Heatmap المحسنة v2.4",
+      "featureRealtime": "تحديثات لوحة التحكم اللحظية",
+      "featureCvModel": "نموذج Azure CV v3.2"
+    },
+    "regional": {
+      "title": "الانتشار الإقليمي ومقر البيانات",
+      "mena": "الشرق الأوسط وشمال إفريقيا",
+      "europe": "أوروبا",
+      "asiaPacific": "آسيا والمحيط الهادئ",
+      "northAmerica": "أمريكا الشمالية"
+    }
+  },
+  "tenants": {
+    "title": "إدارة العملاء",
+    "summary": "{{active}} عميل نشط • {{newCount}} جديد هذا الشهر",
+    "create": "إنشاء عميل",
+    "searchPlaceholder": "ابحث عن العملاء بالاسم أو المعرف أو النطاق...",
+    "allPlans": "كل الباقات",
+    "allRegions": "كل الأقاليم",
+    "plan": {
+      "enterprise": "مؤسسية",
+      "professional": "احترافية",
+      "pilot": "تجريبية"
+    },
+    "region": {
+      "mena": "الشرق الأوسط وشمال إفريقيا",
+      "europe": "أوروبا",
+      "asiaPacific": "آسيا والمحيط الهادئ"
+    },
+    "table": {
+      "tenant": "العميل",
+      "status": "الحالة",
+      "plan": "الباقة",
+      "region": "الإقليم",
+      "healthScore": "مؤشر الصحة",
+      "users": "المستخدمون",
+      "mrr": "الإيراد الشهري المتكرر",
+      "actions": "الإجراءات"
+    },
+    "status": {
+      "active": "نشط",
+      "trial": "تجريبي",
+      "suspended": "موقوف"
+    },
+    "stats": {
+      "activeUsers": "المستخدمون النشطون",
+      "monthlyRevenue": "الإيراد الشهري",
+      "healthScore": "مؤشر الصحة",
+      "growthRate": "معدل النمو"
+    },
+    "actions": {
+      "viewDashboard": "عرض لوحة التحكم",
+      "manageSettings": "إدارة الإعدادات",
+      "apiKeys": "مفاتيح API",
+      "suspend": "إيقاف"
+    },
+    "profile": {
+      "title": "ملف العميل",
+      "legalName": "الاسم القانوني",
+      "plan": "الباقة",
+      "dataRegion": "إقليم البيانات",
+      "lastActive": "آخر نشاط"
+    },
+    "lastActive": {
+      "mins2": "منذ دقيقتين",
+      "mins15": "منذ 15 دقيقة",
+      "hour1": "منذ ساعة",
+      "hours3": "منذ 3 ساعات",
+      "hours5": "منذ 5 ساعات",
+      "days2": "منذ يومين"
+    }
+  },
+  "permissions": {
+    "title": "الصلاحيات",
+    "description": "اختر الصلاحيات التي تريد منحها لكل وحدة",
+    "selectAllPermissions": "تحديد كل الصلاحيات",
+    "all": "الكل"
+  }
+}

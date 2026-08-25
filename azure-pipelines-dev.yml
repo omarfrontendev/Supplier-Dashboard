@@ -1,0 +1,28 @@
+trigger:
+- dev
+
+pool: 
+  name: reveal
+  demands:
+    - agent.name -equals reveal
+
+stages:
+  - stage: Build
+    displayName: Build image
+    jobs:
+    - job: Build
+      displayName: Build
+      steps:
+        - script: | 
+            sudo rm -rf /reveal-client-dashboard || true
+            sudo cp -a ./. /reveal-client-dashboard
+            sudo docker stop reveal-client-dashboard || true
+            sudo docker container prune -f
+            sudo docker image rm reveal-client-dashboard-img || true
+            sudo docker image prune -f
+            sudo bash -c "cd /reveal-client-dashboard && sudo docker build -t reveal-client-dashboard-img ."
+            sudo docker run -p 3010:80 \
+              --name reveal-client-dashboard \
+              --restart unless-stopped \
+              --env-file /reveal-client-dashboard/.env \
+              -d reveal-client-dashboard-img
