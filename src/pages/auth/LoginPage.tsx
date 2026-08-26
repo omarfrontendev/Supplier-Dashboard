@@ -21,6 +21,7 @@ import { LanguageToggle } from '@/layout/components/LanguageToggle';
 import { useLogin } from '@/api/modules/auth/hooks/useLogin';
 import { Link } from 'react-router-dom';
 
+
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
