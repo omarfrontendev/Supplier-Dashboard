@@ -12,8 +12,8 @@ const users = {
 
 const auth = {
     login: "auth/login",
-    checkEmailState: "auth/check-email-state",
     changePassword: "auth/reset-password",
+    activate: "auth/activate",
     requestOTp: "auth/forgot-password",
     verfiyOTp: "auth/verify-reset-code",
     logout: "auth/logout"

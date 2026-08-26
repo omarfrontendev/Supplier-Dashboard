@@ -3,6 +3,7 @@ import { login } from "@/api/modules/auth/auth";
 import { setToken } from "@/core/auth/token";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "@/utils/helper";
 
 export const useLogin = () => {
 
@@ -14,6 +15,9 @@ export const useLogin = () => {
             setToken(data?.data?.accessToken);
             toast.success(data?.message || "Login successful!");
             navigate("/");
+        },
+        onError: (error) => {
+            toast.error(getApiErrorMessage(error));
         },
     });
 };

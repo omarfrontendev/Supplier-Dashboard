@@ -11,3 +11,14 @@ export const mapToOptions = (data: any[], labelKey: string) => {
         value: item.id,
     }));
 };
+
+export const getApiErrorMessage = (
+    error: any,
+    fallback = 'Something went wrong'
+) => {
+    const message = error?.response?.data?.message;
+
+    return Array.isArray(message)
+        ? message.join(', ')
+        : message || fallback;
+};

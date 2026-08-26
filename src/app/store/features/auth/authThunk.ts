@@ -9,18 +9,6 @@ interface LoginData {
   password: string;
 }
 
-export const checkEmailState = createAsyncThunk(
-  "auth/checkEmailState",
-  async ({ email }: any, { rejectWithValue }) => {
-    try {
-      const response = await api.post(endpoints.auth.checkEmailState, { email });
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || i18n.t("login.loginFailed"));
-    }
-  }
-);
-
 export const requestOTP = createAsyncThunk(
   "auth/requestOTP",
   async (email: string, { rejectWithValue }) => {

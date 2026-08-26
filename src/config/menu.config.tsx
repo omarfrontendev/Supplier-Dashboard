@@ -20,6 +20,7 @@ import UpdatePermissions from '@/pages/dashboard/permissions/UpdatePermissions';
 import { ChangePasswordPage } from '@/pages/auth/ChangePasswordPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { ForgetPasswordPage } from '@/pages/auth/ForgetPasswordPage';
+import { FirstLoginScreen } from '@/pages/auth/FirstLoginScreen';
 // import { ChangePasswordPage } from '@/pages/auth/ChangePasswordPage';
 
 interface HiddenRoute {
@@ -331,8 +332,15 @@ export const routes = [
                 <ChangePasswordPage />
             </ProtectedAuth>,
     },
+    {
+        path: '/auth/first-login',
+        element:
+            <ProtectedAuth>
+                <FirstLoginScreen />
+            </ProtectedAuth>,
+    },
     ...modules.flatMap((section) =>
-       
+
         flattenRoutes(section.items)
     ),
     ...hiddenRoutes.map((route) => ({
