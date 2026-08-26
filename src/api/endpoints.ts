@@ -13,7 +13,7 @@ const users = {
 const auth = {
     login: "auth/login",
     checkEmailState: "auth/check-email-state",
-    changePassword: "auth/change-password",
+    changePassword: "auth/reset-password",
     requestOTp: "auth/forgot-password",
     verfiyOTp: "auth/verify-reset-code",
     logout: "auth/logout"

@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -8,11 +8,20 @@ import { useChangePassword } from './useChangePassword';
 import { changePasswordSchema, type ChangePasswordFormValues } from './change-password.schema';
 import { changePasswordFields } from './changePasswordFields';
 import FormField from '@/components/ui/FormField';
+import { useEffect } from 'react';
 
 export const ChangePasswordPage = () => {
   const [searchParams] = useSearchParams();
 
-  const email = searchParams.get('email') ?? '';
+  const resetToken = searchParams.get('resetToken') ?? '';
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!resetToken) {
+      navigate('/auth/login', { replace: true });
+    }
+  }, [resetToken, navigate]);
+
 
   const { mutate: changePassword, isPending } =
     useChangePassword();
@@ -27,13 +36,20 @@ export const ChangePasswordPage = () => {
   });
 
   const onSubmit = (values: ChangePasswordFormValues) => {
-    if (!email) return;
+    if (!resetToken) return;
 
-    changePassword({
-      email,
-      newPassword: values.newPassword,
-      confirmNewPassword: values.confirmNewPassword,
-    });
+    changePassword(
+      {
+        resetToken,
+        newPassword: values.newPassword,
+        confirmNewPassword: values.confirmNewPassword,
+      },
+      {
+        onSuccess: () => {
+          navigate('/auth/login', { replace: true });
+        },
+      }
+    );
   };
 
   return (
@@ -48,11 +64,11 @@ export const ChangePasswordPage = () => {
             Create a new password for your account.
           </p>
 
-          {email && (
+          {/* {email && (
             <p className="mt-3 text-sm text-gray-600">
               {email}
             </p>
-          )}
+          )} */}
         </div>
 
         <Form {...form}>
@@ -87,7 +103,7 @@ export const ChangePasswordPage = () => {
 
             <Button
               type="submit"
-              disabled={isPending || !email}
+              disabled={isPending || !resetToken}
               className="h-12 w-full"
             >
               {isPending

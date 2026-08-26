@@ -58,7 +58,7 @@ export function ForgetPasswordPage() {
       ).unwrap();
 
       toast.success(requestRes?.message);
-      navigate('/auth/login');
+      navigate(`/auth/new-password?resetToken=${requestRes?.data?.resetToken}`);
     } catch (error: any) {
       toast.error(error || t("login.otpVerificationFailed"));
     } finally {

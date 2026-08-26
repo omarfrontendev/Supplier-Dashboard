@@ -28,7 +28,7 @@ export const useAvailablePermissions = () => {
 
   const availablePermissions = Object.values(
     (data ?? [])
-      .filter(({ key }) => key?.startsWith("hoteliana."))
+      .filter(({ key }) => key?.startsWith("suppliers."))
       .map(({ key, nameEn, nameAr, moduleNameEn }) => {
         const parts = key.split(".");
         const method = parts.pop();

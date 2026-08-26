@@ -3,7 +3,7 @@ import { api } from '@/core/api/client';
 import { endpoints } from '@/api/endpoints';
 
 export type ChangePasswordPayload = {
-  email: string;
+  resetToken: string;
   newPassword: string;
   confirmNewPassword: string;
 };
