@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-table";
 
 import { fetchUsers } from "@/app/store/features/users/usersThunk";
-import type { AppDispatch, RootState } from "@/app/store";
+import type { AppDispatch } from "@/app/store";
 import { userStatus } from "@/constants/userStatus";
 import { useUsersColumns } from "../components/UsersColumns";
 import type { User, UsersTableOptions } from "@/types/users";
@@ -21,7 +21,7 @@ export const useUsersTableLogic = () => {
     const [statusDialog, setStatusDialog] = useState(null);
 
     // Select users state from Redux store
-    const { users, loading, total } = useSelector((state: RootState) => state.users);
+    const { users, loading, total, error } = useSelector((state: any) => state.users);
 
     // Local state to trigger manual refresh
     const [refreshData, setRefreshData] = useState(false);
@@ -177,6 +177,7 @@ export const useUsersTableLogic = () => {
         statusList: userStatus,
         statusDialog,
         roleFilter,
+        errorMsg: error?.message,
         onSearch,
         onClearSearch,
         onStatusFilter,

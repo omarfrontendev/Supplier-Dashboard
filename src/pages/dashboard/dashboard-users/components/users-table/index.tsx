@@ -19,6 +19,7 @@ export default function UsersTable() {
         statusList,
         statusDialog,
         roleFilter,
+        errorMsg,
         onRoleFilter,
         setStatusDialog,
         onSearch,
@@ -29,6 +30,7 @@ export default function UsersTable() {
     return (
         <div className="grid gap-2">
             <MainTable
+                errorMsg={errorMsg}
                 TableFilters={
                     <Card className="p-2">
                         <div className="flex items-center gap-2">

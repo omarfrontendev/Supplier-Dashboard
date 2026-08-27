@@ -8,6 +8,7 @@ import {
     Mail,
     MapPin,
     Phone,
+    RefreshCw,
     User,
 } from "lucide-react";
 import { Card, CardFooter } from "../ui/card";
@@ -330,8 +331,18 @@ export default function MainTable({ table, loading, totalCount, errorMsg = null,
     }, [viewMode]);
 
     if (errorMsg) return (
-        <div className="w-full flex items-center justify-center">
+        <div className="w-full flex flex-col gap-8 items-center justify-center">
             <ErrorMessage message={errorMsg} />
+            <div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reload
+                </Button>
+            </div>
         </div>
     )
 
