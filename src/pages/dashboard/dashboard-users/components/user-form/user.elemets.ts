@@ -1,4 +1,4 @@
-export const userFields = (roles: any[], permissionsProfiles: any[], isLoading: boolean) => {
+export const userFields = (permissionsProfiles: any[], isLoading: boolean) => {
 
     return [
         {
@@ -24,15 +24,15 @@ export const userFields = (roles: any[], permissionsProfiles: any[], isLoading: 
             colSpan: "col-span-6",
             type: "number",
         },
-        {
-            name: "role",
-            label: "role.label",
-            placeholder: "role.placeholder",
-            colSpan: "col-span-6",
-            type: "select",
-            required: false,
-            list: roles
-        },
+        // {
+        //     name: "role",
+        //     label: "role.label",
+        //     placeholder: "role.placeholder",
+        //     colSpan: "col-span-6",
+        //     type: "select",
+        //     required: false,
+        //     list: roles
+        // },
         {
             name: "permissionProfileIds",
             label: "profilePermission.label",

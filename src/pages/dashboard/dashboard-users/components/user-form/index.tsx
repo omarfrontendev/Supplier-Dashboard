@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useSingleUser } from "@/hooks/users/useSingleUser";
 import { useUpsertUser } from "@/hooks/users/useUpsertUser";
-import { dashboardUserRoles } from "@/constants/userRoles";
 import { useTranslation } from "react-i18next";
 // import { useSelector } from "react-redux";
 import { useAllPermissions } from "@/hooks/permissions/usePermissions";
@@ -39,7 +38,7 @@ export default function UserForm({ id }: { id?: string }) {
                 email: user.email,
                 username: user.username,
                 phoneNumber: user.phoneNumber,
-                role: user.role,
+                role: "admin",
                 permissionProfileIds: user.permissionProfileIds[0],
             });
         }
@@ -53,7 +52,7 @@ export default function UserForm({ id }: { id?: string }) {
             },
         });
     };
-    
+
     return (
         <Form {...form}>
             <form
@@ -63,7 +62,7 @@ export default function UserForm({ id }: { id?: string }) {
             >
                 <div className="flex w-full gap-4">
                     <div className="w-full grid grid-cols-12 gap-4">
-                        {userFields(dashboardUserRoles, profilesOptions, isLoading).map((field: any) => (
+                        {userFields(profilesOptions, isLoading).map((field: any) => (
                             <FormField
                                 key={field.name}
                                 form={form}
