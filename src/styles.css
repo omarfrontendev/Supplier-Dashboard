@@ -1,0 +1,522 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Hoteliana Design System
+ *
+ * Colors, typography, spacing, radius, and elevation tokens extracted from
+ * the Hoteliana Supplier Portal Figma design system.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Surfaces */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-default: var(--surface-default);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-surface-brand-deep: var(--surface-brand-deep);
+  --color-surface-brand-mist: var(--surface-brand-mist);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+  --color-heat-5: var(--heat-5);
+  --color-heat-6: var(--heat-6);
+  --color-heat-7: var(--heat-7);
+  --color-heat-blocked: var(--heat-blocked);
+
+  /* Primary / Brand */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-button-destructive: var(--button-destructive);
+  --color-button-destructive-fg: var(--button-destructive-fg);
+  --color-button-warning: var(--button-warning);
+  --color-button-warning-fg: var(--button-warning-fg);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-mid: var(--brand-mid);
+  --color-surface-image: var(--surface-image);
+  --color-primary-subtle-border: var(--primary-subtle-border);
+  --color-dup-bg: var(--dup-bg);
+  --color-dup-border: var(--dup-border);
+  --color-dup-title: var(--dup-title);
+  --color-dup-note: var(--dup-note);
+
+  /* Secondary */
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  /* Muted / Accent */
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Destructive */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  /* Borders & Inputs */
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-quiet: var(--text-quiet);
+  --color-text-inverse: var(--text-inverse);
+  --color-text-on-accent: var(--text-on-accent);
+  --color-text-link: var(--text-link);
+  --color-text-body: var(--text-body);
+
+  /* Status */
+  --color-status-success: var(--status-success);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-info: var(--status-info);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+
+  /* Calendar cells */
+  --color-cell-draft: var(--cell-draft);
+  --color-cell-draft-bg: var(--cell-draft-bg);
+  --color-cell-stop-sale-bg: var(--cell-stop-sale-bg);
+  --color-cell-low-inventory-bg: var(--cell-low-inventory-bg);
+  --color-cell-zero-inventory-bg: var(--cell-zero-inventory-bg);
+  --color-cell-conflict-bg: var(--cell-conflict-bg);
+  --color-cell-locked-bg: var(--cell-locked-bg);
+  --color-chip-open: var(--chip-open);
+  --color-chip-open-fg: var(--chip-open-fg);
+  --color-chip-closed: var(--chip-closed);
+  --color-chip-closed-fg: var(--chip-closed-fg);
+  --color-notice: var(--notice);
+  --color-notice-border: var(--notice-border);
+  --color-cell-selected-bg: var(--cell-selected-bg);
+  --color-cell-today-border: var(--cell-today-border);
+  --color-cell-weekend-bg: var(--cell-weekend-bg);
+  --color-cell-past-bg: var(--cell-past-bg);
+  --color-cell-past-text: var(--cell-past-text);
+  --color-cell-edited-border: var(--cell-edited-border);
+  --color-calendar-sticky-shadow: var(--calendar-sticky-shadow);
+
+  /* Chart / Sidebar tokens kept for compatibility */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Typography */
+  --font-sans: var(--font-ui);
+  --font-data: var(--font-data);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Fonts */
+  --font-ui: "Readex Pro", "Cairo", system-ui, sans-serif;
+  --font-data: "Inter", "Cairo", system-ui, sans-serif;
+
+  /* Surfaces */
+  --background: #f2f3f1;
+  --foreground: #101713;
+  --card: #ffffff;
+  --card-foreground: #101713;
+  --popover: #ffffff;
+  --popover-foreground: #101713;
+  --surface-canvas: #f2f3f1;
+  --surface-default: #ffffff;
+  --surface-subtle: #f7f8f6;
+  --surface-inverse: #101713;
+  /* The tint behind a brand icon badge - green, but quiet enough
+     to sit inside a white card without becoming a status. */
+  --surface-brand-mist: #e9f2ec;
+  /* UI 09.0 - the occupancy ramp, seven steps from empty to full, and
+     the outline a night that cannot be sold is drawn with. */
+  --heat-1: #f2faf6;
+  --heat-2: #d7f0e5;
+  --heat-3: #b3e3d0;
+  --heat-4: #8ed9bf;
+  --heat-5: #5cc9a5;
+  --heat-6: #2fb98c;
+  --heat-7: #158a60;
+  --heat-blocked: #f0c4bf;
+  --surface-brand-deep: #0b3d2e;
+
+  /* Primary / Brand */
+  --primary: #b8ff5a;
+  --primary-foreground: #101713;
+  --primary-hover: #a8f244;
+  --primary-subtle: #edffd6;
+  --brand-deep: #0b3d2e;
+  --brand-mid: #2e7d5b;
+  --surface-image: #1f4d3c;
+  --primary-subtle-border: #cfeaa8;
+  --dup-bg: #fff6e6;
+  --dup-border: #e8c98a;
+  --dup-title: #7a4d0b;
+  --dup-note: #8a6224;
+
+  /* Secondary */
+  --secondary: #f7f8f6;
+  --secondary-foreground: #101713;
+
+  /* Muted / Accent */
+  --muted: #f7f8f6;
+  --muted-foreground: #87948c;
+  --accent: #f7f8f6;
+  --accent-foreground: #101713;
+
+  /* Destructive */
+  --destructive: #b3341f;
+  --destructive-foreground: #ffffff;
+  --button-destructive: #c8321e;
+  --button-destructive-fg: #ffffff;
+  --button-warning: #f2a51f;
+  --button-warning-fg: #2e1f00;
+
+  /* Borders & Inputs */
+  --border: #e2e7e2;
+  --border-subtle: #edf0ec;
+  --border-default: #e2e7e2;
+  --border-strong: #c9d2cb;
+  --border-focus: #101713;
+  --input: #e2e7e2;
+  --ring: #101713;
+
+  /* Text */
+  --text-primary: #101713;
+  --text-secondary: #55655c;
+  --text-muted: #87948c;
+  /* OV 07.D sits between secondary and muted; unbound in Figma. */
+  --text-quiet: #6b7a70;
+  --text-inverse: #ffffff;
+  --text-on-accent: #101713;
+  --text-link: #0b3d2e;
+  /* Figma prints body copy at #41544a across Flow 12. */
+  --text-body: #41544a;
+
+  /* Status */
+  --status-success: #1e7a4c;
+  --status-success-bg: #e4f5ea;
+  --status-warning: #9a6206;
+  --status-warning-bg: #fcf1dc;
+  --status-danger: #b3341f;
+  --status-danger-bg: #fbe7e3;
+  --status-info: #2f5673;
+  --status-info-bg: #e6eef4;
+  --status-neutral: #5b6b62;
+  --status-neutral-bg: #eef1ee;
+
+  /* Calendar cells */
+  --cell-draft: #5a4fcf;
+  --cell-draft-bg: #eeecfb;
+  --cell-stop-sale-bg: #fbe7e3;
+  --cell-low-inventory-bg: #fcf1dc;
+  --cell-zero-inventory-bg: #efebea;
+  --cell-conflict-bg: #fbe0da;
+  --cell-locked-bg: #fcecf3;
+  /* OV 03.RSB — a day's check-in / check-out chips, and its notice. */
+  --chip-open: #e6f4ea;
+  --chip-open-fg: #1e7a44;
+  --chip-closed: #fde9e7;
+  --chip-closed-fg: #a12b2b;
+  --notice: #fff6e0;
+  --notice-border: #f1d9a6;
+  --cell-selected-bg: #edffd6;
+  --cell-today-border: #101713;
+  --cell-weekend-bg: #f3f7ef;
+  --cell-past-bg: #f9faf8;
+  --cell-past-text: #b7c0ba;
+  --cell-edited-border: #5a4fcf;
+  --calendar-sticky-shadow: rgba(16, 23, 19, 0.08);
+
+  /* Chart / Sidebar compatibility */
+  --chart-1: #b8ff5a;
+  --chart-2: #0b3d2e;
+  --chart-3: #1e7a4c;
+  --chart-4: #9a6206;
+  --chart-5: #b3341f;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #101713;
+  --sidebar-primary: #0b3d2e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f7f8f6;
+  --sidebar-accent-foreground: #101713;
+  --sidebar-border: #e2e7e2;
+  --sidebar-ring: #101713;
+}
+
+.dark {
+  --background: #101713;
+  --foreground: #f7f8f6;
+  --card: #1a2420;
+  --card-foreground: #f7f8f6;
+  --popover: #1a2420;
+  --popover-foreground: #f7f8f6;
+  --surface-canvas: #101713;
+  --surface-default: #1a2420;
+  --surface-subtle: #1f2a25;
+  --surface-inverse: #f7f8f6;
+  --surface-brand-mist: #22322b;
+  /* Fuller has to stay the louder end, so on a dark card the ramp runs
+     the other way: step 1 is nearly the card, step 7 is the brightest.
+     The frame's sentence - darker is fuller - is a light-mode sentence;
+     logged in roadmap.md. */
+  --heat-1: #1b2721;
+  --heat-2: #1d3a2e;
+  --heat-3: #1f4e3b;
+  --heat-4: #236449;
+  --heat-5: #2a8a66;
+  --heat-6: #3fb98c;
+  --heat-7: #6fd9b2;
+  --heat-blocked: #6b3a33;
+  --surface-brand-deep: #0b3d2e;
+
+  --primary: #b8ff5a;
+  --primary-foreground: #101713;
+  --primary-hover: #a8f244;
+  --primary-subtle: #1f2a25;
+  --brand-deep: #0b3d2e;
+  --brand-mid: #6fcf97;
+  --surface-image: #1f4d3c;
+  --primary-subtle-border: #2a3630;
+  --dup-bg: #3d3118;
+  --dup-border: #6b5426;
+  --dup-title: #f2c94c;
+  --dup-note: #d6b56a;
+
+  --secondary: #1f2a25;
+  --secondary-foreground: #f7f8f6;
+
+  --muted: #1f2a25;
+  --muted-foreground: #87948c;
+  --accent: #1f2a25;
+  --accent-foreground: #f7f8f6;
+
+  --destructive: #f28b75;
+  --destructive-foreground: #101713;
+
+  --border: #2a3630;
+  --border-subtle: #2a3630;
+  --border-default: #3a4a42;
+  --border-strong: #55655c;
+  --border-focus: #b8ff5a;
+  --input: #3a4a42;
+  --ring: #b8ff5a;
+
+  --text-primary: #f7f8f6;
+  --text-secondary: #b8c4bd;
+  --text-muted: #87948c;
+  /* OV 07.D sits between secondary and muted; unbound in Figma. */
+  --text-quiet: #9aa8a0;
+  --text-inverse: #101713;
+  --text-on-accent: #101713;
+  --text-link: #b8ff5a;
+  --text-body: #b8c4bd;
+
+  --status-success: #6fcf97;
+  --status-success-bg: #1a3d2a;
+  --status-warning: #f2c94c;
+  --status-warning-bg: #3d3118;
+  --status-danger: #f28b75;
+  --status-danger-bg: #3d1f18;
+  --status-info: #6db3ff;
+  --status-info-bg: #1a2f3d;
+  --status-neutral: #b8c4bd;
+  --status-neutral-bg: #1f2a25;
+
+  --cell-draft: #a69dff;
+  --cell-draft-bg: #2a254d;
+  --cell-stop-sale-bg: #3d1f18;
+  --cell-low-inventory-bg: #3d3118;
+  --cell-zero-inventory-bg: #2a2625;
+  --cell-conflict-bg: #3d1b14;
+  --cell-locked-bg: #3a1f2b;
+  --chip-open: #16301f;
+  --chip-open-fg: #7fd3a0;
+  --chip-closed: #3a1a16;
+  --chip-closed-fg: #e79488;
+  --notice: #2e2411;
+  --notice-border: #4a3a17;
+  --cell-selected-bg: #2a3d14;
+  --cell-today-border: #b8ff5a;
+  --cell-weekend-bg: #1f2a25;
+  --cell-past-bg: #1c2420;
+  --cell-past-text: #6a7a72;
+
+  --chart-1: #b8ff5a;
+  --chart-2: #6fcf97;
+  --chart-3: #f2c94c;
+  --chart-4: #6db3ff;
+  --chart-5: #f28b75;
+  --sidebar: #1a2420;
+  --sidebar-foreground: #f7f8f6;
+  --sidebar-primary: #b8ff5a;
+  --sidebar-primary-foreground: #101713;
+  --sidebar-accent: #1f2a25;
+  --sidebar-accent-foreground: #f7f8f6;
+  --sidebar-border: #2a3630;
+  --sidebar-ring: #b8ff5a;
+}
+
+/* Arabic font override */
+[dir="rtl"] {
+  --font-ui: "Cairo", "Readex Pro", system-ui, sans-serif;
+  --font-data: "Cairo", "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-ui);
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+}
+
+@utility font-data {
+  font-family: var(--font-data);
+}
+
+@utility text-overline {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+@utility shadow-card {
+  box-shadow:
+    0px 1px 2px 0px rgba(16, 23, 19, 0.03),
+    0px 2px 6px 0px rgba(16, 23, 19, 0.04);
+}
+
+@utility shadow-raised {
+  box-shadow:
+    0px 4px 12px 0px rgba(16, 23, 19, 0.06),
+    0px 1px 3px 0px rgba(16, 23, 19, 0.05);
+}
+
+@utility shadow-drawer {
+  box-shadow: 0px 0px 32px 0px rgba(16, 23, 19, 0.18);
+}
+
+@utility shadow-overlay {
+  box-shadow:
+    0px 8px 32px 0px rgba(16, 23, 19, 0.12),
+    0px 2px 6px 0px rgba(16, 23, 19, 0.06);
+}
+
+/* Toasts (sonner) — portal design system */
+[data-sonner-toaster] {
+  --width: 380px;
+}
+
+[data-sonner-toast].hl-toast-success {
+  border-inline-start: 3px solid var(--status-success);
+}
+
+[data-sonner-toast].hl-toast-success [data-icon] {
+  color: var(--status-success);
+}
+
+[data-sonner-toast].hl-toast-error {
+  border-inline-start: 3px solid var(--status-danger);
+}
+
+[data-sonner-toast].hl-toast-error [data-icon] {
+  color: var(--status-danger);
+}
+
+[data-sonner-toast].hl-toast-warning {
+  border-inline-start: 3px solid var(--status-warning);
+}
+
+[data-sonner-toast].hl-toast-warning [data-icon] {
+  color: var(--status-warning);
+}
+
+[data-sonner-toast].hl-toast-info {
+  border-inline-start: 3px solid var(--status-info);
+}
+
+[data-sonner-toast].hl-toast-info [data-icon] {
+  color: var(--status-info);
+}
+
+[data-sonner-toast] [data-close-button] {
+  left: auto;
+  right: 8px;
+  top: 8px;
+  transform: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+[data-sonner-toast]:hover [data-close-button],
+[data-sonner-toast] [data-close-button]:focus-visible {
+  opacity: 1;
+}
+
+[dir="rtl"] [data-sonner-toast] [data-close-button] {
+  right: auto;
+  left: 8px;
+}
+
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
