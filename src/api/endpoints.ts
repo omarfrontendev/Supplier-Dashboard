@@ -1,13 +1,13 @@
 
-const users = {
+const team = {
     getAllUsers: "/users?page=1&limit=100",
-    getUsers: "/users",
-    createUsers: "/users",
-    getgetUserById: (id: string) => `/users/${id}`,
-    deactivateUser: (id: string) => `/users/${id}/deactivate`,
-    activateUser: (id: string) => `/users/${id}/activate`,
-    updateUser: (id: string) => `/users/${id}`,
-    deleteUser: (id: string) => `/users/${id}`,
+    getMembers: "/users",
+    createMember: "/users",
+    getMemberById: (id: string) => `/users/${id}`,
+    deactivateMember: (id: string) => `/users/${id}/deactivate`,
+    activateMember: (id: string) => `/users/${id}/activate`,
+    updateMember: (id: string) => `/users/${id}`,
+    deleteMember: (id: string) => `/users/${id}`,
 };
 
 const auth = {
@@ -19,17 +19,17 @@ const auth = {
     logout: "auth/logout"
 };
 
-const permissions = {
-    getPermissions: "/permissions/profiles",
-    availablePermissions: "/permissions/catalog",
-    createPermission: "/permissions/profiles",
-    updatePermission: (id: string) => `/permissions/profiles/${id}`,
-    deletePermission: (id: string) => `/permissions/profiles/${id}`,
+const profiles = {
+    getProfiles: "/permissions/profiles",
+    availableProfiles: "/permissions/catalog",
+    createProfile: "/permissions/profiles",
+    updateProfile: (id: string) => `/profiles/${id}`,
+    deleteProfile: (id: string) => `/profiles/${id}`,
     getPermissionById: (id: string) => `/permissions/profiles/${id}`,
 }
 
 export const endpoints = {
     auth,
-    users,
-    permissions,
+    team,
+    profiles,
 };

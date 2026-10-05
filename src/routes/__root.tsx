@@ -17,6 +17,7 @@ import { PortalProvider } from "../lib/portal-store";
 import { NotFound } from "../components/system/not-found";
 import { SessionWarning } from "../components/system/session-warning";
 import { Toaster } from "../components/ui/sonner";
+import { ReduxProvider } from "@/store/ReduxProvider";
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
@@ -79,7 +80,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Manage hotels, availability, and bookings with Hoteliana." },
       { name: "author", content: "Hoteliana" },
       { property: "og:title", content: "Hoteliana Supplier Portal" },
-      { property: "og:description", content: "Manage hotels, availability, and bookings with Hoteliana." },
+      {
+        property: "og:description",
+        content: "Manage hotels, availability, and bookings with Hoteliana.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Hoteliana" },
@@ -109,17 +113,19 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <LangAttributes />
-        <PortalProvider>
-          <Outlet />
-          {/* BR-00-17 - the idle clock is the session's, so it mounts once. */}
-          <SessionWarning />
-          <Toaster />
-        </PortalProvider>
-      </LanguageProvider>
-    </QueryClientProvider>
+    <ReduxProvider>
+      <QueryClientProvider client={queryClient}>
+        <LanguageProvider>
+          <LangAttributes />
+          <PortalProvider>
+            <Outlet />
+            {/* BR-00-17 - the idle clock is the session's, so it mounts once. */}
+            <SessionWarning />
+            <Toaster />
+          </PortalProvider>
+        </LanguageProvider>
+      </QueryClientProvider>
+    </ReduxProvider>
   );
 }
 

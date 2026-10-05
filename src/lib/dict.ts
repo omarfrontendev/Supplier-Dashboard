@@ -4,7 +4,6 @@ import { contractAr, contractEn } from "./dict-contract";
 
 export type Language = "en" | "ar";
 
-
 const en = {
   common: {
     somethingWentWrong: "Something went wrong. Please try again.",
@@ -30,6 +29,12 @@ const en = {
     needHelp: "Need help accessing your supplier account?",
     contactSupport: "Contact Hoteliana support",
     backToSignIn: "Back to sign in",
+    nameEnLabel: "Name in English",
+    nameEnPlaceholder: "Enter name in English",
+    nameArLabel: "Name in Arabic",
+    nameArPlaceholder: "Enter name in Arabic",
+    arabicLettersNotAllowed: "Arabic letters are not allowed",
+    englishLettersNotAllowed: "English letters are not allowed",
   },
   nav: {
     gettingStarted: "Getting started",
@@ -165,8 +170,7 @@ const en = {
         "Invitations stay valid for 7 days. Your account is still waiting - ask Hoteliana to send a new link.",
       emailHint: "The new invitation goes to this address.",
       submit: "Request a new invitation",
-      footerNote:
-        "Hoteliana usually sends a new invitation within one working day.",
+      footerNote: "Hoteliana usually sends a new invitation within one working day.",
     },
     requested: {
       overline: "REQUEST SENT",
@@ -174,8 +178,7 @@ const en = {
       subtitle:
         "Hoteliana was asked to send a new invitation to {email}. It usually arrives within one working day.",
       submit: "Back to sign in",
-      footerNote:
-        "Nothing arrived? Check your spam folder before asking again.",
+      footerNote: "Nothing arrived? Check your spam folder before asking again.",
     },
     already: {
       overline: "ALREADY ACTIVATED",
@@ -213,7 +216,7 @@ const en = {
     overline: "Account",
     title: "Activate Account",
     subtitle: "Set your password to activate your Hoteliana supplier portal account.",
-    submit: "Activate Account"
+    submit: "Activate Account",
   },
   twoFactor: {
     overline: "ONE MORE STEP",
@@ -221,8 +224,7 @@ const en = {
     subtitle: "We sent a 6-digit code to {email}. It works for 10 minutes.",
     maskedEmail: "o•••••••@jewaralsafwah.com",
     label: "Verification code",
-    helper:
-      "Paste the whole code or type it - it checks itself once all 6 digits are in.",
+    helper: "Paste the whole code or type it - it checks itself once all 6 digits are in.",
     trust: "Trust this device for 30 days - skip the code here next time",
     submit: "Verify and sign in",
     tryAgain: "Try again",
@@ -297,8 +299,7 @@ const en = {
       subtitle:
         "Three devices had this account open. Remove the ones that are not yours - they are signed out at once and cannot come back without the new password.",
       submit: "Sign out the other {count} devices",
-      footerNote:
-        "The sign-out and the password change are both in the activity log.",
+      footerNote: "The sign-out and the password change are both in the activity log.",
       thisDevice: "This device",
       notYou: "Not you",
       unknown: "Unknown",
@@ -681,7 +682,8 @@ const en = {
     cardOverline: "CHANGE REQUEST CHG-00043 · {count} DETAILS",
     cardTitle: "Submitted information",
     pending: "Pending",
-    reference: "Request reference CHG-00043 · one open request per detail: these two are now locked until decided",
+    reference:
+      "Request reference CHG-00043 · one open request per detail: these two are now locked until decided",
     timelineOverline: "STATUS",
     timelineTitle: "Review timeline",
     timeline: {
@@ -730,18 +732,15 @@ const en = {
     clear: "Clear selection",
     requestAccess: "Request access",
     pendingTitle: "{requests} with Hoteliana",
-    pendingBody:
-      "Usually decided within 2 working days - you will get a notification either way.",
+    pendingBody: "Usually decided within 2 working days - you will get a notification either way.",
     viewRequests: "View requests",
-    notFound:
-      "Hotel not found? Add it and Hoteliana reviews it before it becomes available.",
+    notFound: "Hotel not found? Add it and Hoteliana reviews it before it becomes available.",
     linkedNote: "Linked hotels are managed from My Hotels.",
     openInMyHotels: "Open in My Hotels",
     sentAgo: "Sent {days} days ago",
     sentJustNow: "Sent just now",
     viewRequest: "View request",
-    rejectedReason:
-      "Reason: Hoteliana could not confirm your contract with this hotel.",
+    rejectedReason: "Reason: Hoteliana could not confirm your contract with this hotel.",
     requestAgain: "Request again from 10 Dec",
     seeDecision: "See decision",
     contractsPaused: "All contracts paused",
@@ -851,6 +850,12 @@ const ar: typeof en = {
     needHelp: "تحتاج مساعدة للوصول إلى حساب المورّد؟",
     contactSupport: "تواصل مع دعم هوتيليانا",
     backToSignIn: "العودة لتسجيل الدخول",
+    nameEnLabel: "الاسم بالإنجليزية",
+    nameEnPlaceholder: "أدخل الاسم بالإنجليزية",
+    nameArLabel: "الاسم بالعربية",
+    nameArPlaceholder: "أدخل الاسم بالعربية",
+    arabicLettersNotAllowed: "غير مسموح باستخدام الحروف العربية",
+    englishLettersNotAllowed: "غير مسموح باستخدام الحروف الإنجليزية",
   },
   nav: {
     gettingStarted: "البداية",
@@ -900,8 +905,7 @@ const ar: typeof en = {
     rowsPerPage: "الصفوف في الصفحة",
     overline: "الحساب",
     profileTitle: "البيانات الشخصية",
-    profileSubtitle:
-      "تظهر هذه البيانات لمدير حسابك في هوتيليانا ولوكلاء البيع عند التواصل معك.",
+    profileSubtitle: "تظهر هذه البيانات لمدير حسابك في هوتيليانا ولوكلاء البيع عند التواصل معك.",
     fullName: "الاسم الكامل",
     jobTitle: "المسمى الوظيفي",
     email: "بريد العمل",
@@ -912,8 +916,7 @@ const ar: typeof en = {
     languageTitle: "لغة الواجهة",
     languageSubtitle: "تُطبَّق على جميع شاشات البوابة على هذا الجهاز.",
     passwordTitle: "تغيير كلمة المرور",
-    passwordSubtitle:
-      "استخدم ٨ أحرف على الأقل. ستبقى مسجّل الدخول على هذا الجهاز بعد التغيير.",
+    passwordSubtitle: "استخدم ٨ أحرف على الأقل. ستبقى مسجّل الدخول على هذا الجهاز بعد التغيير.",
     currentPassword: "كلمة المرور الحالية",
     newPassword: "كلمة المرور الجديدة",
     confirmPassword: "تأكيد كلمة المرور الجديدة",
@@ -935,19 +938,25 @@ const ar: typeof en = {
       proof: "دعوة موثّقة من هوتيليانا   ·   المورّد: جوار الصفوة",
     },
     activationExpired: {
-      headline: "\u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a\n\u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
+      headline:
+        "\u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a\n\u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
       body: "\u0644\u0645 \u064a\u0639\u062f \u0647\u0630\u0627 \u0627\u0644\u0631\u0627\u0628\u0637 \u0635\u0627\u0644\u062d\u064b\u0627. \u0637\u0644\u0628 \u0648\u0627\u062d\u062f \u0648\u062a\u0639\u0648\u062f.",
-      proof: "\u0627\u0646\u062a\u0647\u062a \u0627\u0644\u062f\u0639\u0648\u0629   \u00b7   \u0627\u0644\u0645\u0648\u0631\u0651\u062f: \u062c\u0648\u0627\u0631 \u0627\u0644\u0635\u0641\u0648\u0629",
+      proof:
+        "\u0627\u0646\u062a\u0647\u062a \u0627\u0644\u062f\u0639\u0648\u0629   \u00b7   \u0627\u0644\u0645\u0648\u0631\u0651\u062f: \u062c\u0648\u0627\u0631 \u0627\u0644\u0635\u0641\u0648\u0629",
     },
     activationRequested: {
-      headline: "\u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a\n\u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
+      headline:
+        "\u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a\n\u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
       body: "\u0637\u0644\u0628\u0646\u0627 \u0645\u0646 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627 \u0631\u0627\u0628\u0637\u064b\u0627 \u062c\u062f\u064a\u062f\u064b\u0627.",
-      proof: "\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627   \u00b7   \u0627\u0644\u0645\u0648\u0631\u0651\u062f: \u062c\u0648\u0627\u0631 \u0627\u0644\u0635\u0641\u0648\u0629",
+      proof:
+        "\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627   \u00b7   \u0627\u0644\u0645\u0648\u0631\u0651\u062f: \u062c\u0648\u0627\u0631 \u0627\u0644\u0635\u0641\u0648\u0629",
     },
     activationActive: {
-      headline: "\u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a\n\u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
+      headline:
+        "\u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a\n\u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
       body: "\u062d\u0633\u0627\u0628\u0643 \u062c\u0627\u0647\u0632. \u0633\u062c\u0651\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0648\u062a\u0627\u0628\u0639.",
-      proof: "\u0627\u0644\u062d\u0633\u0627\u0628 \u0641\u0639\u0651\u0627\u0644   \u00b7   \u0627\u0644\u0645\u0648\u0631\u0651\u062f: \u062c\u0648\u0627\u0631 \u0627\u0644\u0635\u0641\u0648\u0629",
+      proof:
+        "\u0627\u0644\u062d\u0633\u0627\u0628 \u0641\u0639\u0651\u0627\u0644   \u00b7   \u0627\u0644\u0645\u0648\u0631\u0651\u062f: \u062c\u0648\u0627\u0631 \u0627\u0644\u0635\u0641\u0648\u0629",
     },
     recovery: {
       headline: "ارجع\nفي خطوتين.",
@@ -965,8 +974,7 @@ const ar: typeof en = {
   activate: {
     overline: "تفعيل الحساب",
     title: "أنشئ كلمة مرورك",
-    subtitle:
-      "أنشأت هوتيليانا حساب المورّد الخاص بك. اضبط كلمة مرور لإتمام التفعيل.",
+    subtitle: "أنشأت هوتيليانا حساب المورّد الخاص بك. اضبط كلمة مرور لإتمام التفعيل.",
     email: "بريد العمل",
     emailHint: "مضبوط من هوتيليانا - لا يمكن تغييره هنا.",
     newPassword: "كلمة المرور الجديدة",
@@ -990,8 +998,7 @@ const ar: typeof en = {
     requested: {
       overline: "تم إرسال الطلب",
       title: "طُلبت دعوة جديدة",
-      subtitle:
-        "طُلب من هوتيليانا إرسال دعوة جديدة إلى {email}. تصل عادةً خلال يوم عمل واحد.",
+      subtitle: "طُلب من هوتيليانا إرسال دعوة جديدة إلى {email}. تصل عادةً خلال يوم عمل واحد.",
       submit: "العودة لتسجيل الدخول",
       footerNote: "لم يصلك شيء؟ راجع مجلد البريد غير المرغوب قبل الطلب مجددًا.",
     },
@@ -1015,8 +1022,7 @@ const ar: typeof en = {
     forgot: "نسيت كلمة المرور؟",
     submit: "تسجيل الدخول",
     errorTitle: "البريد أو كلمة المرور غير صحيحة",
-    errorBody:
-      "تحقّق من الاثنين وحاول مرة أخرى. تبقّت {left} محاولات قبل إقفال الدخول ١٥ دقيقة.",
+    errorBody: "تحقّق من الاثنين وحاول مرة أخرى. تبقّت {left} محاولات قبل إقفال الدخول ١٥ دقيقة.",
     locked: {
       title: "الحساب مقفل مؤقتًا",
       bannerTitle: "تسجيل الدخول متوقف ١٥ دقيقة",
@@ -1025,7 +1031,14 @@ const ar: typeof en = {
       reset: "إعادة ضبط كلمة المرور",
     },
   },
-  activateAccount: { confirmPassword: "تأكيد كلمة المرور", confirmPasswordPh: "أعد إدخال كلمة المرور", overline: "الحساب", title: "تفعيل الحساب", subtitle: "قم بتعيين كلمة المرور لتفعيل حسابك في بوابة موردي Hoteliana.", submit: "تفعيل الحساب", },
+  activateAccount: {
+    confirmPassword: "تأكيد كلمة المرور",
+    confirmPasswordPh: "أعد إدخال كلمة المرور",
+    overline: "الحساب",
+    title: "تفعيل الحساب",
+    subtitle: "قم بتعيين كلمة المرور لتفعيل حسابك في بوابة موردي Hoteliana.",
+    submit: "تفعيل الحساب",
+  },
   twoFactor: {
     overline: "خطوة أخيرة",
     title: "راجع بريدك",
@@ -1049,8 +1062,7 @@ const ar: typeof en = {
   forgot: {
     overline: "استعادة كلمة المرور",
     title: "أعد ضبط كلمة المرور",
-    subtitle:
-      "أدخل بريد العمل المسجّل على حساب المورّد. سنرسل رابطًا صالحًا لمدة ٣٠ دقيقة.",
+    subtitle: "أدخل بريد العمل المسجّل على حساب المورّد. سنرسل رابطًا صالحًا لمدة ٣٠ دقيقة.",
     email: "بريد العمل",
     emailPh: "name@company.com",
     submit: "إرسال رابط الاستعادة",
@@ -1131,8 +1143,7 @@ const ar: typeof en = {
   gettingStarted: {
     overline: "البداية",
     title: "أهلًا بك، جوار الصفوة",
-    subtitle:
-      "حسابك نشط. ثماني خطوات تنقلك من التفعيل إلى أول فندق يبيع - بهذا الترتيب.",
+    subtitle: "حسابك نشط. ثماني خطوات تنقلك من التفعيل إلى أول فندق يبيع - بهذا الترتيب.",
     stats: {
       account: {
         label: "الحساب",
@@ -1328,7 +1339,8 @@ const ar: typeof en = {
       request: "طلب تعديل",
     },
     history: {
-      overline: "\u0627\u062a\u0641\u0627\u0642\u064a\u0629 \u0645\u0648\u0631\u0651\u062f\u064a \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627",
+      overline:
+        "\u0627\u062a\u0641\u0627\u0642\u064a\u0629 \u0645\u0648\u0631\u0651\u062f\u064a \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627",
       title: "\u0633\u062c\u0644 \u0627\u0644\u0625\u0635\u062f\u0627\u0631\u0627\u062a",
       body: "\u0643\u0644 \u0625\u0635\u062f\u0627\u0631 \u0646\u0634\u0631\u062a\u0647 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627 \u0648\u0645\u0646 \u0642\u0628\u0644\u0647. \u0648\u062a\u062d\u062a\u0641\u0638 \u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0628\u0627\u0644\u0625\u0635\u062f\u0627\u0631 \u0627\u0644\u0633\u0627\u0631\u064a \u0639\u0646\u062f \u062a\u0623\u0643\u064a\u062f\u0647\u0627.",
       waiting: "\u0628\u0627\u0646\u062a\u0638\u0627\u0631",
@@ -1407,14 +1419,12 @@ const ar: typeof en = {
     step2Title: "أدخل المعلومات البديلة",
     step2Body: "تُرسل البيانات المختارة فقط إلى هوتيليانا للمراجعة.",
     emptyTitle: "لم تختر شيئًا بعد",
-    emptyBody:
-      "حدّد بيانًا من القائمة. ستظهر قيمته الحالية وحقل للقيمة الجديدة هنا.",
+    emptyBody: "حدّد بيانًا من القائمة. ستظهر قيمته الحالية وحقل للقيمة الجديدة هنا.",
     current: "الحالي",
     newValue: "القيمة الجديدة",
     remove: "إزالة",
     evidenceTitle: "خطاب بنكي مطلوب لتعديل الآيبان",
-    evidenceBody:
-      "يجب أن يُظهر اسم صاحب الحساب مطابقًا تمامًا للاسم القانوني المسجّل للشركة.",
+    evidenceBody: "يجب أن يُظهر اسم صاحب الحساب مطابقًا تمامًا للاسم القانوني المسجّل للشركة.",
     uploadLetter: "رفع الخطاب البنكي",
     uploadFile: "رفع الملف البديل",
     uploaded: "جاهز للإرسال",
@@ -1442,8 +1452,7 @@ const ar: typeof en = {
   review: {
     overline: "اتفاقية المورّد · طلب تعديل · الخطوة ٣",
     title: "مراجعة التعديلات المطلوبة",
-    subtitle:
-      "راجع كل قيمة جديدة قبل إرسالها إلى هوتيليانا. لا يتغير شيء قبل الاعتماد.",
+    subtitle: "راجع كل قيمة جديدة قبل إرسالها إلى هوتيليانا. لا يتغير شيء قبل الاعتماد.",
     cardOverline: "{count} تعديلات",
     cardTitle: "قبل وبعد",
     field: "البيان",
@@ -1485,7 +1494,8 @@ const ar: typeof en = {
     cardOverline: "طلب تعديل CHG-00043 · {count} بيانات",
     cardTitle: "المعلومات المُرسلة",
     pending: "قيد المراجعة",
-    reference: "مرجع الطلب CHG-00043 · طلب مفتوح واحد لكل بيان: هذان البيانان مقفلان الآن حتى صدور القرار",
+    reference:
+      "مرجع الطلب CHG-00043 · طلب مفتوح واحد لكل بيان: هذان البيانان مقفلان الآن حتى صدور القرار",
     timelineOverline: "الحالة",
     timelineTitle: "مسار المراجعة",
     timeline: {
@@ -1514,8 +1524,7 @@ const ar: typeof en = {
   library: {
     overline: "الملف · مكتبة الفنادق",
     title: "مكتبة الفنادق",
-    subtitle:
-      "اختر فندقًا موجودًا في هوتيليانا واطلب الوصول إليه، أو أضف فندقًا ناقصًا للاعتماد.",
+    subtitle: "اختر فندقًا موجودًا في هوتيليانا واطلب الوصول إليه، أو أضف فندقًا ناقصًا للاعتماد.",
     count: "{count} فندقًا",
     addMissing: "إضافة فندق ناقص",
     search: "بحث الفنادق",
@@ -1558,8 +1567,7 @@ const ar: typeof en = {
   myHotels: {
     overline: "الملف · فنادقي",
     title: "فنادقي",
-    subtitle:
-      "تظهر هنا الفنادق المعتمدة. ولا يصبح الفندق قابلًا للحجز إلا عبر عقد توريد منشور.",
+    subtitle: "تظهر هنا الفنادق المعتمدة. ولا يصبح الفندق قابلًا للحجز إلا عبر عقد توريد منشور.",
     browseLibrary: "تصفّح مكتبة الفنادق",
     empty: "لا فنادق مرتبطة بعد. اطلب الوصول من مكتبة الفنادق.",
     createContract: "إنشاء عقد توريد",
@@ -1631,4 +1639,3 @@ export const dict = {
   ar: { ...ar, ...extraAr, ...hotelAr, ...contractAr },
 };
 export type Dict = typeof en & typeof extraEn & typeof hotelEn & typeof contractEn;
-
