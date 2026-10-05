@@ -7,7 +7,7 @@ import { profilePermissionPayload } from "./types";
 import { getApiErrorMessage } from "@/lib/api-error";
 
 type Params = {
-  id?: string;
+  id?: number | undefined | false;
 };
 
 export const useUpsertProfile = ({ id }: Params = {}) => {

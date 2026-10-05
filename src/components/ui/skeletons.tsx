@@ -56,7 +56,7 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}
         >
           {Array.from({ length: cols }).map((_, cIndex) => (
-            <Skeleton key={cIndex} className="h-4 w-full" />
+            <Skeleton key={cIndex} className="h-10 w-full bg-gray-200" />
           ))}
         </div>
       ))}

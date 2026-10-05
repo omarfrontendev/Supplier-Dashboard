@@ -23,7 +23,7 @@ const profiles = {
     getProfiles: "/permissions/profiles",
     availableProfiles: "/permissions/catalog",
     createProfile: "/permissions/profiles",
-    updateProfile: (id: string) => `/profiles/${id}`,
+    updateProfile: (id: number | false) => `/permissions/profiles/${id}`,
     deleteProfile: (id: string) => `/profiles/${id}`,
     getProfileById: (id: string) => `/permissions/profiles/${id}`,
 }

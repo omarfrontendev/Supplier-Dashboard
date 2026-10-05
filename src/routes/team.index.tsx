@@ -29,6 +29,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchTeam } from "@/store/features/team/teamThunk";
 import { useProfiles } from "@/api/modules/profile-permissions/userProfiles";
 import { PermissionProfile } from "@/api/modules/profile-permissions/types";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 export const Route = createFileRoute("/team/")({
   validateSearch: (
@@ -73,21 +74,21 @@ function TeamPage() {
   const onRoles = tab === "roles";
   const asAdmin = as === "admin";
 
-  const dispatch = useDispatch<any>();
-  const { team } = useSelector((state: any) => state.team);
+  // const dispatch = useDispatch<any>();
+  // const { team } = useSelector((state: any) => state.team);
 
-  useEffect(() => {
-    void dispatch(
-      fetchTeam({
-        page: 1, // API expects 1-based page
-        limit: 10,
-        search: "",
-        isActive: false,
-        isFirstActivationPending: false,
-        role: null,
-      }),
-    );
-  }, [dispatch]);
+  // useEffect(() => {
+  //   void dispatch(
+  //     fetchTeam({
+  //       page: 1, // API expects 1-based page
+  //       limit: 10,
+  //       search: "",
+  //       isActive: false,
+  //       isFirstActivationPending: false,
+  //       role: null,
+  //     }),
+  //   );
+  // }, [dispatch]);
 
   const people = useMemo(
     () =>
@@ -122,6 +123,8 @@ function TeamPage() {
   const [selected, setSelected] = useState<TeamMember | null>(null);
   const [permissions, setPermissions] = useState(false);
   const [transfer, setTransfer] = useState(false);
+  const { profiles: roles, isLoading, isError, refetch } = useProfiles();
+
   /* OV 08.21 / 08.21B / 08.25 — create, duplicate and edit a role. */ const [role, setRole] =
     useState<{ mode: "create" | "edit"; row?: RoleRow; copyFrom?: string } | null>(null);
   const visible = useMemo(
@@ -197,7 +200,9 @@ function TeamPage() {
           t={t}
           created={state === "created"}
           onEdit={(r) => setRole({ mode: "edit", row: r })}
-          onDuplicate={(r) => setRole({ mode: "create", copyFrom: r.name })}
+          onDuplicate={(r) => setRole({ mode: "create", row: r, copyFrom: r.name })}
+          roles={roles}
+          isLoading={isLoading}
         />
       ) : (
         <>
@@ -327,6 +332,7 @@ function TeamPage() {
             : {})}
           {...(role.copyFrom ? { copyFrom: role.copyFrom } : {})}
           role={role.row}
+          onSuccess={refetch}
         />
       )}
     </PageShell>
@@ -489,23 +495,24 @@ function ReachChip({
 }
 
 function RolesTab({
-  // roles,
+  roles,
   lang,
   t,
   created,
   onEdit,
   onDuplicate,
+  isLoading,
 }: {
+  roles: PermissionProfile | undefined;
   lang: "en" | "ar";
   t: any;
   created: boolean;
   onEdit: (r: RoleRow) => void;
   onDuplicate: (r: RoleRow) => void;
+  isLoading: boolean;
 }) {
   // const builtIn = roles.filter((r) => r.kind === "builtIn").length;
   // const custom = roles.length - builtIn;
-
-  const { profiles: roles, isLoading, isError } = useProfiles();
 
   const formatDate = (date: string, lang: "en" | "ar") => {
     return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
@@ -529,45 +536,48 @@ function RolesTab({
           })}
         </div>
       )}
-      <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
-        <div className="hidden overflow-x-auto lg:block">
-          <div className="min-w-[980px]">
-            <div className="grid grid-cols-[220px_140px_220px_1fr_190px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
-              <span>{t.roleCol}</span>
-              <span>{t.typeCol}</span>
-              <span>{t.lastSeen}</span>
-              <span>{t.createdAt}</span>
-              <span />
-            </div>
-            {roles.map((r) => (
-              <div
-                key={r.id}
-                className="grid grid-cols-[220px_140px_220px_1fr_190px] items-center gap-3 border-t border-border-subtle px-4 py-3 text-xs"
-              >
-                <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
-                <StatusPill
-                  tone={r.kind === "custom" ? "brand" : "neutral"}
-                  className="max-w-[100px]"
+      {isLoading ? (
+        <TableSkeleton />
+      ) : (
+        <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
+          <div className="hidden overflow-x-auto lg:block">
+            <div className="min-w-[980px]">
+              <div className="grid grid-cols-[220px_140px_220px_1fr_190px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
+                <span>{t.roleCol}</span>
+                <span>{t.typeCol}</span>
+                <span>{t.lastSeen}</span>
+                <span>{t.createdAt}</span>
+                <span />
+              </div>
+              {roles.map((r) => (
+                <div
+                  key={r.id}
+                  className="grid grid-cols-[220px_140px_220px_1fr_190px] items-center gap-3 border-t border-border-subtle px-4 py-3 text-xs"
                 >
-                  {r.kind === "custom" ? t.custom : t.builtIn}
-                </StatusPill>
-                {/* <span>
+                  <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
+                  <StatusPill
+                    tone={r.kind === "custom" ? "brand" : "neutral"}
+                    className="max-w-[100px]"
+                  >
+                    {r.kind === "custom" ? t.custom : t.builtIn}
+                  </StatusPill>
+                  {/* <span>
                   {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })}
                 </span> */}
-                <span className="text-text-muted">{formatDate(r.createdAt, lang)}</span>
-                <span className="text-text-muted">{formatDate(r.updatedAt, lang)}</span>
-                {/* <span className="text-text-secondary">
+                  <span className="text-text-muted">{formatDate(r.createdAt, lang)}</span>
+                  <span className="text-text-muted">{formatDate(r.updatedAt, lang)}</span>
+                  {/* <span className="text-text-secondary">
                   {lang === "ar" ? r.reachesAr : r.reaches}
                 </span> */}
-                <div className="flex justify-end gap-2">
-                  {/* {r.locked ? (
+                  <div className="flex justify-end gap-2">
+                    {/* {r.locked ? (
                     <span className="text-[11px] text-text-muted">{t.cannotChange}</span>
                   ) : r.kind === "custom" ? (
-                    <> */}
+                    <>
                       <Button size="sm" variant="outline" onClick={() => onEdit(r)}>
                         {t.edit}
                       </Button>
-                      {/* <Button size="sm" variant="ghost" disabled={r.people > 0}>
+                      <Button size="sm" variant="ghost" disabled={r.people > 0}>
                         {t.remove}
                       </Button>
                     </>
@@ -576,33 +586,40 @@ function RolesTab({
                     {t.duplicate}
                   </Button>
                   )} */}
+                    <Button size="sm" variant="outline" onClick={() => onEdit(r)}>
+                      {t.edit}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => onDuplicate(r)}>
+                      {t.duplicate}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-3 p-3 lg:hidden">
+            {roles.map((r) => (
+              <article key={r.id} className="rounded-lg border border-border-subtle p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
+                  <StatusPill tone={r.kind === "custom" ? "brand" : "neutral"}>
+                    {r.kind === "custom" ? t.custom : t.builtIn}
+                  </StatusPill>
+                </div>
+                <p className="mt-2 text-xs text-text-secondary">
+                  {/* {lang === "ar" ? r.reachesAr : r.reaches} */}
+                </p>
+                <p className="mt-2 text-xs text-text-muted">
+                  {/* {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })} */}
+                </p>
+              </article>
             ))}
           </div>
-        </div>
-        <div className="grid gap-3 p-3 lg:hidden">
-          {roles.map((r) => (
-            <article key={r.id} className="rounded-lg border border-border-subtle p-4">
-              <div className="flex items-start justify-between gap-3">
-                <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
-                <StatusPill tone={r.kind === "custom" ? "brand" : "neutral"}>
-                  {r.kind === "custom" ? t.custom : t.builtIn}
-                </StatusPill>
-              </div>
-              <p className="mt-2 text-xs text-text-secondary">
-                {/* {lang === "ar" ? r.reachesAr : r.reaches} */}
-              </p>
-              <p className="mt-2 text-xs text-text-muted">
-                {/* {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })} */}
-              </p>
-            </article>
-          ))}
-        </div>
-        <div className="border-t border-border-subtle px-4 py-4 text-xs text-text-muted">
-          {/* {fill(t.rolesFooter, { total: roles.length, builtIn, custom, people: staffed })} */}
-        </div>
-      </section>
+          <div className="border-t border-border-subtle px-4 py-4 text-xs text-text-muted">
+            {/* {fill(t.rolesFooter, { total: roles.length, builtIn, custom, people: staffed })} */}
+          </div>
+        </section>
+      )}
       <p className="mt-4 rounded-lg bg-surface-subtle p-4 text-xs leading-5 text-text-secondary">
         {t.footer}
       </p>

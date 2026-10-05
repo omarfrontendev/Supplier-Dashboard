@@ -25,7 +25,7 @@ const fetchProfiles = async (): Promise<PermissionProfilesData> => {
 };
 
 export const useProfiles = () => {
-  const { data, error, isLoading, refetch } = useQuery<PermissionProfilesData, Error>({
+  const { data, error, isFetching  , refetch } = useQuery<PermissionProfilesData, Error>({
     queryKey: ["profiles"],
     queryFn: fetchProfiles,
   });
@@ -40,7 +40,7 @@ export const useProfiles = () => {
   return {
     profiles: profiles ?? [],
     meta: data?.meta,
-    isLoading,
+    isLoading: isFetching  ,
     isError: error,
     refetch,
   };

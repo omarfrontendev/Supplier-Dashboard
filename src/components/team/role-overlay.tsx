@@ -20,58 +20,50 @@ import { PermissionProfile } from "@/api/modules/profile-permissions/types";
  * Reservations is the set OV 08.21B ticks; the rest follow the role matrix
  * the Team page already prints.
  */
-const COPIED: Record<string, string[]> = {
-  Reservations: [
-    "See bookings",
-    "Confirm bookings",
-    "Reject bookings",
-    "See arrivals and guest details",
-  ],
-  "Revenue manager": [
-    "See hotels",
-    "See contracts",
-    "See rates",
-    "Edit rates",
-    "Publish rates",
-    "Edit inventory",
-    "Stop sale",
-  ],
-  Finance: ["See finance", "See booking money", "Export finance"],
-  /* The custom role OV 08.25 opens on. */
-  "Night desk": ["See bookings", "See arrivals and guest details", "See guest identity"],
-  Auditor: ["See hotels", "See contracts", "See rates", "See bookings", "See finance"],
-};
+// const COPIED: Record<string, string[]> = {
+//   Reservations: [
+//     "See bookings",
+//     "Confirm bookings",
+//     "Reject bookings",
+//     "See arrivals and guest details",
+//   ],
+//   "Revenue manager": [
+//     "See hotels",
+//     "See contracts",
+//     "See rates",
+//     "Edit rates",
+//     "Publish rates",
+//     "Edit inventory",
+//     "Stop sale",
+//   ],
+//   Finance: ["See finance", "See booking money", "Export finance"],
+//   /* The custom role OV 08.25 opens on. */
+//   "Night desk": ["See bookings", "See arrivals and guest details", "See guest identity"],
+//   Auditor: ["See hotels", "See contracts", "See rates", "See bookings", "See finance"],
+// };
 
 export function RoleOverlay({
-  // roleId,
   mode,
-  roleName = "",
-  copyFrom,
   people = 0,
   holder,
   onClose,
-  // onSave,
+  onSuccess,
   role,
 }: {
-  // roleId: string,
   mode: "create" | "edit";
-  roleName?: string | undefined;
-  /** The built-in role a Duplicate started from. */
-  copyFrom?: string | undefined;
   people?: number | undefined;
   holder?: string | undefined;
   onClose: () => void;
-  role: PermissionProfile;
-  // onSave?: ((name: string, allowed: string[]) => void) | undefined;
+  onSuccess: () => void;
+  role: PermissionProfile | undefined;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = roleOverlay;
 
   const { profiles } = useAvailableProfiles();
-  const { mutate: saveProfile, isPending } = useUpsertProfile();
+  const { mutate: saveProfile, isPending } = useUpsertProfile({ id: mode === "edit" && role?.id });
 
-  const [name, setName] = useState(roleName);
   // const [allowed, setAllowed] = useState<string[]>(COPIED[copyFrom ?? roleName] ?? []);
   const [allowed, setAllowed] = useState<string[]>(role?.permissionKeys || []);
 
@@ -104,8 +96,8 @@ export function RoleOverlay({
   const form = useForm<any>({
     resolver: zodResolver(prpfileSchema()),
     defaultValues: {
-      nameEn: role ? role?.nameEn : "",
-      nameAr: role? role.nameAr : "",
+      nameEn: role && mode === "edit" ? role?.nameEn : "",
+      nameAr: role && mode === "edit" ? role.nameAr : "",
     },
     mode: "all",
   });
@@ -153,7 +145,7 @@ export function RoleOverlay({
             {c.cancel[k]}
           </Button>
           <Button
-            disabled={allowed.length === 0 || isPending || !form.formState.isValid}
+            disabled={!allowed.length || isPending || !form.formState.isValid}
             onClick={() => {
               saveProfile(
                 {
@@ -164,6 +156,7 @@ export function RoleOverlay({
                 {
                   onSuccess: () => {
                     onClose();
+                    onSuccess();
                   },
                 },
               );
@@ -190,7 +183,7 @@ export function RoleOverlay({
         <div>
           <p className="text-overline text-text-muted">{c.startLabel[k]}</p>
           <div className="mt-1.5 flex h-11 w-full items-center rounded-[10px] border border-border-default bg-surface-default px-3.5 text-sm text-text-secondary">
-            {copyFrom ? c.copyOf[k].replace("{role}", copyFrom) : c.startEmpty[k]}
+            {role ? c.copyOf[k].replace("{role}", role?.nameEn) : c.startEmpty[k]}
           </div>
         </div>
       )}
