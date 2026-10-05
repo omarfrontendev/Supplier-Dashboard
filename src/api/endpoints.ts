@@ -25,7 +25,7 @@ const profiles = {
     createProfile: "/permissions/profiles",
     updateProfile: (id: string) => `/profiles/${id}`,
     deleteProfile: (id: string) => `/profiles/${id}`,
-    getPermissionById: (id: string) => `/permissions/profiles/${id}`,
+    getProfileById: (id: string) => `/permissions/profiles/${id}`,
 }
 
 export const endpoints = {

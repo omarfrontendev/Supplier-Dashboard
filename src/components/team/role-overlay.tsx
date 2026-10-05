@@ -12,6 +12,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { profileFields } from "./form/fields";
 import { Input } from "../ui/input";
 import { useUpsertProfile } from "@/api/modules/profile-permissions/useUpsertProfiles";
+import { useSingleRole } from "@/api/modules/profile-permissions/useSingleProfile";
+import { PermissionProfile } from "@/api/modules/profile-permissions/types";
 
 /**
  * What each built-in role reaches, so Duplicate starts from something real.
@@ -41,14 +43,17 @@ const COPIED: Record<string, string[]> = {
 };
 
 export function RoleOverlay({
+  // roleId,
   mode,
   roleName = "",
   copyFrom,
   people = 0,
   holder,
   onClose,
-  onSave,
+  // onSave,
+  role,
 }: {
+  // roleId: string,
   mode: "create" | "edit";
   roleName?: string | undefined;
   /** The built-in role a Duplicate started from. */
@@ -56,17 +61,19 @@ export function RoleOverlay({
   people?: number | undefined;
   holder?: string | undefined;
   onClose: () => void;
-  onSave?: ((name: string, allowed: string[]) => void) | undefined;
+  role: PermissionProfile;
+  // onSave?: ((name: string, allowed: string[]) => void) | undefined;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = roleOverlay;
 
   const { profiles } = useAvailableProfiles();
-  const { mutate: saveProfile, isPending, error } = useUpsertProfile();
+  const { mutate: saveProfile, isPending } = useUpsertProfile();
 
   const [name, setName] = useState(roleName);
-  const [allowed, setAllowed] = useState<string[]>(COPIED[copyFrom ?? roleName] ?? []);
+  // const [allowed, setAllowed] = useState<string[]>(COPIED[copyFrom ?? roleName] ?? []);
+  const [allowed, setAllowed] = useState<string[]>(role?.permissionKeys || []);
 
   const toggle = (item: string) =>
     setAllowed((prev) =>
@@ -97,8 +104,8 @@ export function RoleOverlay({
   const form = useForm<any>({
     resolver: zodResolver(prpfileSchema()),
     defaultValues: {
-      nameEn: "",
-      nameAr: "",
+      nameEn: role ? role?.nameEn : "",
+      nameAr: role? role.nameAr : "",
     },
     mode: "all",
   });

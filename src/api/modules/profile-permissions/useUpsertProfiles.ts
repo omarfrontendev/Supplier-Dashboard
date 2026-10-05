@@ -24,7 +24,6 @@ export const useUpsertProfile = ({ id }: Params = {}) => {
     },
 
     onSuccess: (data) => {
-      console.log(data)
       toast.success(
         data?.message
         //  || isEdit

@@ -142,6 +142,7 @@ function TeamPage() {
     ["expired", t.expired],
     ["deactivated", t.deactivated],
   ];
+
   return (
     <PageShell>
       <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -325,6 +326,7 @@ function TeamPage() {
               }
             : {})}
           {...(role.copyFrom ? { copyFrom: role.copyFrom } : {})}
+          role={role.row}
         />
       )}
     </PageShell>
@@ -561,19 +563,19 @@ function RolesTab({
                   {/* {r.locked ? (
                     <span className="text-[11px] text-text-muted">{t.cannotChange}</span>
                   ) : r.kind === "custom" ? (
-                    <>
+                    <> */}
                       <Button size="sm" variant="outline" onClick={() => onEdit(r)}>
                         {t.edit}
                       </Button>
-                      <Button size="sm" variant="ghost" disabled={r.people > 0}>
+                      {/* <Button size="sm" variant="ghost" disabled={r.people > 0}>
                         {t.remove}
                       </Button>
                     </>
-                  ) : ( */}
+                  ) : (
                   <Button size="sm" variant="outline" onClick={() => onDuplicate(r)}>
                     {t.duplicate}
                   </Button>
-                  {/* )} */}
+                  )} */}
                 </div>
               </div>
             ))}
