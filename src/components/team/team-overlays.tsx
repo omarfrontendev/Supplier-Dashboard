@@ -24,6 +24,11 @@ import { memberSchema } from "./member-form/schema";
 import { memberFields } from "./member-form/fields";
 import { PermissionProfile } from "@/api/modules/profile-permissions/types";
 import { useUpsertMember } from "@/api/modules/team/useUpsertMember";
+import { useToggleUserStatus } from "@/api/modules/team/useToggleStatus";
+import { updateMemberStatus } from "@/store/features/team/team.slice";
+import { useDispatch } from "react-redux";
+import { useResendInvitationEamil } from "@/api/modules/team/useResendInvitationEamil";
+import { fetchTeam } from "@/store/features/team/teamThunk";
 
 const statusTone = {
   active: "success",
@@ -126,8 +131,6 @@ export function InviteDialog({
 }) {
   const { c, lang } = useLanguage();
   const t = teamCopy[lang];
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [role, setRole] = useState<number[] | null>([]);
   const [pick, setPick] = useState(false);
 
@@ -139,7 +142,7 @@ export function InviteDialog({
     mode: "all",
   });
 
-  const { mutate: saveMember } = useUpsertMember();
+  const { mutate: saveMember, isPending } = useUpsertMember();
 
   const onSubmit = (values: any) => {
     saveMember(values, {
@@ -177,6 +180,7 @@ export function InviteDialog({
             type="submit"
             form="member-form"
             disabled={form.formState.isSubmitting}
+            loading={isPending}
           >
             {t.send}
           </Button>
@@ -248,8 +252,11 @@ export function InviteDialog({
             </div>
           )}
         </form>
+
         <div className="rounded-lg bg-surface-subtle p-4">
-          <b className="text-sm text-text-primary">{teamFill(t.preview, { name: form.watch("username") })}</b>
+          <b className="text-sm text-text-primary">
+            {teamFill(t.preview, { name: form.watch("username") })}
+          </b>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {roles
               .filter((item) => role?.includes(item.id))
@@ -273,104 +280,210 @@ export function InviteDialog({
 export function ManageMemberDrawer({
   member,
   onClose,
-  onTransfer,
+  roles,
+  teamParams
 }: {
   member: TeamMember;
   onClose: () => void;
-  onTransfer: () => void;
+  roles: PermissionProfile[];
+  teamParams: object
 }) {
-  const { lang } = useLanguage();
+  const { lang, c } = useLanguage();
   const t = teamCopy[lang];
-  const { updateMemberRole, setMemberStatus, addActivity } = usePortal();
-  const [role, setRole] = useState(member.role);
-  const [audit, setAudit] = useState(member.auditorReach ?? []);
-  const [auditOpen, setAuditOpen] = useState(false);
-  const save = () => {
-    updateMemberRole(member.id, role, audit);
-    addActivity({
-      id: `LOG-${Date.now()}`,
-      when: "now",
-      whenAr: "الآن",
-      actor: "you",
-      actorAr: "أنت",
-      actorType: "team",
-      role: "Owner",
-      roleAr: "المالك",
-      action: "Changed what a person reaches",
-      actionAr: "غيّر صلاحيات شخص",
-      record: `${member.name} · ${roleNames.en[role]}`,
-      recordAr: `${member.nameAr} · ${roleNames.ar[role]}`,
-      area: "users",
+  const [role, setRole] = useState<number[] | null>(member.permissionProfileIds);
+  const [pick, setPick] = useState(false);
+  const dispatch = useDispatch();
+
+  const form = useForm<any>({
+    resolver: zodResolver(memberSchema()),
+    defaultValues: {
+      username: member.username,
+      email: member.email,
+      phoneNumber: member.phoneNumber,
+      role: member.role,
+      permissionProfileIds: member.permissionProfileIds,
+    },
+    mode: "all",
+  });
+
+  const { mutate: saveMember, isPending } = useUpsertMember({ id: member.id });
+
+  const onSubmit = (values: any) => {
+    saveMember(values, {
+      onSuccess: () => {
+        onClose();
+        form.reset();
+        setRole([]);
+        setPick(false);
+        dispatch(fetchTeam(teamParams));
+      },
     });
-    notify.success(t.roleSaved);
-    onClose();
   };
-  const flip = () => {
-    const next = member.status === "deactivated" ? "active" : "deactivated";
-    setMemberStatus(member.id, next);
-    notify.success(next === "active" ? t.accountReactivated : t.accountDeactivated);
-    onClose();
-  };
-  const invitation = member.status === "invited" || member.status === "expired";
+
+  const roleError = !role?.length && form.formState.errors.permissionProfileIds;
+
+  const { mutate: resendInvitation, isPending: resendInvitaionPending } =
+    useResendInvitationEamil();
+  const { mutate: toggleUserStatus, isPending: toggleStatusPending } = useToggleUserStatus();
+
+  const isActive = typeof member === "object" ? member?.isActive : false;
+  const id = typeof member === "object" ? member?.id : null;
+
+  const onToggleUserStatus = () =>
+    toggleUserStatus(
+      {
+        id,
+        isActive,
+      },
+      {
+        onSuccess: () => {
+          dispatch(updateMemberStatus({ id: +id, isActive: !isActive }));
+          onClose();
+        },
+      },
+    );
+
+  const onResendInvitation = () =>
+    resendInvitation(
+      {
+        id: member?.id,
+      },
+      {
+        onSuccess: () => {
+          onClose();
+        },
+      },
+    );
+
+  if (!open) return null;
+
   return (
     <Drawer
-      title={lang === "ar" ? member.nameAr : member.name}
+      title={member.username}
       meta={member.email}
       onClose={onClose}
       width="600px"
       footer={
-        member.isCurrent ? (
-          <Button variant="outline" onClick={onTransfer}>
-            {t.transfer}
-          </Button>
-        ) : invitation ? (
-          <>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setMemberStatus(member.id, "deactivated");
-                notify.success(t.invitationCancelled);
-                onClose();
-              }}
-            >
-              {t.cancelInvitation}
+        <div className="flex flex-col w-full gap-3">
+          <div className="flex gap-3">
+            {member.isActive && !member.isActivated && (
+              <Button variant="dark" loading={resendInvitaionPending} onClick={onResendInvitation}>
+                {t.resend}
+              </Button>
+            )}
+            <Button variant={"danger"} onClick={onToggleUserStatus} loading={toggleStatusPending}>
+              {member.status === "active" ? t.deactivate : t.reactivate}
             </Button>
-            <Button
-              variant="dark"
-              onClick={() => {
-                setMemberStatus(member.id, "invited");
-                notify.success(t.invitationResent);
-              }}
-            >
-              {t.resend}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="danger" onClick={flip}>
-              {member.status === "deactivated" ? t.reactivate : t.deactivate}
-            </Button>
+          </div>
+          <div className="flex gap-3 justify-end">
             <Button variant="outline" onClick={onClose}>
               {t.cancel}
             </Button>
-            <Button variant="dark" onClick={save}>
-              {t.saveRole}
+            <Button
+              variant="dark"
+              type="submit"
+              form="update-member-form"
+              disabled={form.formState.isSubmitting}
+              loading={isPending}
+            >
+              {t.save}
             </Button>
-          </>
-        )
+          </div>
+        </div>
       }
     >
       <div className="grid gap-4">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-brand-deep font-semibold text-text-inverse">
-            {member.name[0]}
+            {member.username[0]}
           </span>
           <div className="flex flex-wrap gap-2">
-            <StatusPill>{roleNames[lang][member.role]}</StatusPill>
-            <StatusPill tone={statusTone[member.status]}>{t[member.status]}</StatusPill>
+            <StatusPill>{c.common[`${member.role}`]}</StatusPill>
+            {/* <StatusPill tone={statusTone[member.status]}>{t[member.status]}</StatusPill> */}
+            <StatusPill tone={!member.isActivated ? "warning" : statusTone[member.status]}>
+              {t[!member.isActivated ? "invited" : member.status]}
+            </StatusPill>
           </div>
         </div>
-        <div className="rounded-lg border border-border-subtle px-4">
+        <form id="update-member-form" className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+          {memberFields().map(({ name, label, placeholder, type }) => (
+            <Input
+              label={label}
+              placeholder={placeholder}
+              type={type}
+              autoComplete="new-password"
+              min={type === "number" ? 0 : undefined}
+              onKeyDown={
+                type === "number"
+                  ? (e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }
+                  : undefined
+              }
+              error={
+                typeof form.formState.errors?.[name]?.message === "string"
+                  ? (form.formState.errors[name]?.message as string)
+                  : ""
+              }
+              {...form.register(name)}
+            />
+          ))}
+
+          <p className="text-overline text-text-muted">{t.pickRole}</p>
+          {pick ? (
+            <RolePicker
+              onClose={() => setPick(false)}
+              roles={roles}
+              value={role}
+              onChange={(selectedRoles) => {
+                setRole(selectedRoles);
+                form.setValue("permissionProfileIds", selectedRoles);
+              }}
+            />
+          ) : (
+            <div
+              className={`flex items-center gap-3 rounded-lg border-2 p-3 ${
+                roleError
+                  ? "border-destructive bg-destructive/5"
+                  : "border-brand-deep bg-surface-subtle"
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <b className={`text-sm ${roleError ? "text-destructive" : "text-text-primary"}`}>
+                  {roles
+                    .filter((item) => role?.includes(item.id))
+                    .map((item) => item.nameEn)
+                    .join(", ") || c.common.noRolesSelected}
+                </b>
+
+                {roleError && <p className="mt-1 text-xs text-destructive">{roleError.message}</p>}
+              </div>
+
+              <Button type="button" size="sm" variant="outline" onClick={() => setPick(true)}>
+                {t.pickAnother}
+              </Button>
+            </div>
+          )}
+        </form>
+        <div className="rounded-lg bg-surface-subtle p-4">
+          <b className="text-sm text-text-primary">
+            {teamFill(t.preview, { name: form.watch("username") })}
+          </b>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {roles
+              .filter((item) => role?.includes(item.id))
+              .flatMap((item) => item.permissionKeys)
+              .map((permission) => (
+                <StatusPill key={permission} tone="brand">
+                  {permission}
+                </StatusPill>
+              ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-text-secondary">{t.previewNote}</p>
+        </div>
+        {/* <div className="rounded-lg border border-border-subtle px-4">
           <DataRow label={t.reachesNow}>
             <b className="text-xs">
               {(lang === "ar" ? roleReachAr : roleReach)[member.role].slice(0, 2).join(" · ")}
@@ -386,7 +499,7 @@ export function ManageMemberDrawer({
         {!member.isCurrent && !invitation && (
           <>
             <p className="text-overline text-text-muted">{t.changeReach}</p>
-            {/* <RolePicker value={role} onChange={setRole} /> */}
+            <RolePicker value={role} onChange={setRole} />
             {role === "auditor" && (
               <>
                 <Button
@@ -406,7 +519,7 @@ export function ManageMemberDrawer({
               </>
             )}
           </>
-        )}
+        )} */}
       </div>
     </Drawer>
   );

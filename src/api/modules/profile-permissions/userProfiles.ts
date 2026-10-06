@@ -3,17 +3,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import { api } from "@/api/client";
-import {
-  PermissionCatalogItem,
-  PermissionProfilesData,
-  PermissionsCatalogResponse,
-} from "./types";
+import { PermissionCatalogItem, PermissionProfilesData, PermissionsCatalogResponse } from "./types";
 import { useLanguage } from "@/lib/i18n";
+import { AxiosError } from "axios";
 
 export type ApiResponse<T> = {
   status: string;
   message: string;
   data: T;
+};
+
+type ApiErrorResponse = {
+  status: string;
+  message: string;
+  data?: {
+    errors?: string[];
+  };
 };
 
 const fetchProfiles = async (): Promise<PermissionProfilesData> => {
@@ -25,23 +30,28 @@ const fetchProfiles = async (): Promise<PermissionProfilesData> => {
 };
 
 export const useProfiles = () => {
-  const { data, error, isFetching  , refetch } = useQuery<PermissionProfilesData, Error>({
+  const { data, error, isFetching, isError, refetch } = useQuery<
+    PermissionProfilesData,
+    AxiosError<ApiErrorResponse>
+  >({
     queryKey: ["profiles"],
     queryFn: fetchProfiles,
   });
 
-  const profiles = data?.profiles.map(profile => {
-    return {
-        ...profile,
-        kind: "custom",
-    }
-  })
+  const profiles =
+    data?.profiles.map((profile) => ({
+      ...profile,
+      kind: "custom",
+    })) ?? [];
+    
+    console.log(error);
 
   return {
-    profiles: profiles ?? [],
+    profiles,
     meta: data?.meta,
-    isLoading: isFetching  ,
-    isError: error,
+    isLoading: isFetching,
+    isError,
+    error,
     refetch,
   };
 };

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, UserPlus } from "lucide-react";
+import { BookOpen, CircleAlert, RefreshCw, UserPlus, UsersRound } from "lucide-react";
 import { PageShell, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,24 +12,14 @@ import {
 import { Gated } from "@/components/system/permission-gate";
 import { fill, useLanguage } from "@/lib/i18n";
 import { RoleOverlay } from "@/components/team/role-overlay";
-import { usePortal } from "@/lib/portal-store";
-import { roleDescriptions, roleNames, teamCopy } from "@/lib/team-copy";
-import {
-  createdRole,
-  roleCatalogue,
-  roleOrder,
-  roleReach,
-  roleReachAr,
-  roleTint,
-  type RoleRow,
-  type TeamMember,
-  type TeamStatus,
-} from "@/lib/team-data";
+import { roleNames, teamCopy } from "@/lib/team-copy";
+import { type RoleRow, type TeamMember, type TeamStatus } from "@/lib/team-data";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchTeam } from "@/store/features/team/teamThunk";
 import { useProfiles } from "@/api/modules/profile-permissions/userProfiles";
 import { PermissionProfile } from "@/api/modules/profile-permissions/types";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { useMetrics } from "@/api/modules/team/userMetrics";
 
 export const Route = createFileRoute("/team/")({
   validateSearch: (
@@ -64,45 +54,41 @@ const statusTone = {
   expired: "danger",
   deactivated: "neutral",
 } as const;
+
 function TeamPage() {
   const { lang } = useLanguage();
   const t = teamCopy[lang];
   /* A count reads in the digits of the language around it. */ const num = (value: number) =>
     value.toLocaleString(lang === "ar" ? "ar-EG" : "en-US");
-  const { teamMembers } = usePortal();
   const { tab, as, state } = Route.useSearch();
   const onRoles = tab === "roles";
   const asAdmin = as === "admin";
 
   const dispatch = useDispatch<any>();
-  const { team, total } = useSelector((state: any) => state.team);
+  const { team, loading, error } = useSelector((state: any) => state.team);
 
-  const people = useMemo(
-    () =>
-      asAdmin
-        ? teamMembers.map((m) =>
-            m.id === "USR-008"
-              ? {
-                  ...m,
-                  status: "active" as const,
-                  roleLabel: undefined,
-                  lastSeen: "you · now",
-                  lastSeenAr: "أنت · الآن",
-                  isCurrent: true,
-                  inviteExpired: true,
-                  reach: [t.adminReach],
-                  reachAr: [t.adminReach],
-                }
-              : m.id === "USR-001"
-                ? { ...m, isCurrent: false, lastSeen: "today 09:40", lastSeenAr: "اليوم ٠٩:٤٠" }
-                : m,
-          )
-        : teamMembers,
-    [asAdmin, teamMembers, t.adminReach],
-  );
-  // const roles = useMemo(
-  //   () => (state === "created" ? [...roleCatalogue, createdRole] : roleCatalogue),
-  //   [state],
+  // const people = useMemo(
+  //   () =>
+  //     asAdmin
+  //       ? teamMembers.map((m) =>
+  //           m.id === "USR-008"
+  //             ? {
+  //                 ...m,
+  //                 status: "active" as const,
+  //                 roleLabel: undefined,
+  //                 lastSeen: "you · now",
+  //                 lastSeenAr: "أنت · الآن",
+  //                 isCurrent: true,
+  //                 inviteExpired: true,
+  //                 reach: [t.adminReach],
+  //                 reachAr: [t.adminReach],
+  //               }
+  //             : m.id === "USR-001"
+  //               ? { ...m, isCurrent: false, lastSeen: "today 09:40", lastSeenAr: "اليوم ٠٩:٤٠" }
+  //               : m,
+  //         )
+  //       : teamMembers,
+  //   [asAdmin, teamMembers, t.adminReach],
   // );
 
   const [filter, setFilter] = useState<"all" | TeamStatus>("all");
@@ -110,38 +96,51 @@ function TeamPage() {
   const [selected, setSelected] = useState<TeamMember | null>(null);
   const [permissions, setPermissions] = useState(false);
   const [transfer, setTransfer] = useState(false);
-  const { profiles: roles, isLoading, isError, refetch } = useProfiles();
+  const { profiles: roles, isLoading, refetch, isError } = useProfiles();
+
+  // console.log(error);
+
+  const teamParams = {
+    page: 1, // API expects 1-based page
+    limit: 100,
+    isActive: filter === "active" ? true : filter === "deactivated" ? false : null,
+    isActivated: filter === "invited" ? false : null,
+  };
 
   useEffect(() => {
-    void dispatch(
-      fetchTeam({
-        page: 1, // API expects 1-based page
-        limit: 10,
-        isActive: filter === "active" ? true : filter === "all" ? null : false,
-      }),
-    );
+    void dispatch(fetchTeam(teamParams));
   }, [dispatch, filter]);
 
   /* OV 08.21 / 08.21B / 08.25 — create, duplicate and edit a role. */ const [role, setRole] =
     useState<{ mode: "create" | "edit"; row?: RoleRow; copyFrom?: string } | null>(null);
-  const visible = useMemo(
-    () => (filter === "all" ? people : people.filter((m) => m.status === filter)),
-    [people, filter],
-  );
-  const counts = {
-    all: total,
-    active: team.filter((m) => m.status === "active").length,
-    invited: team.filter((m) => m.status === "invited").length,
-    expired: team.filter((m) => m.status === "expired").length,
-    deactivated: team.filter((m) => m.status === "deactivated").length,
-  };
+
   const filters: Array<["all" | TeamStatus, string]> = [
     ["all", t.everyone],
     ["active", t.active],
-    // ["invited", t.invited],
+    ["invited", t.invited],
     // ["expired", t.expired],
     ["deactivated", t.deactivated],
   ];
+
+  // ================================ //
+
+  const { data: metrics } = useMetrics();
+
+  const formatCount = (count: number, singular: string) => {
+    if (count === 0) return `no ${singular}`;
+    if (count === 1) return `1 ${singular}`;
+    return `${count} ${singular}s`;
+  };
+
+  const ownersCount =
+    metrics?.superAdmins
+      .filter((item) => item.key === "active")
+      .reduce((total, item) => total + item.value, 0) ?? 0;
+
+  const adminsCount =
+    metrics?.admins
+      .filter((item) => item.key === "active")
+      .reduce((total, item) => total + item.value, 0) ?? 0;
 
   return (
     <PageShell>
@@ -204,10 +203,10 @@ function TeamPage() {
       ) : (
         <>
           <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label={t.people} value={num(counts.active)} note={t.peopleNote} />
+            <Metric label={t.people} value={num(1)} note={t.peopleNote} />
             <Metric
               label={t.owners}
-              value={asAdmin ? t.adminOwnersValue : t.ownersValue}
+              value={`${formatCount(ownersCount, "owner")} ·${" "} ${formatCount(adminsCount, "admin")}`}
               note={t.ownersNote}
               tone="brand"
             />
@@ -217,7 +216,6 @@ function TeamPage() {
               note={asAdmin ? t.adminInvitationNote : t.invitationNote}
               tone="warn"
             />
-            <Metric label={t.signed} value={num(3)} note={t.signedNote} />
           </div>
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="scrollbar-none flex gap-2 overflow-x-auto">
@@ -233,7 +231,7 @@ function TeamPage() {
                     <span
                       className={`rounded-full px-1.5 text-[10px] ${filter === v ? "bg-primary text-primary-foreground" : "bg-status-neutral-bg text-brand-deep"}`}
                     >
-                      {num(counts[v])}
+                      {num(100)}
                     </span>
                   )}
                 </Button>
@@ -252,15 +250,53 @@ function TeamPage() {
                   <span>{t.phoneNumber}</span>
                   <span />
                 </div>
-                {team.map((m) => (
-                  <MemberRow key={m.id} member={m} lang={lang} t={t} open={() => setSelected(m)} />
-                ))}
+                {loading ? (
+                  <div className="p-4">
+                    <TableSkeleton cols={1} />
+                  </div>
+                ) : error ? (
+                  <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+                      <CircleAlert className="h-7 w-7 text-destructive" />
+                    </div>
+
+                    <h3 className="text-base font-semibold text-foreground">{t.errorTitle}</h3>
+
+                    <p className="mt-1 max-w-sm text-sm text-muted-foreground">{error.message}</p>
+
+                    <button
+                      type="button"
+                      onClick={() => dispatch(fetchTeam(teamParams))}
+                      className="mt-4 inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      {t.retry}
+                    </button>
+                  </div>
+                ) : team?.length ? (
+                  team.map((m) => (
+                    <MemberRow
+                      key={m.id}
+                      member={m}
+                      lang={lang}
+                      t={t}
+                      open={() => setSelected(m)}
+                    />
+                  ))
+                ) : (
+                  <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                      <UsersRound className="h-7 w-7 text-muted-foreground" />
+                    </div>
+
+                    <h3 className="text-base font-semibold text-foreground">{t.noMembers}</h3>
+
+                    <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                      {t.noMembersDescription}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="grid gap-3 p-3 lg:hidden">
-              {visible.map((m) => (
-                <MemberCard key={m.id} member={m} lang={lang} t={t} open={() => setSelected(m)} />
-              ))}
             </div>
           </section>
           <section className="mt-5 rounded-lg border border-border-subtle bg-surface-default p-5">
@@ -308,12 +344,10 @@ function TeamPage() {
       <InviteDialog open={invite} onClose={() => setInvite(false)} roles={roles} />
       {selected && (
         <ManageMemberDrawer
+          teamParams={teamParams}
           member={selected}
           onClose={() => setSelected(null)}
-          onTransfer={() => {
-            setSelected(null);
-            setTransfer(true);
-          }}
+          roles={roles}
         />
       )}
       <PermissionReference open={permissions} onClose={() => setPermissions(false)} />
@@ -383,34 +417,13 @@ function MemberRow({
   t: any;
   open: () => void;
 }) {
+  const { c } = useLanguage();
+
   return (
     <div className="grid grid-cols-[258px_158px_1fr_138px_118px_170px] items-center gap-3 border-t border-border-subtle px-4 py-3">
       <Person m={m} lang={lang} />
       <div>
-        <b className="text-xs text-text-primary">
-          {/* {(lang === "ar" ? m.roleLabelAr : m.roleLabel) ?? roleNames[lang][m.role]} */}
-          {m.role}
-        </b>
-        {/* {m.isCurrent && (
-          <StatusPill className="mt-1" tone="brand">
-            {m.role === "owner" ? t.youOwner : t.youLabel}
-          </StatusPill>
-        )}
-        {!m.isCurrent && m.role === "owner" && (
-          <StatusPill className="mt-1" tone="brand">
-            {t.primaryOwner}
-          </StatusPill>
-        )}
-        {m.status === "invited" && (
-          <StatusPill className="mt-1" tone="warning">
-            {t.invited}
-          </StatusPill>
-        )}
-        {m.status === "expired" && (
-          <StatusPill className="mt-1" tone="danger">
-            {t.expired}
-          </StatusPill>
-        )} */}
+        <b className="text-xs text-text-primary">{c.common[m.role]}</b>
       </div>
       <div className="flex flex-wrap gap-1">
         {/* {(lang === "ar" ? m.reachAr : m.reach).map((x) => (
@@ -419,50 +432,15 @@ function MemberRow({
       </div>
       <div>
         {/* <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill> */}
-        <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill>
-        {/* {(m.status === "expired" || m.inviteExpired) && (
-          <p className="text-overline mt-1 text-status-danger">{t.inviteExpired}</p>
-        )} */}
+        <StatusPill tone={!m.isActivated ? "warning" : statusTone[m.status]}>
+          {t[!m.isActivated ? "invited" : m.status]}
+        </StatusPill>
       </div>
       <span className="text-xs text-text-primary">{m.phoneNumber}</span>
-      {/* <Button variant="outline" size="sm" onClick={open}>
-        {m.isCurrent && m.role !== "owner"
-          ? t.yourAccount
-          : `${m.isCurrent || (m.role === "owner" && !m.isCurrent) ? t.viewPerson : t.manage} ${lang === "ar" ? m.nameAr.split(" ")[0] : m.name.split(" ")[0]}`}
-      </Button> */}
-    </div>
-  );
-}
-function MemberCard({
-  member: m,
-  lang,
-  t,
-  open,
-}: {
-  member: TeamMember;
-  lang: "en" | "ar";
-  t: any;
-  open: () => void;
-}) {
-  return (
-    <article className="rounded-lg border border-border-subtle p-4">
-      <div className="flex items-start justify-between gap-3">
-        <Person m={m} lang={lang} />
-        <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill>
-      </div>
-      <p className="mt-4 text-sm font-semibold text-text-primary">
-        {(lang === "ar" ? m.roleLabelAr : m.roleLabel) ?? roleNames[lang][m.role]}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {(lang === "ar" ? m.reachAr : m.reach).map((x) => (
-          <StatusPill key={x}>{x}</StatusPill>
-        ))}
-      </div>
-      <p className="mt-3 text-xs text-text-muted">{lang === "ar" ? m.lastSeenAr : m.lastSeen}</p>
-      <Button className="mt-4 w-full" variant="outline" size="sm" onClick={open}>
-        {t.manage}
+      <Button variant="outline" size="sm" onClick={open}>
+        {`${t.manage}`}
       </Button>
-    </article>
+    </div>
   );
 }
 
@@ -509,9 +487,6 @@ function RolesTab({
   onDuplicate: (r: RoleRow) => void;
   isLoading: boolean;
 }) {
-  // const builtIn = roles.filter((r) => r.kind === "builtIn").length;
-  // const custom = roles.length - builtIn;
-
   const formatDate = (date: string, lang: "en" | "ar") => {
     return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
       year: "numeric",
@@ -534,23 +509,29 @@ function RolesTab({
           })}
         </div>
       )}
-      {isLoading ? (
+      {/* {isLoading ? (
         <TableSkeleton />
-      ) : (
-        <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
-          <div className="hidden overflow-x-auto lg:block">
-            <div className="min-w-[980px]">
-              <div className="grid grid-cols-[120px_140px_280px_1fr_190px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
-                <span>{t.roleCol}</span>
-                <span>{t.typeCol}</span>
-                <span>{t.reach}</span>
-                <span>{t.createdAt}</span>
-                <span />
+      ) : ( */}
+      <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
+        <div className="hidden overflow-x-auto lg:block">
+          <div className="min-w-[980px]">
+            <div className="grid grid-cols-[200px_120px_70px_1fr_180px_190px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
+              <span>{t.roleCol}</span>
+              <span>{t.typeCol}</span>
+              <span>{t.peopleCol}</span>
+              <span>{t.reach}</span>
+              <span>{t.createdAt}</span>
+              <span />
+            </div>
+            {isLoading ? (
+              <div className="p-4">
+                <TableSkeleton cols={1} />
               </div>
-              {roles.map((r) => (
+            ) : roles?.length ? (
+              roles.map((r) => (
                 <div
                   key={r.id}
-                  className="grid grid-cols-[120px_140px_280px_1fr_190px] items-center gap-3 border-t border-border-subtle px-4 py-3 text-xs"
+                  className="grid grid-cols-[200px_120px_70px_1fr_180px_190px] items-center gap-3 border-t border-border-subtle px-4 py-3 text-xs"
                 >
                   <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
                   <StatusPill
@@ -559,6 +540,7 @@ function RolesTab({
                   >
                     {r.kind === "custom" ? t.custom : t.builtIn}
                   </StatusPill>
+                  <span>{fill(t.manyPeople, { count: r.totalAssignedUsers })}</span>
                   <span className="text-text-secondary block truncate">
                     {r?.permissionKeys
                       ?.slice(0, 2)
@@ -575,34 +557,47 @@ function RolesTab({
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-3 p-3 lg:hidden">
-            {roles.map((r) => (
-              <article key={r.id} className="rounded-lg border border-border-subtle p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
-                  <StatusPill tone={r.kind === "custom" ? "brand" : "neutral"}>
-                    {r.kind === "custom" ? t.custom : t.builtIn}
-                  </StatusPill>
+              ))
+            ) : (
+              <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                  <UsersRound className="h-7 w-7 text-muted-foreground" />
                 </div>
-                {/* <p className="mt-2 text-xs text-text-muted">
+
+                <h3 className="text-base font-semibold text-foreground">{t.noRoles}</h3>
+
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  {t.noRolesDescription}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="grid gap-3 p-3 lg:hidden">
+          {roles.map((r) => (
+            <article key={r.id} className="rounded-lg border border-border-subtle p-4">
+              <div className="flex items-start justify-between gap-3">
+                <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
+                <StatusPill tone={r.kind === "custom" ? "brand" : "neutral"}>
+                  {r.kind === "custom" ? t.custom : t.builtIn}
+                </StatusPill>
+              </div>
+              {/* <p className="mt-2 text-xs text-text-muted">
                   {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })}
                 </p> */}
-              </article>
-            ))}
-          </div>
-          <div className="border-t border-border-subtle px-4 py-4 text-xs text-text-muted">
-            {fill(t.rolesFooter, {
-              total: roles.length,
-              builtIn: 0,
-              custom: roles.length,
-              people: 0,
-            })}
-          </div>
-        </section>
-      )}
+            </article>
+          ))}
+        </div>
+        <div className="border-t border-border-subtle px-4 py-4 text-xs text-text-muted">
+          {fill(t.rolesFooter, {
+            total: roles.length,
+            builtIn: 0,
+            custom: roles.length,
+            people: 0,
+          })}
+        </div>
+      </section>
+      {/* )} */}
       <p className="mt-4 rounded-lg bg-surface-subtle p-4 text-xs leading-5 text-text-secondary">
         {t.footer}
       </p>

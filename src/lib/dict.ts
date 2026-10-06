@@ -6,6 +6,8 @@ export type Language = "en" | "ar";
 
 const en = {
   common: {
+    super_admin: "Super Admin",
+    admin: "Admin",
     somethingWentWrong: "Something went wrong. Please try again.",
     brand: "Hoteliana",
     supplierPortal: "SUPPLIER PORTAL",
@@ -837,6 +839,8 @@ const en = {
 
 const ar: typeof en = {
   common: {
+    super_admin: "مدير النظام الأعلى",
+    admin: "مدير",
     somethingWentWrong: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     brand: "هوتيليانا",
     supplierPortal: "بوابة المورّد",

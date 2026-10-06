@@ -16,23 +16,21 @@ export const useUpsertMember = ({ id }: Params = {}) => {
 
   return useMutation<TeamMemberPayload>({
     mutationFn: async (body) => {
-        const url = isEdit ? endpoints.team.updateMember(id!) : endpoints.team.createMember;
+      const url = isEdit ? endpoints.team.updateMember(id!) : endpoints.team.createMember;
 
-        const method = isEdit ? "patch" : "post";
-        // const permissionProfileIds = [body?.permissionProfileIds];
+      const method = isEdit ? "patch" : "post";
+      // const permissionProfileIds = [body?.permissionProfileIds];
 
-        // delete body.profileId;
-        const cleanedBody = cleanAndTrim(body);
+      // delete body.profileId;
+      const cleanedBody = cleanAndTrim(body);
 
-        const { data } = await api[method]<any>(url, cleanedBody);
+      const { data } = await api[method]<any>(url, cleanedBody);
 
-        return data;
+      return data;
     },
 
     onSuccess: (data) => {
-      toast.success(
-        data?.message || isEdit ? "User updated successfully!" : "User created successfully!",
-      );
+      toast.success(data?.message);
 
       queryClient.invalidateQueries({ queryKey: ["users"] });
 

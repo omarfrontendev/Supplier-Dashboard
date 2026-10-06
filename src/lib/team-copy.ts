@@ -1,5 +1,14 @@
 export const teamCopy = {
   en: {
+    noRoles: "No roles found",
+    noRolesDescription: "There are no roles to display at the moment.",
+    retry: "Retry",
+    errorTitle: "Something went wrong",
+    noMembers: "No team members found",
+    noMembersDescription: "There are no team members to display at the moment.",
+    ownersValue_one: "{{count}} owner",
+    ownersValue_other: "{{count}} owners",
+    ownersValue_zero: "no owners",
     overline: "TEAM & ACCESS",
     title: "Who in your company can do what",
     subtitle:
@@ -55,6 +64,7 @@ export const teamCopy = {
     invited: "Invited",
     expired: "Expired",
     deactivated: "Deactivated",
+    inactive: "Deactivated",
     outside:
       "Nobody outside your company appears here — not Hoteliana staff, not agents, not another supplier.",
     person: "PERSON",
@@ -168,8 +178,15 @@ export const teamCopy = {
     exactChange: "Exact change",
     relatedRecord: "Related record",
     transferOnly: "transfer only",
+    save: "Save",
   },
   ar: {
+    noRoles: "لم يتم العثور على أدوار",
+    noRolesDescription: "لا توجد أدوار لعرضها في الوقت الحالي.",
+    retry: "إعادة المحاولة",
+    errorTitle: "تعذر تحميل البيانات",
+    noMembers: "لم يتم العثور على أعضاء في الفريق",
+    noMembersDescription: "لا يوجد أعضاء في الفريق لعرضهم في الوقت الحالي.",
     createdAt: "تاريخ الإنشاء",
     overline: "الفريق والصلاحيات",
     title: "من يمكنه فعل ماذا داخل شركتك",
@@ -226,6 +243,7 @@ export const teamCopy = {
     invited: "مدعو",
     expired: "منتهية",
     deactivated: "معطّل",
+    inactive: "معطّل",
     outside: "لا يظهر هنا أي شخص خارج شركتك — لا موظفو Hoteliana ولا الوكلاء ولا مورّد آخر.",
     person: "الشخص",
     role: "الدور",
@@ -335,6 +353,7 @@ export const teamCopy = {
     exactChange: "التغيير الدقيق",
     relatedRecord: "السجل المرتبط",
     transferOnly: "بالنقل فقط",
+    save: "حفظ",
   },
 } as const;
 

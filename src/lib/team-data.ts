@@ -1,5 +1,5 @@
 export type TeamRole = "owner" | "admin" | "revenue" | "reservations" | "frontOffice" | "finance" | "auditor";
-export type TeamStatus = "active" | "invited" | "expired" | "deactivated";
+export type TeamStatus = "active" | "invited" | "expired" | "deactivated" | "inactive";
 export type ActivityArea = "rates" | "inventory" | "bookings" | "finance" | "hotels" | "users";
 export type ActivityActor = "team" | "hoteliana" | "system" | "api";
 

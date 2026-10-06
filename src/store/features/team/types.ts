@@ -16,7 +16,7 @@ export interface TeamMember {
   areaId?: number | null;
   regionId?: number | null;
   subRegionId?: number | null;
-};
+}
 
 export interface TeamMemberPayload {
   username: string;
@@ -27,10 +27,10 @@ export interface TeamMemberPayload {
 }
 
 export interface TeamState {
-    team: TeamMember[];
-    loading: boolean;
-    error: string | null;
-    total: number;
+  team: TeamMember[];
+  loading: boolean;
+  error: string | null;
+  total: number;
 }
 
 export interface GetUsersPayload {
@@ -40,4 +40,27 @@ export interface GetUsersPayload {
   isActive: boolean;
   isFirstActivationPending?: boolean;
   role?: string | null;
+}
+
+// ========================= //
+
+export type HotelRequestKey = "waiting_for_hoteliana" | "needs_you" | "approved" | "rejected";
+
+export type UserStatusKey = "active" | "inactive" | "pending";
+
+export interface MetadataItem<T extends string = string> {
+  key: T;
+  value: number;
+}
+
+export interface MetricsData {
+  hotelRequests: MetadataItem<HotelRequestKey>[];
+  superAdmins: MetadataItem<UserStatusKey>[];
+  admins: MetadataItem<UserStatusKey>[];
+}
+
+export interface MetricsResponse {
+  status: "success";
+  message: string;
+  data: MetricsData;
 }
