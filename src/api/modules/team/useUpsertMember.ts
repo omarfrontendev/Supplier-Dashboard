@@ -16,18 +16,17 @@ export const useUpsertMember = ({ id }: Params = {}) => {
 
   return useMutation<TeamMemberPayload>({
     mutationFn: async (body) => {
-      //   const url = isEdit ? endpoints.team.updateMember(id!) : endpoints.team.createMember;
+        const url = isEdit ? endpoints.team.updateMember(id!) : endpoints.team.createMember;
 
-      //   const method = isEdit ? "patch" : "post";
-      //   const permissionProfileIds = [body?.permissionProfileIds];
+        const method = isEdit ? "patch" : "post";
+        // const permissionProfileIds = [body?.permissionProfileIds];
 
-      //   // delete body.profileId;
-      //   const cleanedBody = cleanAndTrim({ ...body, permissionProfileIds });
+        // delete body.profileId;
+        const cleanedBody = cleanAndTrim(body);
 
-      //   const { data } = await api[method]<any>(url, cleanedBody);
+        const { data } = await api[method]<any>(url, cleanedBody);
 
-      //   return data;
-      console.log(body);
+        return data;
     },
 
     onSuccess: (data) => {

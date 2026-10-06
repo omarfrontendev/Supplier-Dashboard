@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Download, ShieldCheck } from "lucide-react";
+import { Check, Download, ShieldCheck, X } from "lucide-react";
 import { Modal, Drawer } from "@/components/layout/overlay";
 import { StatusPill, DataRow } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,13 @@ import {
   roleReachAr,
   type ActivityEntry,
   type TeamMember,
-  type TeamRole,
 } from "@/lib/team-data";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { memberSchema } from "./member-form/schema";
+import { memberFields } from "./member-form/fields";
+import { PermissionProfile } from "@/api/modules/profile-permissions/types";
 import { useUpsertMember } from "@/api/modules/team/useUpsertMember";
-import { useProfiles } from "@/api/modules/profile-permissions/userProfiles";
 
 const statusTone = {
   active: "success",
@@ -29,99 +32,152 @@ const statusTone = {
   deactivated: "neutral",
 } as const;
 
-function RolePicker({ value, onChange }: { value: TeamRole; onChange: (role: TeamRole) => void }) {
-  const { lang } = useLanguage();
+function RolePicker({
+  value,
+  onChange,
+  roles,
+  onClose,
+}: {
+  value: number[];
+  onChange: (roles: PermissionProfile[]) => void;
+  onClose: () => void;
+  roles: PermissionProfile[];
+}) {
+  const { c, lang } = useLanguage();
+
+  const toggleRole = (role: PermissionProfile) => {
+    const isSelected = value?.some((item) => +item === +role.id);
+
+    if (isSelected) {
+      onChange(value?.filter((item) => +item !== +role.id));
+    } else {
+      onChange([...value, role?.id]);
+    }
+  };
+
   return (
-    <div className="grid gap-1.5">
-      {roleOrder
-        .filter((r) => r !== "owner")
-        .map((role) => (
+    <div className="grid gap-1.5 relative">
+      {roles.map((role) => {
+        const isSelected = value.some((item) => +item === +role.id);
+
+        return (
           <button
             type="button"
-            key={role}
-            onClick={() => onChange(role)}
-            className={`flex w-full gap-3 rounded-lg border p-3 text-start ${value === role ? "border-2 border-brand-deep bg-surface-subtle" : "border-border-default bg-surface-default"}`}
+            key={role.id}
+            onClick={() => toggleRole(role)}
+            className={`flex w-full gap-3 rounded-lg border p-3 text-start ${
+              isSelected
+                ? "border-2 border-brand-deep bg-surface-subtle"
+                : "border-border-default bg-surface-default"
+            }`}
           >
+            {/* Checkbox */}
             <span
-              className={`mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border ${value === role ? "border-2 border-brand-deep" : "border-border-strong"}`}
+              className={`mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded border ${
+                isSelected
+                  ? "border-brand-deep bg-brand-deep"
+                  : "border-border-strong bg-surface-default"
+              }`}
             >
-              {value === role && <span className="h-2 w-2 rounded-full bg-brand-deep" />}
+              {isSelected && (
+                <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3 text-white">
+                  <path
+                    d="M4 10.5L8 14L16 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
             </span>
+
+            {/* Role info */}
             <span>
               <b className="block text-[13px] font-medium text-text-primary">
-                {roleNames[lang][role]}
+                {role[`name${lang === "en" ? "En" : "Ar"}`]}
               </b>
-              <small className="block text-[11px] leading-[17px] text-text-muted">
-                {roleDescriptions[lang][role]}
-              </small>
             </span>
           </button>
-        ))}
+        );
+      })}
+      <Button
+        type="button"
+        onClick={onClose}
+        aria-label="Confirm selection"
+        disabled={value?.length === 0}
+        variant="dark"
+      >
+        <Check className="h-4 w-4" />
+        {c.common.confirmSelection}
+      </Button>
     </div>
   );
 }
 
-export function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { lang } = useLanguage();
+export function InviteDialog({
+  open,
+  onClose,
+  roles,
+}: {
+  open: boolean;
+  onClose: () => void;
+  roles: PermissionProfile[];
+}) {
+  const { c, lang } = useLanguage();
   const t = teamCopy[lang];
-  // const { inviteMember, addActivity } = usePortal();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<TeamRole>("reservations");
+  const [role, setRole] = useState<number[] | null>([]);
   const [pick, setPick] = useState(false);
-  const { mutate: saveMember, isPending } = useUpsertMember();
 
-  // const { profiles, isLoading, refetch: refetchProfiles } = useProfiles();
+  const form = useForm<any>({
+    resolver: zodResolver(memberSchema()),
+    defaultValues: {
+      role: "super_admin",
+    },
+    mode: "all",
+  });
+
+  const { mutate: saveMember } = useUpsertMember();
+
+  const onSubmit = (values: any) => {
+    saveMember(values, {
+      onSuccess: () => {
+        onClose();
+        form.reset();
+        setRole([]);
+        setPick(false);
+      },
+    });
+  };
+
+  const roleError = !role?.length && form.formState.errors.permissionProfileIds;
 
   if (!open) return null;
-  const reach = (lang === "ar" ? roleReachAr : roleReach)[role];
-  const send = () => {
-    if (!name.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
-      notify.error(t.emailHint);
-      return;
-    }
-
-    // inviteMember({ name, nameAr: name, email, role });
-    // saveMember({
-    //   username: name,
-    //   email,
-    //   phoneNumber: "21963123123",
-    //   role: "super_admin",
-    //   permissionProfileIds: [1],
-    // });
-
-    // addActivity({
-    //   id: `LOG-${Date.now()}`,
-    //   when: "now",
-    //   whenAr: "الآن",
-    //   actor: "you",
-    //   actorAr: "أنت",
-    //   actorType: "team",
-    //   role: "Owner",
-    //   roleAr: "المالك",
-    //   action: "Invited a person",
-    //   actionAr: "دعا شخصًا",
-    //   record: `${name} · ${roleNames.en[role]}`,
-    //   recordAr: `${name} · ${roleNames.ar[role]}`,
-    //   area: "users",
-    // });
-
-    notify.success(t.invitationSent, { description: t.invitationSentBody });
-    onClose();
-  };
 
   return (
     <Modal
       title={t.inviteTitle}
       meta={t.inviteIntro}
-      onClose={onClose}
+      onClose={() => {
+        onClose();
+        form.reset();
+        setRole([]);
+        setPick(false);
+      }}
       className="max-w-[640px]"
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
             {t.cancel}
           </Button>
-          <Button variant="dark" onClick={send}>
+          <Button
+            variant="dark"
+            type="submit"
+            form="member-form"
+            disabled={form.formState.isSubmitting}
+          >
             {t.send}
           </Button>
         </>
@@ -129,41 +185,80 @@ export function InviteDialog({ open, onClose }: { open: boolean; onClose: () => 
     >
       <div className="grid gap-4">
         <p className="text-overline text-text-muted">{t.who}</p>
-        <Input label={t.fullName} value={name} onChange={(e) => setName(e.target.value)} />
-        <Input
-          label={t.workEmail}
-          value={email}
-          hint={t.emailHint}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <p className="text-overline text-text-muted">{t.pickRole}</p>
-        {pick ? (
-          <RolePicker
-            value={role}
-            onChange={(v) => {
-              setRole(v);
-              setPick(false);
-            }}
-          />
-        ) : (
-          <div className="flex items-center gap-3 rounded-lg border-2 border-brand-deep bg-surface-subtle p-3">
-            <div className="min-w-0 flex-1">
-              <b className="text-sm text-text-primary">{roleNames[lang][role]}</b>
-              <p className="text-xs text-text-muted">{roleDescriptions[lang][role]}</p>
+
+        <form id="member-form" className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+          {memberFields().map(({ name, label, placeholder, type }) => (
+            <Input
+              label={label}
+              placeholder={placeholder}
+              type={type}
+              autoComplete="new-password"
+              min={type === "number" ? 0 : undefined}
+              onKeyDown={
+                type === "number"
+                  ? (e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }
+                  : undefined
+              }
+              error={
+                typeof form.formState.errors?.[name]?.message === "string"
+                  ? (form.formState.errors[name]?.message as string)
+                  : ""
+              }
+              {...form.register(name)}
+            />
+          ))}
+
+          <p className="text-overline text-text-muted">{t.pickRole}</p>
+          {pick ? (
+            <RolePicker
+              onClose={() => setPick(false)}
+              roles={roles}
+              value={role}
+              onChange={(selectedRoles) => {
+                setRole(selectedRoles);
+                form.setValue("permissionProfileIds", selectedRoles);
+              }}
+            />
+          ) : (
+            <div
+              className={`flex items-center gap-3 rounded-lg border-2 p-3 ${
+                roleError
+                  ? "border-destructive bg-destructive/5"
+                  : "border-brand-deep bg-surface-subtle"
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <b className={`text-sm ${roleError ? "text-destructive" : "text-text-primary"}`}>
+                  {roles
+                    .filter((item) => role?.includes(item.id))
+                    .map((item) => item.nameEn)
+                    .join(", ") || c.common.noRolesSelected}
+                </b>
+
+                {roleError && <p className="mt-1 text-xs text-destructive">{roleError.message}</p>}
+              </div>
+
+              <Button type="button" size="sm" variant="outline" onClick={() => setPick(true)}>
+                {t.pickAnother}
+              </Button>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setPick(true)}>
-              {t.pickAnother}
-            </Button>
-          </div>
-        )}
+          )}
+        </form>
         <div className="rounded-lg bg-surface-subtle p-4">
-          <b className="text-sm text-text-primary">{teamFill(t.preview, { name })}</b>
+          <b className="text-sm text-text-primary">{teamFill(t.preview, { name: form.watch("username") })}</b>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {reach.map((item) => (
-              <StatusPill key={item} tone="brand">
-                {item}
-              </StatusPill>
-            ))}
+            {roles
+              .filter((item) => role?.includes(item.id))
+              .flatMap((item) => item.permissionKeys)
+              .map((permission) => (
+                <StatusPill key={permission} tone="brand">
+                  {permission}
+                </StatusPill>
+              ))}
           </div>
           <p className="mt-3 text-xs leading-5 text-text-secondary">{t.previewNote}</p>
         </div>
@@ -291,7 +386,7 @@ export function ManageMemberDrawer({
         {!member.isCurrent && !invitation && (
           <>
             <p className="text-overline text-text-muted">{t.changeReach}</p>
-            <RolePicker value={role} onChange={setRole} />
+            {/* <RolePicker value={role} onChange={setRole} /> */}
             {role === "auditor" && (
               <>
                 <Button

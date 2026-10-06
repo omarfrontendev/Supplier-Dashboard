@@ -74,21 +74,8 @@ function TeamPage() {
   const onRoles = tab === "roles";
   const asAdmin = as === "admin";
 
-  // const dispatch = useDispatch<any>();
-  // const { team } = useSelector((state: any) => state.team);
-
-  // useEffect(() => {
-  //   void dispatch(
-  //     fetchTeam({
-  //       page: 1, // API expects 1-based page
-  //       limit: 10,
-  //       search: "",
-  //       isActive: false,
-  //       isFirstActivationPending: false,
-  //       role: null,
-  //     }),
-  //   );
-  // }, [dispatch]);
+  const dispatch = useDispatch<any>();
+  const { team, total } = useSelector((state: any) => state.team);
 
   const people = useMemo(
     () =>
@@ -125,6 +112,16 @@ function TeamPage() {
   const [transfer, setTransfer] = useState(false);
   const { profiles: roles, isLoading, isError, refetch } = useProfiles();
 
+  useEffect(() => {
+    void dispatch(
+      fetchTeam({
+        page: 1, // API expects 1-based page
+        limit: 10,
+        isActive: filter === "active" ? true : filter === "all" ? null : false,
+      }),
+    );
+  }, [dispatch, filter]);
+
   /* OV 08.21 / 08.21B / 08.25 — create, duplicate and edit a role. */ const [role, setRole] =
     useState<{ mode: "create" | "edit"; row?: RoleRow; copyFrom?: string } | null>(null);
   const visible = useMemo(
@@ -132,17 +129,17 @@ function TeamPage() {
     [people, filter],
   );
   const counts = {
-    all: people.length,
-    active: people.filter((m) => m.status === "active").length,
-    invited: people.filter((m) => m.status === "invited").length,
-    expired: people.filter((m) => m.status === "expired").length,
-    deactivated: people.filter((m) => m.status === "deactivated").length,
+    all: total,
+    active: team.filter((m) => m.status === "active").length,
+    invited: team.filter((m) => m.status === "invited").length,
+    expired: team.filter((m) => m.status === "expired").length,
+    deactivated: team.filter((m) => m.status === "deactivated").length,
   };
   const filters: Array<["all" | TeamStatus, string]> = [
     ["all", t.everyone],
     ["active", t.active],
-    ["invited", t.invited],
-    ["expired", t.expired],
+    // ["invited", t.invited],
+    // ["expired", t.expired],
     ["deactivated", t.deactivated],
   ];
 
@@ -232,11 +229,13 @@ function TeamPage() {
                   onClick={() => setFilter(v)}
                 >
                   {l}
-                  <span
-                    className={`rounded-full px-1.5 text-[10px] ${filter === v ? "bg-primary text-primary-foreground" : "bg-status-neutral-bg text-brand-deep"}`}
-                  >
-                    {num(counts[v])}
-                  </span>
+                  {v === "all" && (
+                    <span
+                      className={`rounded-full px-1.5 text-[10px] ${filter === v ? "bg-primary text-primary-foreground" : "bg-status-neutral-bg text-brand-deep"}`}
+                    >
+                      {num(counts[v])}
+                    </span>
+                  )}
                 </Button>
               ))}
             </div>
@@ -250,10 +249,10 @@ function TeamPage() {
                   <span>{t.role}</span>
                   <span>{t.reach}</span>
                   <span>{t.status}</span>
-                  <span>{t.lastSeen}</span>
+                  <span>{t.phoneNumber}</span>
                   <span />
                 </div>
-                {visible.map((m) => (
+                {team.map((m) => (
                   <MemberRow key={m.id} member={m} lang={lang} t={t} open={() => setSelected(m)} />
                 ))}
               </div>
@@ -268,19 +267,20 @@ function TeamPage() {
             <h2 className="text-base font-semibold text-text-primary">{t.roleMatrix}</h2>
             <p className="mt-1 text-xs text-text-muted">{t.roleMatrixNote}</p>
             <div className="mt-4 overflow-hidden rounded-lg border border-border-subtle">
-              {roleOrder.map((role) => (
+              {roles.map((role) => (
                 <div
-                  key={role}
+                  key={role?.id}
                   className="grid gap-3 border-b border-border-subtle p-4 last:border-0 md:grid-cols-[330px_1fr]"
                 >
                   <div>
-                    <b className="text-sm text-text-primary">{roleNames[lang][role]}</b>
-                    <p className="mt-1 text-xs text-text-muted">{roleDescriptions[lang][role]}</p>
+                    <b className="text-sm text-text-primary">
+                      {role?.[`name${lang === "en" ? "En" : "Ar"}`]}
+                    </b>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(lang === "ar" ? roleReachAr : roleReach)[role].map((item) => (
-                      <ReachChip key={item} tint={roleTint[role]} negative={item.startsWith("- ")}>
-                        {item}
+                  <div className="flex flex-wrap gap-1.5 min-h-[60px]">
+                    {role?.permissionKeys.slice(0, 5).map((item) => (
+                      <ReachChip key={item} tint={"lime"} negative={item.startsWith("- ")}>
+                        <div className="truncate max-w-[120px] px-2">{item}</div>
                       </ReachChip>
                     ))}
                   </div>
@@ -305,7 +305,7 @@ function TeamPage() {
           </p>
         </>
       )}
-      <InviteDialog open={invite} onClose={() => setInvite(false)} />
+      <InviteDialog open={invite} onClose={() => setInvite(false)} roles={roles} />
       {selected && (
         <ManageMemberDrawer
           member={selected}
@@ -362,13 +362,11 @@ function Metric({
 function Person({ m, lang }: { m: TeamMember; lang: "en" | "ar" }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-brand-deep text-xs font-semibold text-text-inverse">
-        {m.name[0]}
+      <span className="uppercase grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-brand-deep text-xs font-semibold text-text-inverse">
+        {m.username?.[0]}
       </span>
       <div className="min-w-0">
-        <b className="block truncate text-xs font-medium text-text-primary">
-          {lang === "ar" ? m.nameAr : m.name}
-        </b>
+        <b className="block truncate text-xs font-medium text-text-primary">{m.username}</b>
         <p className="truncate text-[11px] text-text-muted">{m.email}</p>
       </div>
     </div>
@@ -390,9 +388,10 @@ function MemberRow({
       <Person m={m} lang={lang} />
       <div>
         <b className="text-xs text-text-primary">
-          {(lang === "ar" ? m.roleLabelAr : m.roleLabel) ?? roleNames[lang][m.role]}
+          {/* {(lang === "ar" ? m.roleLabelAr : m.roleLabel) ?? roleNames[lang][m.role]} */}
+          {m.role}
         </b>
-        {m.isCurrent && (
+        {/* {m.isCurrent && (
           <StatusPill className="mt-1" tone="brand">
             {m.role === "owner" ? t.youOwner : t.youLabel}
           </StatusPill>
@@ -411,27 +410,26 @@ function MemberRow({
           <StatusPill className="mt-1" tone="danger">
             {t.expired}
           </StatusPill>
-        )}
+        )} */}
       </div>
       <div className="flex flex-wrap gap-1">
-        {(lang === "ar" ? m.reachAr : m.reach).map((x) => (
+        {/* {(lang === "ar" ? m.reachAr : m.reach).map((x) => (
           <StatusPill key={x}>{x}</StatusPill>
-        ))}
+        ))} */}
       </div>
       <div>
+        {/* <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill> */}
         <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill>
-        {(m.status === "expired" || m.inviteExpired) && (
+        {/* {(m.status === "expired" || m.inviteExpired) && (
           <p className="text-overline mt-1 text-status-danger">{t.inviteExpired}</p>
-        )}
+        )} */}
       </div>
-      <span className="text-[11px] text-text-secondary">
-        {lang === "ar" ? m.lastSeenAr : m.lastSeen}
-      </span>
-      <Button variant="outline" size="sm" onClick={open}>
+      <span className="text-xs text-text-primary">{m.phoneNumber}</span>
+      {/* <Button variant="outline" size="sm" onClick={open}>
         {m.isCurrent && m.role !== "owner"
           ? t.yourAccount
           : `${m.isCurrent || (m.role === "owner" && !m.isCurrent) ? t.viewPerson : t.manage} ${lang === "ar" ? m.nameAr.split(" ")[0] : m.name.split(" ")[0]}`}
-      </Button>
+      </Button> */}
     </div>
   );
 }
@@ -542,17 +540,17 @@ function RolesTab({
         <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
           <div className="hidden overflow-x-auto lg:block">
             <div className="min-w-[980px]">
-              <div className="grid grid-cols-[220px_140px_220px_1fr_190px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
+              <div className="grid grid-cols-[120px_140px_280px_1fr_190px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
                 <span>{t.roleCol}</span>
                 <span>{t.typeCol}</span>
-                <span>{t.lastSeen}</span>
+                <span>{t.reach}</span>
                 <span>{t.createdAt}</span>
                 <span />
               </div>
               {roles.map((r) => (
                 <div
                   key={r.id}
-                  className="grid grid-cols-[220px_140px_220px_1fr_190px] items-center gap-3 border-t border-border-subtle px-4 py-3 text-xs"
+                  className="grid grid-cols-[120px_140px_280px_1fr_190px] items-center gap-3 border-t border-border-subtle px-4 py-3 text-xs"
                 >
                   <b className="text-sm text-text-primary">{lang === "ar" ? r.nameAr : r.nameEn}</b>
                   <StatusPill
@@ -561,31 +559,14 @@ function RolesTab({
                   >
                     {r.kind === "custom" ? t.custom : t.builtIn}
                   </StatusPill>
-                  {/* <span>
-                  {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })}
-                </span> */}
+                  <span className="text-text-secondary block truncate">
+                    {r?.permissionKeys
+                      ?.slice(0, 2)
+                      .map((item) => item)
+                      .join(", ") || "c.common.noRolesSelected"}
+                  </span>
                   <span className="text-text-muted">{formatDate(r.createdAt, lang)}</span>
-                  <span className="text-text-muted">{formatDate(r.updatedAt, lang)}</span>
-                  {/* <span className="text-text-secondary">
-                  {lang === "ar" ? r.reachesAr : r.reaches}
-                </span> */}
                   <div className="flex justify-end gap-2">
-                    {/* {r.locked ? (
-                    <span className="text-[11px] text-text-muted">{t.cannotChange}</span>
-                  ) : r.kind === "custom" ? (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => onEdit(r)}>
-                        {t.edit}
-                      </Button>
-                      <Button size="sm" variant="ghost" disabled={r.people > 0}>
-                        {t.remove}
-                      </Button>
-                    </>
-                  ) : (
-                  <Button size="sm" variant="outline" onClick={() => onDuplicate(r)}>
-                    {t.duplicate}
-                  </Button>
-                  )} */}
                     <Button size="sm" variant="outline" onClick={() => onEdit(r)}>
                       {t.edit}
                     </Button>
@@ -606,17 +587,19 @@ function RolesTab({
                     {r.kind === "custom" ? t.custom : t.builtIn}
                   </StatusPill>
                 </div>
-                <p className="mt-2 text-xs text-text-secondary">
-                  {/* {lang === "ar" ? r.reachesAr : r.reaches} */}
-                </p>
-                <p className="mt-2 text-xs text-text-muted">
-                  {/* {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })} */}
-                </p>
+                {/* <p className="mt-2 text-xs text-text-muted">
+                  {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })}
+                </p> */}
               </article>
             ))}
           </div>
           <div className="border-t border-border-subtle px-4 py-4 text-xs text-text-muted">
-            {/* {fill(t.rolesFooter, { total: roles.length, builtIn, custom, people: staffed })} */}
+            {fill(t.rolesFooter, {
+              total: roles.length,
+              builtIn: 0,
+              custom: roles.length,
+              people: 0,
+            })}
           </div>
         </section>
       )}

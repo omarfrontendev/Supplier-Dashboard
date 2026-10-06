@@ -7,13 +7,13 @@ import { ownerOnly, roleOverlay } from "@/lib/role-overlay-data";
 import { cn } from "@/lib/utils";
 import { useAvailableProfiles } from "@/api/modules/profile-permissions/userProfiles";
 import { useForm } from "react-hook-form";
-import { prpfileSchema } from "./form/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { profileFields } from "./form/fields";
 import { Input } from "../ui/input";
 import { useUpsertProfile } from "@/api/modules/profile-permissions/useUpsertProfiles";
 import { useSingleRole } from "@/api/modules/profile-permissions/useSingleProfile";
 import { PermissionProfile } from "@/api/modules/profile-permissions/types";
+import { profileFields } from "./role-form/fields";
+import { prpfileSchema } from "./role-form/schema";
 
 /**
  * What each built-in role reaches, so Duplicate starts from something real.

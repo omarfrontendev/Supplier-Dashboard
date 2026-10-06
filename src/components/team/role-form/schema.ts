@@ -8,14 +8,14 @@ export const prpfileSchema = () => {
     nameEn: z
       .string()
       .trim()
-      .nonempty({ message: "nameRequired" })
+      .nonempty({ message: c.common.fieldRequired })
       .refine((val) => !/[\u0600-\u06FF]/.test(val), {
         message: c.common.arabicLettersNotAllowed,
       }),
     nameAr: z
       .string()
       .trim()
-      .nonempty({ message: "nameRequired" })
+      .nonempty({ message: c.common.fieldRequired })
       .refine((val) => !/[A-Za-z]/.test(val), {
         message: c.common.englishLettersNotAllowed,
       }),
