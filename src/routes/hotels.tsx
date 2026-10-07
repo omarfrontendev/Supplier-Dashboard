@@ -448,7 +448,7 @@ function HotelLibraryPage() {
         <LibraryFilterOverlay
           copy={libraryFilter}
           width="920px"
-          count={visible.length}
+          count={0}
           onClose={() => setPanel(null)}
         />
       )}
