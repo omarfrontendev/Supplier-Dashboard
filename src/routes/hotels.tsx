@@ -434,7 +434,7 @@ function HotelLibraryPage() {
           <Button onClick={() => setConfirmOpen(true)}>{c.library.requestAccess}</Button>
         </div>
       )}
-
+      
       {panel === "search" && (
         <LibrarySearchOverlay
           onClose={() => setPanel(null)}
