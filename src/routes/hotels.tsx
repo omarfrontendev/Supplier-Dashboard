@@ -29,16 +29,16 @@ import { hotels, type HotelRelation } from "@/lib/demo-data";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchHotelsOptions } from "@/store/features/hotels/hotel-options.slice";
 import { RootState } from "@/store";
-import { getCountryName, useDebounce } from "./my-hotels";
+import { useDebounce } from "./my-hotels";
 // import { useDispatch, useSelector } from "react-redux";
 // import { RootState } from "@/store";
 // import { fetchHotels } from "@/store/features/hotels/hotels.slice";
-import countries from "i18n-iso-countries";
-import en from "i18n-iso-countries/langs/en.json";
-import ar from "i18n-iso-countries/langs/ar.json";
+// import countries from "i18n-iso-countries";
+// import en from "i18n-iso-countries/langs/en.json";
+// import ar from "i18n-iso-countries/langs/ar.json";
 
-countries.registerLocale(en);
-countries.registerLocale(ar);
+// countries.registerLocale(en);
+// countries.registerLocale(ar);
 
 export const Route = createFileRoute("/hotels")({
   /* UI 02.1 — the first visit, where no hotel is linked yet and every
@@ -193,16 +193,16 @@ function HotelLibraryPage() {
     error,
   } = useSelector((state: RootState) => state.hotelsOption);
 
-  const countryOptions = [
-    {
-      value: "all",
-      label: c.myHotels.allCountries,
-    },
-    ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
-      value: code,
-      label: getCountryName(code, lang),
-    })),
-  ];
+  // const countryOptions = [
+  //   {
+  //     value: "all",
+  //     label: c.myHotels.allCountries,
+  //   },
+  //   ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
+  //     value: code,
+  //     label: getCountryName(code, lang),
+  //   })),
+  // ];
 
   return (
     <PageShell>
@@ -264,7 +264,8 @@ function HotelLibraryPage() {
             value={country}
             onChange={setCountry}
             label={c.profile.country}
-            options={countryOptions}
+            // options={countryOptions}
+            options={[]}
           />
 
           {/* <Select
@@ -434,7 +435,7 @@ function HotelLibraryPage() {
           <Button onClick={() => setConfirmOpen(true)}>{c.library.requestAccess}</Button>
         </div>
       )}
-      
+
       {panel === "search" && (
         <LibrarySearchOverlay
           onClose={() => setPanel(null)}

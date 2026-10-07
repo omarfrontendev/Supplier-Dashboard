@@ -17,18 +17,17 @@ import { Select } from "@/components/ui/select";
 import { fill, useLanguage } from "@/lib/i18n";
 import { usePortal } from "@/lib/portal-store";
 import { hotels } from "@/lib/demo-data";
-import { useRemoteData } from "@/lib/use-remote-data";
 import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { fetchHotels } from "@/store/features/hotels/hotels.slice";
 
-import countries from "i18n-iso-countries";
-import en from "i18n-iso-countries/langs/en.json";
-import ar from "i18n-iso-countries/langs/ar.json";
+// import countries from "i18n-iso-countries";
+// import en from "i18n-iso-countries/langs/en.json";
+// import ar from "i18n-iso-countries/langs/ar.json";
 
-countries.registerLocale(en);
-countries.registerLocale(ar);
+// countries.registerLocale(en);
+// countries.registerLocale(ar);
 
 export const useDebounce = <T,>(value: T, delay = 500) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -44,15 +43,23 @@ export const useDebounce = <T,>(value: T, delay = 500) => {
   return debouncedValue;
 };
 
-export const getCountryName = (countryCode: string, lang: "en" | "ar") => {
-  const locale = lang === "ar" ? "ar" : "en";
+// export const getCountryName = (countryCode: string, lang: "en" | "ar") => {
+//   const locale = lang === "ar" ? "ar" : "en";
 
-  return (
-    new Intl.DisplayNames([locale], {
-      type: "region",
-    }).of(countryCode) ?? countryCode
-  );
-};
+//   return (
+//     new Intl.DisplayNames([locale], {
+//       type: "region",
+//     }).of(countryCode) ?? countryCode
+//   );
+// };
+
+// export const getCountryName = (countryCode: string, language: "en" | "ar") => {
+//   return (
+//     new Intl.DisplayNames([language], {
+//       type: "region",
+//     }).of(countryCode) ?? countryCode
+//   );
+// };
 
 export const Route = createFileRoute("/my-hotels")({
   head: () => ({
@@ -110,17 +117,17 @@ function MyHotelsPage() {
     emptyState,
   } = useSelector((state: RootState) => state.hotels);
 
-  const countryOptions = [
-    {
-      value: "all",
-      label: c.myHotels.allCountries,
-    },
-    ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
-      value: code,
-      label: getCountryName(code, lang),
-      // label: countries.getName(code, lang === "ar" ? "arabic" : "english") ?? code,
-    })),
-  ];
+  // const countryOptions = [
+  //   {
+  //     value: "all",
+  //     label: c.myHotels.allCountries,
+  //   },
+  //   ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
+  //     value: code,
+  //     label: getCountryName(code, lang),
+  //     // label: countries.getName(code, lang === "ar" ? "arabic" : "english") ?? code,
+  //   })),
+  // ];
 
   // ================================================ //
   // ================================================ //
@@ -203,7 +210,8 @@ function MyHotelsPage() {
             label={c.profile.country}
             value={city}
             onChange={setCity}
-            options={countryOptions}
+            // options={countryOptions}
+            options={[]}
           />
           <Select
             label={c.myHotels.contractState}
