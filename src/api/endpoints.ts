@@ -3,6 +3,7 @@ const team = {
   getAllUsers: "/users?page=1&limit=100",
   getMembers: "/users",
   createMember: "/users",
+  createHotelLinkingRequest: `/hotel-linking-requests`,
   getMemberById: (id: string) => `/users/${id}`,
   deactivateMember: (id: string) => `/users/${id}/deactivate`,
   activateMember: (id: string) => `/users/${id}/activate`,
@@ -23,7 +24,7 @@ const auth = {
 const hotels = {
   getHotels: "/linked-hotels",
   getHotelById: (id: string) => `/linked-hotels/${id}`,
-  getHotelOptions: "/hotels/linking-options"
+  getHotelOptions: "/hotels/linking-options",
 };
 
 const profiles = {

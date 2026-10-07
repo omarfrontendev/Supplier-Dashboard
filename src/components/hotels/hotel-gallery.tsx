@@ -39,11 +39,11 @@ export function HotelGallery({
   const rtl = dir === "rtl";
   const photos = hotel.images;
   const [at, setAt] = useState(0);
-  const many = photos.length > 1;
+  const many = photos?.length > 1;
 
   /* Round-trip, so a gallery of four never dead-ends on the fourth. */
   const go = (step: number) =>
-    setAt((index) => (index + step + photos.length) % photos.length);
+    setAt((index) => (index + step + photos?.length) % photos?.length);
 
   const arrow = (back: boolean) => (
     <button
@@ -86,9 +86,11 @@ export function HotelGallery({
           }
         : {})}
     >
-      {photos[at] ? (
+      {/* {photos[at] ? ( */}
+      {false ? (
         <img
-          src={photos[at]}
+          // src={photos[at]}
+          src={""}
           alt={fill(labels.alt, { name, at: at + 1 })}
           loading="lazy"
           className="h-full w-full object-cover"

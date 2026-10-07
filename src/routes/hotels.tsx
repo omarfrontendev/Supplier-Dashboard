@@ -22,7 +22,6 @@ import { HotelCard } from "@/components/hotels/hotel-card";
 import { accessRequestsWord, counted, hotelsAreWord, hotelsSelectedWord } from "@/lib/arabic-count";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
-import { useRemoteData } from "@/lib/use-remote-data";
 import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { usePortal } from "@/lib/portal-store";
 import { hotels, type HotelRelation } from "@/lib/demo-data";
@@ -30,6 +29,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchHotelsOptions } from "@/store/features/hotels/hotel-options.slice";
 import { RootState } from "@/store";
 import { useDebounce } from "./my-hotels";
+import { useCreateHotelLinkingRequest } from "@/api/modules/team/useCreateHotelLinkingRequest";
 // import { useDispatch, useSelector } from "react-redux";
 // import { RootState } from "@/store";
 // import { fetchHotels } from "@/store/features/hotels/hotels.slice";
@@ -94,7 +94,6 @@ function HotelLibraryPage() {
   const [asked, setAsked] = useState<string[]>([]);
   const [sentNames, setSentNames] = useState<string[]>([]);
   const ar = lang === "ar";
-  const quickHotel = hotels.find((item) => item.id === quickId);
   /* OV 02.10 / 02.9 — the two panels the library opens over itself. */
   const [panel, setPanel] = useState<"search" | "filter" | null>(null);
   const [sending, setSending] = useState(false);
@@ -103,7 +102,11 @@ function HotelLibraryPage() {
   const sendRequest = async (ids: string[]) => {
     setSending(true);
     try {
-      await wait(650);
+      // await wait(650);
+      await createHotelLinkingRequest({
+        hotelIds: ids,
+        bookingConfirmationType: "instant",
+      });
       requestAccess(ids);
       setAsked((prev) => [...new Set([...prev, ...ids])]);
       /* OV 02.4 prints the reference each hotel was sent under. */
@@ -115,13 +118,14 @@ function HotelLibraryPage() {
         }),
       );
       setSentCount(ids.length);
-      notify.success(c.toast.accessRequested, {
-        description: fill(c.toast.accessRequestedDesc, {
-          hotels: counted(ids.length, hotelsAreWord, ar ? "ar" : "en"),
-        }),
-      });
+      // notify.success(c.toast.accessRequested, {
+      //   description: fill(c.toast.accessRequestedDesc, {
+      //     hotels: counted(ids.length, hotelsAreWord, ar ? "ar" : "en"),
+      //   }),
+      // });
     } catch {
-      notify.error(c.toast.failed);
+      // notify.error(c.toast.failed);
+      throw error;
     } finally {
       setSending(false);
     }
@@ -192,6 +196,11 @@ function HotelLibraryPage() {
     loading,
     error,
   } = useSelector((state: RootState) => state.hotelsOption);
+
+  const quickHotel = hotelsOption.find((item) => item.id === quickId);
+
+  const { mutateAsync: createHotelLinkingRequest, isPending: requestSubmitting } =
+    useCreateHotelLinkingRequest();
 
   // const countryOptions = [
   //   {
@@ -463,7 +472,7 @@ function HotelLibraryPage() {
           requested={(relations[quickHotel.id] ?? quickHotel.relation) === "requested"}
           onClose={() => setQuickId(null)}
           onRequest={() => {
-            setPicked([quickHotel.id]);
+            setPicked([quickId]);
             setQuickId(null);
             setConfirmOpen(true);
           }}
@@ -491,11 +500,23 @@ function HotelLibraryPage() {
           })}
           sending={sending}
           onClose={() => setConfirmOpen(false)}
+          // onConfirm={async () => {
+          //   const ids = picked;
+          //   await sendRequest(ids);
+          //   setConfirmOpen(false);
+          //   setPicked([]);
+          // }}
           onConfirm={async () => {
             const ids = picked;
-            setConfirmOpen(false);
-            setPicked([]);
-            await sendRequest(ids);
+
+            try {
+              await sendRequest(ids);
+
+              setConfirmOpen(false);
+              setPicked([]);
+            } catch {
+              // Keep confirmation dialog open
+            }
           }}
         />
       )}

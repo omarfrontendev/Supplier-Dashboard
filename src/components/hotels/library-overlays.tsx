@@ -1,18 +1,6 @@
 import { useState } from "react";
-import {
-  Check,
-  Hash,
-  Image as ImageIcon,
-  Info,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
-import {
-  arDigits,
-  countedOf,
-  hotelsWord,
-  requestsWord,
-} from "@/lib/arabic-count";
+import { Check, Hash, Image as ImageIcon, Info, Search, ShieldCheck } from "lucide-react";
+import { arDigits, countedOf, hotelsWord, requestsWord } from "@/lib/arabic-count";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { HotelGallery } from "@/components/hotels/hotel-gallery";
 import type { Hotel } from "@/lib/demo-data";
@@ -29,17 +17,14 @@ import {
   type Bi,
   type FilterGroup,
 } from "@/lib/library-overlay-data";
+import { useSingleHotel } from "@/api/modules/hotels/useSingleHotel";
 
 /** OV 02.2 — the overline and value of one profile line. */
 function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline gap-3 py-1.5">
-      <span className="w-[130px] shrink-0 text-[12.5px] text-text-muted">
-        {label}
-      </span>
-      <span className="min-w-0 flex-1 text-[12.5px] font-medium text-text-primary">
-        {value}
-      </span>
+      <span className="w-[130px] shrink-0 text-[12.5px] text-text-muted">{label}</span>
+      <span className="min-w-0 flex-1 text-[12.5px] font-medium text-text-primary">{value}</span>
     </div>
   );
 }
@@ -71,6 +56,8 @@ export function HotelQuickView({
   const k = lang === "ar" ? "ar" : "en";
   const c = quickView;
 
+  const { hotel: selectedHotel, isLoading, isError } = useSingleHotel(hotel?.id);
+
   return (
     <Drawer
       width="560px"
@@ -80,7 +67,7 @@ export function HotelQuickView({
       divider={false}
       onClose={onClose}
       footer={
-        requested ? (
+        hotel?.hasPendingRequest ? (
           <Button variant="outline" onClick={onSeeRequest}>
             {c.seeRequest[k]}
           </Button>
@@ -90,8 +77,8 @@ export function HotelQuickView({
       }
     >
       <div className="space-y-4">
-        <StatusPill tone={requested ? "warning" : "neutral"}>
-          {requested ? c.requested[k] : c.available[k]}
+        <StatusPill tone={hotel?.hasPendingRequest ? "warning" : "neutral"}>
+          {hotel?.hasPendingRequest ? c.requested[k] : c.available[k]}
         </StatusPill>
 
         {/* The photographs Hoteliana holds. The frame draws the cover
@@ -124,10 +111,7 @@ export function HotelQuickView({
                   : `${hotel.address}, ${hotel.district}`
               }
             />
-            <ProfileRow
-              label={c.description[k]}
-              value={k === "ar" ? hotel.descAr : hotel.descEn}
-            />
+            <ProfileRow label={c.description[k]} value={k === "ar" ? hotel.descAr : hotel.descEn} />
             <ProfileRow
               label={c.distance[k]}
               value={k === "ar" ? hotel.distanceAr : hotel.distance}
@@ -172,9 +156,7 @@ export function HotelQuickView({
                 <span className="min-w-0 flex-1 text-[11.5px] text-text-secondary">
                   {room.detail[k]}
                 </span>
-                <span className="text-[11.5px] text-status-success">
-                  {room.state[k]}
-                </span>
+                <span className="text-[11.5px] text-status-success">{room.state[k]}</span>
               </div>
             ))}
           </div>
@@ -215,9 +197,7 @@ export function ConfirmRequestOverlay({
       width="660px"
       overline={c.overline[k]}
       title={
-        many
-          ? fill(c.titleMany[k], { hotels: countedOf(count, hotelsWord, k) })
-          : c.titleOne[k]
+        many ? fill(c.titleMany[k], { hotels: countedOf(count, hotelsWord, k) }) : c.titleOne[k]
       }
       body={many ? c.bodyMany[k] : c.bodyOne[k]}
       onClose={onClose}
@@ -251,19 +231,12 @@ export function ConfirmRequestOverlay({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <ImageIcon
-                  className="h-4 w-4 text-white/40"
-                  aria-hidden="true"
-                />
+                <ImageIcon className="h-4 w-4 text-white/40" aria-hidden="true" />
               )}
             </span>
             <div className="min-w-0">
-              <p className="text-[12.5px] font-semibold text-text-primary">
-                {hotel.name}
-              </p>
-              <p className="mt-0.5 text-[11.5px] text-text-muted">
-                {hotel.meta}
-              </p>
+              <p className="text-[12.5px] font-semibold text-text-primary">{hotel.name}</p>
+              <p className="mt-0.5 text-[11.5px] text-text-muted">{hotel.meta}</p>
             </div>
           </div>
         ))}
@@ -337,9 +310,7 @@ export function RequestSentOverlay({
           <Hash className="h-4 w-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="font-data text-[12.5px] font-semibold text-text-primary">
-            {refs}
-          </p>
+          <p className="font-data text-[12.5px] font-semibold text-text-primary">{refs}</p>
           <p className="mt-0.5 text-[11.5px] text-text-muted">{names}</p>
         </div>
       </div>
@@ -361,9 +332,7 @@ export function RequestSentOverlay({
                   {k === "ar" ? arDigits(index + 1) : index + 1}
                 </span>
               )}
-              <span className="text-[12.5px] leading-[18px] text-text-body">
-                {step[k]}
-              </span>
+              <span className="text-[12.5px] leading-[18px] text-text-body">{step[k]}</span>
             </li>
           ))}
         </ol>
@@ -394,7 +363,7 @@ export function LibrarySearchOverlay({
   const c = librarySearch;
   const [term, setTerm] = useState(c.term[k]);
   const hits = c.hits.filter((hit) =>
-    hit.name[k].toLowerCase().includes(term.trim().toLowerCase())
+    hit.name[k].toLowerCase().includes(term.trim().toLowerCase()),
   );
 
   return (
@@ -439,16 +408,10 @@ export function LibrarySearchOverlay({
                 <span className="block text-[12.5px] font-semibold text-text-primary">
                   {hit.name[k]}
                 </span>
-                <span className="mt-0.5 block text-[11.5px] text-text-muted">
-                  {hit.meta[k]}
-                </span>
+                <span className="mt-0.5 block text-[11.5px] text-text-muted">{hit.meta[k]}</span>
               </span>
-              {hit.state === "linked" && (
-                <StatusPill tone="success">{c.linked[k]}</StatusPill>
-              )}
-              {hit.state === "pending" && (
-                <StatusPill tone="warning">{c.pending[k]}</StatusPill>
-              )}
+              {hit.state === "linked" && <StatusPill tone="success">{c.linked[k]}</StatusPill>}
+              {hit.state === "pending" && <StatusPill tone="warning">{c.pending[k]}</StatusPill>}
               {hit.state === "none" ? (
                 <Button size="sm" onClick={onRequest}>
                   {c.request[k]}
@@ -496,7 +459,7 @@ function FilterGroupRows({
             key={option.label.en}
             className={cn(
               "flex cursor-pointer items-start gap-2.5 rounded-[10px] px-3 py-2 transition-colors",
-              index === value ? "bg-surface-subtle" : "hover:bg-surface-subtle/60"
+              index === value ? "bg-surface-subtle" : "hover:bg-surface-subtle/60",
             )}
           >
             <input
@@ -506,7 +469,7 @@ function FilterGroupRows({
               onChange={() => onPick(index)}
               className={cn(
                 "mt-px h-4 w-4 shrink-0 accent-[var(--brand-deep)]",
-                radio ? "" : "rounded"
+                radio ? "" : "rounded",
               )}
             />
             <span className="min-w-0">
@@ -568,9 +531,7 @@ export function LibraryFilterOverlay({
           value={picked[index] ?? 0}
           radio={index === last}
           onPick={(next) =>
-            setPicked((prev) =>
-              prev.map((item, item_at) => (item_at === index ? next : item))
-            )
+            setPicked((prev) => prev.map((item, item_at) => (item_at === index ? next : item)))
           }
           k={k}
         />
@@ -588,10 +549,7 @@ export function LibraryFilterOverlay({
       onClose={onClose}
       footer={
         <>
-          <Button
-            variant="outline"
-            onClick={() => setPicked(copy.groups.map(() => 0))}
-          >
+          <Button variant="outline" onClick={() => setPicked(copy.groups.map(() => 0))}>
             {copy.clear[k]}
           </Button>
           {/* The frame draws this one deep green, not the usual lime. */}
