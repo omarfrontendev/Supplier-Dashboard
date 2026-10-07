@@ -109,19 +109,6 @@ function TeamPage() {
     void dispatch(fetchTeam(teamParams));
   }, [dispatch, filter]);
 
-  /* OV 08.21 / 08.21B / 08.25 — create, duplicate and edit a role. */ const [role, setRole] =
-    useState<{ mode: "create" | "edit"; row?: RoleRow; copyFrom?: string } | null>(null);
-
-  const filters: Array<["all" | TeamStatus, string]> = [
-    ["all", t.everyone],
-    ["active", t.active],
-    ["invited", t.invited],
-    // ["expired", t.expired],
-    ["deactivated", t.deactivated],
-  ];
-
-  // ================================ //
-
   const { data: metrics } = useMetrics();
 
   const formatCount = (count: number, singular: string) => {
@@ -130,15 +117,77 @@ function TeamPage() {
     return `${count} ${singular}s`;
   };
 
-  const ownersCount =
-    metrics?.superAdmins
-      .filter((item) => item.key === "active")
-      .reduce((total, item) => total + item.value, 0) ?? 0;
+  const getTotalActiveUsers = (data: any) => {
+    if (!data) return;
+    const superAdminsActive = data?.superAdmins.find((item) => item.key === "active")?.value ?? 0;
 
-  const adminsCount =
-    metrics?.admins
-      .filter((item) => item.key === "active")
-      .reduce((total, item) => total + item.value, 0) ?? 0;
+    const adminsActive = data?.admins.find((item) => item.key === "active")?.value ?? 0;
+
+    return superAdminsActive + adminsActive;
+  };
+
+  const getTotalInactiveUsers = (data: MetricsData) => {
+    if (!data) return;
+
+    const superAdminsInactive =
+      data.superAdmins.find((item) => item.key === "inactive")?.value ?? 0;
+
+    const adminsInactive = data.admins.find((item) => item.key === "inactive")?.value ?? 0;
+
+    return superAdminsInactive + adminsInactive;
+  };
+
+  const getActiveSuperAdmins = (data: MetricsData) => {
+    if (!data) return;
+
+    return data.superAdmins.find((item) => item.key === "active")?.value ?? 0;
+  };
+
+  const getActiveAdmins = (data: MetricsData) => {
+    if (!data) return;
+
+    return data.admins.find((item) => item.key === "active")?.value ?? 0;
+  };
+
+  const getTotalPendingUsers = (data: MetricsData) => {
+    if (!data) return;
+
+    const superAdminsPending = data.superAdmins.find((item) => item.key === "pending")?.value ?? 0;
+
+    const adminsPending = data.admins.find((item) => item.key === "pending")?.value ?? 0;
+
+    return superAdminsPending + adminsPending;
+  };
+
+  const getTotalUsers = (data: MetricsData) => {
+    if (!data) return;
+    const getStatusTotal = (users: MetadataItem<UserStatusKey>[]) =>
+      users
+        .filter((item) => item.key === "active" || item.key === "inactive")
+        .reduce((total, item) => total + item.value, 0);
+
+    return getStatusTotal(data.superAdmins) + getStatusTotal(data.admins);
+  };
+
+  const totalActive = getTotalActiveUsers(metrics);
+  const totalInactive = getTotalInactiveUsers(metrics);
+  const activeSuperAdmins = getActiveSuperAdmins(metrics);
+  const activeAdmins = getActiveAdmins(metrics);
+  const totalPending = getTotalPendingUsers(metrics);
+  const all = getTotalUsers(metrics);
+
+  /* OV 08.21 / 08.21B / 08.25 — create, duplicate and edit a role. */ const [role, setRole] =
+    useState<{ mode: "create" | "edit"; row?: RoleRow; copyFrom?: string } | null>(null);
+
+  const filters: Array<["all" | TeamStatus, string, number]> = [
+    ["all", t.everyone, all],
+    ["active", t.active, totalActive],
+    ["invited", t.invited, totalPending],
+    // ["expired", t.expired],
+    ["deactivated", t.deactivated, totalInactive],
+  ];
+
+  const formatPeopleNote = (count: number) => t.peopleNote.replace("{{count}}", String(count));
 
   return (
     <PageShell>
@@ -201,23 +250,27 @@ function TeamPage() {
       ) : (
         <>
           <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label={t.people} value={num(1)} note={t.peopleNote} />
+            <Metric
+              label={t.people}
+              value={num(totalActive || 0)}
+              note={formatPeopleNote(totalInactive)}
+            />
             <Metric
               label={t.owners}
-              value={`${formatCount(ownersCount, "owner")} ·${" "} ${formatCount(adminsCount, "admin")}`}
+              value={`${formatCount(activeSuperAdmins || 0, "owner")} ·${" "} ${formatCount(activeAdmins || 0, "admin")}`}
               note={t.ownersNote}
               tone="brand"
             />
             <Metric
               label={t.invitations}
-              value={t.invitationValue}
+              value={totalPending || 0}
               note={asAdmin ? t.adminInvitationNote : t.invitationNote}
               tone="warn"
             />
           </div>
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="scrollbar-none flex gap-2 overflow-x-auto">
-              {filters.map(([v, l]) => (
+              {filters.map(([v, l, count]) => (
                 <Button
                   key={v}
                   variant={filter === v ? "dark" : "outline"}
@@ -225,13 +278,11 @@ function TeamPage() {
                   onClick={() => setFilter(v)}
                 >
                   {l}
-                  {v === "all" && (
                     <span
                       className={`rounded-full px-1.5 text-[10px] ${filter === v ? "bg-primary text-primary-foreground" : "bg-status-neutral-bg text-brand-deep"}`}
                     >
-                      {num(100)}
+                      {num(count || 0)}
                     </span>
-                  )}
                 </Button>
               ))}
             </div>
