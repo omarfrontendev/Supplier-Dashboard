@@ -44,8 +44,6 @@ export const useProfiles = () => {
       kind: "custom",
     })) ?? [];
     
-    console.log(error);
-
   return {
     profiles,
     meta: data?.meta,

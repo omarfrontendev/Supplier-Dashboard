@@ -20,6 +20,10 @@ const auth = {
   logout: "auth/logout",
 };
 
+const hotels = {
+  getHotels: "/suppliers/linked-hotels",
+};
+
 const profiles = {
   getProfiles: "/permissions/profiles",
   availableProfiles: "/permissions/catalog",
@@ -33,4 +37,5 @@ export const endpoints = {
   auth,
   team,
   profiles,
+  hotels
 };

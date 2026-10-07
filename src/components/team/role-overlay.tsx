@@ -65,7 +65,7 @@ export function RoleOverlay({
   const { mutate: saveProfile, isPending } = useUpsertProfile({ id: mode === "edit" && role?.id });
 
   // const [allowed, setAllowed] = useState<string[]>(COPIED[copyFrom ?? roleName] ?? []);
-  const [allowed, setAllowed] = useState<string[]>(role?.permissionKeys || []);
+  const [allowed, setAllowed] = useState<string[]>(role?.permissions.map((profile) => profile.key) || []);
 
   const toggle = (item: string) =>
     setAllowed((prev) =>
@@ -79,11 +79,12 @@ export function RoleOverlay({
   ].filter(Boolean) as string[];
 
   const note =
-    mode === "edit"
-      ? c.editNote[k]
-          .replace("{count}", people === 1 ? c.onePerson[k] : String(people))
-          .replace("{who}", holder ?? "")
-      : allowed.length === 0
+    // mode === "edit"
+    //   ? c.editNote[k]
+    //       .replace("{count}", people === 1 ? c.onePerson[k] : String(people))
+    //       .replace("{who}", holder ?? "")
+    //   : 
+      allowed.length === 0
         ? c.emptyNote[k]
         : c.tickedNote[k]
             .replace("{count}", String(allowed.length))

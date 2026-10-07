@@ -1,13 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import {
-  Clock,
-  MapPin,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Star,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, MapPin, Plus, Search, SlidersHorizontal, Star } from "lucide-react";
 import {
   Banner,
   PageHeader,
@@ -26,19 +19,16 @@ import { libraryFilter, quickView } from "@/lib/library-overlay-data";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { HotelCard } from "@/components/hotels/hotel-card";
-import {
-  accessRequestsWord,
-  counted,
-  hotelsAreWord,
-  hotelsSelectedWord,
-} from "@/lib/arabic-count";
+import { accessRequestsWord, counted, hotelsAreWord, hotelsSelectedWord } from "@/lib/arabic-count";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
 import { useRemoteData } from "@/lib/use-remote-data";
 import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { usePortal } from "@/lib/portal-store";
 import { hotels, type HotelRelation } from "@/lib/demo-data";
-
+// import { useDispatch, useSelector } from "react-redux";
+// import { RootState } from "@/store";
+// import { fetchHotels } from "@/store/features/hotels/hotels.slice";
 
 export const Route = createFileRoute("/hotels")({
   /* UI 02.1 — the first visit, where no hotel is linked yet and every
@@ -112,7 +102,7 @@ function HotelLibraryPage() {
         ids.map((id) => {
           const hotel = hotels.find((item) => item.id === id);
           return hotel ? (ar ? hotel.nameAr : hotel.nameEn) : id;
-        })
+        }),
       );
       setSentCount(ids.length);
       notify.success(c.toast.accessRequested, {
@@ -127,12 +117,7 @@ function HotelLibraryPage() {
     }
   };
 
-
-
-  const cities = useMemo(
-    () => Array.from(new Set(hotels.map((h) => h.city))),
-    []
-  );
+  const cities = useMemo(() => Array.from(new Set(hotels.map((h) => h.city))), []);
 
   const displayOrder = ["HTL-1048", "HTL-1052", "HTL-1091", "HTL-1077", "HTL-1104", "HTL-1162"];
   /*
@@ -150,25 +135,51 @@ function HotelLibraryPage() {
         : "available"
       : (relations[hotel.id] ?? hotel.relation);
 
-  const visible = [...hotels].sort((a, b) => {
-    const ai = displayOrder.indexOf(a.id);
-    const bi = displayOrder.indexOf(b.id);
-    return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
-  }).filter((hotel) => {
-    const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
-    const relation = relationOf(hotel);
-    if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
-    if (city !== "all" && hotel.city !== city) return false;
-    if (stars !== "all" && String(hotel.stars) !== stars) return false;
-    if (status !== "all" && relation !== status) return false;
-    return true;
-  }).slice(0, 6);
+  const visible = [...hotels]
+    .sort((a, b) => {
+      const ai = displayOrder.indexOf(a.id);
+      const bi = displayOrder.indexOf(b.id);
+      return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+    })
+    .filter((hotel) => {
+      const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
+      const relation = relationOf(hotel);
+      if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
+      if (city !== "all" && hotel.city !== city) return false;
+      if (stars !== "all" && String(hotel.stars) !== stars) return false;
+      if (status !== "all" && relation !== status) return false;
+      return true;
+    })
+    .slice(0, 6);
 
   /* UI 02.1D - the banner counts what is actually with Hoteliana, which
      on a first visit is nothing until you send one. */
-  const pendingCount = hotels.filter(
-    (hotel) => relationOf(hotel) === "requested"
-  ).length;
+  const pendingCount = hotels.filter((hotel) => relationOf(hotel) === "requested").length;
+
+  // ================================================================= //
+  // ================================================================= //
+  // ================================================================= //
+  // ================================================================= //
+
+  // const dispatch = useDispatch();
+
+  // useEffect(() => {
+  //   dispatch(
+  //     fetchHotels({
+  //       page: 1,
+  //       limit: 20,
+  //       status: "approved",
+  //     }),
+  //   );
+  // }, [dispatch]);
+
+  // const {
+  //   hotels: linkedHotels,
+  //   meta,
+  //   loading: hotelsLoading,
+  //   error,
+  //   emptyState,
+  // } = useSelector((state: RootState) => state.hotels);
 
   return (
     <PageShell>
@@ -178,16 +189,13 @@ function HotelLibraryPage() {
         subtitle={c.library.subtitle}
         right={
           <>
-            <StatusPill tone="neutral">
-              {fill(c.library.count, { count: 128 })}
-            </StatusPill>
+            <StatusPill tone="neutral">{fill(c.library.count, { count: 128 })}</StatusPill>
             <Link to="/add-hotel">
               <Button variant="outline">
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 {c.library.addMissing}
               </Button>
             </Link>
-
           </>
         }
       />
@@ -201,11 +209,7 @@ function HotelLibraryPage() {
           })}
           body={c.library.pendingBody}
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setStatus("requested")}
-            >
+            <Button variant="outline" size="sm" onClick={() => setStatus("requested")}>
               {c.library.viewRequests}
             </Button>
           }
@@ -237,7 +241,9 @@ function HotelLibraryPage() {
             label={c.library.country}
             value={country}
             onChange={setCountry}
-            options={[{ value: "Saudi Arabia", label: lang === "ar" ? "السعودية" : "Saudi Arabia" }]}
+            options={[
+              { value: "Saudi Arabia", label: lang === "ar" ? "السعودية" : "Saudi Arabia" },
+            ]}
           />
 
           <Select
@@ -267,9 +273,9 @@ function HotelLibraryPage() {
             onChange={setStatus}
             options={[
               { value: "all", label: c.library.allStatuses },
-              ...(
-                ["available", "requested", "linked", "notApproved", "suspended"] as const
-              ).map((key) => ({ value: key, label: c.library.status[key] })),
+              ...(["available", "requested", "linked", "notApproved", "suspended"] as const).map(
+                (key) => ({ value: key, label: c.library.status[key] }),
+              ),
             ]}
           />
         </div>
@@ -302,7 +308,7 @@ function HotelLibraryPage() {
                   setPicked((prev) =>
                     prev.includes(hotel.id)
                       ? prev.filter((id) => id !== hotel.id)
-                      : [...prev, hotel.id]
+                      : [...prev, hotel.id],
                   )
                 }
                 note={
@@ -367,15 +373,12 @@ function HotelLibraryPage() {
                   </>
                 }
               />
-
             );
           })}
         </div>
       )}
 
-      <p className="mt-5 max-w-4xl text-xs leading-relaxed text-text-muted">
-        {c.library.notFound}
-      </p>
+      <p className="mt-5 max-w-4xl text-xs leading-relaxed text-text-muted">{c.library.notFound}</p>
       <p className="mt-1.5 max-w-4xl text-xs leading-relaxed text-text-muted">
         {c.library.linkedNote}
       </p>
@@ -387,11 +390,7 @@ function HotelLibraryPage() {
                 sentence, so undoing the selection is where the selection
                 is named rather than beside the button that sends it. */}
             <p className="flex flex-wrap items-baseline gap-x-3 text-sm font-medium">
-              {counted(
-                picked.length,
-                hotelsSelectedWord,
-                lang === "ar" ? "ar" : "en"
-              )}
+              {counted(picked.length, hotelsSelectedWord, lang === "ar" ? "ar" : "en")}
               <button
                 type="button"
                 onClick={() => setPicked([])}
@@ -411,9 +410,7 @@ function HotelLibraryPage() {
               })}
             </p>
           </div>
-          <Button onClick={() => setConfirmOpen(true)}>
-            {c.library.requestAccess}
-          </Button>
+          <Button onClick={() => setConfirmOpen(true)}>{c.library.requestAccess}</Button>
         </div>
       )}
 
@@ -459,9 +456,7 @@ function HotelLibraryPage() {
             const hotel = hotels.find((item) => item.id === id);
             /* The city reads in the language of the sentence it is in. */
             const city = hotel ? (ar ? hotel.cityAr : hotel.city) : "";
-            const stars = hotel
-              ? fill(c.library.stars, { count: hotel.stars })
-              : "";
+            const stars = hotel ? fill(c.library.stars, { count: hotel.stars }) : "";
             return {
               name: hotel ? (ar ? hotel.nameAr : hotel.nameEn) : id,
               meta: hotel
@@ -495,7 +490,6 @@ function HotelLibraryPage() {
           }}
         />
       )}
-
     </PageShell>
   );
 }

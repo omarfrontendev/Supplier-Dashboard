@@ -51,7 +51,9 @@ function RolePicker({
   const { c, lang } = useLanguage();
 
   const toggleRole = (role: PermissionProfile) => {
-    const isSelected = value?.some((item) => +item === +role.id);
+    const selectedRoleIds = Array.isArray(value) ? value : [];
+
+    const isSelected = selectedRoleIds.some((item) => Number(item) === Number(role.id));
 
     if (isSelected) {
       onChange(value?.filter((item) => +item !== +role.id));
@@ -63,7 +65,9 @@ function RolePicker({
   return (
     <div className="grid gap-1.5 relative">
       {roles.map((role) => {
-        const isSelected = value.some((item) => +item === +role.id);
+        const selectedRoleIds = Array.isArray(value) ? value : [];
+
+        const isSelected = selectedRoleIds.some((item) => Number(item) === Number(role.id));
 
         return (
           <button
@@ -137,7 +141,7 @@ export function InviteDialog({
   const form = useForm<any>({
     resolver: zodResolver(memberSchema()),
     defaultValues: {
-      role: "super_admin",
+      role: "admin",
     },
     mode: "all",
   });
@@ -239,7 +243,7 @@ export function InviteDialog({
                 <b className={`text-sm ${roleError ? "text-destructive" : "text-text-primary"}`}>
                   {roles
                     .filter((item) => role?.includes(item.id))
-                    .map((item) => item.nameEn)
+                    .map((item) => item?.[`name${lang === "en" ? "En" : "Ar"}`])
                     .join(", ") || c.common.noRolesSelected}
                 </b>
 
@@ -260,10 +264,10 @@ export function InviteDialog({
           <div className="mt-3 flex flex-wrap gap-1.5">
             {roles
               .filter((item) => role?.includes(item.id))
-              .flatMap((item) => item.permissionKeys)
+              .flatMap((item) => item.permissions)
               .map((permission) => (
                 <StatusPill key={permission} tone="brand">
-                  {permission}
+                  {permission?.[`name${lang === "en" ? "En" : "Ar"}`]}
                 </StatusPill>
               ))}
           </div>
@@ -281,16 +285,18 @@ export function ManageMemberDrawer({
   member,
   onClose,
   roles,
-  teamParams
+  teamParams,
 }: {
   member: TeamMember;
   onClose: () => void;
   roles: PermissionProfile[];
-  teamParams: object
+  teamParams: object;
 }) {
   const { lang, c } = useLanguage();
   const t = teamCopy[lang];
-  const [role, setRole] = useState<number[] | null>(member.permissionProfileIds);
+  const [role, setRole] = useState<number[] | null>(
+    member?.permissionProfiles.map((profile) => profile.id),
+  );
   const [pick, setPick] = useState(false);
   const dispatch = useDispatch();
 
@@ -301,7 +307,7 @@ export function ManageMemberDrawer({
       email: member.email,
       phoneNumber: member.phoneNumber,
       role: member.role,
-      permissionProfileIds: member.permissionProfileIds,
+      permissionProfileIds: member?.permissionProfiles.map((profile) => profile.id),
     },
     mode: "all",
   });
@@ -454,7 +460,7 @@ export function ManageMemberDrawer({
                 <b className={`text-sm ${roleError ? "text-destructive" : "text-text-primary"}`}>
                   {roles
                     .filter((item) => role?.includes(item.id))
-                    .map((item) => item.nameEn)
+                    .map((item) => item?.[`name${lang === "en" ? "En" : "Ar"}`])
                     .join(", ") || c.common.noRolesSelected}
                 </b>
 
@@ -474,10 +480,10 @@ export function ManageMemberDrawer({
           <div className="mt-3 flex flex-wrap gap-1.5">
             {roles
               .filter((item) => role?.includes(item.id))
-              .flatMap((item) => item.permissionKeys)
+              .flatMap((item) => item.permissions)
               .map((permission) => (
                 <StatusPill key={permission} tone="brand">
-                  {permission}
+                  {permission?.[`name${lang === "en" ? "En" : "Ar"}`]}
                 </StatusPill>
               ))}
           </div>

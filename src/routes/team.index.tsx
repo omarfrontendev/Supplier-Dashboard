@@ -96,9 +96,7 @@ function TeamPage() {
   const [selected, setSelected] = useState<TeamMember | null>(null);
   const [permissions, setPermissions] = useState(false);
   const [transfer, setTransfer] = useState(false);
-  const { profiles: roles, isLoading, refetch, isError } = useProfiles();
-
-  // console.log(error);
+  const { profiles: roles, isLoading, refetch } = useProfiles();
 
   const teamParams = {
     page: 1, // API expects 1-based page
@@ -314,9 +312,9 @@ function TeamPage() {
                     </b>
                   </div>
                   <div className="flex flex-wrap gap-1.5 min-h-[60px]">
-                    {role?.permissionKeys.slice(0, 5).map((item) => (
-                      <ReachChip key={item} tint={"lime"} negative={item.startsWith("- ")}>
-                        <div className="truncate max-w-[120px] px-2">{item}</div>
+                    {role?.permissions?.slice(0, 6)?.map((permission) => (
+                      <ReachChip key={permission?.id} tint={permission?.httpMethod}>
+                        <div className="truncate max-w-[120px] px-2">{permission?.nameEn}</div>
                       </ReachChip>
                     ))}
                   </div>
@@ -426,9 +424,11 @@ function MemberRow({
         <b className="text-xs text-text-primary">{c.common[m.role]}</b>
       </div>
       <div className="flex flex-wrap gap-1">
-        {/* {(lang === "ar" ? m.reachAr : m.reach).map((x) => (
-          <StatusPill key={x}>{x}</StatusPill>
-        ))} */}
+        {m?.permissionProfiles?.flatMap((profile) =>
+          profile.permissions
+            ?.slice(0, 2)
+            ?.map((permission) => <StatusPill key={permission}>{permission.nameEn}</StatusPill>),
+        )}
       </div>
       <div>
         {/* <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill> */}
@@ -446,10 +446,10 @@ function MemberRow({
 
 /** UI 08.0 — the matrix tints each role's chips, and paints a limit red. */
 const TINTS = {
-  lime: "bg-[#edffd6]",
-  blue: "bg-[#e8f1f8]",
-  grey: "bg-[#eef1ee]",
-  amber: "bg-[#fff6e6]",
+  GET: "bg-[#edffd6]",
+  POST: "bg-[#e8f1f8]",
+  PATCH: "bg-[#eef1ee]",
+  DELETE: "bg-[#fff6e6]",
 } as const;
 
 function ReachChip({
@@ -541,11 +541,11 @@ function RolesTab({
                     {r.kind === "custom" ? t.custom : t.builtIn}
                   </StatusPill>
                   <span>{fill(t.manyPeople, { count: r.totalAssignedUsers })}</span>
-                  <span className="text-text-secondary block truncate">
-                    {r?.permissionKeys
-                      ?.slice(0, 2)
-                      .map((item) => item)
-                      .join(", ") || "c.common.noRolesSelected"}
+                  <span className="text-text-secondary line-clamp-2">
+                    {r?.permissions
+                      // ?.slice(0, 2)
+                      .map((item) => item?.[`name${lang === "en" ? "En" : "Ar"}`])
+                      .join(", ") || "noRolesSelected"}
                   </span>
                   <span className="text-text-muted">{formatDate(r.createdAt, lang)}</span>
                   <div className="flex justify-end gap-2">
