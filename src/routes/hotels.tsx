@@ -26,9 +26,19 @@ import { useRemoteData } from "@/lib/use-remote-data";
 import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { usePortal } from "@/lib/portal-store";
 import { hotels, type HotelRelation } from "@/lib/demo-data";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchHotelsOptions } from "@/store/features/hotels/hotel-options.slice";
+import { RootState } from "@/store";
+import { getCountryName, useDebounce } from "./my-hotels";
 // import { useDispatch, useSelector } from "react-redux";
 // import { RootState } from "@/store";
 // import { fetchHotels } from "@/store/features/hotels/hotels.slice";
+import countries from "i18n-iso-countries";
+import en from "i18n-iso-countries/langs/en.json";
+import ar from "i18n-iso-countries/langs/ar.json";
+
+countries.registerLocale(en);
+countries.registerLocale(ar);
 
 export const Route = createFileRoute("/hotels")({
   /* UI 02.1 — the first visit, where no hotel is linked yet and every
@@ -71,7 +81,7 @@ function HotelLibraryPage() {
   const firstVisit = state === "first";
   const { relations, requestAccess } = usePortal();
   const [query, setQuery] = useState("");
-  const [country, setCountry] = useState("Saudi Arabia");
+  const [country, setCountry] = useState("");
   const [city, setCity] = useState("all");
   const [stars, setStars] = useState("all");
   const [status, setStatus] = useState("all");
@@ -88,7 +98,7 @@ function HotelLibraryPage() {
   /* OV 02.10 / 02.9 — the two panels the library opens over itself. */
   const [panel, setPanel] = useState<"search" | "filter" | null>(null);
   const [sending, setSending] = useState(false);
-  const { loading } = useRemoteData(() => hotels);
+  // const { loading } = useRemoteData(() => hotels);
 
   const sendRequest = async (ids: string[]) => {
     setSending(true);
@@ -135,22 +145,22 @@ function HotelLibraryPage() {
         : "available"
       : (relations[hotel.id] ?? hotel.relation);
 
-  const visible = [...hotels]
-    .sort((a, b) => {
-      const ai = displayOrder.indexOf(a.id);
-      const bi = displayOrder.indexOf(b.id);
-      return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
-    })
-    .filter((hotel) => {
-      const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
-      const relation = relationOf(hotel);
-      if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
-      if (city !== "all" && hotel.city !== city) return false;
-      if (stars !== "all" && String(hotel.stars) !== stars) return false;
-      if (status !== "all" && relation !== status) return false;
-      return true;
-    })
-    .slice(0, 6);
+  // const visible = [...hotels]
+  //   .sort((a, b) => {
+  //     const ai = displayOrder.indexOf(a.id);
+  //     const bi = displayOrder.indexOf(b.id);
+  //     return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+  //   })
+  //   .filter((hotel) => {
+  //     const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
+  //     const relation = relationOf(hotel);
+  //     if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
+  //     if (city !== "all" && hotel.city !== city) return false;
+  //     if (stars !== "all" && String(hotel.stars) !== stars) return false;
+  //     if (status !== "all" && relation !== status) return false;
+  //     return true;
+  //   })
+  //   .slice(0, 6);
 
   /* UI 02.1D - the banner counts what is actually with Hoteliana, which
      on a first visit is nothing until you send one. */
@@ -161,25 +171,38 @@ function HotelLibraryPage() {
   // ================================================================= //
   // ================================================================= //
 
-  // const dispatch = useDispatch();
+  const dispatch = useDispatch();
 
-  // useEffect(() => {
-  //   dispatch(
-  //     fetchHotels({
-  //       page: 1,
-  //       limit: 20,
-  //       status: "approved",
-  //     }),
-  //   );
-  // }, [dispatch]);
+  const debouncedQuery = useDebounce(query, 500);
 
-  // const {
-  //   hotels: linkedHotels,
-  //   meta,
-  //   loading: hotelsLoading,
-  //   error,
-  //   emptyState,
-  // } = useSelector((state: RootState) => state.hotels);
+  useEffect(() => {
+    dispatch(
+      fetchHotelsOptions({
+        page: 1,
+        limit: 20,
+        search: debouncedQuery,
+        countryCode: country === "all" ? null : country,
+      }),
+    );
+  }, [dispatch, debouncedQuery, country]);
+
+  const {
+    hotels: hotelsOption,
+    meta,
+    loading,
+    error,
+  } = useSelector((state: RootState) => state.hotelsOption);
+
+  const countryOptions = [
+    {
+      value: "all",
+      label: c.myHotels.allCountries,
+    },
+    ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
+      value: code,
+      label: getCountryName(code, lang),
+    })),
+  ];
 
   return (
     <PageShell>
@@ -230,7 +253,7 @@ function HotelLibraryPage() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onClick={() => setPanel("search")}
+                // onClick={() => setPanel("search")}
                 placeholder={c.library.searchPh}
                 className="h-10 w-full rounded-md border border-border-default bg-surface-default ps-9 pe-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus"
               />
@@ -238,15 +261,13 @@ function HotelLibraryPage() {
           </label>
 
           <Select
-            label={c.library.country}
             value={country}
             onChange={setCountry}
-            options={[
-              { value: "Saudi Arabia", label: lang === "ar" ? "السعودية" : "Saudi Arabia" },
-            ]}
+            label={c.profile.country}
+            options={countryOptions}
           />
 
-          <Select
+          {/* <Select
             label={c.library.city}
             value={city}
             onChange={setCity}
@@ -254,7 +275,7 @@ function HotelLibraryPage() {
               { value: "all", label: c.library.allCities },
               ...cities.map((item) => ({ value: item, label: item })),
             ]}
-          />
+          /> */}
           <Select
             label={c.library.category}
             value={stars}
@@ -289,13 +310,13 @@ function HotelLibraryPage() {
 
       {loading ? (
         <HotelGridSkeleton />
-      ) : visible.length === 0 ? (
+      ) : hotelsOption.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center text-sm text-text-secondary">
           {c.library.empty}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((hotel) => {
+          {hotelsOption.map((hotel) => {
             const relation = relationOf(hotel);
             const active = picked.includes(hotel.id);
             return (
@@ -304,13 +325,13 @@ function HotelLibraryPage() {
                 hotel={hotel}
                 relation={relation}
                 selected={active}
-                onToggle={() =>
-                  setPicked((prev) =>
-                    prev.includes(hotel.id)
-                      ? prev.filter((id) => id !== hotel.id)
-                      : [...prev, hotel.id],
-                  )
-                }
+                // onToggle={() =>
+                //   setPicked((prev) =>
+                //     prev.includes(hotel.id)
+                //       ? prev.filter((id) => id !== hotel.id)
+                //       : [...prev, hotel.id],
+                //   )
+                // }
                 note={
                   relation === "requested"
                     ? /* A request sent a moment ago did not go two days
@@ -328,7 +349,7 @@ function HotelLibraryPage() {
                 }
                 footer={
                   <>
-                    {relation === "linked" && (
+                    {!hotel?.hasPendingRequest && (
                       <Button
                         variant="ghost"
                         size="sm"

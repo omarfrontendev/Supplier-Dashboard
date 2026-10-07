@@ -21,7 +21,9 @@ const auth = {
 };
 
 const hotels = {
-  getHotels: "/suppliers/linked-hotels",
+  getHotels: "/linked-hotels",
+  getHotelById: (id: string) => `/linked-hotels/${id}`,
+  getHotelOptions: "/hotels/linking-options"
 };
 
 const profiles = {
@@ -37,5 +39,5 @@ export const endpoints = {
   auth,
   team,
   profiles,
-  hotels
+  hotels,
 };

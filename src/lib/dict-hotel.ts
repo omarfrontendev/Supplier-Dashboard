@@ -5,7 +5,8 @@
 export const hotelEn = {
   hotelProfile: {
     overline: "MY HOTELS · HOTEL PROFILE",
-    meta: "{district}, {city}, {country} · {stars} stars · Hoteliana ID {id}",
+    // meta: "{district}, {city}, {country} · {stars} stars · Hoteliana ID {id}",
+    meta: "{city}, {country} · {stars} stars",
     badgeLinked: "Linked",
     badgeSelling: "Selling",
     createContract: "Create supply contract",
@@ -67,7 +68,8 @@ export const hotelEn = {
     dupHint: "Duplicate check runs against {hotel} as you type the room name.",
     dupTitle: "A similar room already exists in this hotel",
     dupUse: "Open the existing room",
-    dupSummary: "{guests} guests · {adults} adults + {children} children · {bed} · {size} · {match}",
+    dupSummary:
+      "{guests} guests · {adults} adults + {children} children · {bed} · {size} · {match}",
     matchName: "name match 100%",
     matchOccupancy: "occupancy match",
     dupNote:
@@ -100,8 +102,7 @@ export const hotelEn = {
     yearsSuffix: "{count} years",
     sentOverline: "ROOM SUBMITTED",
     sentTitle: "Room sent for Hoteliana review",
-    sentBody:
-      "It stays out of the catalogue and out of every supply contract until approved.",
+    sentBody: "It stays out of the catalogue and out of every supply contract until approved.",
     sentRefMeta: "{room} · {hotel} · submitted just now",
     nextOverline: "WHAT HAPPENS NEXT",
     next1: "Sent now - {count} images attached",
@@ -127,7 +128,7 @@ export const hotelEn = {
 export const hotelAr: typeof hotelEn = {
   hotelProfile: {
     overline: "فنادقي · ملف الفندق",
-    meta: "{district}، {city}، {country} · {stars} نجوم · معرّف هوتيليانا {id}",
+    meta: "{city}، {country} · {stars} نجوم",
     badgeLinked: "مرتبط",
     badgeSelling: "يُباع",
     createContract: "إنشاء عقد توريد",

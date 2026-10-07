@@ -2,11 +2,9 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import type { Hotel, HotelRelation } from "@/lib/demo-data";
+import { HotelOption } from "@/store/features/hotels/types";
 
-const badgeTone: Record<
-  HotelRelation,
-  { wrap: string; text: string; dot: string }
-> = {
+const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
   available: {
     wrap: "bg-status-neutral-bg",
     text: "text-status-neutral",
@@ -43,7 +41,7 @@ export function HotelCard({
   note,
   footer,
 }: {
-  hotel: Hotel;
+  hotel: HotelOption;
   relation: HotelRelation;
   selected?: boolean;
   onToggle?: () => void;
@@ -54,7 +52,8 @@ export function HotelCard({
   const { c, lang } = useLanguage();
   const unavailable = relation === "notApproved" || relation === "suspended";
   const selectable = Boolean(onToggle) && relation === "available";
-  const tone = badgeTone[relation];
+  // const tone = badgeTone[hotel?.hasPendingRequest ? "requested" : "linked"];
+  const tone = badgeTone[hotel?.hasPendingRequest ? "requested" : "linked"];
 
   return (
     <article
@@ -64,13 +63,16 @@ export function HotelCard({
           ? "border-2 border-brand-deep bg-primary-subtle"
           : unavailable
             ? "border border-border-default bg-surface-subtle"
-            : "border border-border-default bg-surface-default"
+            : "border border-border-default bg-surface-default",
       )}
     >
-      <div className="relative h-[132px] w-full overflow-hidden rounded-lg sm:h-[148px]" aria-hidden={hotel.image ? undefined : true}>
-        {hotel.image ? (
+      <div
+        className="relative h-[132px] w-full overflow-hidden rounded-lg sm:h-[148px]"
+        aria-hidden={hotel?.image ? undefined : true}
+      >
+        {hotel?.image ? (
           <img
-            src={hotel.image}
+            src={hotel?.image}
             alt={lang === "ar" ? hotel.nameAr : hotel.nameEn}
             loading="lazy"
             width={1024}
@@ -81,7 +83,7 @@ export function HotelCard({
           <div
             className={cn(
               "h-full w-full bg-gradient-to-r from-brand-deep to-[#3e7a5f]",
-              unavailable && "opacity-45"
+              unavailable && "opacity-45",
             )}
             aria-hidden="true"
           />
@@ -93,7 +95,7 @@ export function HotelCard({
           <h3
             className={cn(
               "min-w-0 flex-1 truncate text-base font-medium leading-[1.4]",
-              unavailable ? "text-text-muted" : "text-text-primary"
+              unavailable ? "text-text-muted" : "text-text-primary",
             )}
           >
             {lang === "ar" ? hotel.nameAr : hotel.nameEn}
@@ -110,7 +112,7 @@ export function HotelCard({
                 "grid size-[22px] shrink-0 place-items-center rounded-md transition-colors",
                 selected
                   ? "bg-brand-deep text-primary"
-                  : "border-[1.5px] border-border-strong bg-surface-default"
+                  : "border-[1.5px] border-border-strong bg-surface-default",
               )}
             >
               {selected && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -119,11 +121,10 @@ export function HotelCard({
         </div>
 
         <p className="truncate text-[13px] leading-[1.5] text-text-muted">
-          {lang === "ar" ? hotel.districtAr : hotel.district}
-          {lang === "ar" ? "،" : ","}{" "}
-          {lang === "ar" ? hotel.cityAr : hotel.city} ·{" "}
-          {lang === "ar" ? hotel.distanceAr : hotel.distance} ·{" "}
-          {fill(c.library.stars, { count: hotel.stars })}
+          {/* {lang === "ar" ? hotel.districtAr : hotel.district} */}
+          {hotel.city}
+          {/* {lang === "ar" ? hotel.distanceAr : hotel.distance} ·{" "} */}
+          {fill(c.library.stars, { count: hotel.starRating })}
         </p>
 
         <span
@@ -139,10 +140,11 @@ export function HotelCard({
               tone.text
             )}
           >
-            {c.library.status[relation]}
+            {/* {c.library.status[relation]} */}
+            {c.library.status[hotel?.hasPendingRequest ? "requested": "linked"]}
           </span>
         </span>
-
+        
         {note && (
           <p className="text-xs leading-[1.5] text-text-muted">{note}</p>
         )}

@@ -783,6 +783,7 @@ const en = {
     searchPh: "Search linked hotels",
     city: "City",
     allCities: "All cities",
+    allCountries: "All Countries",
     contractState: "Contract state",
     anyState: "Any state",
     statNoContract: "NO SUPPLY CONTRACT",
@@ -1589,6 +1590,7 @@ const ar: typeof en = {
     },
   },
   myHotels: {
+    allCountries: "جميع الدول",
     overline: "الملف · فنادقي",
     title: "فنادقي",
     subtitle: "تظهر هنا الفنادق المعتمدة. ولا يصبح الفندق قابلًا للحجز إلا عبر عقد توريد منشور.",

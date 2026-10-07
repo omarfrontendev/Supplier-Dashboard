@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   FileClock,
@@ -11,12 +11,7 @@ import {
 } from "lucide-react";
 import { LibraryFilterOverlay } from "@/components/hotels/library-overlays";
 import { myHotelsFilter } from "@/lib/library-overlay-data";
-import {
-  PageHeader,
-  PageShell,
-  SectionCard,
-  StatusPill,
-} from "@/components/layout/page-shell";
+import { PageHeader, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { fill, useLanguage } from "@/lib/i18n";
@@ -24,6 +19,40 @@ import { usePortal } from "@/lib/portal-store";
 import { hotels } from "@/lib/demo-data";
 import { useRemoteData } from "@/lib/use-remote-data";
 import { HotelGridSkeleton } from "@/components/ui/skeletons";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { fetchHotels } from "@/store/features/hotels/hotels.slice";
+
+import countries from "i18n-iso-countries";
+import en from "i18n-iso-countries/langs/en.json";
+import ar from "i18n-iso-countries/langs/ar.json";
+
+countries.registerLocale(en);
+countries.registerLocale(ar);
+
+export const useDebounce = <T,>(value: T, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+export const getCountryName = (countryCode: string, lang: "en" | "ar") => {
+  const locale = lang === "ar" ? "ar" : "en";
+
+  return (
+    new Intl.DisplayNames([locale], {
+      type: "region",
+    }).of(countryCode) ?? countryCode
+  );
+};
 
 export const Route = createFileRoute("/my-hotels")({
   head: () => ({
@@ -47,27 +76,69 @@ export const Route = createFileRoute("/my-hotels")({
 function MyHotelsPage() {
   const { c, lang } = useLanguage();
   const { relations } = usePortal();
-  const { loading } = useRemoteData(() => hotels);
+  // const { loading } = useRemoteData(() => hotels);
 
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState("all");
+  const [city, setCity] = useState("");
   const [state, setState] = useState("all");
   const [filter, setFilter] = useState(false);
 
-  const allLinked = hotels.filter(
-    (hotel) => (relations[hotel.id] ?? hotel.relation) === "linked"
-  );
+  // ================================================ //
+  // ================================================ //
+  // ================================================ //
+
+  const debouncedQuery = useDebounce(query, 500);
+
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(
+      fetchHotels({
+        page: 1,
+        limit: 20,
+        search: debouncedQuery,
+        countryCode: city === "all" ? null : city,
+      }),
+    );
+  }, [dispatch, debouncedQuery, city]);
+
+  const {
+    hotels: linkedHotels,
+    meta,
+    loading,
+    error,
+    emptyState,
+  } = useSelector((state: RootState) => state.hotels);
+
+  const countryOptions = [
+    {
+      value: "all",
+      label: c.myHotels.allCountries,
+    },
+    ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
+      value: code,
+      label: getCountryName(code, lang),
+      // label: countries.getName(code, lang === "ar" ? "arabic" : "english") ?? code,
+    })),
+  ];
+
+  // ================================================ //
+  // ================================================ //
+  // ================================================ //
+  // ================================================ //
+
+  const allLinked = hotels.filter((hotel) => (relations[hotel.id] ?? hotel.relation) === "linked");
   const cities = useMemo(
     () => Array.from(new Set(allLinked.map((hotel) => hotel.city))),
-    [allLinked]
+    [allLinked],
   );
-  const linked = allLinked.filter((hotel) => {
-    const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
-    if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
-    if (city !== "all" && hotel.city !== city) return false;
-    if (state !== "all" && (hotel.contract ?? "none") !== state) return false;
-    return true;
-  });
+  // const linked = allLinked.filter((hotel) => {
+  //   const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
+  //   if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
+  //   if (city !== "all" && hotel.city !== city) return false;
+  //   if (state !== "all" && (hotel.contract ?? "none") !== state) return false;
+  //   return true;
+  // });
   // Figma UI 02.6 counts hotels, not contracts: 0 without a contract, 1 draft, 2 selling.
   const noContract = allLinked.filter((hotel) => (hotel.contract ?? "none") === "none").length;
   const drafts = allLinked.filter((hotel) => hotel.contract === "draft").length;
@@ -88,9 +159,25 @@ function MyHotelsPage() {
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <SetupStat icon={<FilePlus2 className="h-5 w-5" />} label={c.myHotels.statNoContract} value={String(noContract)} note={c.myHotels.statNoContractNote} />
-        <SetupStat icon={<FileClock className="h-5 w-5" />} label={c.myHotels.statDraft} value={String(drafts)} note={c.myHotels.statDraftNote} />
-        <SetupStat icon={<AlertTriangle className="h-5 w-5" />} label={c.myHotels.statSelling} value={String(selling)} note={fill(c.myHotels.statSellingNote, { count: needsAttention })} tone="warning" />
+        <SetupStat
+          icon={<FilePlus2 className="h-5 w-5" />}
+          label={c.myHotels.statNoContract}
+          value={String(noContract)}
+          note={c.myHotels.statNoContractNote}
+        />
+        <SetupStat
+          icon={<FileClock className="h-5 w-5" />}
+          label={c.myHotels.statDraft}
+          value={String(drafts)}
+          note={c.myHotels.statDraftNote}
+        />
+        <SetupStat
+          icon={<AlertTriangle className="h-5 w-5" />}
+          label={c.myHotels.statSelling}
+          value={String(selling)}
+          note={fill(c.myHotels.statSellingNote, { count: needsAttention })}
+          tone="warning"
+        />
       </div>
 
       <SectionCard className="mb-6">
@@ -113,13 +200,10 @@ function MyHotelsPage() {
             </span>
           </label>
           <Select
-            label={c.myHotels.city}
+            label={c.profile.country}
             value={city}
             onChange={setCity}
-            options={[
-              { value: "all", label: c.myHotels.allCities },
-              ...cities.map((name) => ({ value: name, label: name })),
-            ]}
+            options={countryOptions}
           />
           <Select
             label={c.myHotels.contractState}
@@ -155,13 +239,13 @@ function MyHotelsPage() {
 
       {loading ? (
         <HotelGridSkeleton count={4} />
-      ) : linked.length === 0 ? (
+      ) : linkedHotels.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center text-sm text-text-secondary">
           {c.myHotels.empty}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {linked.map((hotel) => {
+          {linkedHotels.map(({ hotel }) => {
             // Figma UI 02.6 labels the pill by contract state; "needs attention"
             // is carried by the note under it.
             const contractStatus =
@@ -178,14 +262,12 @@ function MyHotelsPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold text-text-primary">
+                    <h2 className="truncate text-base font-semibold text-text-primary md:max-w-[250px]">
                       {lang === "ar" ? hotel.nameAr : hotel.nameEn}
                     </h2>
                     <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-text-secondary">
                       <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                      {lang === "ar"
-                        ? `${hotel.districtAr}، ${hotel.cityAr} · ${hotel.distanceAr}`
-                        : `${hotel.district}, ${hotel.city} · ${hotel.distance}`}
+                      {getCountryName(hotel.countryCode, lang)} · {hotel.city}`
                     </p>
                   </div>
                   <StatusPill
@@ -198,39 +280,34 @@ function MyHotelsPage() {
                     }
                   >
                     {hotel.needsAttention && (
-                      <AlertTriangle
-                        className="me-1.5 h-3.5 w-3.5"
-                        aria-hidden="true"
-                      />
+                      <AlertTriangle className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
                     )}
                     {contractStatus}
                   </StatusPill>
                 </div>
 
                 <div className="mt-3 flex items-center gap-1">
-                  {Array.from({ length: hotel.stars }).map((_, i) => (
+                  {Array.from({ length: hotel.starRating }).map((_, i) => (
                     <Star
                       key={i}
                       className="h-3.5 w-3.5 fill-current text-status-warning"
                       aria-hidden="true"
                     />
                   ))}
-                  <span className="font-data ms-2 text-xs text-text-muted">
-                    {hotel.id}
-                  </span>
+                  <span className="font-data ms-2 text-xs text-text-muted">{hotel.starRating}</span>
                 </div>
 
-                {hotel.contractCount && (
+                {/* {hotel.contractCount && (
                   <p className="mt-3 text-sm text-text-secondary">
                     {lang === "ar" ? hotel.contractCountAr : hotel.contractCount}
                   </p>
-                )}
+                )} */}
 
-                {hotel.contractNote && (
+                {/* {hotel.contractNote && (
                   <p className="mt-2 rounded-lg bg-surface-subtle px-3 py-2 text-sm text-text-secondary">
                     {lang === "ar" ? hotel.contractNoteAr : hotel.contractNote}
                   </p>
-                )}
+                )} */}
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link to="/rate-contracts">
@@ -257,16 +334,42 @@ function MyHotelsPage() {
         </div>
       )}
 
-      <p className="mt-6 max-w-3xl text-xs leading-relaxed text-text-muted">
-        {c.myHotels.note}
-      </p>
+      <p className="mt-6 max-w-3xl text-xs leading-relaxed text-text-muted">{c.myHotels.note}</p>
     </PageShell>
   );
 }
 
-function SetupStat({ icon, label, value, note, tone = "neutral" }: { icon: React.ReactNode; label: string; value: string; note: string; tone?: "neutral" | "warning" }) {
-  return <div className="flex items-center gap-4 rounded-xl border border-border-subtle bg-surface-default p-4 shadow-card">
-    <span className={tone === "warning" ? "flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning-bg text-status-warning" : "flex h-10 w-10 items-center justify-center rounded-lg bg-surface-subtle text-text-secondary"}>{icon}</span>
-    <div><p className="text-overline text-text-muted">{label}</p><div className="mt-1 flex items-baseline gap-2"><strong className="font-data text-xl text-text-primary">{value}</strong><span className="text-xs text-text-secondary">{note}</span></div></div>
-  </div>;
+function SetupStat({
+  icon,
+  label,
+  value,
+  note,
+  tone = "neutral",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  note: string;
+  tone?: "neutral" | "warning";
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-border-subtle bg-surface-default p-4 shadow-card">
+      <span
+        className={
+          tone === "warning"
+            ? "flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning-bg text-status-warning"
+            : "flex h-10 w-10 items-center justify-center rounded-lg bg-surface-subtle text-text-secondary"
+        }
+      >
+        {icon}
+      </span>
+      <div>
+        <p className="text-overline text-text-muted">{label}</p>
+        <div className="mt-1 flex items-baseline gap-2">
+          <strong className="font-data text-xl text-text-primary">{value}</strong>
+          <span className="text-xs text-text-secondary">{note}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
