@@ -278,11 +278,11 @@ function TeamPage() {
                   onClick={() => setFilter(v)}
                 >
                   {l}
-                    <span
-                      className={`rounded-full px-1.5 text-[10px] ${filter === v ? "bg-primary text-primary-foreground" : "bg-status-neutral-bg text-brand-deep"}`}
-                    >
-                      {num(count || 0)}
-                    </span>
+                  <span
+                    className={`rounded-full px-1.5 text-[10px] ${filter === v ? "bg-primary text-primary-foreground" : "bg-status-neutral-bg text-brand-deep"}`}
+                  >
+                    {num(count || 0)}
+                  </span>
                 </Button>
               ))}
             </div>
@@ -521,6 +521,16 @@ function ReachChip({
   );
 }
 
+export const formatDate = (date: string, lang: "en" | "ar") => {
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(date));
+};
+
 function RolesTab({
   roles,
   lang,
@@ -538,16 +548,6 @@ function RolesTab({
   onDuplicate: (r: RoleRow) => void;
   isLoading: boolean;
 }) {
-  const formatDate = (date: string, lang: "en" | "ar") => {
-    return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(date));
-  };
-
   return (
     <>
       {created && (

@@ -529,6 +529,7 @@ export const roomRejected: DetailShape = {
 export function detailFor(
   kind: "access" | "hotel" | "room" | "company",
   state: "waiting" | "needsYou" | "approved" | "rejected" | "linked"
+  
 ): DetailShape | null {
   if (kind === "room") {
     /* A new room ends four ways, and each of them has its own frame. */

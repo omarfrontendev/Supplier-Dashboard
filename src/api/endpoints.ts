@@ -27,6 +27,14 @@ const hotels = {
   getHotelOptions: "/hotels/linking-options",
 };
 
+const requests = {
+  hotelRequests: "/hotel-requests",
+  hotelLinkingRequests: "/hotel-linking-requests",
+  roomRequests: "/room-requests",
+  getHotelById: (id: string) => `/linked-hotels/${id}`,
+  getHotelOptions: "/hotels/linking-options",
+};
+
 const profiles = {
   getProfiles: "/permissions/profiles",
   availableProfiles: "/permissions/catalog",
@@ -41,4 +49,5 @@ export const endpoints = {
   team,
   profiles,
   hotels,
+  requests
 };

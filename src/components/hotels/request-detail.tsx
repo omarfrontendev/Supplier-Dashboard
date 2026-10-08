@@ -7,15 +7,14 @@ import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { requestDetail, type DetailShape } from "@/lib/request-detail-data";
 import type { Bi } from "@/lib/library-overlay-data";
+import { HotelRequest } from "@/api/modules/requests/types";
 
 /** Who sent it and who holds it — one line each. */
 function Who({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-overline text-text-muted">{label}</p>
-      <p className="mt-1 text-[12.5px] font-medium text-text-primary">
-        {value}
-      </p>
+      <p className="mt-1 text-[12.5px] font-medium text-text-primary">{value}</p>
     </div>
   );
 }
@@ -32,20 +31,50 @@ export function RequestDetailDrawer({
   onClose,
   onPrimary,
   onSecondary,
+  request,
 }: {
   overline: string;
   title: string;
   meta: string;
   shape: DetailShape;
+  request: HotelRequest;
   onClose: () => void;
   onPrimary?: (() => void) | undefined;
   /** Which action - the drawer draws several and they do different things. */
   onSecondary?: ((action: Bi) => void) | undefined;
 }) {
-  const { lang } = useLanguage();
+  const {c, lang } = useLanguage();
+  const r = c.requests;
   const k = lang === "ar" ? "ar" : "en";
   const d = requestDetail;
   const [reply, setReply] = useState("");
+
+  const requestStatusConfig: Record<
+    any,
+    {
+      tone: "warning" | "success" | "danger" | "neutral";
+      label: string;
+    }
+  > = {
+    submitted: {
+      tone: "warning",
+      label: r.stateNeedsYou,
+    },
+    pending: {
+      tone: "neutral",
+      label: r.statePending,
+    },
+    approved: {
+      tone: "success",
+      label: r.stateApproved,
+    },
+    rejected: {
+      tone: "danger",
+      label: r.stateNotApproved,
+    },
+  };
+
+  const status = requestStatusConfig[request.status];
 
   return (
     <Drawer
@@ -57,27 +86,20 @@ export function RequestDetailDrawer({
       onClose={onClose}
       footer={
         <>
-          {shape.actions.map((action) => (
-            <Button
-              key={action.en}
-              variant="outline"
-              onClick={() => onSecondary?.(action)}
-            >
+          {/* {shape.actions.map((action) => (
+            <Button key={action.en} variant="outline" onClick={() => onSecondary?.(action)}>
               {action[k]}
             </Button>
-          ))}
-          {shape.primary && (
-            <Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>
-          )}
+          ))} */}
+          {<Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>}
         </>
       }
     >
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2.5">
-          <StatusPill tone={shape.tone}>{shape.stateLabel[k]}</StatusPill>
-          <span className="text-[11.5px] text-text-muted">
-            {shape.stateNote[k]}
-          </span>
+          {/* <StatusPill tone={shape.tone}>{shape.stateLabel[k]}</StatusPill> */}
+          <StatusPill tone={status?.tone}>{status?.label}</StatusPill>
+          <span className="text-[11.5px] text-text-muted">{shape.stateNote[k]}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -99,7 +121,7 @@ export function RequestDetailDrawer({
                         ? "bg-status-danger text-white"
                         : item.state === "active"
                           ? "bg-status-warning-bg text-status-warning"
-                          : "bg-status-neutral-bg text-text-muted"
+                          : "bg-status-neutral-bg text-text-muted",
                   )}
                 >
                   {/* A step that refused says so with a cross, and one
@@ -144,9 +166,7 @@ export function RequestDetailDrawer({
                 </button>
               )}
             </div>
-            <p className="mt-1 text-[11.5px] leading-4 text-text-muted">
-              {shape.fixed.body[k]}
-            </p>
+            <p className="mt-1 text-[11.5px] leading-4 text-text-muted">{shape.fixed.body[k]}</p>
             {shape.changed && (
               <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-status-success">
                 <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -156,17 +176,15 @@ export function RequestDetailDrawer({
           </div>
         )}
 
-        {shape.quote && (
+        {request.reviewNote && (
           <p className="rounded-[10px] bg-surface-subtle px-3.5 py-3 text-[12px] leading-4 text-text-body">
-            {shape.quote[k]}
+            {request.reviewNote}
           </p>
         )}
 
         {shape.list.length > 0 && (
           <div>
-            <p className="text-overline text-text-muted">
-              {shape.listTitle[k]}
-            </p>
+            <p className="text-overline text-text-muted">{shape.listTitle[k]}</p>
             <ul className="mt-2 space-y-1.5">
               {shape.list.map((line) => (
                 <li
@@ -198,11 +216,7 @@ export function RequestDetailDrawer({
           </div>
         )}
 
-        {shape.note && (
-          <p className="text-[11.5px] leading-4 text-text-muted">
-            {shape.note[k]}
-          </p>
-        )}
+        {shape.note && <p className="text-[11.5px] leading-4 text-text-muted">{shape.note[k]}</p>}
       </div>
     </Drawer>
   );

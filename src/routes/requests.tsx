@@ -1,12 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
-import {
-  PageHeader,
-  PageShell,
-  SectionCard,
-  StatusPill,
-} from "@/components/layout/page-shell";
+import { PageHeader, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Drawer } from "@/components/layout/overlay";
 import { RequestDetailDrawer } from "@/components/hotels/request-detail";
 import { detailFor, requestDetail } from "@/lib/request-detail-data";
@@ -24,6 +19,9 @@ import {
 } from "@/lib/demo-data";
 import { useRemoteData } from "@/lib/use-remote-data";
 import { RowsSkeleton, StatsSkeleton } from "@/components/ui/skeletons";
+import { useMetrics } from "@/api/modules/team/userMetrics";
+import { useRequests } from "@/api/modules/requests/useRequests";
+import { formatDate } from "./team.index";
 
 export const Route = createFileRoute("/requests")({
   head: () => ({
@@ -59,7 +57,7 @@ function RequestsPage() {
   const { c, lang } = useLanguage();
   const r = c.requests;
   const navigate = useNavigate();
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
   /* OV 02.5B - a request pulled back, and the case opened instead. */
   const { withdrawnRequests, withdrawRequest } = usePortal();
   const [asking, setAsking] = useState<SupplierRequest | null>(null);
@@ -71,20 +69,15 @@ function RequestsPage() {
       [...supplierRequests]
         .filter((item) => !withdrawnRequests.includes(item.id))
         .sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state]),
-    [withdrawnRequests]
+    [withdrawnRequests],
   );
 
-  const visible = items.filter(
-    (item) => filter === "all" || item.kind === filter
-  );
+  const visible = items.filter((item) => filter === "all" || item.kind === filter);
 
   const count = (state: SupplierRequestState) =>
     items.filter((item) => item.state === state).length;
   const kindCount = (kind: SupplierRequestKind) =>
     items.filter((item) => item.kind === kind).length;
-
-  const open = items.find((item) => item.id === openId) ?? null;
-  const shape = open ? detailFor(open.kind, open.state) : null;
 
   const kindLabel: Record<SupplierRequestKind, string> = {
     access: r.kindAccess,
@@ -96,18 +89,18 @@ function RequestsPage() {
   /* UI 02.5 - amber is the one that needs you, red is the refusal, and
      waiting and linked are both quiet: neither is asking anything. */
   const stateTone = {
-    waiting: "neutral",
-    needsYou: "warning",
+    pending: "neutral",
+    submitted: "warning",
     approved: "success",
-    linked: "neutral",
+    // submitted: "neutral",
     rejected: "danger",
   } as const;
 
   const stateLabel = {
-    waiting: r.statePending,
-    needsYou: r.stateNeedsYou,
+    pending: r.statePending,
+    submitted: r.stateNeedsYou,
     approved: r.stateApproved,
-    linked: r.stateLinked,
+    // submitted: r.stateLinked,
     rejected: r.stateNotApproved,
   } as const;
 
@@ -117,9 +110,21 @@ function RequestsPage() {
       { key: "access", label: r.filterAccess, count: kindCount("access") },
       { key: "hotel", label: r.filterHotels, count: kindCount("hotel") },
       { key: "room", label: r.filterRooms, count: kindCount("room") },
-      { key: "company", label: r.filterCompany, count: kindCount("company") },
+      // { key: "company", label: r.filterCompany, count: kindCount("company") },
     ] as Array<{ key: SupplierRequestKind | "all"; label: string; count: number }>
   ).filter((tab) => tab.key === "all" || tab.count > 0);
+
+  const { data: metrics, isLoading: metricsLoading } = useMetrics();
+
+  const { requests, meta, isLoading } = useRequests({
+    type: filter,
+    page: 1,
+    limit: 100,
+    // status: "approved",
+  });
+
+  const open = requests.find((item) => +item.id === Number(openId)) ?? null;
+  const shape = open ? detailFor("access", open.status) : null;
 
   return (
     <PageShell>
@@ -144,7 +149,7 @@ function RequestsPage() {
               "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition-colors",
               filter === tab.key
                 ? "bg-surface-inverse font-semibold text-text-inverse"
-                : "font-medium text-text-secondary hover:text-text-primary"
+                : "font-medium text-text-secondary hover:text-text-primary",
             )}
           >
             {tab.label}
@@ -153,20 +158,20 @@ function RequestsPage() {
         ))}
       </div>
 
-      {loading ? (
+      {metricsLoading ? (
         <StatsSkeleton className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" />
       ) : (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
             icon={<Clock className="h-4 w-4" aria-hidden="true" />}
             label={r.statWaiting}
-            value={count("waiting")}
+            value={metrics?.hotelRequests[0]?.value}
             note={r.statWaitingNote}
           />
           <Stat
             icon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
             label={r.statNeedsYou}
-            value={count("needsYou")}
+            value={metrics?.hotelRequests[1]?.value}
             note={r.statNeedsYouNote}
           />
           <Stat
@@ -174,13 +179,13 @@ function RequestsPage() {
             label={r.statApproved}
             /* The tile reads "linked or added", so a room the catalogue
                already had is counted here rather than nowhere. */
-            value={count("approved") + count("linked")}
+            value={metrics?.hotelRequests[2]?.value}
             note={r.statApprovedNote}
           />
           <Stat
             icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
             label={r.statRejected}
-            value={count("rejected")}
+            value={metrics?.hotelRequests[3]?.value}
             note={r.statRejectedNote}
           />
         </div>
@@ -189,7 +194,7 @@ function RequestsPage() {
       <SectionCard>
         {loading ? (
           <RowsSkeleton />
-        ) : visible.length === 0 ? (
+        ) : requests.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border-default p-10 text-center text-sm text-text-secondary">
             {r.empty}
           </p>
@@ -208,38 +213,29 @@ function RequestsPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-t border-border-subtle align-middle"
-                  >
-                    <td className="font-data py-3 pe-3 text-text-primary">
-                      {item.id}
-                    </td>
-                    <td className="py-3 pe-3 text-text-secondary">
-                      {kindLabel[item.kind]}
-                    </td>
+                {requests.map((item) => (
+                  <tr key={item.id} className="border-t border-border-subtle align-middle">
+                    <td className="font-data py-3 pe-3 text-text-primary">{"ACC-04830"}</td>
+                    <td className="py-3 pe-3 text-text-secondary">{"Hotel access"}</td>
                     <td className="py-3 pe-3 text-text-primary">
-                      {lang === "ar" ? item.whatAr : item.what}
+                      {lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
                     </td>
                     <td className="py-3 pe-3 text-text-secondary">
-                      {lang === "ar" ? item.sentAr : item.sent}
+                      {/* {lang === "ar" ? item.sentAr : item.sent} */}
+                      {formatDate(item.createdAt, lang)}
                     </td>
                     <td className="py-3 pe-3">
-                      <StatusPill tone={stateTone[item.state]}>
-                        {stateLabel[item.state]}
+                      <StatusPill tone={stateTone[item.status]}>
+                        {stateLabel[item.status]}
                       </StatusPill>
                     </td>
                     <td className="py-3 pe-3 text-text-secondary">
-                      {lang === "ar" ? item.updateAr : item.update}
+                      {formatDate(item.updatedAt, lang)}
                     </td>
                     <td className="py-3 text-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setOpenId(item.id)}
-                      >
-                        {lang === "ar" ? item.actionAr : item.action}
+                      <Button variant="outline" size="sm" onClick={() => setOpenId(item.id)}>
+                        {/* {lang === "ar" ? item.actionAr : item.action} */}
+                        {lang === "en" ? "Open" : "فتح"}
                       </Button>
                     </td>
                   </tr>
@@ -261,9 +257,10 @@ function RequestsPage() {
       {/* OV 02.5B - 02.5F2 — the request, and what is left to do. */}
       {open && shape && (
         <RequestDetailDrawer
-          overline={`${kindLabel[open.kind]} · ${open.id}`}
-          title={lang === "ar" ? open.whatAr : open.what}
-          meta={`${lang === "ar" ? open.sentAr : open.sent}`}
+          request={open}
+          overline={`${open.status} · ${"ACC-04830"}`}
+          title={lang === "ar" ? open.hotel?.nameAr : open?.hotel?.nameEn}
+          meta={formatDate(open.createdAt, lang)}
           shape={shape}
           onClose={() => setOpenId(null)}
           onPrimary={() => {
@@ -271,14 +268,15 @@ function RequestsPage() {
             /* The same button reads differently on each state, so what
                it does is read off the shape rather than the state. */
             if (shape.primary === requestDetail.withdraw) {
-              withdrawRequest(open.id, open.hotelId);
+              withdrawRequest(`${open.id}`, `${open.hotelId}`);
               notify.success(r.withdrawn, { description: r.withdrawnNote });
               return;
             }
-            if (open.state === "approved" && open.hotelId) {
+            if (open.status === "approved" && open.hotelId) {
+              // cosnole.log("TEST")
               navigate({
                 to: "/hotel/$hotelId",
-                params: { hotelId: open.hotelId },
+                params: { hotelId: `${open.hotelId}` },
               });
             }
           }}
@@ -296,7 +294,7 @@ function RequestsPage() {
       {/* A company change keeps the generic drawer; no frame draws it. */}
       {open && !shape && (
         <Drawer
-          overline={kindLabel[open.kind]}
+          overline={kindLabel[filter]}
           title={lang === "ar" ? open.whatAr : open.what}
           meta={`${open.id} · ${lang === "ar" ? open.sentAr : open.sent}`}
           onClose={() => setOpenId(null)}
@@ -314,16 +312,13 @@ function RequestsPage() {
           }
         >
           <div className="space-y-5">
-            <StatusPill tone={stateTone[open.state]}>
-              {stateLabel[open.state]}
-            </StatusPill>
+            <StatusPill tone={stateTone[open.state]}>{stateLabel[open.state]}</StatusPill>
             <p className="text-sm leading-relaxed text-text-secondary">
               {lang === "ar" ? open.updateAr : open.update}
             </p>
           </div>
         </Drawer>
       )}
-
 
       {asking && (
         <AskHoteliana
@@ -357,7 +352,7 @@ function Stat({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
+  value: number | undefined;
   note: string;
 }) {
   return (
@@ -366,9 +361,7 @@ function Stat({
         {icon}
         <p className="text-overline">{label}</p>
       </div>
-      <p className="font-data mt-3 text-3xl font-semibold text-text-primary">
-        {value}
-      </p>
+      <p className="font-data mt-3 text-3xl font-semibold text-text-primary">{value}</p>
       <p className="mt-1 text-xs text-text-muted">{note}</p>
     </div>
   );

@@ -217,7 +217,7 @@ export function StatusPill({
   children,
   className,
 }: {
-  tone?: keyof typeof pillTones;
+  tone?: keyof typeof pillTones | undefined;
   /**
    * BR-00-27 — one badge component, five colours, and the colour comes from
    * the status dictionary rather than the call site. "أي حالة مش في القاموس
