@@ -30,6 +30,7 @@ export const useHotelRooms = (hotelId?: string) => {
 
   return {
     rooms: data?.rooms ?? [],
+    meta: data?.meta,
     isLoading,
     isError: error,
     refetch,

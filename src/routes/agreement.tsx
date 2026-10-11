@@ -45,11 +45,10 @@ import {
 } from "@/lib/demo-data";
 import { fieldLabel } from "@/lib/field-labels";
 import { cn } from "@/lib/utils";
+import { useSupplierProfile } from "@/api/modules/suppliers/useSupplierProfile";
 
 export const Route = createFileRoute("/agreement")({
-  validateSearch: (
-    search: Record<string, unknown>
-  ): { state?: "new"; as?: "member" } => ({
+  validateSearch: (search: Record<string, unknown>): { state?: "new"; as?: "member" } => ({
     ...(search["state"] === "new" ? { state: "new" as const } : {}),
     ...(search["as"] === "member" ? { as: "member" as const } : {}),
   }),
@@ -76,11 +75,7 @@ export const Route = createFileRoute("/agreement")({
 
 function AgreementPage() {
   const { c, lang } = useLanguage();
-  const {
-    agreementVersion,
-    agreementSentToOwner,
-    viewerIsOwner,
-  } = usePortal();
+  const { agreementVersion, agreementSentToOwner, viewerIsOwner } = usePortal();
   const [contractOpen, setContractOpen] = useState(false);
   /* OV 01.6B — Download PDF opens it straight from the agreement row. */
   const [downloadOpen, setDownloadOpen] = useState(false);
@@ -96,10 +91,12 @@ function AgreementPage() {
   const { state: agreementState, as: viewerParam } = Route.useSearch();
   const needsAcceptance = agreementVersion === "1.3" && agreementState === "new";
 
-  const value = (id: string) =>
-    companyRecord.find((field) => field.id === id)?.current ?? "";
-  const locked = (id: string) =>
-    Boolean(companyRecord.find((field) => field.id === id)?.lockedBy);
+  const locked = (id: string) => Boolean(companyRecord.find((field) => field.id === id)?.lockedBy);
+  const value = (id: string) => companyRecord.find((field) => field.id === id)?.current ?? "";
+
+  const { profile, isLoading, isError, refetch } = useSupplierProfile();
+
+  console.log(profile);
 
   return (
     <PageShell>
@@ -132,11 +129,7 @@ function AgreementPage() {
           title={a.newVersion.title}
           body={a.newVersion.body}
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAcceptOpen(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setAcceptOpen(true)}>
               {viewerIsOwner && viewerParam !== "member"
                 ? a.newVersion.cta
                 : a.newVersion.ctaOwnerOnly}
@@ -178,50 +171,40 @@ function AgreementPage() {
             <div>
               <DataRow label={a.company.legalName}>
                 <span className="text-sm font-medium text-text-primary">
-                  {value("legalName")}
+                  {lang === "ar" ? profile?.legalCompanyNameAr : profile?.legalCompanyNameEn}
                 </span>
               </DataRow>
               <DataRow label={a.company.country}>
                 <span className="text-sm text-text-primary">
-                  {a.company.countryCity}
+                  {profile?.countryCode} . {profile?.city}
                 </span>
               </DataRow>
               <DataRow label={a.company.phone}>
-                <MaskedValue id="phone" />
-                {locked("phone") && (
-                  <StatusPill tone="warning">{a.changePending}</StatusPill>
-                )}
+                <MaskedValue  value={profile?.phoneNumber} />
+                {/* {locked("phone") && <StatusPill tone="warning">{a.changePending}</StatusPill>} */}
               </DataRow>
               <DataRow label={a.company.email}>
-                <span className="font-data text-sm text-text-primary">
-                  {value("email")}
-                </span>
+                <span className="font-data text-sm text-text-primary">{profile?.email}</span>
               </DataRow>
               <DataRow label={a.company.owner}>
                 {/* UI 01.6 prints the record's label here, not the person. */}
-                <span className="text-sm text-text-primary">
-                  {c.account.ownerValue}
-                </span>
+                <span className="text-sm text-text-primary">{profile?.owner.name}</span>
               </DataRow>
               <DataRow label={a.company.ownerContact}>
-                <MaskedValue id="ownerPhone" />
+                <MaskedValue value={profile?.owner?.phoneNumber} />
                 <span className="font-data text-sm text-text-primary">
-                  · {value("ownerEmail")}
+                  · {profile?.owner?.email}
                 </span>
               </DataRow>
-              <DataRow label={a.supplier.ownerId}>
+              {/* <DataRow label={a.supplier.ownerId}>
                 <MaskedValue id="ownerId" />
-              </DataRow>
+              </DataRow> */}
               <DataRow label={a.supplier.iban}>
-                <MaskedValue id="iban" />
-                {locked("iban") && (
-                  <StatusPill tone="warning">{a.changePending}</StatusPill>
-                )}
+                <MaskedValue value={profile?.bankIban} />
+                {/* {locked("iban") && <StatusPill tone="warning">{a.changePending}</StatusPill>} */}
               </DataRow>
               <DataRow label={a.supplier.guarantee}>
-                <span className="text-sm text-text-muted">
-                  {a.supplier.guaranteeValue}
-                </span>
+                <span className="text-sm text-text-muted">{a.supplier.guaranteeValue}</span>
               </DataRow>
             </div>
           </SectionCard>
@@ -235,18 +218,10 @@ function AgreementPage() {
               <table className="w-full min-w-[520px] border-collapse text-sm">
                 <thead>
                   <tr className="text-overline text-text-muted">
-                    <th className="py-2 text-start font-semibold">
-                      {a.documents.document}
-                    </th>
-                    <th className="py-2 text-start font-semibold">
-                      {a.documents.issued}
-                    </th>
-                    <th className="py-2 text-start font-semibold">
-                      {a.documents.expires}
-                    </th>
-                    <th className="py-2 text-start font-semibold">
-                      {a.documents.status}
-                    </th>
+                    <th className="py-2 text-start font-semibold">{a.documents.document}</th>
+                    <th className="py-2 text-start font-semibold">{a.documents.issued}</th>
+                    <th className="py-2 text-start font-semibold">{a.documents.expires}</th>
+                    <th className="py-2 text-start font-semibold">{a.documents.status}</th>
                     <th className="py-2 text-end font-semibold" />
                   </tr>
                 </thead>
@@ -257,22 +232,14 @@ function AgreementPage() {
                       onClick={() => setOpenDoc(doc.id)}
                       className="cursor-pointer border-t border-border-subtle align-middle transition-colors hover:bg-surface-subtle"
                     >
-                      <td className="py-3 pe-3 text-text-primary">
-                        {fieldLabel(c, doc.id)}
-                      </td>
-                      <td className="font-data py-3 pe-3 text-text-secondary">
-                        {doc.issued}
-                      </td>
+                      <td className="py-3 pe-3 text-text-primary">{fieldLabel(c, doc.id)}</td>
+                      <td className="font-data py-3 pe-3 text-text-secondary">{doc.issued}</td>
                       <td className="font-data py-3 pe-3 text-text-secondary">
                         {lang === "ar" ? doc.expiresAr : doc.expires}
                       </td>
                       <td className="py-3 pe-3">
-                        <StatusPill
-                          tone={doc.status === "valid" ? "success" : "warning"}
-                        >
-                          {doc.status === "valid"
-                            ? a.documents.valid
-                            : a.documents.expiring}
+                        <StatusPill tone={doc.status === "valid" ? "success" : "warning"}>
+                          {doc.status === "valid" ? a.documents.valid : a.documents.expiring}
                         </StatusPill>
                       </td>
                       <td className="py-3 text-end">
@@ -281,9 +248,7 @@ function AgreementPage() {
                           name={value(doc.id)}
                           label={a.documents.view}
                           open={openDoc === doc.id}
-                          onOpenChange={(next) =>
-                            setOpenDoc(next ? doc.id : null)
-                          }
+                          onOpenChange={(next) => setOpenDoc(next ? doc.id : null)}
                         />
                       </td>
                     </tr>
@@ -291,9 +256,7 @@ function AgreementPage() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-text-muted">
-              {a.documents.note}
-            </p>
+            <p className="mt-4 text-xs leading-relaxed text-text-muted">{a.documents.note}</p>
           </SectionCard>
         </div>
       )}
@@ -304,11 +267,7 @@ function AgreementPage() {
           overline={a.contract.overline}
           title={fill(a.contract.title, { version: version.version })}
           right={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setHistoryOpen(true)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
               {a.contract.history}
             </Button>
           }
@@ -316,9 +275,7 @@ function AgreementPage() {
           <div className="grid gap-x-8 sm:grid-cols-2">
             <div>
               <DataRow label={a.contract.term}>
-                <span className="font-data text-sm text-text-primary">
-                  {version.term}
-                </span>
+                <span className="font-data text-sm text-text-primary">{version.term}</span>
               </DataRow>
               <DataRow label={a.contract.model}>
                 <span className="text-sm text-text-primary">
@@ -331,28 +288,16 @@ function AgreementPage() {
                 </span>
               </DataRow>
               <DataRow label={a.contract.currency}>
-                <span className="font-data text-sm text-text-primary">
-                  {version.currency}
-                </span>
+                <span className="font-data text-sm text-text-primary">{version.currency}</span>
               </DataRow>
               {/* UI 01.6 — the file, then Preview and Download PDF. */}
               <DataRow label={a.contract.file}>
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="font-data text-sm text-text-primary">
-                    {version.file}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setContractOpen(true)}
-                  >
+                  <span className="font-data text-sm text-text-primary">{version.file}</span>
+                  <Button size="sm" variant="outline" onClick={() => setContractOpen(true)}>
                     {c.common.preview}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDownloadOpen(true)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => setDownloadOpen(true)}>
                     {c.common.downloadPdf}
                   </Button>
                 </div>
@@ -365,40 +310,27 @@ function AgreementPage() {
                 </span>
               </DataRow>
               <DataRow label={a.contract.acceptedAt}>
-                <span className="font-data text-sm text-text-primary">
-                  {version.acceptedAt}
-                </span>
+                <span className="font-data text-sm text-text-primary">{version.acceptedAt}</span>
               </DataRow>
               <DataRow label={a.contract.record}>
-                <span className="text-sm text-text-secondary">
-                  {a.contract.recordValue}
-                </span>
+                <span className="text-sm text-text-secondary">{a.contract.recordValue}</span>
               </DataRow>
               <DataRow label={a.contract.previous}>
-                <span className="font-data text-sm text-text-secondary">
-                  {version.previous}
-                </span>
+                <span className="font-data text-sm text-text-secondary">{version.previous}</span>
               </DataRow>
             </div>
           </div>
 
           <div className="mt-4 flex gap-3 rounded-xl border border-border-subtle bg-surface-subtle p-4">
-            <Lock
-              className="mt-0.5 h-4 w-4 shrink-0 text-text-muted"
-              aria-hidden="true"
-            />
-            <p className="text-xs leading-relaxed text-text-secondary">
-              {a.contract.note}
-            </p>
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+            <p className="text-xs leading-relaxed text-text-secondary">{a.contract.note}</p>
           </div>
         </SectionCard>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-border-subtle bg-surface-default p-5 shadow-card">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-text-primary">
-            {a.strip.title}
-          </p>
+          <p className="text-sm font-semibold text-text-primary">{a.strip.title}</p>
           <p className="mt-1 text-sm text-text-secondary">{a.strip.body}</p>
         </div>
         <Link to="/requests">
@@ -450,11 +382,7 @@ function AcceptVersionModal({
   const [reading, setReading] = useState(false);
   const [sentNow, setSentNow] = useState(sent);
 
-  const title = !viewerIsOwner
-    ? sentNow
-      ? t.titleSent
-      : t.titleOwnerOnly
-    : t.title;
+  const title = !viewerIsOwner ? (sentNow ? t.titleSent : t.titleOwnerOnly) : t.title;
 
   return (
     <Modal
@@ -506,10 +434,7 @@ function AcceptVersionModal({
           <p className="text-overline text-text-muted">{t.changedOverline}</p>
           <ul className="mt-2 space-y-2">
             {t.changes.map((change) => (
-              <li
-                key={change}
-                className="flex gap-2 text-sm leading-relaxed text-text-secondary"
-              >
+              <li key={change} className="flex gap-2 text-sm leading-relaxed text-text-secondary">
                 <span
                   className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
                   aria-hidden="true"
@@ -523,18 +448,12 @@ function AcceptVersionModal({
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface-subtle p-4">
           <FileText className="h-5 w-5 text-text-muted" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="font-data truncate text-sm text-text-primary">
-              {t.file}
-            </p>
+            <p className="font-data truncate text-sm text-text-primary">{t.file}</p>
             <p className="mt-0.5 text-xs text-text-muted">
               {opened ? t.pagesOpened : viewerIsOwner ? t.pages : t.pagesHash}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setReading(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setReading(true)}>
             <Eye className="h-4 w-4" aria-hidden="true" />
             {t.read}
           </Button>
@@ -546,13 +465,8 @@ function AcceptVersionModal({
 
         {viewerIsOwner && !opened && (
           <div className="flex gap-2 rounded-xl border border-status-warning/25 bg-status-warning-bg p-3.5">
-            <Lock
-              className="mt-0.5 h-4 w-4 shrink-0 text-status-warning"
-              aria-hidden="true"
-            />
-            <p className="text-[13px] leading-[1.5] text-text-secondary">
-              {t.gate}
-            </p>
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" aria-hidden="true" />
+            <p className="text-[13px] leading-[1.5] text-text-secondary">{t.gate}</p>
           </div>
         )}
       </div>
@@ -570,18 +484,48 @@ function AcceptVersionModal({
   );
 }
 
-function MaskedValue({ id }: { id: string }) {
+// function MaskedValue({ id }: { id: string }) {
+//   const { c } = useLanguage();
+//   const [revealed, setRevealed] = useState(false);
+//   const field = companyRecord.find((f) => f.id === id);
+//   if (!field) return null;
+
+//   return (
+//     <>
+//       <span className="font-data text-sm text-text-primary">
+//         {revealed ? field.current : (field.masked ?? field.current)}
+//       </span>
+//       {/* UI 01.6 — the row ends in an eye, not in a word. */}
+//       <button
+//         type="button"
+//         onClick={() => setRevealed((prev) => !prev)}
+//         aria-label={revealed ? c.common.hide : c.common.reveal}
+//         title={revealed ? c.common.hide : c.common.reveal}
+//         className="order-last ms-auto shrink-0 rounded-md p-1 text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary"
+//       >
+//         {revealed ? (
+//           <EyeOff className="h-4 w-4" aria-hidden="true" />
+//         ) : (
+//           <Eye className="h-4 w-4" aria-hidden="true" />
+//         )}
+//       </button>
+//     </>
+//   );
+// }
+
+function MaskedValue({ value }: { value: string }) {
   const { c } = useLanguage();
   const [revealed, setRevealed] = useState(false);
-  const field = companyRecord.find((f) => f.id === id);
-  if (!field) return null;
+
+  const maskedValue =
+    value.length > 3 ? `${value.slice(0, 3)}${"*".repeat(value.length - 3)}` : value;
 
   return (
     <>
-      <span className="font-data text-sm text-text-primary">
-        {revealed ? field.current : (field.masked ?? field.current)}
+      <span className="font-data text-sm text-text-primary" dir="ltr">
+        {revealed ? value : maskedValue}
       </span>
-      {/* UI 01.6 — the row ends in an eye, not in a word. */}
+
       <button
         type="button"
         onClick={() => setRevealed((prev) => !prev)}
@@ -614,14 +558,9 @@ function HistoryModal({ onClose }: { onClose: () => void }) {
     >
       <div className="space-y-3">
         {agreementHistory.map((entry) => (
-          <div
-            key={entry.version}
-            className="rounded-xl border border-border-subtle p-4"
-          >
+          <div key={entry.version} className="rounded-xl border border-border-subtle p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <b className="font-data text-sm text-text-primary">
-                {entry.version}
-              </b>
+              <b className="font-data text-sm text-text-primary">{entry.version}</b>
               <StatusPill
                 tone={
                   entry.state === "active"
@@ -714,19 +653,14 @@ function DocumentValue({
             ))}
             <div className="rounded-xl bg-surface-subtle p-3.5">
               <p className="text-overline text-text-muted">{v.statusLabel}</p>
-              <StatusPill
-                className="mt-1"
-                tone={doc.status === "expiring" ? "warning" : "success"}
-              >
+              <StatusPill className="mt-1" tone={doc.status === "expiring" ? "warning" : "success"}>
                 {doc.status === "expiring" ? v.expiring : v.valid}
               </StatusPill>
             </div>
           </div>
 
           <div className="mt-4 rounded-xl border border-border-subtle p-4">
-            <p className="font-data text-sm font-semibold text-text-primary">
-              {name}
-            </p>
+            <p className="font-data text-sm font-semibold text-text-primary">{name}</p>
             <p className="mt-1 text-xs leading-5 text-text-secondary">{v.body}</p>
             <p className="text-overline mt-3 text-text-muted">{v.currentFile}</p>
           </div>
@@ -789,30 +723,24 @@ function ContractModal({ onClose }: { onClose: () => void }) {
       {...dismiss.scrim}
       className={cn(
         "fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-brand-deep/40 p-4",
-        scrimMotion
+        scrimMotion,
       )}
     >
       <div
         {...dismiss.panel}
         className={cn(
           "flex w-full max-w-[920px] flex-col gap-[14px] rounded-[16px] bg-surface-default px-6 py-[22px] shadow-overlay",
-          panelMotion
+          panelMotion,
         )}
       >
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1 space-y-2">
             <p className="text-overline text-brand-deep">{m.overline}</p>
-            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
-              {m.file}
-            </h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">{m.file}</h2>
             <p className="text-[13px] leading-5 text-text-secondary">
               {m.meta}
               <br />
-              <button
-                type="button"
-                onClick={() => setDownloaded(true)}
-                className="hover:underline"
-              >
+              <button type="button" onClick={() => setDownloaded(true)} className="hover:underline">
                 {m.download}
               </button>
             </p>
@@ -831,25 +759,17 @@ function ContractModal({ onClose }: { onClose: () => void }) {
         <div className="rounded-xl border border-border-subtle bg-surface-subtle p-6">
           <div className="mx-auto w-full max-w-[600px] space-y-2.5 rounded-[4px] border border-border-default bg-surface-default px-9 py-8">
             <p className="text-overline text-brand-deep">{sheet.overline}</p>
-            <p className="text-[15px] font-semibold text-text-primary">
-              {m.party}
-            </p>
+            <p className="text-[15px] font-semibold text-text-primary">{m.party}</p>
             {sheet.rows.map(([label, value]) => (
               <div
                 key={label}
                 className="flex items-center gap-3 border-b border-border-subtle py-[9px]"
               >
-                <span className="w-40 shrink-0 text-xs text-text-muted">
-                  {label}
-                </span>
-                <span className="text-[12.5px] font-medium text-text-primary">
-                  {value}
-                </span>
+                <span className="w-40 shrink-0 text-xs text-text-muted">{label}</span>
+                <span className="text-[12.5px] font-medium text-text-primary">{value}</span>
               </div>
             ))}
-            <p className="text-[11.5px] leading-[17px] text-text-muted">
-              {m.note}
-            </p>
+            <p className="text-[11.5px] leading-[17px] text-text-muted">{m.note}</p>
           </div>
         </div>
 
@@ -902,12 +822,8 @@ function DownloadModal({ onClose }: { onClose: () => void }) {
           [d.statusLabel, d.statusValue],
         ].map(([label, value]) => (
           <div key={label} className="flex items-center gap-2.5">
-            <span className="w-[70px] shrink-0 text-xs text-text-muted">
-              {label}
-            </span>
-            <span className="text-[12.5px] font-medium text-text-primary">
-              {value}
-            </span>
+            <span className="w-[70px] shrink-0 text-xs text-text-muted">{label}</span>
+            <span className="text-[12.5px] font-medium text-text-primary">{value}</span>
           </div>
         ))}
       </OverlaySummary>

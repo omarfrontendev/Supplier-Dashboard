@@ -13,8 +13,8 @@ const team = {
 };
 
 const uploads = {
-  create: "/uploads"
-}
+  create: "/uploads",
+};
 
 const auth = {
   login: "auth/login",
@@ -52,11 +52,16 @@ const profiles = {
   getProfileById: (id: string) => `/permissions/profiles/${id}`,
 };
 
+const suppliers = {
+  getProfile: "/profile",
+};
+
 export const endpoints = {
   auth,
   team,
   profiles,
   hotels,
   requests,
-  uploads
+  uploads,
+  suppliers
 };

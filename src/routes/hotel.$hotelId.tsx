@@ -184,7 +184,7 @@ function HotelProfilePage() {
     );
   };
 
-  const { rooms, isLoading, isError, refetch } = useHotelRooms(hotel?.hotel?.id);
+  const { rooms, meta } = useHotelRooms(hotel?.hotel?.id);
 
   const pendingRooms = newRooms.filter((room) => room.hotelId === hotel.id);
   // const rooms = useMemo(() => roomCatalogue, []);
@@ -202,8 +202,6 @@ function HotelProfilePage() {
       : room.children === 1
         ? fill(p.guestsOneChild, { adults: room.adults })
         : fill(p.guests, { adults: room.adults, children: room.children });
-
-  console.log(rooms);
 
   return (
     <PageShell>
@@ -317,25 +315,25 @@ function HotelProfilePage() {
               title={p.amenitiesTitle}
             />
             <div className="flex flex-wrap gap-1.5">
-              {c.roomDrawer.amenityList.map((item) => (
+              {hotel?.hotel?.amenities.map((item) => (
                 <span
-                  key={item}
+                  key={item?.id}
                   className="inline-flex items-center gap-[5px] rounded-full border border-border-subtle bg-surface-subtle py-[5px] pe-2.5 ps-2 text-[11.5px] font-medium leading-[1.45] text-text-body"
                 >
                   <Check className="h-[11px] w-[11px] text-status-success" aria-hidden="true" />
-                  {item}
+                  {lang === "ar" ? item?.nameAr : item?.nameEn}
                 </span>
               ))}
             </div>
           </section>
         </div>
-
+              {console.log(meta?.total)}
         {/* Room catalogue */}
         <section className="rounded-2xl border border-border-subtle bg-surface-default px-[22px] pb-3.5 pt-5">
           <CardHead
             icon={<Bed className="h-[18px] w-[18px]" aria-hidden="true" />}
             overline={fill(p.roomsOverline, {
-              rooms: availableCount,
+              rooms: meta?.total,
               pending: pendingCount,
             })}
             title={p.roomsTitle}
@@ -379,7 +377,7 @@ function HotelProfilePage() {
                   </p>
                   <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
                   <p className={COLS.size}>{room?.roomSizeId || "--"}</p>
-                  <p className={COLS.view}>{room?.view || "--!"}</p>
+                  <p className={COLS.view}>{room?.view || "--"}</p>
                   <p className={COLS.status}>
                     {room.status === "pending" ? (
                       // <Badge tone="warning">{p.statusPending}</Badge>

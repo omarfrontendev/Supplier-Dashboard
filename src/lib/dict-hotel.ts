@@ -33,7 +33,7 @@ export const hotelEn = {
     distance: "Distance to Haram",
     amenitiesOverline: "AMENITIES",
     amenitiesTitle: "Hotel amenities",
-    roomsOverline: "OFFICIAL CATALOGUE · {rooms} ROOMS · {pending} PENDING",
+    roomsOverline: "OFFICIAL CATALOGUE · {rooms} ROOMS",
     roomsTitle: "Room catalogue",
     roomsSubtitle:
       "The view is part of the room. Meal plans and prices are set in your supply contract.",
@@ -154,7 +154,7 @@ export const hotelAr: typeof hotelEn = {
     distance: "المسافة إلى الحرم",
     amenitiesOverline: "المرافق",
     amenitiesTitle: "مرافق الفندق",
-    roomsOverline: "الكتالوج الرسمي · {rooms} غرف · {pending} قيد المراجعة",
+    roomsOverline: "الكتالوج الرسمي · {rooms} غرف",
     roomsTitle: "كتالوج الغرف",
     roomsSubtitle:
       "كل غرفة لها إطلالة واحدة. خطط الوجبات والأسعار تُحدَّد في عقد الأسعار وليس هنا.",
