@@ -304,7 +304,6 @@ function AddHotelPage() {
 
   const onSubmit = hookForm.handleSubmit(async (values) => {
     setSending(true);
-    console.log(formValues)
     try {
       // 1. Upload selected images in parallel.
       const uploadedImages = await Promise.all(
@@ -315,7 +314,7 @@ function AddHotelPage() {
           });
 
           return {
-            uploadId: response.uploadId,
+            uploadId: response.upload?.id,
             captionEn: "",
             captionAr: "",
             sortOrder: index,
@@ -354,7 +353,7 @@ function AddHotelPage() {
         overline={
           step === 0
             ? a.overline
-            : `${a.overline} · ${form.name.trim().toUpperCase() || "MAKKAH GATE HOTEL"}`
+            : `${a.overline} · $${formValues?.nameEn} · ${formValues?.nameAr}`
         }
         title={step === 0 ? a.title : step === 1 ? a.mediaTitle : a.reviewTitle}
         subtitle={step === 0 ? a.subtitle : step === 1 ? a.mediaSubtitle : a.reviewSubtitle}
@@ -950,7 +949,7 @@ function AddHotelPage() {
         <div className="space-y-6">
           <SectionCard
             overline={a.reviewStep1}
-            title={`${formValues?.nameEn || "Makkah Gate Hotel"} · ${formValues?.nameAr || "فندق بوابة مكة"}`}
+            title={`${formValues?.nameEn} · ${formValues?.nameAr}`}
             right={
               <Button type="button" variant="ghost" size="sm" onClick={() => setStep(0)}>
                 {a.edit}
@@ -967,7 +966,8 @@ function AddHotelPage() {
                 ],
                 [
                   a.fieldCountry,
-                  `${formValues?.countryCode || "—"} · ${formValues?.city || "—"}${
+                  `${formValues?.countryCode || "—"} · ${formValues?.city || "—"}
+                  ${
                     formValues?.area ? ` · ${formValues?.area}` : ""
                   }`,
                 ],
@@ -993,7 +993,7 @@ function AddHotelPage() {
           <SectionCard
             overline={a.reviewStep2}
             title={fill(a.reviewMedia, {
-              images: uploadedAmenities.length,
+              images: selectedImages.length,
               amenities: selectedAmenities.length,
             })}
             right={
@@ -1064,23 +1064,7 @@ function AddHotelPage() {
             <Button variant="ghost" onClick={() => setStep(1)}>
               {a.back}
             </Button>
-            <Button
-              loading={sending}
-              disabled={!accurate}
-              onClick={onSubmit}
-              // onClick={() => {
-              //   // setSending(true);
-              //   // void (async () => {
-              //   //   await wait(650);
-              //   //   submitHotel(form.name || "Makkah Gate Hotel");
-              //   //   notify.success(c.toast.hotelSubmitted, {
-              //   //     description: c.toast.hotelSubmittedDesc,
-              //   //   });
-              //   //   setSending(false);
-              //   //   setStep(3);
-              //   // })();
-              // }}
-            >
+            <Button loading={sending} disabled={!accurate} onClick={onSubmit}>
               {a.submit}
             </Button>
           </div>
