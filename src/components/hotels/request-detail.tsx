@@ -98,7 +98,8 @@ export function RequestDetailDrawer({
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2.5">
           {/* <StatusPill tone={shape.tone}>{shape.stateLabel[k]}</StatusPill> */}
-          <StatusPill tone={status?.tone}>{status?.label}</StatusPill>
+          {/* <StatusPill tone={status?.tone}>{status?.label}</StatusPill> */}
+          <StatusPill tone={status?.tone} className="uppercase">{request?.status}</StatusPill>
           <span className="text-[11.5px] text-text-muted">{shape.stateNote[k]}</span>
         </div>
 

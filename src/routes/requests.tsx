@@ -90,7 +90,8 @@ function RequestsPage() {
      waiting and linked are both quiet: neither is asking anything. */
   const stateTone = {
     pending: "neutral",
-    submitted: "warning",
+    suspended: "neutral",
+    info_requested: "warning",
     approved: "success",
     // submitted: "neutral",
     rejected: "danger",
@@ -98,23 +99,26 @@ function RequestsPage() {
 
   const stateLabel = {
     pending: r.statePending,
-    submitted: r.stateNeedsYou,
+    suspended: r.statePending,
+    info_requested: r.stateNeedsYou,
     approved: r.stateApproved,
     // submitted: r.stateLinked,
     rejected: r.stateNotApproved,
   } as const;
 
+  const { data: metrics, isLoading: metricsLoading } = useMetrics();
+
   const tabs = (
     [
-      { key: "all", label: r.filterAll, count: items.length },
-      { key: "access", label: r.filterAccess, count: kindCount("access") },
-      { key: "hotel", label: r.filterHotels, count: kindCount("hotel") },
-      { key: "room", label: r.filterRooms, count: kindCount("room") },
+      { key: "all", label: r.filterAll, count: metrics?.requests_count?.[0]?.value },
+      { key: "access", label: r.filterAccess, count: metrics?.requests_count?.[1]?.value },
+      { key: "hotel", label: r.filterHotels, count: metrics?.requests_count?.[2]?.value },
+      { key: "room", label: r.filterRooms, count: metrics?.requests_count?.[3]?.value },
       // { key: "company", label: r.filterCompany, count: kindCount("company") },
     ] as Array<{ key: SupplierRequestKind | "all"; label: string; count: number }>
-  ).filter((tab) => tab.key === "all" || tab.count > 0);
+  ).filter((tab) => tab.key === "all" || tab.count >= 0);
 
-  const { data: metrics, isLoading: metricsLoading } = useMetrics();
+  console.log(metrics?.requests_count);
 
   const { requests, meta, isLoading } = useRequests({
     type: filter,
@@ -192,7 +196,7 @@ function RequestsPage() {
       )}
 
       <SectionCard>
-        {loading ? (
+        {isLoading ? (
           <RowsSkeleton />
         ) : requests.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border-default p-10 text-center text-sm text-text-secondary">
@@ -225,8 +229,9 @@ function RequestsPage() {
                       {formatDate(item.createdAt, lang)}
                     </td>
                     <td className="py-3 pe-3">
-                      <StatusPill tone={stateTone[item.status]}>
-                        {stateLabel[item.status]}
+                      <StatusPill tone={stateTone[item.status]} className="uppercase">
+                        {item.status}
+                        {/* {stateLabel[item.status]} */}
                       </StatusPill>
                     </td>
                     <td className="py-3 pe-3 text-text-secondary">
@@ -246,7 +251,7 @@ function RequestsPage() {
         )}
 
         <p className="mt-4 text-xs text-text-muted">
-          {fill(r.showing, { shown: visible.length, total: items.length })}
+          {fill(r.showing, { shown: requests?.length, total: meta?.total })}
         </p>
       </SectionCard>
 
