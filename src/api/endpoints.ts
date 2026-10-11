@@ -30,6 +30,7 @@ const hotels = {
   createHotelRequest: "/hotel-requests",
   getHotelById: (id: string) => `/linked-hotels/${id}`,
   getHotelOptions: "/hotels/linking-options",
+  getHotelRooms: (id: string) => `/linked-hotels/${id}/rooms?page=1&limit=100`,
 };
 
 const requests = {

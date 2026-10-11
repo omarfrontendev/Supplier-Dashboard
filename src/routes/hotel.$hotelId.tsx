@@ -33,6 +33,7 @@ import { CreateRoomPayload } from "@/api/modules/requests/types";
 import { useUploadFile } from "@/api/modules/useUploads";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -173,8 +174,20 @@ function HotelProfilePage() {
   const ar = lang === "ar";
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
 
+  const getCountryName = (countryCode: string, lang: "en" | "ar") => {
+    const locale = lang === "ar" ? "ar" : "en";
+
+    return (
+      new Intl.DisplayNames([locale], {
+        type: "region",
+      }).of(countryCode) ?? countryCode
+    );
+  };
+
+  const { rooms, isLoading, isError, refetch } = useHotelRooms(hotel?.hotel?.id);
+
   const pendingRooms = newRooms.filter((room) => room.hotelId === hotel.id);
-  const rooms = useMemo(() => roomCatalogue, []);
+  // const rooms = useMemo(() => roomCatalogue, []);
   const pendingCount =
     rooms.filter((room) => room.status === "pending").length + pendingRooms.length;
   const availableCount = rooms.filter((room) => room.status === "available").length;
@@ -190,15 +203,7 @@ function HotelProfilePage() {
         ? fill(p.guestsOneChild, { adults: room.adults })
         : fill(p.guests, { adults: room.adults, children: room.children });
 
-  const getCountryName = (countryCode: string, lang: "en" | "ar") => {
-    const locale = lang === "ar" ? "ar" : "en";
-
-    return (
-      new Intl.DisplayNames([locale], {
-        type: "region",
-      }).of(countryCode) ?? countryCode
-    );
-  };
+  console.log(rooms);
 
   return (
     <PageShell>
@@ -365,19 +370,22 @@ function HotelProfilePage() {
                   className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
                 >
                   <p className={`${COLS.room} font-medium text-text-primary`}>
-                    {ar ? room.nameAr : room.name}
+                    {ar ? room.nameAr : room.nameEn}
                   </p>
-                  <p className={COLS.occupancy}>{room.occupancy}</p>
+                  <p className={COLS.occupancy}>{room.maxOccupancy}</p>
                   <p className={COLS.guests}>{guestsLabel(room)}</p>
-                  <p className={COLS.childAge}>{fill(p.upTo, { age: room.maxChildAge })}</p>
-                  <p className={COLS.bed}>{ar ? room.bedsAr : room.beds}</p>
-                  <p className={COLS.size}>{room.size}</p>
-                  <p className={COLS.view}>{ar ? room.viewAr : room.view}</p>
+                  <p className={COLS.childAge}>
+                    {room?.maxChildAge ? fill(p.upTo, { age: room?.maxChildAge}): "--"}
+                  </p>
+                  <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
+                  <p className={COLS.size}>{room?.roomSizeId || "--"}</p>
+                  <p className={COLS.view}>{room?.view || "--!"}</p>
                   <p className={COLS.status}>
                     {room.status === "pending" ? (
-                      <Badge tone="warning">{p.statusPending}</Badge>
+                      // <Badge tone="warning">{p.statusPending}</Badge>
+                      <Badge tone="warning">{room.status}</Badge>
                     ) : (
-                      <Badge tone="success">{p.statusAvailable}</Badge>
+                      <Badge tone="success">{room.status}</Badge>
                     )}
                   </p>
                 </div>
