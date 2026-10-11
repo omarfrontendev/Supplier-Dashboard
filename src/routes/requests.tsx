@@ -22,6 +22,7 @@ import { RowsSkeleton, StatsSkeleton } from "@/components/ui/skeletons";
 import { useMetrics } from "@/api/modules/team/userMetrics";
 import { useRequests } from "@/api/modules/requests/useRequests";
 import { formatDate } from "./team.index";
+import { Select } from "@/components/ui/select";
 
 export const Route = createFileRoute("/requests")({
   head: () => ({
@@ -63,6 +64,7 @@ function RequestsPage() {
   const [asking, setAsking] = useState<SupplierRequest | null>(null);
   const [filter, setFilter] = useState<SupplierRequestKind | "all">("all");
   const { loading } = useRemoteData(() => true);
+  const [status, setStatus] = useState("all");
 
   const items = useMemo(
     () =>
@@ -113,18 +115,16 @@ function RequestsPage() {
       { key: "all", label: r.filterAll, count: metrics?.requests_count?.[0]?.value },
       { key: "access", label: r.filterAccess, count: metrics?.requests_count?.[1]?.value },
       { key: "hotel", label: r.filterHotels, count: metrics?.requests_count?.[2]?.value },
-      { key: "room", label: r.filterRooms, count: metrics?.requests_count?.[3]?.value },
+      { key: "room", label: r.filterRooms, count: metrics?.requests_count?.[0]?.value },
       // { key: "company", label: r.filterCompany, count: kindCount("company") },
     ] as Array<{ key: SupplierRequestKind | "all"; label: string; count: number }>
   ).filter((tab) => tab.key === "all" || tab.count >= 0);
-
-  console.log(metrics?.requests_count);
 
   const { requests, meta, isLoading } = useRequests({
     type: filter,
     page: 1,
     limit: 100,
-    // status: "approved",
+    status: status === "all" ? null : status,
   });
 
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
@@ -143,7 +143,7 @@ function RequestsPage() {
         }
       />
 
-      <div className="scrollbar-none mb-5 flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border-subtle bg-surface-default p-1 shadow-card sm:w-fit">
+      <div className=" scrollbar-none mb-5 flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border-subtle bg-surface-default p-1 shadow-card sm:w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -194,6 +194,21 @@ function RequestsPage() {
           />
         </div>
       )}
+      <SectionCard className="mb-6">
+        <div className="w-100">
+          <Select
+            label={lang === "ar" ? "الحالة" : "Status"}
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: "all", label: c.library.allStatuses },
+              ...(["pending", "rejected", "info_requested", "approved", "suspended"] as const).map(
+                (key) => ({ value: key, label: key.toUpperCase() }),
+              ),
+            ]}
+          />
+        </div>
+      </SectionCard>
 
       <SectionCard>
         {isLoading ? (

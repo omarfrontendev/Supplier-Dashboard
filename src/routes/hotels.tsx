@@ -261,7 +261,7 @@ function HotelLibraryPage() {
               })),
             ]}
           />
-          <Select
+          {/* <Select
             label={c.library.relationship}
             value={status}
             onChange={setStatus}
@@ -271,7 +271,7 @@ function HotelLibraryPage() {
                 (key) => ({ value: key, label: c.library.status[key] }),
               ),
             ]}
-          />
+          /> */}
         </div>
         <div className="flex justify-end px-5 pb-5">
           <Button variant="outline" size="sm" onClick={() => setPanel("filter")}>
