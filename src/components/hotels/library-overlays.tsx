@@ -58,6 +58,9 @@ export function HotelQuickView({
 
   const { hotel: selectedHotel, isLoading, isError } = useSingleHotel(hotel?.id);
 
+  // console.log(selectedHotel?.hotel?.countryCode);
+
+
   return (
     <Drawer
       width="560px"
@@ -107,11 +110,14 @@ export function HotelQuickView({
               label={c.address[k]}
               value={
                 k === "ar"
-                  ? `${hotel.addressAr}، ${hotel.districtAr}`
-                  : `${hotel.address}, ${hotel.district}`
+                  ? `${selectedHotel?.hotel.addressAr}`
+                  : `${selectedHotel?.hotel.addressEn}`
               }
             />
-            <ProfileRow label={c.description[k]} value={k === "ar" ? hotel.descAr : hotel.descEn} />
+            <ProfileRow
+              label={c.description[k]}
+              value={k === "ar" ? selectedHotel?.hotel.descriptionAr : selectedHotel?.hotel.descriptionEn}
+            />
             <ProfileRow
               label={c.distance[k]}
               value={k === "ar" ? hotel.distanceAr : hotel.distance}

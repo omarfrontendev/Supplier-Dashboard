@@ -186,7 +186,7 @@ function HotelLibraryPage() {
         limit: 20,
         search: debouncedQuery,
         countryCode: country === "all" ? null : country,
-        starRating: stars === "all"  ? null : stars 
+        starRating: stars === "all" ? null : stars,
       }),
     );
   }, [dispatch, debouncedQuery, country, stars]);
@@ -469,7 +469,7 @@ function HotelLibraryPage() {
         <HotelQuickView
           hotel={quickHotel}
           name={ar ? quickHotel.nameAr : quickHotel.nameEn}
-          meta={`${ar ? quickHotel.districtAr : quickHotel.district}${ar ? "\u060c" : ","} ${ar ? quickHotel.cityAr : quickHotel.city} \u00b7 ${fill(c.library.stars, { count: quickHotel.stars })} \u00b7 ${c.libraryOverlay.hotelianaId} ${quickHotel.id}`}
+          meta={`${quickHotel.countryCode}${ar ? "\u060c" : ","} ${quickHotel.city} \u00b7 ${fill(c.library.stars, { count: quickHotel.starRating })} \u00b7 ${c.libraryOverlay.hotelianaId} ${quickHotel.id}`}
           requested={(relations[quickHotel.id] ?? quickHotel.relation) === "requested"}
           onClose={() => setQuickId(null)}
           onRequest={() => {
