@@ -40,7 +40,7 @@ export function TopBar() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   /* OV CH.1 - the search the glass opens, and the "/" the guide asks for. */
   const [searchOpen, setSearchOpen] = useState(false);
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -48,9 +48,7 @@ export function TopBar() {
       const target = event.target as HTMLElement | null;
       /* Someone typing a "/" into a field means the character. */
       const typing =
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.isContentEditable;
+        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
       if (typing) return;
       event.preventDefault();
       setSearchOpen(true);
@@ -94,8 +92,16 @@ export function TopBar() {
     "flex shrink-0 items-center gap-2 rounded-full px-3 py-[11px] text-[13px] font-medium transition-colors";
   const itemIdle = "text-text-muted hover:bg-surface-subtle hover:text-text-primary";
   const itemActive = "bg-surface-inverse text-text-inverse [&_svg]:text-primary";
-  const propertyPaths = ["/agreement", "/my-hotels", "/hotels", "/hotel", "/requests", "/rate-contracts", "/sell-status", "/information-requests"];
-
+  const propertyPaths = [
+    "/agreement",
+    "/my-hotels",
+    "/hotels",
+    "/hotel",
+    "/requests",
+    "/rate-contracts",
+    "/sell-status",
+    "/information-requests",
+  ];
 
   function NavItems({ showLabels }: { showLabels: boolean }) {
     const labelClass = cn(
@@ -107,9 +113,7 @@ export function TopBar() {
         {items.map(({ key, label, Icon, to }) => {
           const here =
             key === "property"
-              ? propertyPaths.some(
-                (p) => pathname === p || pathname.startsWith(`${p}/`)
-              )
+              ? propertyPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))
               : pathname === to || pathname.startsWith(`${to}/`);
           /* The guide puts a count on Finance when something wants you. */
           const wants = key === "finance" ? financeAttention(lang) : 0;
@@ -129,7 +133,7 @@ export function TopBar() {
                     "rounded-full px-1.5 text-[10px] font-semibold",
                     here
                       ? "bg-primary text-primary-foreground"
-                      : "bg-status-warning-bg text-status-warning"
+                      : "bg-status-warning-bg text-status-warning",
                   )}
                 >
                   {arabicDigits(wants, lang === "ar")}
@@ -175,23 +179,38 @@ export function TopBar() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[300px]">
-          <DropdownMenuLabel className="text-overline text-text-muted">{c.account.languageOverline}</DropdownMenuLabel>
-          <DropdownMenuItem className="cursor-pointer gap-2.5" onSelect={() => lang !== "en" && toggleLang()}>
+          <DropdownMenuLabel className="text-overline text-text-muted">
+            {c.account.languageOverline}
+          </DropdownMenuLabel>
+          <DropdownMenuItem
+            className="cursor-pointer gap-2.5"
+            onSelect={() => lang !== "en" && toggleLang()}
+          >
             <Globe className="h-4 w-4 text-text-muted" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
               <span>{c.account.languageEnglish}</span>
-              <span className="text-[11px] text-text-muted">{c.account.languageEnglishHint}</span>
+              {lang === "en" && (
+                <span className="text-[11px] text-text-muted">{c.account.languageEnglishHint}</span>
+              )}
             </span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer gap-2.5" onSelect={() => lang !== "ar" && toggleLang()}>
+          <DropdownMenuItem
+            className="cursor-pointer gap-2.5"
+            onSelect={() => lang !== "ar" && toggleLang()}
+          >
             <Globe className="h-4 w-4 text-text-muted" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
               <span>{c.account.languageArabic}</span>
-              <span className="text-[11px] text-text-muted">{c.account.languageArabicHint}</span>
+              {lang === "ar" && (
+                <span className="text-[11px] text-text-muted">{c.account.languageEnglishHint}</span>
+              )}
+              {/* <span className="text-[11px] text-text-muted">{c.account.languageArabicHint}</span> */}
             </span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <p className="px-2 py-2 text-[11px] leading-4 text-text-muted">{c.account.languageNote}</p>
+          <p className="px-2 py-2 text-[11px] leading-4 text-text-muted">
+            {c.account.languageNote}
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -219,9 +238,7 @@ export function TopBar() {
             <span className="truncate text-xs font-medium text-text-primary">
               {c.nav.profileName}
             </span>
-            <span className="truncate text-[11px] text-text-muted">
-              {c.common.supplierShort}
-            </span>
+            <span className="truncate text-[11px] text-text-muted">{c.common.supplierShort}</span>
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
         </button>
@@ -282,7 +299,8 @@ export function TopBar() {
               localStorage.removeItem("authToken");
               navigate({ to: "/login" });
             }}
-            className="cursor-pointer gap-2.5 text-status-danger bg-transparent flex justify-start w-full">
+            className="cursor-pointer gap-2.5 text-status-danger bg-transparent flex justify-start w-full"
+          >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
               <span className="text-start">{c.account.signOut}</span>
@@ -290,7 +308,6 @@ export function TopBar() {
             </span>
           </Button>
         </DropdownMenuItem>
-
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -312,9 +329,7 @@ export function TopBar() {
             <div className="min-w-0 max-w-[168px] justify-self-end">{profile}</div>
           </div>
 
-          <div className="flex items-center justify-center gap-2">
-            {actions}
-          </div>
+          <div className="flex items-center justify-center gap-2">{actions}</div>
 
           <nav
             className="scrollbar-none -mx-4 min-w-0 overflow-x-auto overscroll-x-contain border-t border-border-subtle px-4 pt-3 touch-pan-x"
@@ -375,7 +390,7 @@ function ActionButton({
         "flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full transition-colors",
         active
           ? "bg-surface-inverse text-primary"
-          : "bg-surface-subtle text-text-secondary hover:bg-border-subtle hover:text-text-primary"
+          : "bg-surface-subtle text-text-secondary hover:bg-border-subtle hover:text-text-primary",
       )}
     >
       {children}

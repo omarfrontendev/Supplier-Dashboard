@@ -163,7 +163,7 @@ function TeamPage() {
     if (!data) return;
     const getStatusTotal = (users: MetadataItem<UserStatusKey>[]) =>
       users
-        .filter((item) => item.key === "active" || item.key === "inactive")
+        .filter((item) => item.key === "active" || item.key === "inactive" || item.key === "pending")
         .reduce((total, item) => total + item.value, 0);
 
     return getStatusTotal(data.superAdmins) + getStatusTotal(data.admins);
