@@ -186,9 +186,10 @@ function HotelLibraryPage() {
         limit: 20,
         search: debouncedQuery,
         countryCode: country === "all" ? null : country,
+        starRating: stars === "all"  ? null : stars 
       }),
     );
-  }, [dispatch, debouncedQuery, country]);
+  }, [dispatch, debouncedQuery, country, stars]);
 
   const {
     hotels: hotelsOption,
