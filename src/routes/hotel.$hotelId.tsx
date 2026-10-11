@@ -222,7 +222,7 @@ function HotelProfilePage() {
             </h1>
             <p className="text-[13px] leading-[1.45] text-text-body">
               {fill(p.meta, {
-                city: hotel.city,
+                city: hotel?.hotel.city,
                 country: getCountryName(hotel?.hotel.countryCode, lang),
                 stars: hotel?.hotel.starRating,
               })}
@@ -272,7 +272,8 @@ function HotelProfilePage() {
                 <Row label={p.city} value={ar ? hotel?.hotel?.cityAr : hotel?.hotel?.city} />
                 <Row
                   label={p.area}
-                  value={ar ? hotel?.hotel?.districtAr : hotel?.hotel?.district}
+                  // value={ar ? hotel?.hotel?.districtAr : hotel?.hotel?.district}
+                  value={hotel?.hotel?.area}
                 />
               </div>
               <div className="min-w-0 flex-1">
