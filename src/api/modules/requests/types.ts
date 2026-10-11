@@ -107,3 +107,36 @@ export interface UseRequestsParams {
   limit?: number;
   status?: string;
 }
+
+
+export interface CreateRoomImagePayload {
+  uploadId: number;
+  isCover: boolean;
+  captionEn: string;
+  captionAr: string;
+  sortOrder: number;
+}
+
+export interface CreateRoomPayload {
+  hotelId: number;
+  nameEn: string;
+  nameAr: string;
+  maxOccupancy: number;
+  adults: number;
+  children: number;
+  maxChildAge: number;
+  bedTypeId: number;
+  roomSizeId: number;
+  areaSqm: number;
+  view: string;
+  images: CreateRoomImagePayload[];
+  note?: string;
+}
+
+export interface CreateRoomResponse {
+  message: string;
+  data?: {
+    id?: number;
+    roomId?: number;
+  };
+}

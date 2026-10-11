@@ -42,8 +42,7 @@ export function HotelGallery({
   const many = photos?.length > 1;
 
   /* Round-trip, so a gallery of four never dead-ends on the fourth. */
-  const go = (step: number) =>
-    setAt((index) => (index + step + photos?.length) % photos?.length);
+  const go = (step: number) => setAt((index) => (index + step + photos?.length) % photos?.length);
 
   const arrow = (back: boolean) => (
     <button
@@ -52,7 +51,7 @@ export function HotelGallery({
       onClick={() => go(back ? -1 : 1)}
       className={cn(
         "absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-brand-deep/55 text-white backdrop-blur-[2px] transition-colors hover:bg-brand-deep/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
-        back ? "start-3" : "end-3"
+        back ? "start-3" : "end-3",
       )}
     >
       {/* The arrow points the way the eye travels in this language. */}
@@ -66,10 +65,7 @@ export function HotelGallery({
 
   return (
     <div
-      className={cn(
-        "group relative overflow-hidden bg-surface-image",
-        className
-      )}
+      className={cn("group relative overflow-hidden bg-surface-image", className)}
       {...(many
         ? {
             role: "group",
@@ -86,21 +82,23 @@ export function HotelGallery({
           }
         : {})}
     >
-      {/* {photos[at] ? ( */}
-      {false ? (
-        <img
-          // src={photos[at]}
-          src={""}
-          alt={fill(labels.alt, { name, at: at + 1 })}
-          loading="lazy"
-          className="h-full w-full object-cover"
-        />
+      {hotel.images?.length ? (
+        <div className="grid h-full w-full grid-cols-2 gap-1">
+          {hotel.images.map((image, index) => (
+            <img
+              key={image?.uploadId ?? index}
+              src={image?.url}
+              alt={fill(labels.alt, { name, at: index + 1 })}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          ))}
+        </div>
       ) : (
         <span className="flex h-full w-full items-center justify-center text-primary/60">
           <ImageIcon className="h-7 w-7" aria-hidden="true" />
         </span>
       )}
-
       {counter && (
         <span
           aria-live="polite"

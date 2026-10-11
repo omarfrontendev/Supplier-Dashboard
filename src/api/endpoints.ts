@@ -39,6 +39,7 @@ const requests = {
   getHotelById: (id: string) => `/linked-hotels/${id}`,
   getHotelOptions: "/hotels/linking-options",
   createHotelRequest: "/hotel-requests",
+  createRoomRequest: "/room-requests",
 };
 
 const profiles = {

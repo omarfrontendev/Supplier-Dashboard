@@ -43,23 +43,15 @@ export const useDebounce = <T,>(value: T, delay = 500) => {
   return debouncedValue;
 };
 
-// export const getCountryName = (countryCode: string, lang: "en" | "ar") => {
-//   const locale = lang === "ar" ? "ar" : "en";
+export const getCountryName = (countryCode: string, lang: "en" | "ar") => {
+  const locale = lang === "ar" ? "ar" : "en";
 
-//   return (
-//     new Intl.DisplayNames([locale], {
-//       type: "region",
-//     }).of(countryCode) ?? countryCode
-//   );
-// };
-
-// export const getCountryName = (countryCode: string, language: "en" | "ar") => {
-//   return (
-//     new Intl.DisplayNames([language], {
-//       type: "region",
-//     }).of(countryCode) ?? countryCode
-//   );
-// };
+  return (
+    new Intl.DisplayNames([locale], {
+      type: "region",
+    }).of(countryCode) ?? countryCode
+  );
+};
 
 export const Route = createFileRoute("/my-hotels")({
   head: () => ({

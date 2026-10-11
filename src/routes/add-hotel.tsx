@@ -150,29 +150,7 @@ function AddHotelPage() {
   const hookForm = useForm<any>({
     resolver: zodResolver(hotelSchema()),
     defaultValues: {
-      // nameEn: "Makkah Gate Hotel",
-      // nameAr: "فندق بوابة مكة",
       starRating: 5,
-
-      // countryCode: "SA",
-      // city: "Makkah",
-      // area: "Al Aziziyah",
-
-      // addressEn: "King Fahd Road, Makkah",
-      // addressAr: "طريق الملك فهد، مكة المكرمة",
-
-      // latitude: 21.3891,
-      // longitude: 39.8579,
-
-      // descriptionEn: "A comfortable hotel near the Holy Mosque.",
-      // descriptionAr: "فندق مريح بالقرب من المسجد الحرام.",
-
-      // amenities: [
-      //   { amenityId: 1, value: true },
-      //   { amenityId: 2, value: true },
-      //   { amenityId: 3, value: true },
-      //   { amenityId: 6, value: true },
-      // ],
     },
     mode: "all",
   });
@@ -323,8 +301,6 @@ function AddHotelPage() {
   //   //   setStep(3);
   //   // })();
   // };
-
-  console.log(hookForm.formState.errors)
 
   const onSubmit = hookForm.handleSubmit(async (values) => {
     setSending(true);
