@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -27,6 +27,12 @@ import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { hotelSchema } from "@/components/hotels/add-missing-hotel/HotelSchema";
+import PropertyMapPicker from "@/components/maps/PropertyMapPicker";
+import { useUploadFile } from "@/api/modules/useUploads";
+import { useCreateProperty } from "@/api/modules/hotels/useCreateHotelRequest";
 
 export const Route = createFileRoute("/add-hotel")({
   head: () => ({
@@ -103,8 +109,7 @@ const UPLOAD_FAILED: UploadRow[] = [
     state: "rejected",
     reason:
       "Not uploaded - TIF files are not accepted and the limit is 10 MB. Save it as JPG or PNG.",
-    reasonAr:
-      "لم تُرفع - ملفات TIF غير مقبولة والحد الأقصى ١٠ ميجابايت. احفظها بصيغة JPG أو PNG.",
+    reasonAr: "لم تُرفع - ملفات TIF غير مقبولة والحد الأقصى ١٠ ميجابايت. احفظها بصيغة JPG أو PNG.",
   },
   {
     file: "room-view.jpg",
@@ -135,25 +140,78 @@ function AddHotelPage() {
     address: "",
     map: "",
   });
-  const [amenities, setAmenities] = useState<string[]>(
-    a.amenityList.slice(0, 10)
-  );
+  const [amenities, setAmenities] = useState<string[]>(a.amenityList.slice(0, 10));
   const [photos, setPhotos] = useState(4);
   const [rights, setRights] = useState(false);
   const [accurate, setAccurate] = useState(false);
   const [queue, setQueue] = useState<UploadRow[] | null>(null);
   const [pastDuplicates, setPastDuplicates] = useState(false);
 
+  const hookForm = useForm<any>({
+    resolver: zodResolver(hotelSchema()),
+    defaultValues: {
+      // nameEn: "Makkah Gate Hotel",
+      // nameAr: "فندق بوابة مكة",
+      starRating: 5,
+
+      // countryCode: "SA",
+      // city: "Makkah",
+      // area: "Al Aziziyah",
+
+      // addressEn: "King Fahd Road, Makkah",
+      // addressAr: "طريق الملك فهد، مكة المكرمة",
+
+      // latitude: 21.3891,
+      // longitude: 39.8579,
+
+      // descriptionEn: "A comfortable hotel near the Holy Mosque.",
+      // descriptionAr: "فندق مريح بالقرب من المسجد الحرام.",
+
+      // amenities: [
+      //   { amenityId: 1, value: true },
+      //   { amenityId: 2, value: true },
+      //   { amenityId: 3, value: true },
+      //   { amenityId: 6, value: true },
+      // ],
+    },
+    mode: "all",
+  });
+
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const requiredLeft = [
-    form.name.trim(),
-    form.nameAr.trim(),
-    form.stars,
-    form.address.trim(),
-    form.map.trim(),
-  ].filter((value) => value === "").length;
+  const requiredFields = [
+    "nameEn",
+    "nameAr",
+    "starRating",
+    "addressEn",
+    "addressAr",
+    "latitude",
+    "longitude",
+    "city",
+    "countryCode",
+  ] as const;
+
+  const optionalFields = ["descriptionEn", "descriptionAr", "area"] as const;
+
+  const requiredLeft =
+    requiredFields.filter((field) => {
+      const value = hookForm.watch(field);
+      const hasError = !!hookForm.formState.errors[field];
+
+      const isEmpty = value === "" || value === null || value === undefined;
+
+      return isEmpty || hasError;
+    }).length +
+    optionalFields.filter((field) => {
+      const value = hookForm.watch(field);
+      const hasError = !!hookForm.formState.errors[field];
+
+      const isEmpty = value === "" || value === null || value === undefined;
+
+      return !isEmpty && hasError;
+    }).length;
+
   const detailsReady = requiredLeft === 0;
   const duplicatesFound = form.name.trim().length > 2;
 
@@ -161,13 +219,160 @@ function AddHotelPage() {
 
   const pinned = form.map.trim() !== "";
 
+  // ================================================ ///
+  // ================================================ ///
+  // ================================================ ///
+  // ================================================ ///
+  // ================================================ ///
+  // ================================================ ///
+  // ================================================ ///
+
+  interface SelectedImage {
+    id: string;
+    file: File;
+    preview: string;
+  }
+
+  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  // const [rights, setRights] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlsRef = useRef<string[]>([]);
+
+  const handleSelectImages = (files: FileList | null) => {
+    if (!files) return;
+
+    const newImages: SelectedImage[] = Array.from(files)
+      .filter((file) => file.type.startsWith("image/"))
+      .map((file) => {
+        const preview = URL.createObjectURL(file);
+
+        objectUrlsRef.current.push(preview);
+
+        return {
+          id: crypto.randomUUID(),
+          file,
+          preview,
+        };
+      });
+
+    setSelectedImages((previous) => [...previous, ...newImages]);
+  };
+
+  const removeImage = (id: string) => {
+    setSelectedImages((previous) => {
+      const imageToRemove = previous.find((image) => image.id === id);
+
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.preview);
+
+        objectUrlsRef.current = objectUrlsRef.current.filter(
+          (url) => url !== imageToRemove.preview,
+        );
+      }
+
+      return previous.filter((image) => image.id !== id);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  const amenityOptions = [
+    { id: 1, name: "Wi-Fi" },
+    { id: 2, name: "Parking" },
+    { id: 3, name: "Restaurant" },
+    { id: 4, name: "Room service" },
+    { id: 5, name: "Swimming pool" },
+    { id: 6, name: "Gym" },
+    { id: 7, name: "Airport shuttle" },
+    { id: 8, name: "Family rooms" },
+    { id: 9, name: "Accessibility" },
+    { id: 10, name: "24-hour reception" },
+    { id: 11, name: "Prayer room" },
+    { id: 12, name: "Laundry" },
+  ];
+
+  const selectedAmenities = hookForm.watch("amenities") ?? [];
+
+  const formValues = hookForm.watch();
+
+  // Get selected amenities from React Hook Form.
+  const uploadedAmenities = (formValues?.amenities ?? [])
+    .filter((item) => item.value)
+    .map((item) => amenityOptions.find((amenity) => amenity.id === item.amenityId))
+    .filter((amenity) => amenity !== undefined);
+
+  const { mutateAsync: uploadFile } = useUploadFile();
+  const { mutateAsync: createProperty } = useCreateProperty();
+
+  // const onSubmit = () => {
+  //   console.log(selectedImages);
+  //   console.log(formValues);
+  //   // setSending(true);
+  //   // void (async () => {
+  //   //   await wait(650);
+  //   //   submitHotel(form.name || "Makkah Gate Hotel");
+  //   //   notify.success(c.toast.hotelSubmitted, {
+  //   //     description: c.toast.hotelSubmittedDesc,
+  //   //   });
+  //   //   setSending(false);
+  //   //   setStep(3);
+  //   // })();
+  // };
+
+  console.log(hookForm.formState.errors)
+
+  const onSubmit = hookForm.handleSubmit(async (values) => {
+    setSending(true);
+    console.log(formValues)
+    try {
+      // 1. Upload selected images in parallel.
+      const uploadedImages = await Promise.all(
+        selectedImages.map(async (image, index) => {
+          const response = await uploadFile({
+            file: image.file,
+            category: "hotel_image",
+          });
+
+          return {
+            uploadId: response.uploadId,
+            captionEn: "",
+            captionAr: "",
+            sortOrder: index,
+            isCover: index === 0,
+          };
+        }),
+      );
+
+      // 2. Prepare the final request payload.
+      const payload: CreatePropertyPayload = {
+        ...values,
+        images: uploadedImages,
+      };
+
+      // 3. Create the property using the mutation hook.
+      const response = await createProperty(payload);
+
+      console.log("Created property:", response);
+
+      // 4. Continue after successful submission.
+      setStep(3);
+    } catch (error) {
+      console.error("Failed to submit property:", error);
+    } finally {
+      setSending(false);
+    }
+  });
+
   return (
     <PageShell>
       <BackLink
         to="/hotels"
-        label={
-          step === 0 ? a.backToLibrary : step === 1 ? a.backDetails : a.backMedia
-        }
+        label={step === 0 ? a.backToLibrary : step === 1 ? a.backDetails : a.backMedia}
       />
       <PageHeader
         overline={
@@ -176,13 +381,7 @@ function AddHotelPage() {
             : `${a.overline} · ${form.name.trim().toUpperCase() || "MAKKAH GATE HOTEL"}`
         }
         title={step === 0 ? a.title : step === 1 ? a.mediaTitle : a.reviewTitle}
-        subtitle={
-          step === 0
-            ? a.subtitle
-            : step === 1
-              ? a.mediaSubtitle
-              : a.reviewSubtitle
-        }
+        subtitle={step === 0 ? a.subtitle : step === 1 ? a.mediaSubtitle : a.reviewSubtitle}
       />
 
       <ol className="mb-6 flex flex-wrap items-center gap-2">
@@ -195,7 +394,7 @@ function AddHotelPage() {
                 ? "bg-surface-inverse text-text-inverse"
                 : index < step
                   ? "bg-status-success-bg text-status-success"
-                  : "bg-surface-subtle text-text-muted"
+                  : "bg-surface-subtle text-text-muted",
             )}
           >
             {index < step ? (
@@ -228,16 +427,11 @@ function AddHotelPage() {
                             ? a.duplicateTitleFew
                             : a.duplicateTitleMany,
                       {
-                        n:
-                          lang === "ar"
-                            ? arDigits(DUPLICATES.length)
-                            : String(DUPLICATES.length),
-                      }
+                        n: lang === "ar" ? arDigits(DUPLICATES.length) : String(DUPLICATES.length),
+                      },
                     )}
                   </p>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    {a.duplicateBody}
-                  </p>
+                  <p className="mt-1 text-sm text-text-secondary">{a.duplicateBody}</p>
                   <div className="mt-4 space-y-3">
                     {DUPLICATES.map((item, index) => (
                       <div
@@ -261,8 +455,7 @@ function AddHotelPage() {
                           </p>
                           <p className="mt-1 text-xs text-text-secondary">
                             {fill(a.matchNote, {
-                              distance:
-                                lang === "ar" ? item.distanceAr : item.distance,
+                              distance: lang === "ar" ? item.distanceAr : item.distance,
                               match: lang === "ar" ? item.matchAr : item.match,
                             })}
                           </p>
@@ -274,19 +467,14 @@ function AddHotelPage() {
                           {/* The closest match is the likely answer, so the
                               frame fills its button and leaves the rest
                               quiet. A list of equals would decide nothing. */}
-                          <Button
-                            variant={index === 0 ? "default" : "outline"}
-                            size="sm"
-                          >
+                          <Button variant={index === 0 ? "default" : "outline"} size="sm">
                             {a.requestInstead}
                           </Button>
                         </Link>
                       </div>
                     ))}
                   </div>
-                  <p className="mt-4 text-xs leading-relaxed text-text-muted">
-                    {a.duplicateNote}
-                  </p>
+                  <p className="mt-4 text-xs leading-relaxed text-text-muted">{a.duplicateNote}</p>
                 </div>
               </div>
             </SectionCard>
@@ -297,23 +485,31 @@ function AddHotelPage() {
               <Input
                 label={a.name}
                 placeholder={a.namePh}
-                value={form.name}
-                onChange={(e) => set("name")(e.target.value)}
+                {...hookForm.register("nameEn")}
+                error={hookForm.formState.errors?.["nameEn"]?.message ?? ""}
               />
+
               <Input
                 label={a.nameAr}
                 placeholder={a.nameArPh}
-                value={form.nameAr}
-                onChange={(e) => set("nameAr")(e.target.value)}
+                {...hookForm.register("nameAr")}
+                error={hookForm.formState.errors?.["nameAr"]?.message ?? ""}
               />
-              <Select
-                label={a.stars}
-                value={form.stars}
-                onChange={set("stars")}
-                options={[5, 4, 3, 2, 1].map((n) => ({
-                  value: String(n),
-                  label: fill(c.library.stars, { count: n }),
-                }))}
+
+              <Controller
+                name="starRating"
+                control={hookForm.control}
+                render={({ field }) => (
+                  <Select
+                    label={a.stars}
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={[5, 4, 3, 2, 1].map((n) => ({
+                      value: String(n),
+                      label: fill(c.library.stars, { count: n }),
+                    }))}
+                  />
+                )}
               />
               <div className="space-y-2">
                 <span className="block text-[13px] font-medium leading-[1.3] text-text-primary">
@@ -321,8 +517,8 @@ function AddHotelPage() {
                 </span>
                 <Textarea
                   placeholder={a.descEnPh}
-                  value={form.descEn}
-                  onChange={(e) => set("descEn")(e.target.value)}
+                  {...hookForm.register("descriptionEn")}
+                  error={hookForm.formState.errors?.["descriptionEn"]?.message ?? ""}
                 />
               </div>
               <div className="space-y-2">
@@ -331,8 +527,8 @@ function AddHotelPage() {
                 </span>
                 <Textarea
                   placeholder={a.descArPh}
-                  value={form.descAr}
-                  onChange={(e) => set("descAr")(e.target.value)}
+                  {...hookForm.register("descriptionAr")}
+                  error={hookForm.formState.errors?.["descriptionAr"]?.message ?? ""}
                 />
               </div>
             </div>
@@ -340,66 +536,118 @@ function AddHotelPage() {
 
           <SectionCard overline={a.locationOverline} title={a.locationTitle}>
             <div className="grid gap-4 md:grid-cols-2">
-              <Select
-                label={a.country}
-                value={form.country}
-                onChange={set("country")}
-                options={[
-                  {
-                    value: "Saudi Arabia",
-                    label: lang === "ar" ? "السعودية" : "Saudi Arabia",
-                  },
-                ]}
-              />
-              <Select
-                label={a.city}
-                value={form.city}
-                onChange={set("city")}
-                options={["Makkah", "Madinah", "Jeddah", "Riyadh"].map(
-                  (city) => ({ value: city, label: city })
+              <Controller
+                name="countryCode"
+                control={hookForm.control}
+                render={({ field }) => (
+                  <Select
+                    label={a.country}
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={[
+                      {
+                        value: "SA",
+                        label: lang === "ar" ? "السعودية" : "Saudi Arabia",
+                      },
+                    ]}
+                  />
                 )}
               />
+
+              <Controller
+                name="city"
+                control={hookForm.control}
+                render={({ field }) => (
+                  <Select
+                    label={a.city}
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={["Makkah", "Madinah", "Jeddah", "Riyadh"].map((city) => ({
+                      value: city,
+                      label: city,
+                    }))}
+                  />
+                )}
+              />
+
               <Input
                 label={a.area}
                 placeholder={a.areaPh}
-                value={form.area}
-                onChange={(e) => set("area")(e.target.value)}
+                {...hookForm.register("area")}
+                error={hookForm.formState.errors?.["area"]?.message ?? ""}
               />
+
               <Input
-                label={a.address}
-                placeholder={a.addressPh}
-                value={form.address}
-                onChange={(e) => set("address")(e.target.value)}
+                label={lang === "ar" ? "العنوان بالإنجليزية" : "Address in English"}
+                placeholder={
+                  lang === "ar" ? "أدخل العنوان بالإنجليزية" : "Enter address in English"
+                }
+                {...hookForm.register("addressEn")}
+                error={hookForm.formState.errors?.["addressEn"]?.message ?? ""}
               />
-              <div className="md:col-span-2">
-                <Input
-                  label={a.map}
-                  placeholder={a.mapPh}
-                  hint={a.mapHint}
-                  value={form.map}
-                  onChange={(e) => set("map")(e.target.value)}
-                />
-                <div className="mt-3 flex h-40 items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-subtle">
-                  {pinned ? (
-                    <span className="inline-flex items-center gap-2 text-sm text-status-success">
-                      <MapPin className="h-4 w-4" aria-hidden="true" />
-                      {a.pinConfirmed}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-2 text-sm text-text-muted">
-                      <MapPin className="h-4 w-4" aria-hidden="true" />
-                      {a.mapHint}
-                    </span>
+
+              <Input
+                label={lang === "ar" ? "العنوان بالعربية" : "Address in Arabic"}
+                placeholder={lang === "ar" ? "أدخل العنوان بالعربية" : "Enter address in Arabic"}
+                {...hookForm.register("addressAr")}
+                error={hookForm.formState.errors?.["addressAr"]?.message ?? ""}
+              />
+
+              <div className="md:col-span-2 space-y-4">
+                <label className="text-sm font-medium">{a.map}</label>
+
+                <Controller
+                  name="latitude"
+                  control={hookForm.control}
+                  render={({ field: latitudeField }) => (
+                    <Controller
+                      name="longitude"
+                      control={hookForm.control}
+                      render={({ field: longitudeField }) => (
+                        <PropertyMapPicker
+                          latitude={latitudeField.value ?? null}
+                          longitude={longitudeField.value ?? null}
+                          onLocationChange={(latitude, longitude) => {
+                            latitudeField.onChange(latitude);
+                            longitudeField.onChange(longitude);
+                          }}
+                        />
+                      )}
+                    />
                   )}
+                />
+
+                {hookForm.formState.errors.latitude && (
+                  <p className="text-sm text-destructive">
+                    {hookForm.formState.errors.latitude.message}
+                  </p>
+                )}
+
+                {hookForm.formState.errors.longitude && (
+                  <p className="text-sm text-destructive">
+                    {hookForm.formState.errors.longitude.message}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Latitude"
+                    value={hookForm.watch("latitude")?.toString() ?? ""}
+                    readOnly
+                  />
+
+                  <Input
+                    label="Longitude"
+                    value={hookForm.watch("longitude")?.toString() ?? ""}
+                    readOnly
+                  />
                 </div>
               </div>
             </div>
           </SectionCard>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-text-muted">
-              {fill(a.required, { count: requiredLeft })}
-            </p>
+            <p className="text-xs text-text-muted">{fill(a.required, { count: requiredLeft })}</p>
             <div className="flex gap-3">
               <Link to="/hotels">
                 <Button variant="ghost">{c.common.cancel}</Button>
@@ -420,15 +668,10 @@ function AddHotelPage() {
 
       {step === 1 && (
         <div className="space-y-6">
-          <SectionCard
-            overline={fill(a.mediaOverline, { count: photos })}
-            title={a.mediaTitle}
-          >
+          {/* <SectionCard overline={fill(a.mediaOverline, { count: photos })} title={a.mediaTitle}>
             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-default bg-surface-subtle p-8 text-center">
               <ImagePlus className="h-8 w-8 text-text-muted" aria-hidden="true" />
-              <p className="text-sm font-medium text-text-primary">
-                {a.dropzone}
-              </p>
+              <p className="text-sm font-medium text-text-primary">{a.dropzone}</p>
               <p className="text-xs text-text-muted">{a.dropzoneHint}</p>
               <div className="mt-2 flex flex-wrap justify-center gap-2">
                 <Button
@@ -490,7 +733,7 @@ function AddHotelPage() {
                             "mt-0.5 text-xs",
                             row.state === "rejected" || row.state === "failed"
                               ? "text-status-danger"
-                              : "text-text-muted"
+                              : "text-text-muted",
                           )}
                         >
                           {row.state === "uploaded"
@@ -525,17 +768,13 @@ function AddHotelPage() {
                     key={index}
                     className="relative flex h-24 items-center justify-center rounded-lg bg-surface-subtle"
                   >
-                    {index === 0 && (
-                      <StatusPill tone="brand">{a.cover}</StatusPill>
-                    )}
+                    {index === 0 && <StatusPill tone="brand">{a.cover}</StatusPill>}
                   </div>
                 ))}
               </div>
             )}
 
-            <p className="mt-4 text-xs leading-relaxed text-text-muted">
-              {a.mediaNote}
-            </p>
+            <p className="mt-4 text-xs leading-relaxed text-text-muted">{a.mediaNote}</p>
 
             <label className="mt-4 flex cursor-pointer items-start gap-2.5">
               <input
@@ -544,45 +783,180 @@ function AddHotelPage() {
                 onChange={(e) => setRights(e.target.checked)}
                 className="mt-0.5 h-4 w-4 accent-[var(--brand-deep)]"
               />
-              <span className="text-[13px] leading-[1.5] text-text-secondary">
-                {a.rights}
-              </span>
+              <span className="text-[13px] leading-[1.5] text-text-secondary">{a.rights}</span>
+            </label>
+          </SectionCard> */}
+
+          <SectionCard
+            overline={fill(a.mediaOverline, { count: selectedImages.length })}
+            title={a.mediaTitle}
+          >
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                handleSelectImages(event.target.files);
+
+                // Allow selecting the same file again.
+                event.target.value = "";
+              }}
+            />
+
+            {/* Image selection area */}
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-default bg-surface-subtle p-8 text-center">
+              <ImagePlus className="h-8 w-8 text-text-muted" aria-hidden="true" />
+
+              <p className="text-sm font-medium text-text-primary">{a.dropzone}</p>
+
+              <p className="text-xs text-text-muted">{a.dropzoneHint}</p>
+
+              <div className="mt-2 flex flex-wrap justify-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  {a.browse}
+                </Button>
+
+                {selectedImages.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                    {a.addMore}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Selected image previews */}
+            {selectedImages.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {selectedImages.map((image, index) => (
+                  <div
+                    key={image.id}
+                    className="group relative overflow-hidden rounded-lg border border-border-default"
+                  >
+                    {/* Image preview */}
+                    <div className="relative h-32 bg-surface-subtle">
+                      <img
+                        src={image.preview}
+                        alt={image.file.name}
+                        className="h-full w-full object-cover"
+                      />
+
+                      {/* Cover badge */}
+                      {index === 0 && (
+                        <div className="absolute start-2 top-2">
+                          <StatusPill tone="brand">{a.cover}</StatusPill>
+                        </div>
+                      )}
+
+                      {/* Remove image */}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(image.id)}
+                        aria-label={`${a.remove}: ${image.file.name}`}
+                        className="absolute end-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+                      >
+                        {a.remove}
+                      </button>
+                    </div>
+
+                    {/* File information */}
+                    <div className="p-2">
+                      <p
+                        className="truncate text-xs font-medium text-text-primary"
+                        title={image.file.name}
+                      >
+                        {image.file.name}
+                      </p>
+
+                      <p className="mt-1 text-xs text-text-muted">
+                        {(image.file.size / (1024 * 1024)).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {selectedImages.length === 0 && (
+              <div className="mt-4 rounded-lg border border-border-subtle p-6 text-center">
+                <p className="text-sm text-text-muted">{a.dropzoneHint}</p>
+              </div>
+            )}
+
+            <p className="mt-4 text-xs leading-relaxed text-text-muted">{a.mediaNote}</p>
+
+            {/* Image rights confirmation */}
+            <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={rights}
+                onChange={(event) => setRights(event.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[var(--brand-deep)]"
+              />
+
+              <span className="text-[13px] leading-[1.5] text-text-secondary">{a.rights}</span>
             </label>
           </SectionCard>
 
           <SectionCard
-            overline={fill(a.amenitiesOverline, { count: amenities.length })}
+            overline={fill(a.amenitiesOverline, {
+              count: selectedAmenities.filter((item) => item.value).length,
+            })}
             title={a.amenitiesTitle}
           >
+            {" "}
             <div className="flex flex-wrap gap-2">
-              {a.amenityList.map((amenity) => {
-                const active = amenities.includes(amenity);
+              {" "}
+              {amenityOptions.map((amenity) => {
+                const active = selectedAmenities.some(
+                  (item) => item.amenityId === amenity.id && item.value,
+                );
                 return (
                   <button
-                    key={amenity}
+                    key={amenity.id}
                     type="button"
-                    onClick={() =>
-                      setAmenities((prev) =>
-                        prev.includes(amenity)
-                          ? prev.filter((item) => item !== amenity)
-                          : [...prev, amenity]
-                      )
-                    }
+                    aria-pressed={active}
+                    onClick={() => {
+                      const updatedAmenities = active
+                        ? selectedAmenities.filter((item) => item.amenityId !== amenity.id)
+                        : [
+                            ...selectedAmenities.filter((item) => item.amenityId !== amenity.id),
+                            { amenityId: amenity.id, value: true },
+                          ];
+                      hookForm.setValue("amenities", updatedAmenities, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }}
                     className={cn(
                       "rounded-full border px-3.5 py-2 text-sm transition-colors",
                       active
                         ? "border-brand-deep bg-primary-subtle text-text-primary"
-                        : "border-border-default text-text-secondary hover:bg-surface-subtle"
+                        : "border-border-default text-text-secondary hover:bg-surface-subtle",
                     )}
                   >
-                    {amenity}
+                    {" "}
+                    {amenity.name}{" "}
                   </button>
                 );
-              })}
-            </div>
-            <p className="mt-4 text-xs leading-relaxed text-text-muted">
-              {a.amenitiesNote}
-            </p>
+              })}{" "}
+            </div>{" "}
+            <p className="mt-4 text-xs leading-relaxed text-text-muted"> {a.amenitiesNote} </p>{" "}
           </SectionCard>
 
           <div className="flex flex-wrap justify-end gap-3">
@@ -600,93 +974,105 @@ function AddHotelPage() {
         <div className="space-y-6">
           <SectionCard
             overline={a.reviewStep1}
-            title={`${form.name || "Makkah Gate Hotel"} · ${form.nameAr || "فندق بوابة مكة"}`}
+            title={`${formValues?.nameEn || "Makkah Gate Hotel"} · ${formValues?.nameAr || "فندق بوابة مكة"}`}
             right={
-              <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(0)}>
                 {a.edit}
               </Button>
             }
           >
             <dl>
               {[
-                /* The frame names where the rating comes from, because a
-                   star count nobody issued is just a claim. */
                 [
                   a.fieldStars,
-                  `${fill(c.library.stars, { count: Number(form.stars) })} · ${a.starsSource}`,
+                  `${fill(c.library.stars, {
+                    count: Number(formValues?.starRating || 0),
+                  })} · ${a.starsSource}`,
                 ],
                 [
                   a.fieldCountry,
-                  `${form.country} · ${form.city}${form.area ? ` · ${form.area}` : ""}`,
+                  `${formValues?.countryCode || "—"} · ${formValues?.city || "—"}${
+                    formValues?.area ? ` · ${formValues?.area}` : ""
+                  }`,
                 ],
-                [a.fieldAddress, form.address],
-                [a.fieldMap, `${a.pinConfirmed}`],
                 [
-                  a.fieldDuplicate,
-                  fill(a.duplicateSummary, { count: DUPLICATES.length }),
+                  a.fieldAddress,
+                  `${formValues?.addressEn || "—"} · ${formValues?.addressAr || "—"}`,
                 ],
-                [a.fieldDescEn, form.descEn || "—"],
-                [a.fieldDescAr, form.descAr || "—"],
+                [a.fieldMap, `${formValues?.latitude ?? "—"}, ${formValues?.longitude ?? "—"}`],
+                [a.fieldDescEn, formValues?.descriptionEn || "—"],
+                [a.fieldDescAr, formValues?.descriptionAr || "—"],
               ].map(([label, value]) => (
                 <div
                   key={label}
                   className="flex flex-col gap-1 border-b border-border-subtle py-3 last:border-b-0 sm:flex-row sm:gap-3"
                 >
-                  <dt className="text-sm text-text-secondary sm:w-48 sm:shrink-0">
-                    {label}
-                  </dt>
-                  <dd
-                    className={cn(
-                      "min-w-0 flex-1 text-sm text-text-primary",
-                      /* Continuing past a duplicate is the one line on this
-                         page that someone may have to answer for. */
-                      label === a.fieldDuplicate &&
-                        "font-medium text-status-warning"
-                    )}
-                  >
-                    {value}
-                  </dd>
+                  <dt className="text-sm text-text-secondary sm:w-48 sm:shrink-0">{label}</dt>
+
+                  <dd className={cn("min-w-0 flex-1 text-sm text-text-primary")}>{value}</dd>
                 </div>
               ))}
             </dl>
           </SectionCard>
-
           <SectionCard
             overline={a.reviewStep2}
             title={fill(a.reviewMedia, {
-              images: photos,
-              amenities: amenities.length,
+              images: uploadedAmenities.length,
+              amenities: selectedAmenities.length,
             })}
             right={
-              <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(1)}>
                 {a.edit}
               </Button>
             }
           >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {Array.from({ length: photos }).map((_, index) => (
-                <div
-                  key={index}
-                  className="relative flex h-24 items-center justify-center rounded-lg bg-surface-subtle"
-                >
-                  {index === 0 && (
-                    <StatusPill tone="brand">{a.cover}</StatusPill>
-                  )}
-                </div>
-              ))}
-            </div>
+            {/* Selected images */}
+            {selectedImages.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {selectedImages.map((image, index) => (
+                  <div
+                    key={image.id}
+                    className="relative overflow-hidden rounded-lg bg-surface-subtle"
+                  >
+                    <img
+                      src={image?.preview}
+                      alt={image?.file?.name}
+                      className="h-24 w-full object-cover"
+                    />
+
+                    {index === 0 && (
+                      <div className="absolute start-2 top-2">
+                        <StatusPill tone="brand">{a.cover}</StatusPill>
+                      </div>
+                    )}
+
+                    <p
+                      className="truncate px-2 py-1.5 text-xs text-text-secondary"
+                      title={image?.file?.name}
+                    >
+                      {image?.file?.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg bg-surface-subtle p-4 text-sm text-text-muted">
+                {a.dropzoneHint}
+              </p>
+            )}
+
+            {/* Selected amenities */}
             <div className="mt-4 flex flex-wrap gap-2">
-              {amenities.map((amenity) => (
+              {uploadedAmenities.map((amenity) => (
                 <span
-                  key={amenity}
+                  key={amenity?.id}
                   className="rounded-full bg-surface-subtle px-3 py-1.5 text-xs text-text-secondary"
                 >
-                  {amenity}
+                  {amenity?.name}
                 </span>
               ))}
             </div>
           </SectionCard>
-
           <label className="flex cursor-pointer items-start gap-2.5">
             <input
               type="checkbox"
@@ -694,9 +1080,8 @@ function AddHotelPage() {
               onChange={(e) => setAccurate(e.target.checked)}
               className="mt-0.5 h-4 w-4 accent-[var(--brand-deep)]"
             />
-            <span className="text-sm leading-[1.5] text-text-secondary">
-              {a.reviewLegal}
-            </span>
+
+            <span className="text-sm leading-[1.5] text-text-secondary">{a.reviewLegal}</span>
           </label>
 
           <div className="flex flex-wrap justify-end gap-3">
@@ -706,18 +1091,19 @@ function AddHotelPage() {
             <Button
               loading={sending}
               disabled={!accurate}
-              onClick={() => {
-                setSending(true);
-                void (async () => {
-                  await wait(650);
-                  submitHotel(form.name || "Makkah Gate Hotel");
-                  notify.success(c.toast.hotelSubmitted, {
-                    description: c.toast.hotelSubmittedDesc,
-                  });
-                  setSending(false);
-                  setStep(3);
-                })();
-              }}
+              onClick={onSubmit}
+              // onClick={() => {
+              //   // setSending(true);
+              //   // void (async () => {
+              //   //   await wait(650);
+              //   //   submitHotel(form.name || "Makkah Gate Hotel");
+              //   //   notify.success(c.toast.hotelSubmitted, {
+              //   //     description: c.toast.hotelSubmittedDesc,
+              //   //   });
+              //   //   setSending(false);
+              //   //   setStep(3);
+              //   // })();
+              // }}
             >
               {a.submit}
             </Button>

@@ -19,8 +19,5 @@ export const prpfileSchema = () => {
       .refine((val) => !/[A-Za-z]/.test(val), {
         message: c.common.englishLettersNotAllowed,
       }),
-    // permissionKeys: z
-    //   .array(z.string(), { message: "You need to select at least one permission" })
-    //   .min(1, { message: "You need to select at least one permission" }),
   });
 };

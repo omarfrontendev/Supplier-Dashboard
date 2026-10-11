@@ -12,6 +12,10 @@ const team = {
   resendInvitationEmail: (id: string) => `/users/${id}/resend-invitation`,
 };
 
+const uploads = {
+  create: "/uploads"
+}
+
 const auth = {
   login: "auth/login",
   resetPassword: "auth/reset-password",
@@ -23,6 +27,7 @@ const auth = {
 
 const hotels = {
   getHotels: "/linked-hotels",
+  createHotelRequest: "/hotel-requests",
   getHotelById: (id: string) => `/linked-hotels/${id}`,
   getHotelOptions: "/hotels/linking-options",
 };
@@ -33,6 +38,7 @@ const requests = {
   roomRequests: "/room-requests",
   getHotelById: (id: string) => `/linked-hotels/${id}`,
   getHotelOptions: "/hotels/linking-options",
+  createHotelRequest: "/hotel-requests",
 };
 
 const profiles = {
@@ -49,5 +55,6 @@ export const endpoints = {
   team,
   profiles,
   hotels,
-  requests
+  requests,
+  uploads
 };
