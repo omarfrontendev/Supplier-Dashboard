@@ -327,7 +327,6 @@ function HotelProfilePage() {
             </div>
           </section>
         </div>
-              {console.log(meta?.total)}
         {/* Room catalogue */}
         <section className="rounded-2xl border border-border-subtle bg-surface-default px-[22px] pb-3.5 pt-5">
           <CardHead
@@ -373,7 +372,7 @@ function HotelProfilePage() {
                   <p className={COLS.occupancy}>{room.maxOccupancy}</p>
                   <p className={COLS.guests}>{guestsLabel(room)}</p>
                   <p className={COLS.childAge}>
-                    {room?.maxChildAge ? fill(p.upTo, { age: room?.maxChildAge}): "--"}
+                    {room?.maxChildAge ? fill(p.upTo, { age: room?.maxChildAge }) : "--"}
                   </p>
                   <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
                   <p className={COLS.size}>{room?.roomSizeId || "--"}</p>

@@ -19,9 +19,8 @@ import { libraryFilter, quickView } from "@/lib/library-overlay-data";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { HotelCard } from "@/components/hotels/hotel-card";
-import { accessRequestsWord, counted, hotelsAreWord, hotelsSelectedWord } from "@/lib/arabic-count";
+import { accessRequestsWord, counted, hotelsSelectedWord } from "@/lib/arabic-count";
 import { fill, useLanguage } from "@/lib/i18n";
-import { notify, wait } from "@/lib/notify";
 import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { usePortal } from "@/lib/portal-store";
 import { hotels, type HotelRelation } from "@/lib/demo-data";
@@ -149,23 +148,6 @@ function HotelLibraryPage() {
         : "available"
       : (relations[hotel.id] ?? hotel.relation);
 
-  // const visible = [...hotels]
-  //   .sort((a, b) => {
-  //     const ai = displayOrder.indexOf(a.id);
-  //     const bi = displayOrder.indexOf(b.id);
-  //     return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
-  //   })
-  //   .filter((hotel) => {
-  //     const name = lang === "ar" ? hotel.nameAr : hotel.nameEn;
-  //     const relation = relationOf(hotel);
-  //     if (query && !name.toLowerCase().includes(query.toLowerCase())) return false;
-  //     if (city !== "all" && hotel.city !== city) return false;
-  //     if (stars !== "all" && String(hotel.stars) !== stars) return false;
-  //     if (status !== "all" && relation !== status) return false;
-  //     return true;
-  //   })
-  //   .slice(0, 6);
-
   /* UI 02.1D - the banner counts what is actually with Hoteliana, which
      on a first visit is nothing until you send one. */
   const pendingCount = hotels.filter((hotel) => relationOf(hotel) === "requested").length;
@@ -183,7 +165,7 @@ function HotelLibraryPage() {
     dispatch(
       fetchHotelsOptions({
         page: 1,
-        limit: 20,
+        limit: 100,
         search: debouncedQuery,
         countryCode: country === "all" ? null : country,
         starRating: stars === "all" ? null : stars,
@@ -203,17 +185,6 @@ function HotelLibraryPage() {
   const { mutateAsync: createHotelLinkingRequest, isPending: requestSubmitting } =
     useCreateHotelLinkingRequest();
 
-  // const countryOptions = [
-  //   {
-  //     value: "all",
-  //     label: c.myHotels.allCountries,
-  //   },
-  //   ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
-  //     value: code,
-  //     label: getCountryName(code, lang),
-  //   })),
-  // ];
-
   return (
     <PageShell>
       <PageHeader
@@ -222,7 +193,7 @@ function HotelLibraryPage() {
         subtitle={c.library.subtitle}
         right={
           <>
-            <StatusPill tone="neutral">{fill(c.library.count, { count: 128 })}</StatusPill>
+            <StatusPill tone="neutral">{fill(c.library.count, { count: meta?.total || 0 })}</StatusPill>
             <Link to="/add-hotel">
               <Button variant="outline">
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -278,15 +249,6 @@ function HotelLibraryPage() {
             options={[]}
           />
 
-          {/* <Select
-            label={c.library.city}
-            value={city}
-            onChange={setCity}
-            options={[
-              { value: "all", label: c.library.allCities },
-              ...cities.map((item) => ({ value: item, label: item })),
-            ]}
-          /> */}
           <Select
             label={c.library.category}
             value={stars}

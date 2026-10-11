@@ -29,6 +29,7 @@ const hotels = {
   getHotels: "/linked-hotels",
   createHotelRequest: "/hotel-requests",
   getHotelById: (id: string) => `/linked-hotels/${id}`,
+  getHotelOptionById: (id: string) => `/hotels/linking-options/${id}`,
   getHotelOptions: "/hotels/linking-options",
   getHotelRooms: (id: string) => `/linked-hotels/${id}/rooms?page=1&limit=100`,
 };
@@ -56,6 +57,10 @@ const suppliers = {
   getProfile: "/profile",
 };
 
+const  amenities = {
+  options: "/amenities/options",
+}
+
 export const endpoints = {
   auth,
   team,
@@ -63,5 +68,6 @@ export const endpoints = {
   hotels,
   requests,
   uploads,
-  suppliers
+  suppliers,
+  amenities
 };

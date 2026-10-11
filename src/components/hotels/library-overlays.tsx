@@ -18,6 +18,7 @@ import {
   type FilterGroup,
 } from "@/lib/library-overlay-data";
 import { useSingleHotel } from "@/api/modules/hotels/useSingleHotel";
+import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
 
 /** OV 02.2 — the overline and value of one profile line. */
 function ProfileRow({ label, value }: { label: string; value: string }) {
@@ -56,10 +57,7 @@ export function HotelQuickView({
   const k = lang === "ar" ? "ar" : "en";
   const c = quickView;
 
-  const { hotel: selectedHotel, isLoading, isError } = useSingleHotel(hotel?.id);
-
-  // console.log(selectedHotel?.hotel?.countryCode);
-
+  const { hotel: selectedHotel } = useSingleHotelOption(hotel?.id);
 
   return (
     <Drawer
@@ -116,7 +114,9 @@ export function HotelQuickView({
             />
             <ProfileRow
               label={c.description[k]}
-              value={k === "ar" ? selectedHotel?.hotel.descriptionAr : selectedHotel?.hotel.descriptionEn}
+              value={
+                k === "ar" ? selectedHotel?.hotel.descriptionAr : selectedHotel?.hotel.descriptionEn
+              }
             />
             <ProfileRow
               label={c.distance[k]}
@@ -129,13 +129,13 @@ export function HotelQuickView({
         <div>
           <p className="text-overline text-text-muted">{c.amenitiesTitle[k]}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {c.amenities.map((item) => (
+            {selectedHotel?.hotel?.amenities?.map((item) => (
               <span
-                key={item.en}
+                key={item.id}
                 className="inline-flex items-center gap-1 rounded-full border border-border-subtle px-2.5 py-1 text-[11.5px] text-text-body"
               >
                 <Check className="h-3 w-3 text-status-success" aria-hidden="true" />
-                {item[k]}
+                {k === "ar" ? item.nameAr : item?.nameEn}
               </span>
             ))}
           </div>

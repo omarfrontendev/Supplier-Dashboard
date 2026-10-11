@@ -33,6 +33,7 @@ import { hotelSchema } from "@/components/hotels/add-missing-hotel/HotelSchema";
 import PropertyMapPicker from "@/components/maps/PropertyMapPicker";
 import { useUploadFile } from "@/api/modules/useUploads";
 import { useCreateProperty } from "@/api/modules/hotels/useCreateHotelRequest";
+import { useAmenityOptions } from "@/api/modules/amenities/useAmenityOptions";
 
 export const Route = createFileRoute("/add-hotel")({
   head: () => ({
@@ -126,7 +127,7 @@ function AddHotelPage() {
   const { submitHotel } = usePortal();
   const a = c.addHotel;
 
-  const [step, setStep] = useState<Step>(0);
+  const [step, setStep] = useState<Step>(1);
   const [sending, setSending] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -259,20 +260,22 @@ function AddHotelPage() {
     };
   }, []);
 
-  const amenityOptions = [
-    { id: 1, name: "Wi-Fi" },
-    { id: 2, name: "Parking" },
-    { id: 3, name: "Restaurant" },
-    { id: 4, name: "Room service" },
-    { id: 5, name: "Swimming pool" },
-    { id: 6, name: "Gym" },
-    { id: 7, name: "Airport shuttle" },
-    { id: 8, name: "Family rooms" },
-    { id: 9, name: "Accessibility" },
-    { id: 10, name: "24-hour reception" },
-    { id: 11, name: "Prayer room" },
-    { id: 12, name: "Laundry" },
-  ];
+  // const amenityOptions = [
+  //   { id: 1, name: "Wi-Fi" },
+  //   { id: 2, name: "Parking" },
+  //   { id: 3, name: "Restaurant" },
+  //   { id: 4, name: "Room service" },
+  //   { id: 5, name: "Swimming pool" },
+  //   { id: 6, name: "Gym" },
+  //   { id: 7, name: "Airport shuttle" },
+  //   { id: 8, name: "Family rooms" },
+  //   { id: 9, name: "Accessibility" },
+  //   { id: 10, name: "24-hour reception" },
+  //   { id: 11, name: "Prayer room" },
+  //   { id: 12, name: "Laundry" },
+  // ];
+
+  const { amenities: amenityOptions } = useAmenityOptions();
 
   const selectedAmenities = hookForm.watch("amenities") ?? [];
 
@@ -351,9 +354,7 @@ function AddHotelPage() {
       />
       <PageHeader
         overline={
-          step === 0
-            ? a.overline
-            : `${a.overline} · $${formValues?.nameEn} · ${formValues?.nameAr}`
+          step === 0 ? a.overline : `${a.overline} · $${formValues?.nameEn} · ${formValues?.nameAr}`
         }
         title={step === 0 ? a.title : step === 1 ? a.mediaTitle : a.reviewTitle}
         subtitle={step === 0 ? a.subtitle : step === 1 ? a.mediaSubtitle : a.reviewSubtitle}
@@ -899,8 +900,9 @@ function AddHotelPage() {
               {" "}
               {amenityOptions.map((amenity) => {
                 const active = selectedAmenities.some(
-                  (item) => item.amenityId === amenity.id && item.value,
+                  (item) => item.amenityId === amenity.id,
                 );
+
                 return (
                   <button
                     key={amenity.id}
@@ -926,7 +928,7 @@ function AddHotelPage() {
                     )}
                   >
                     {" "}
-                    {amenity.name}{" "}
+                    {lang === "ar" ? amenity.nameAr : amenity.nameEn}{" "}
                   </button>
                 );
               })}{" "}
@@ -967,9 +969,7 @@ function AddHotelPage() {
                 [
                   a.fieldCountry,
                   `${formValues?.countryCode || "—"} · ${formValues?.city || "—"}
-                  ${
-                    formValues?.area ? ` · ${formValues?.area}` : ""
-                  }`,
+                  ${formValues?.area ? ` · ${formValues?.area}` : ""}`,
                 ],
                 [
                   a.fieldAddress,
@@ -1044,7 +1044,7 @@ function AddHotelPage() {
                   key={amenity?.id}
                   className="rounded-full bg-surface-subtle px-3 py-1.5 text-xs text-text-secondary"
                 >
-                  {amenity?.name}
+                  {lang === "ar" ? amenity?.nameAr : amenity?.nameEn}
                 </span>
               ))}
             </div>
