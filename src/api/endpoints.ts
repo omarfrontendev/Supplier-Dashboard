@@ -61,6 +61,11 @@ const  amenities = {
   options: "/amenities/options",
 }
 
+const notifications = {
+  getNotification: "/notifications",
+  unreadCount: "/notifications/unread-count" 
+}
+
 export const endpoints = {
   auth,
   team,
@@ -69,5 +74,6 @@ export const endpoints = {
   requests,
   uploads,
   suppliers,
-  amenities
+  amenities,
+  notifications
 };

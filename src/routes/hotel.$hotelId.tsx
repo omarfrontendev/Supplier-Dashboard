@@ -34,6 +34,7 @@ import { useUploadFile } from "@/api/modules/useUploads";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
+import { fetchSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -60,7 +61,8 @@ export const Route = createFileRoute("/hotel/$hotelId")({
   // },
   loader: async ({ params }) => {
     try {
-      const hotel = await fetchSingleHotel(params.hotelId);
+      const hotel = await fetchSingleHotelOption(params.hotelId);
+      //  fetchSingleHotelOption(params.hotelId);
 
       if (!hotel) {
         throw notFound();

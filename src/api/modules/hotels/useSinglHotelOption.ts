@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { ApiResponse } from "../profile-permissions/userProfiles";
 import { LinkedHotelResponse } from "@/store/features/hotels/types";
 
-export const fetchSingleHotel = async (
+export const fetchSingleHotelOption = async (
   id: string,
 ): Promise<LinkedHotelResponse> => {
   const response = await api.get<ApiResponse<LinkedHotelResponse>>(
@@ -17,7 +17,7 @@ export const fetchSingleHotel = async (
 export const useSingleHotelOption = (id?: string) => {
   const { data, error, isLoading, refetch } = useQuery({
     queryKey: ["hotels", id],
-    queryFn: () => fetchSingleHotel(id!),
+    queryFn: () => fetchSingleHotelOption(id!),
     enabled: !!id,
   });
 

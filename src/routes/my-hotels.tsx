@@ -79,7 +79,7 @@ function MyHotelsPage() {
 
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
-  const [state, setState] = useState("all");
+  const [state, setState] = useState(null);
   const [filter, setFilter] = useState(false);
 
   // ================================================ //
@@ -97,9 +97,10 @@ function MyHotelsPage() {
         limit: 20,
         search: debouncedQuery,
         countryCode: city === "all" ? null : city,
+        status: state
       }),
     );
-  }, [dispatch, debouncedQuery, city]);
+  }, [dispatch, debouncedQuery, city, state]);
 
   const {
     hotels: linkedHotels,
@@ -203,26 +204,35 @@ function MyHotelsPage() {
             value={city}
             onChange={setCity}
             // options={countryOptions}
-            options={[]}
+            options={[
+              {
+                value: null,
+                label: lang === "ar" ? "الكل" : "All",
+              },
+              {
+                value: "SA",
+                label: lang === "ar" ? "السعودية" : "Saudi Arabia",
+              },
+            ]}
           />
           <Select
             label={c.myHotels.contractState}
             value={state}
             onChange={setState}
             options={[
-              { value: "all", label: c.myHotels.anyState },
-              { value: "selling", label: c.myHotels.status.selling },
-              { value: "draft", label: c.myHotels.status.draft },
-              { value: "none", label: c.myHotels.status.noContract },
+              { value: null, label: c.myHotels.anyState },
+              { value: "approved", label: "Approved" },
+              { value: "suspended", label: "suspended" },
+              // { value: "none", label: c.myHotels.status.noContract },
             ]}
           />
         </div>
         {/* OV 02.11 — your hotels, by where their supply actually stands. */}
         <div className="flex justify-end px-5 pb-5">
-          <Button variant="outline" size="sm" onClick={() => setFilter(true)}>
+          {/* <Button variant="outline" size="sm" onClick={() => setFilter(true)}>
             <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
             {c.library.filter}
-          </Button>
+          </Button> */}
         </div>
       </SectionCard>
 

@@ -193,7 +193,9 @@ function HotelLibraryPage() {
         subtitle={c.library.subtitle}
         right={
           <>
-            <StatusPill tone="neutral">{fill(c.library.count, { count: meta?.total || 0 })}</StatusPill>
+            <StatusPill tone="neutral">
+              {fill(c.library.count, { count: meta?.total || 0 })}
+            </StatusPill>
             <Link to="/add-hotel">
               <Button variant="outline">
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -246,7 +248,16 @@ function HotelLibraryPage() {
             onChange={setCountry}
             label={c.profile.country}
             // options={countryOptions}
-            options={[]}
+            options={[
+              {
+                value: null,
+                label: lang === "ar" ? "الكل" : "All",
+              },
+              {
+                value: "SA",
+                label: lang === "ar" ? "السعودية" : "Saudi Arabia",
+              },
+            ]}
           />
 
           <Select
@@ -274,10 +285,10 @@ function HotelLibraryPage() {
           /> */}
         </div>
         <div className="flex justify-end px-5 pb-5">
-          <Button variant="outline" size="sm" onClick={() => setPanel("filter")}>
+          {/* <Button variant="outline" size="sm" onClick={() => setPanel("filter")}>
             <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
             {c.library.filter}
-          </Button>
+          </Button> */}
         </div>
       </SectionCard>
 

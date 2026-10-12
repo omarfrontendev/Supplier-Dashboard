@@ -52,7 +52,7 @@ const statusTone = {
   active: "success",
   invited: "warning",
   expired: "danger",
-  deactivated: "neutral",
+  inactive: "neutral",
 } as const;
 
 function TeamPage() {
@@ -163,7 +163,9 @@ function TeamPage() {
     if (!data) return;
     const getStatusTotal = (users: MetadataItem<UserStatusKey>[]) =>
       users
-        .filter((item) => item.key === "active" || item.key === "inactive" || item.key === "pending")
+        .filter(
+          (item) => item.key === "active" || item.key === "inactive" || item.key === "pending",
+        )
         .reduce((total, item) => total + item.value, 0);
 
     return getStatusTotal(data.superAdmins) + getStatusTotal(data.admins);
@@ -483,8 +485,8 @@ function MemberRow({
       </div>
       <div>
         {/* <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill> */}
-        <StatusPill tone={!m.isActivated ? "warning" : statusTone[m.status]}>
-          {t[!m.isActivated ? "invited" : m.status]}
+        <StatusPill tone={statusTone[m.status]}>
+          {t[m.status]}
         </StatusPill>
       </div>
       <span className="text-xs text-text-primary">{m.phoneNumber}</span>
