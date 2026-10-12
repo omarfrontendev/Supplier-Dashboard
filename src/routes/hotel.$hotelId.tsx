@@ -660,7 +660,7 @@ function AddRoomDrawer({
         });
 
         return {
-          uploadId: uploaded.uploadId?.id,
+          uploadId: uploaded.upload?.id,
           isCover: index === 0,
           captionEn: "",
           captionAr: "",
@@ -674,25 +674,6 @@ function AddRoomDrawer({
       images,
     });
   });
-
-  // const onSubmit = async (values: RoomFormValues) => {
-  //   // const payload: CreateRoomPayload = {
-  //   //   hotelId: values.hotelId,
-  //   //   nameEn: values.nameEn,
-  //   //   nameAr: values.nameAr,
-  //   //   maxOccupancy: values.maxOccupancy,
-  //   //   adults: values.adults,
-  //   //   children: values.children,
-  //   //   maxChildAge: values.maxChildAge,
-  //   //   bedTypeId: values.bedTypeId,
-  //   //   roomSizeId: values.roomSizeId,
-  //   //   areaSqm: values.areaSqm,
-  //   //   view: values.view,
-  //   //   images: values.images,
-  //   //   note: values.note,
-  //   // };
-  //   // await createRoom(payload);
-  // };
 
   if (sent) {
     return (

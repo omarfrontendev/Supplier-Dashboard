@@ -96,8 +96,6 @@ function AgreementPage() {
 
   const { profile, isLoading, isError, refetch } = useSupplierProfile();
 
-  console.log(profile);
-
   return (
     <PageShell>
       <PageHeader
