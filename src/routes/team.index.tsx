@@ -112,7 +112,7 @@ function TeamPage() {
   const { data: metrics } = useMetrics();
 
   const formatCount = (count: number, singular: string) => {
-    if (count === 0) return `no ${singular}`;
+    if (count === 0) return lang === "ar"  ? `بدون ${singular}` : `no ${singular}`;
     if (count === 1) return `1 ${singular}`;
     return `${count} ${singular}s`;
   };
@@ -259,7 +259,7 @@ function TeamPage() {
             />
             <Metric
               label={t.owners}
-              value={`${formatCount(activeSuperAdmins || 0, "owner")} ·${" "} ${formatCount(activeAdmins || 0, "admin")}`}
+              value={`${formatCount(activeSuperAdmins || 0, roleNames[lang].owner)} ·${" "} ${formatCount(activeAdmins || 0, roleNames[lang].admin)}`}
               note={t.ownersNote}
               tone="brand"
             />
