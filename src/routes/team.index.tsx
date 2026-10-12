@@ -480,7 +480,7 @@ function MemberRow({
         {m?.permissionProfiles?.flatMap((profile) =>
           profile.permissions
             ?.slice(0, 2)
-            ?.map((permission) => <StatusPill key={permission}>{permission.nameEn}</StatusPill>),
+            ?.map((permission) => <StatusPill key={permission}>{lang === "ar" ? permission.nameAr : permission.nameEn}</StatusPill>),
         )}
       </div>
       <div>

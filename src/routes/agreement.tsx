@@ -96,6 +96,16 @@ function AgreementPage() {
 
   const { profile, isLoading, isError, refetch } = useSupplierProfile();
 
+  const getCountryName = (countryCode: string, lang: "en" | "ar") => {
+    const locale = lang === "ar" ? "ar" : "en";
+
+    return (
+      new Intl.DisplayNames([locale], {
+        type: "region",
+      }).of(countryCode) ?? countryCode
+    );
+  };
+
   return (
     <PageShell>
       <PageHeader
@@ -174,11 +184,11 @@ function AgreementPage() {
               </DataRow>
               <DataRow label={a.company.country}>
                 <span className="text-sm text-text-primary">
-                  {profile?.countryCode} . {profile?.city}
+                  {getCountryName(profile?.countryCode, lang)} . {profile?.city}
                 </span>
               </DataRow>
               <DataRow label={a.company.phone}>
-                <MaskedValue  value={profile?.phoneNumber} />
+                <MaskedValue value={profile?.phoneNumber} />
                 {/* {locked("phone") && <StatusPill tone="warning">{a.changePending}</StatusPill>} */}
               </DataRow>
               <DataRow label={a.company.email}>
@@ -516,7 +526,7 @@ function MaskedValue({ value }: { value: string }) {
   const [revealed, setRevealed] = useState(false);
 
   const maskedValue =
-    value.length > 3 ? `${value.slice(0, 3)}${"*".repeat(value.length - 3)}` : value;
+    value?.length > 3 ? `${value?.slice(0, 3)}${"*".repeat(value?.length - 3)}` : value;
 
   return (
     <>

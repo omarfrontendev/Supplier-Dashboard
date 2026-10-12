@@ -81,6 +81,9 @@ export function HotelQuickView({
         <StatusPill tone={hotel?.hasPendingRequest ? "warning" : "neutral"}>
           {hotel?.hasPendingRequest ? c.requested[k] : c.available[k]}
         </StatusPill>
+        {/* <StatusPill tone={hotel?.hotel?.status !== "active" ? "warning" : "neutral"}>
+          {hotel?.hotel?.status === "active" ? c.requested[k] : c.available[k]}
+        </StatusPill> */}
 
         {/* The photographs Hoteliana holds. The frame draws the cover
             alone and no count; the arrows are the only thing that says

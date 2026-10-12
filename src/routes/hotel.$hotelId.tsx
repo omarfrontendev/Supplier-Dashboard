@@ -34,7 +34,10 @@ import { useUploadFile } from "@/api/modules/useUploads";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
-import { fetchSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
+import {
+  fetchSingleHotelOption,
+  useSingleHotelOption,
+} from "@/api/modules/hotels/useSinglHotelOption";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -54,25 +57,32 @@ export const Route = createFileRoute("/hotel/$hotelId")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  // loader: ({ params }) => {
-  //   const hotel = hotels.find((item) => item.id === params.hotelId);
-  //   if (!hotel) throw notFound();
+  // loader: async ({ params }) => {
+  //   try {
+  //     const hotel = await fetchSingleHotelOption(params.hotelId);
+  //     //  fetchSingleHotelOption(params.hotelId);
+
+  //     if (!hotel) {
+  //       throw notFound();
+  //     }
+
+  //     return { hotel };
+  //   } catch (error) {
+  //     throw notFound();
+  //   }
+  // },
+  // loader: async ({ params }) => {
+  //   console.log("Hotel route loader executed");
+  //   console.log("Hotel ID:", params.hotelId);
+
+  //   const hotel = await fetchSingleHotelOption(params.hotelId);
+
+  //   if (!hotel) {
+  //     throw notFound();
+  //   }
+
   //   return { hotel };
   // },
-  loader: async ({ params }) => {
-    try {
-      const hotel = await fetchSingleHotelOption(params.hotelId);
-      //  fetchSingleHotelOption(params.hotelId);
-
-      if (!hotel) {
-        throw notFound();
-      }
-
-      return { hotel };
-    } catch (error) {
-      throw notFound();
-    }
-  },
   component: HotelProfilePage,
 });
 
@@ -168,7 +178,10 @@ const COLS = {
 /* ---------- page ---------- */
 
 function HotelProfilePage() {
-  const { hotel } = Route.useLoaderData();
+  // const { hotel } = Route.useLoaderData();
+  const { hotelId } = Route.useParams();
+  const { hotel, isLoading } = useSingleHotelOption(hotelId);
+
   const { c, lang, dir } = useLanguage();
   const { newRooms } = usePortal();
   const p = c.hotelProfile;
@@ -188,15 +201,13 @@ function HotelProfilePage() {
 
   const { rooms, meta } = useHotelRooms(hotel?.hotel?.id);
 
-  const pendingRooms = newRooms.filter((room) => room.hotelId === hotel.id);
-  // const rooms = useMemo(() => roomCatalogue, []);
+  const pendingRooms = newRooms.filter((room) => room?.hotelId === hotel?.id);
   const pendingCount =
-    rooms.filter((room) => room.status === "pending").length + pendingRooms.length;
-  const availableCount = rooms.filter((room) => room.status === "available").length;
+    rooms.filter((room) => room?.status === "pending")?.length + pendingRooms.length;
 
   const hotelName = ar ? hotel?.hotel.nameAr : hotel?.hotel.nameEn;
   /* Flow 12 · Row B — what Hoteliana holds, shown read only. */
-  const licence = hotelLicences[hotel.id];
+  // const licence = hotelLicences[hotel.id];
 
   const guestsLabel = (room: RoomType) =>
     room.children === 0
@@ -204,6 +215,8 @@ function HotelProfilePage() {
       : room.children === 1
         ? fill(p.guestsOneChild, { adults: room.adults })
         : fill(p.guests, { adults: room.adults, children: room.children });
+
+  if (isLoading || !hotelId) return;
 
   return (
     <PageShell>
@@ -274,7 +287,7 @@ function HotelProfilePage() {
                 <Row label={p.nameEn} value={hotel?.hotel?.nameEn} />
                 <Row label={p.nameAr} value={hotel?.hotel?.nameAr} dirAuto />
                 <Row label={p.country} value={getCountryName(hotel?.hotel?.countryCode, lang)} />
-                <Row label={p.city} value={ar ? hotel?.hotel?.cityAr : hotel?.hotel?.city} />
+                <Row label={p.city} value={hotel?.hotel?.city} />
                 <Row
                   label={p.area}
                   // value={ar ? hotel?.hotel?.districtAr : hotel?.hotel?.district}
@@ -317,9 +330,9 @@ function HotelProfilePage() {
               title={p.amenitiesTitle}
             />
             <div className="flex flex-wrap gap-1.5">
-              {hotel?.hotel?.amenities.map((item) => (
+              {hotel?.hotel?.amenities?.map((item) => (
                 <span
-                  key={item?.id}
+                  key={item?.amenityId}
                   className="inline-flex items-center gap-[5px] rounded-full border border-border-subtle bg-surface-subtle py-[5px] pe-2.5 ps-2 text-[11.5px] font-medium leading-[1.45] text-text-body"
                 >
                   <Check className="h-[11px] w-[11px] text-status-success" aria-hidden="true" />
@@ -365,7 +378,7 @@ function HotelProfilePage() {
 
               {rooms.map((room) => (
                 <div
-                  key={room.name}
+                  key={room.id}
                   className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
                 >
                   <p className={`${COLS.room} font-medium text-text-primary`}>
@@ -392,7 +405,7 @@ function HotelProfilePage() {
 
               {pendingRooms.map((room) => (
                 <div
-                  key={room.name}
+                  key={room.id}
                   className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
                 >
                   <p className={`${COLS.room} font-medium text-text-primary`}>{room.name}</p>
@@ -599,7 +612,9 @@ function AddRoomDrawer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const objectUrlsRef = useRef<string[]>([]);
   const sending = isUploading || isCreating;
-  const ready = hookForm.formState.isValid && selectedFiles.length > 0 && rights && !sending;
+  const ready = hookForm.formState.isValid && selectedFiles.length > 2 && rights;
+
+  // console.log(!ready);
 
   const handleSelectImages = (files: FileList | null) => {
     if (!files) return;
@@ -826,7 +841,7 @@ function AddRoomDrawer({
             <div className="mt-2 space-y-2">
               {matches.map(({ room, match }) => (
                 <div
-                  key={room.name}
+                  key={Math.random()}
                   className="flex flex-wrap items-center gap-2.5 rounded-[10px] bg-surface-default py-2 pe-2.5 ps-3"
                 >
                   <div className="min-w-0 flex-1">

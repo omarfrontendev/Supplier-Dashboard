@@ -122,7 +122,8 @@ export function HotelCard({
 
         <p className="truncate text-[13px] leading-[1.5] text-text-muted">
           {/* {lang === "ar" ? hotel.districtAr : hotel.district} */}
-          {hotel.city}
+          {hotel.city} 
+          {" "}
           {/* {lang === "ar" ? hotel.distanceAr : hotel.distance} ·{" "} */}
           {fill(c.library.stars, { count: hotel.starRating })}
         </p>

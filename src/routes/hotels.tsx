@@ -27,7 +27,7 @@ import { hotels, type HotelRelation } from "@/lib/demo-data";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchHotelsOptions } from "@/store/features/hotels/hotel-options.slice";
 import { RootState } from "@/store";
-import { useDebounce } from "./my-hotels";
+import { getCountryName, useDebounce } from "./my-hotels";
 import { useCreateHotelLinkingRequest } from "@/api/modules/team/useCreateHotelLinkingRequest";
 // import { useDispatch, useSelector } from "react-redux";
 // import { RootState } from "@/store";
@@ -442,7 +442,7 @@ function HotelLibraryPage() {
         <HotelQuickView
           hotel={quickHotel}
           name={ar ? quickHotel.nameAr : quickHotel.nameEn}
-          meta={`${quickHotel.countryCode}${ar ? "\u060c" : ","} ${quickHotel.city} \u00b7 ${fill(c.library.stars, { count: quickHotel.starRating })} \u00b7 ${c.libraryOverlay.hotelianaId} ${quickHotel.id}`}
+          meta={`${getCountryName(quickHotel.countryCode, lang)}${ar ? "\u060c" : ","} ${quickHotel.city} \u00b7 ${fill(c.library.stars, { count: quickHotel.starRating })} \u00b7 ${c.libraryOverlay.hotelianaId} ${quickHotel.id}`}
           requested={(relations[quickHotel.id] ?? quickHotel.relation) === "requested"}
           onClose={() => setQuickId(null)}
           onRequest={() => {

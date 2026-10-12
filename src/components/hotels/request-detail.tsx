@@ -43,11 +43,29 @@ export function RequestDetailDrawer({
   /** Which action - the drawer draws several and they do different things. */
   onSecondary?: ((action: Bi) => void) | undefined;
 }) {
-  const {c, lang } = useLanguage();
+  const { c, lang } = useLanguage();
   const r = c.requests;
   const k = lang === "ar" ? "ar" : "en";
   const d = requestDetail;
   const [reply, setReply] = useState("");
+
+  const stateTone = {
+    pending: "neutral",
+    suspended: "neutral",
+    info_requested: "warning",
+    approved: "success",
+    // submitted: "neutral",
+    rejected: "danger",
+  } as const;
+
+  const stateLabel = {
+    pending: r.statePending,
+    suspended: r.statePending,
+    info_requested: r.stateNeedsYou,
+    approved: r.stateApproved,
+    // submitted: r.stateLinked,
+    rejected: r.stateNotApproved,
+  } as const;
 
   const requestStatusConfig: Record<
     any,
@@ -99,7 +117,10 @@ export function RequestDetailDrawer({
         <div className="flex flex-wrap items-center gap-2.5">
           {/* <StatusPill tone={shape.tone}>{shape.stateLabel[k]}</StatusPill> */}
           {/* <StatusPill tone={status?.tone}>{status?.label}</StatusPill> */}
-          <StatusPill tone={status?.tone} className="uppercase">{request?.status}</StatusPill>
+          <StatusPill tone={status?.tone} className="uppercase">
+            {stateLabel[request.status]}
+            {/* {request?.status} */}
+          </StatusPill>
           <span className="text-[11.5px] text-text-muted">{shape.stateNote[k]}</span>
         </div>
 

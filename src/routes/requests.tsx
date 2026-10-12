@@ -245,8 +245,8 @@ function RequestsPage() {
                     </td>
                     <td className="py-3 pe-3">
                       <StatusPill tone={stateTone[item.status]} className="uppercase">
-                        {item.status}
-                        {/* {stateLabel[item.status]} */}
+                        {/* {item.status} */}
+                        {stateLabel[item.status]}
                       </StatusPill>
                     </td>
                     <td className="py-3 pe-3 text-text-secondary">
@@ -278,7 +278,7 @@ function RequestsPage() {
       {open && shape && (
         <RequestDetailDrawer
           request={open}
-          overline={`${open.status} · ${"ACC-04830"}`}
+          overline={`${stateLabel[open.status]} · ${"ACC-04830"}`}
           title={lang === "ar" ? open.hotel?.nameAr : open?.hotel?.nameEn}
           meta={formatDate(open.createdAt, lang)}
           shape={shape}
