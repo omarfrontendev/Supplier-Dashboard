@@ -57,14 +57,15 @@ const suppliers = {
   getProfile: "/profile",
 };
 
-const  amenities = {
+const amenities = {
   options: "/amenities/options",
-}
+};
 
 const notifications = {
   getNotification: "/notifications",
-  unreadCount: "/notifications/unread-count" 
-}
+  unreadCount: "/notifications/unread-count",
+  readNotification: (id: number | string) => `/notifications/${id}/read`,
+};
 
 export const endpoints = {
   auth,
@@ -75,5 +76,5 @@ export const endpoints = {
   uploads,
   suppliers,
   amenities,
-  notifications
+  notifications,
 };

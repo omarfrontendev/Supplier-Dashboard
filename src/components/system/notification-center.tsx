@@ -8,12 +8,14 @@ import { useLanguage } from "@/lib/i18n";
 import { useNotifications } from "@/api/modules/notification/useNotification";
 import { useUnreadNotificationsCount } from "@/api/modules/notification/useNotificationsCount";
 import { LoaderCircle } from "lucide-react";
+import { useReadNotification } from "@/api/modules/notification/useReadNotification";
 
 export function NotificationCenter({ onClose }: { onClose: () => void }) {
   const { lang } = useLanguage();
   const ar = lang === "ar";
   const [tab, setTab] = useState<"needs" | "all" | "read">("all");
   const [thread, setThread] = useState<PortalNotice | null>(null);
+  const [readId, setReadId] = useState(null);
   const [readIds, setReadIds] = useState(
     () => new Set(notices.filter((n) => n.read).map((n) => n.id)),
   );
@@ -32,6 +34,12 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
   });
 
   const { unreadCount, isLoading: unReadCountLoading } = useUnreadNotificationsCount();
+  const { readNotification, isPending } = useReadNotification();
+
+  const handleReadNotification = (id: number) => {
+    setReadId(id);
+    readNotification(id);
+  };
 
   return (
     <Drawer
@@ -89,7 +97,7 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
                 <div className="flex gap-2">
                   <span
                     // className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${readIds.has(n.id) ? "bg-text-muted" : "bg-status-danger"}`}
-                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${i + 1 > unreadCount && tab === "all" ? "bg-text-muted" : "bg-status-danger"}`}
+                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${!n?.readAt && tab === "all" ? "bg-status-success" : "bg-status-danger"}`}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold text-brand-deep">{n.title}</p>
@@ -111,16 +119,22 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {/* {!n.readAt && ( */}
                   <Button
                     size="sm"
                     variant="dark"
-                    onClick={() => {
-                      setReadIds((current) => new Set([...current, n.id]));
-                      if (n.id === "HTL-88198") setThread(n);
-                    }}
+                    onClick={() => handleReadNotification(n.id)}
+                    disabled={isPending && readId === n.id}
                   >
-                    {n.needsAction || "action"}
+                    {isPending && readId === n.id ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : lang === "ar" ? (
+                      "قراءة"
+                    ) : (
+                      "Read"
+                    )}
                   </Button>
+                  {/* )} */}
                   <Link to={n.to}>
                     <Button size="sm" variant="outline">
                       {ar ? "فتح الصفحة" : "Open"}
