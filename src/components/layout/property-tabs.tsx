@@ -47,7 +47,7 @@ export function PropertyTabs() {
 
   const tabs = [
     { to: TABS[0], label: c.nav.myHotels },
-    { to: TABS[1], label: c.contracts.tab },
+    // { to: TABS[1], label: c.contracts.tab },
     { to: TABS[2], label: c.nav.hotelLibrary },
     { to: TABS[3], label: c.requests.tab },
     { to: TABS[4], label: c.nav.agreement },
