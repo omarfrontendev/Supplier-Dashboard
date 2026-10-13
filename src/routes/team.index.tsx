@@ -302,7 +302,7 @@ function TeamPage() {
             <p className="ms-auto text-xs text-text-muted">{t.outside}</p>
           </div>
           <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
-            <div className="hidden overflow-x-auto lg:block">
+            <div className="overflow-x-auto lg:block">
               <div className="min-w-[1180px]">
                 <div className="grid grid-cols-[258px_158px_1fr_138px_118px_170px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
                   <span>{t.person}</span>
