@@ -135,11 +135,11 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
                     )}
                   </Button>
                   {/* )} */}
-                  <Link to={n.to}>
+                  {/* <Link to={n.to}>
                     <Button size="sm" variant="outline">
                       {ar ? "فتح الصفحة" : "Open"}
                     </Button>
-                  </Link>
+                  </Link> */}
                   <span className="ms-auto text-[11px] text-text-muted">
                     {ar ? n.timeAr : n.time}
                   </span>
@@ -147,7 +147,7 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
               </article>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          {/* <div className="mt-3 flex flex-wrap gap-2">
             <Link to="/dashboard">
               <Button size="sm" variant="outline">
                 {ar ? "افتح لوحة التحكم" : "Open the dashboard"}
@@ -163,7 +163,7 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
                 {ar ? "حالاتي" : "My cases"}
               </Button>
             </Link>
-          </div>
+          </div> */}
         </>
       )}
     </Drawer>
