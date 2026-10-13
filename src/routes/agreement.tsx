@@ -115,9 +115,9 @@ function AgreementPage() {
         right={
           <div className="flex flex-wrap items-center gap-3">
             <StatusPill tone="neutral">{c.common.readOnly}</StatusPill>
-            <Link to="/request-changes">
+            {/* <Link to="/request-changes">
               <Button size="sm">{a.strip.request}</Button>
-            </Link>
+            </Link> */}
           </div>
         }
       />
@@ -146,7 +146,7 @@ function AgreementPage() {
         />
       )}
 
-      <Banner
+      {/* <Banner
         tone="warning"
         icon={<Clock className="h-5 w-5" aria-hidden="true" />}
         title={a.pending.title}
@@ -158,7 +158,7 @@ function AgreementPage() {
             </Button>
           </Link>
         }
-      />
+      /> */}
 
       {loading ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -217,7 +217,7 @@ function AgreementPage() {
             </div>
           </SectionCard>
 
-          <SectionCard
+          {/* <SectionCard
             icon={<FileCheck2 className="h-4 w-4" aria-hidden="true" />}
             overline={a.documents.overline}
             title={a.documents.title}
@@ -265,11 +265,11 @@ function AgreementPage() {
               </table>
             </div>
             <p className="mt-4 text-xs leading-relaxed text-text-muted">{a.documents.note}</p>
-          </SectionCard>
+          </SectionCard> */}
         </div>
       )}
 
-      <div className="mt-6">
+      {/* <div className="mt-6">
         <SectionCard
           icon={<Scale className="h-4 w-4" aria-hidden="true" />}
           overline={a.contract.overline}
@@ -298,7 +298,6 @@ function AgreementPage() {
               <DataRow label={a.contract.currency}>
                 <span className="font-data text-sm text-text-primary">{version.currency}</span>
               </DataRow>
-              {/* UI 01.6 — the file, then Preview and Download PDF. */}
               <DataRow label={a.contract.file}>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="font-data text-sm text-text-primary">{version.file}</span>
@@ -334,7 +333,7 @@ function AgreementPage() {
             <p className="text-xs leading-relaxed text-text-secondary">{a.contract.note}</p>
           </div>
         </SectionCard>
-      </div>
+      </div> */}
 
       <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-border-subtle bg-surface-default p-5 shadow-card">
         <div className="min-w-0 flex-1">
@@ -344,9 +343,9 @@ function AgreementPage() {
         <Link to="/requests">
           <Button variant="outline">{a.strip.view}</Button>
         </Link>
-        <Link to="/request-changes">
+        {/* <Link to="/request-changes">
           <Button>{a.strip.request}</Button>
-        </Link>
+        </Link> */}
         <Link to="/hotels">
           <Button variant="secondary">{c.common.continueToLibrary}</Button>
         </Link>

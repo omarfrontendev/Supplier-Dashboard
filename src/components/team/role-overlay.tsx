@@ -146,7 +146,7 @@ export function RoleOverlay({
             {c.cancel[k]}
           </Button>
           <Button
-            disabled={!allowed.length || isPending || !form.formState.isValid}
+            disabled={isPending}
             onClick={() => {
               saveProfile(
                 {
