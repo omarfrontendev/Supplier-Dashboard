@@ -335,7 +335,7 @@ function AgreementPage() {
         </SectionCard>
       </div> */}
 
-      <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-border-subtle bg-surface-default p-5 shadow-card">
+      {/* <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-border-subtle bg-surface-default p-5 shadow-card">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-text-primary">{a.strip.title}</p>
           <p className="mt-1 text-sm text-text-secondary">{a.strip.body}</p>
@@ -343,13 +343,13 @@ function AgreementPage() {
         <Link to="/requests">
           <Button variant="outline">{a.strip.view}</Button>
         </Link>
-        {/* <Link to="/request-changes">
+        <Link to="/request-changes">
           <Button>{a.strip.request}</Button>
-        </Link> */}
+        </Link>
         <Link to="/hotels">
           <Button variant="secondary">{c.common.continueToLibrary}</Button>
         </Link>
-      </div>
+      </div> */}
 
       {contractOpen && <ContractModal onClose={() => setContractOpen(false)} />}
       {downloadOpen && <DownloadModal onClose={() => setDownloadOpen(false)} />}
