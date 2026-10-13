@@ -335,7 +335,6 @@ function AddHotelPage() {
       // 3. Create the property using the mutation hook.
       const response = await createProperty(payload);
 
-      console.log("Created property:", response);
 
       // 4. Continue after successful submission.
       setStep(3);

@@ -180,7 +180,7 @@ export function RoleOverlay({
         />
       ))}
 
-      {mode === "create" && (
+      {mode === "create" && role?.nameEn && (
         <div>
           <p className="text-overline text-text-muted">{c.startLabel[k]}</p>
           <div className="mt-1.5 flex h-11 w-full items-center rounded-[10px] border border-border-default bg-surface-default px-3.5 text-sm text-text-secondary">

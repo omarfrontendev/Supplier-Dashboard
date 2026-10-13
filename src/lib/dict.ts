@@ -6,6 +6,8 @@ export type Language = "en" | "ar";
 
 const en = {
   common: {
+    deleteTitle: "Delete Role",
+    deleteDescription: "Are you sure you want to delete this role? This action cannot be undone.",
     super_admin: "Super Admin",
     admin: "Admin",
     somethingWentWrong: "Something went wrong. Please try again.",
@@ -47,6 +49,7 @@ const en = {
     invalidEmail: "Please enter a valid email address",
     confirmSelection: "Confirm Selection",
     noRolesSelected: "No roles selected",
+    delete: "Delete",
   },
   nav: {
     gettingStarted: "Getting started",
@@ -840,6 +843,7 @@ const en = {
 
 const ar: typeof en = {
   common: {
+    delete: "حذف",
     super_admin: "مدير النظام الأعلى",
     admin: "مدير",
     somethingWentWrong: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
@@ -881,6 +885,8 @@ const ar: typeof en = {
     invalidEmail: "يرجى إدخال بريد إلكتروني صالح",
     confirmSelection: "تأكيد الاختيار",
     noRolesSelected: "لم يتم اختيار أي أدوار",
+    deleteTitle: "حذف الدور",
+    deleteDescription: "هل أنت متأكد أنك تريد حذف هذا الدور؟ لا يمكن التراجع عن هذا الإجراء.",
   },
   nav: {
     gettingStarted: "البداية",

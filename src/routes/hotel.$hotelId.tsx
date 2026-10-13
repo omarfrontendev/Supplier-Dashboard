@@ -667,27 +667,33 @@ function AddRoomDrawer({
   const onSubmit = handleSubmit(async (values) => {
     if (!rights || selectedImages.length === 0) return;
 
-    const images = await Promise.all(
-      selectedImages.map(async (image, index) => {
-        const uploaded = await uploadFile({
-          file: image.file,
-          category: "room_image",
-        });
+    try {
+      const images = await Promise.all(
+        selectedImages.map(async (image, index) => {
+          const uploaded = await uploadFile({
+            file: image.file,
+            category: "room_image",
+          });
 
-        return {
-          uploadId: uploaded.upload?.id,
-          isCover: index === 0,
-          captionEn: "",
-          captionAr: "",
-          sortOrder: index,
-        };
-      }),
-    );
+          return {
+            uploadId: uploaded.upload?.id,
+            isCover: index === 0,
+            captionEn: "",
+            captionAr: "",
+            sortOrder: index,
+          };
+        }),
+      );
 
-    await createRoom({
-      ...values,
-      images,
-    });
+      await createRoom({
+        ...values,
+        images,
+      });
+
+      onClose();
+    } catch (error) {
+      console.error("Failed to create room:", error);
+    }
   });
 
   if (sent) {

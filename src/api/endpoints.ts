@@ -49,7 +49,7 @@ const profiles = {
   availableProfiles: "/permissions/catalog",
   createProfile: "/permissions/profiles",
   updateProfile: (id: number | false) => `/permissions/profiles/${id}`,
-  deleteProfile: (id: string) => `/profiles/${id}`,
+  deleteProfile: (id: string) => `/permissions/profiles/${id}`,
   getProfileById: (id: string) => `/permissions/profiles/${id}`,
 };
 

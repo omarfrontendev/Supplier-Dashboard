@@ -20,6 +20,8 @@ import { useProfiles } from "@/api/modules/profile-permissions/userProfiles";
 import { PermissionProfile } from "@/api/modules/profile-permissions/types";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { useMetrics } from "@/api/modules/team/userMetrics";
+import { DeleteDialog } from "@/components/ui/DeleteDialog";
+import { useDeletePermissionProfile } from "@/api/modules/profile-permissions/useDeletepermission";
 
 export const Route = createFileRoute("/team/")({
   validateSearch: (
@@ -256,6 +258,7 @@ function TeamPage() {
           onDuplicate={(r) => setRole({ mode: "create", row: r, copyFrom: r.name })}
           roles={roles}
           isLoading={isLoading}
+          refetch={refetch}
         />
       ) : (
         <>
@@ -555,6 +558,7 @@ function RolesTab({
   onEdit,
   onDuplicate,
   isLoading,
+  refetch
 }: {
   roles: PermissionProfile | undefined;
   lang: "en" | "ar";
@@ -562,8 +566,39 @@ function RolesTab({
   created: boolean;
   onEdit: (r: RoleRow) => void;
   onDuplicate: (r: RoleRow) => void;
+  refetch: () => void;
   isLoading: boolean;
 }) {
+  const [selectedRole, setSelectedRole] = useState<number | null>(null);
+  const { c } = useLanguage();
+
+  const { mutate: deleteProfile, isPending: deletePending } = useDeletePermissionProfile();
+
+  const deleteRole = (id: string) => {
+    setSelectedRole(id);
+  };
+
+  const handleDeleteProfile = (id) => {
+    if (!id) return;
+
+    deleteProfile(
+      { id },
+      {
+        onSuccess: () => {
+          setSelectedRole(null);
+          refetch();
+        },
+      },
+    );
+  };
+
+  const handleDelete = () => {
+    if (!selectedRole) return;
+
+    handleDeleteProfile(selectedRole);
+    setSelectedRole(null);
+  };
+
   return (
     <>
       {created && (
@@ -622,7 +657,30 @@ function RolesTab({
                     <Button size="sm" variant="outline" onClick={() => onDuplicate(r)}>
                       {t.duplicate}
                     </Button>
+                    {/* {r.totalAssignedUsers > 0 && ( */}
+                    <Button
+                      disabled={r.totalAssignedUsers}
+                      size="sm"
+                      variant={r.totalAssignedUsers ? "ghost" : "outline"}
+                      onClick={() => deleteRole(r.id)}
+                    >
+                      {t.remove}
+                    </Button>
+                    {/* )} */}
                   </div>
+                  <DeleteDialog
+                    // title="Delete Role"
+                    // description={`Are you sure you want to delete "${"TEST"}"?`}
+                    // onClose={() => setSelectedRole(null)}
+                    // onConfirm={handleDelete}
+                    // open={!!selectedRole}
+                    open={selectedRole === r.id}
+                    title={c.common.deleteTitle}
+                    description={c.common.deleteDescription}
+                    onClose={() => setSelectedRole(null)}
+                    onConfirm={handleDelete}
+                    isPending={deletePending}
+                  />
                 </div>
               ))
             ) : (
