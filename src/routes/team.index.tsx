@@ -98,11 +98,19 @@ function TeamPage() {
   const [transfer, setTransfer] = useState(false);
   const { profiles: roles, isLoading, refetch } = useProfiles();
 
+  // active => isActive && isActivated true
   const teamParams = {
     page: 1, // API expects 1-based page
     limit: 100,
-    isActive: filter === "active" ? true : filter === "deactivated" ? false : null,
-    isActivated: filter === "invited" ? false : null,
+    isActive:
+      filter === "active"
+        ? true
+        : filter === "invited"
+          ? true
+          : filter === "deactivated"
+            ? false
+            : null,
+    isActivated: filter === "active" ? true : filter === "invited" ? false : null,
   };
 
   useEffect(() => {
@@ -112,7 +120,7 @@ function TeamPage() {
   const { data: metrics } = useMetrics();
 
   const formatCount = (count: number, singular: string) => {
-    if (count === 0) return lang === "ar"  ? `بدون ${singular}` : `no ${singular}`;
+    if (count === 0) return lang === "ar" ? `بدون ${singular}` : `no ${singular}`;
     if (count === 1) return `1 ${singular}`;
     return `${count} ${singular}s`;
   };
@@ -480,13 +488,19 @@ function MemberRow({
         {m?.permissionProfiles?.flatMap((profile) =>
           profile.permissions
             ?.slice(0, 2)
-            ?.map((permission) => <StatusPill key={permission}>{lang === "ar" ? permission.nameAr : permission.nameEn}</StatusPill>),
+            ?.map((permission) => (
+              <StatusPill key={permission}>
+                {lang === "ar" ? permission.nameAr : permission.nameEn}
+              </StatusPill>
+            )),
         )}
       </div>
       <div>
         {/* <StatusPill tone={statusTone[m.status]}>{t[m.status]}</StatusPill> */}
-        <StatusPill tone={statusTone[m.status]}>
-          {t[m.status]}
+        <StatusPill
+          tone={m.isActive && !m.isActivated ? statusTone["invited"] : statusTone[m.status]}
+        >
+          {m.isActive && !m.isActivated ? t["invited"] : t[m.status]}
         </StatusPill>
       </div>
       <span className="text-xs text-text-primary">{m.phoneNumber}</span>

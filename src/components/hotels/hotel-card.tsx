@@ -5,7 +5,7 @@ import type { Hotel, HotelRelation } from "@/lib/demo-data";
 import { HotelOption } from "@/store/features/hotels/types";
 
 const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
-  available: {
+  not_requested: {
     wrap: "bg-status-neutral-bg",
     text: "text-status-neutral",
     dot: "bg-status-neutral",
@@ -20,7 +20,7 @@ const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string
     text: "text-status-info",
     dot: "bg-status-info",
   },
-  notApproved: {
+  rejected: {
     wrap: "bg-status-danger-bg",
     text: "text-status-danger",
     dot: "bg-status-danger",
@@ -53,7 +53,7 @@ export function HotelCard({
   const unavailable = relation === "notApproved" || relation === "suspended";
   const selectable = Boolean(onToggle) && relation === "available";
   // const tone = badgeTone[hotel?.hasPendingRequest ? "requested" : "linked"];
-  const tone = badgeTone[hotel?.hasPendingRequest ? "requested" : "linked"];
+  const tone = badgeTone[hotel?.linkingStatus];
 
   return (
     <article
@@ -122,33 +122,23 @@ export function HotelCard({
 
         <p className="truncate text-[13px] leading-[1.5] text-text-muted">
           {/* {lang === "ar" ? hotel.districtAr : hotel.district} */}
-          {hotel.city} 
-          {" "}
-          {/* {lang === "ar" ? hotel.distanceAr : hotel.distance} ·{" "} */}
+          {hotel.city} {/* {lang === "ar" ? hotel.distanceAr : hotel.distance} ·{" "} */}
           {fill(c.library.stars, { count: hotel.starRating })}
         </p>
 
         <span
           className={cn(
             "inline-flex w-fit items-center gap-1.5 rounded-md ps-2 pe-[9px] py-1",
-            tone.wrap
+            tone.wrap,
           )}
         >
           <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" />
-          <span
-            className={cn(
-              "text-[11px] font-medium uppercase tracking-[0.44px]",
-              tone.text
-            )}
-          >
-            {/* {c.library.status[relation]} */}
-            {c.library.status[hotel?.hasPendingRequest ? "requested": "linked"]}
+          <span className={cn("text-[11px] font-medium uppercase tracking-[0.44px]", tone.text)}>
+            {c.library.status[hotel?.linkingStatus]}
           </span>
         </span>
-        
-        {note && (
-          <p className="text-xs leading-[1.5] text-text-muted">{note}</p>
-        )}
+
+        {note && <p className="text-xs leading-[1.5] text-text-muted">{note}</p>}
 
         {footer && <div className="mt-1.5 flex items-center gap-3">{footer}</div>}
       </div>

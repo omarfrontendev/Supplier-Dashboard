@@ -3,7 +3,7 @@ import { Check, Hash, Image as ImageIcon, Info, Search, ShieldCheck } from "luci
 import { arDigits, countedOf, hotelsWord, requestsWord } from "@/lib/arabic-count";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { HotelGallery } from "@/components/hotels/hotel-gallery";
-import type { Hotel } from "@/lib/demo-data";
+import type { Hotel, HotelRelation } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/layout/page-shell";
 import { fill, useLanguage } from "@/lib/i18n";
@@ -34,6 +34,33 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
  * OV 02.2 / 02.2D — everything Hoteliana holds about a library hotel,
  * and the one thing you can do about it.
  */
+const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
+  not_requested: {
+    wrap: "bg-status-neutral-bg",
+    text: "text-status-neutral",
+    dot: "bg-status-neutral",
+  },
+  linked: {
+    wrap: "bg-status-success-bg",
+    text: "text-status-success",
+    dot: "bg-status-success",
+  },
+  requested: {
+    wrap: "bg-status-info-bg",
+    text: "text-status-info",
+    dot: "bg-status-info",
+  },
+  rejected: {
+    wrap: "bg-status-danger-bg",
+    text: "text-status-danger",
+    dot: "bg-status-danger",
+  },
+  suspended: {
+    wrap: "bg-status-warning-bg",
+    text: "text-status-warning",
+    dot: "bg-status-warning",
+  },
+};
 export function HotelQuickView({
   hotel,
   name,
@@ -58,6 +85,7 @@ export function HotelQuickView({
   const c = quickView;
 
   const { hotel: selectedHotel } = useSingleHotelOption(hotel?.id);
+  const tone = badgeTone[hotel?.linkingStatus];
 
   return (
     <Drawer
@@ -68,7 +96,7 @@ export function HotelQuickView({
       divider={false}
       onClose={onClose}
       footer={
-        hotel?.hasPendingRequest ? (
+        hotel?.linkingStatus !== "not_requested" ? (
           <Button variant="outline" onClick={onSeeRequest}>
             {c.seeRequest[k]}
           </Button>
@@ -78,9 +106,20 @@ export function HotelQuickView({
       }
     >
       <div className="space-y-4">
-        <StatusPill tone={hotel?.hasPendingRequest ? "warning" : "neutral"}>
-          {hotel?.hasPendingRequest ? c.requested[k] : c.available[k]}
-        </StatusPill>
+        {/* <StatusPill tone={hotel?.linkingStatus}>
+          {hotel?.linkingStatus}
+        </StatusPill> */}
+        <span
+          className={cn(
+            "inline-flex w-fit items-center gap-1.5 rounded-md ps-2 pe-[9px] py-1",
+            tone.wrap,
+          )}
+        >
+          {/* <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" /> */}
+          <span className={cn("text-[11px] font-medium uppercase tracking-[0.44px]", tone.text)}>
+            {c2.library.status[hotel?.linkingStatus]}
+          </span>
+        </span>
         {/* <StatusPill tone={hotel?.hotel?.status !== "active" ? "warning" : "neutral"}>
           {hotel?.hotel?.status === "active" ? c.requested[k] : c.available[k]}
         </StatusPill> */}
@@ -121,10 +160,10 @@ export function HotelQuickView({
                 k === "ar" ? selectedHotel?.hotel.descriptionAr : selectedHotel?.hotel.descriptionEn
               }
             />
-            <ProfileRow
+            {/* <ProfileRow
               label={c.distance[k]}
               value={k === "ar" ? hotel.distanceAr : hotel.distance}
-            />
+            /> */}
             <ProfileRow label={c.licence[k]} value={c.licenceValue[k]} />
           </div>
         </div>
@@ -144,7 +183,7 @@ export function HotelQuickView({
           </div>
         </div>
 
-        <div>
+        {/* <div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <p className="text-overline text-text-muted">
               {fill(c.cataloqueTitle[k], { count: quickViewRooms.length })}
@@ -169,7 +208,7 @@ export function HotelQuickView({
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         <p className="flex items-start gap-2 rounded-[10px] bg-status-success-bg px-3.5 py-3 text-[12px] leading-4 text-text-body">
           <ShieldCheck

@@ -202,7 +202,7 @@ function RequestsPage() {
             onChange={setStatus}
             options={[
               { value: "all", label: c.library.allStatuses },
-              ...(["pending", "rejected", "info_requested", "approved", "suspended"] as const).map(
+              ...(["pending", "rejected", "info_requested", "approved"] as const).map(
                 (key) => ({ value: key, label: key.toUpperCase() }),
               ),
             ]}

@@ -83,7 +83,7 @@ function HotelLibraryPage() {
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("all");
   const [stars, setStars] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [quickId, setQuickId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -169,15 +169,17 @@ function HotelLibraryPage() {
         search: debouncedQuery,
         countryCode: country === "all" ? null : country,
         starRating: stars === "all" ? null : stars,
+        linkingStatus: status
       }),
     );
-  }, [dispatch, debouncedQuery, country, stars]);
+  }, [dispatch, debouncedQuery, country, stars, status]);
 
   const {
     hotels: hotelsOption,
     meta,
     loading,
     error,
+    pendingRequestsCount
   } = useSelector((state: RootState) => state.hotelsOption);
 
   const quickHotel = hotelsOption.find((item) => item.id === quickId);
@@ -206,12 +208,12 @@ function HotelLibraryPage() {
         }
       />
 
-      {pendingCount > 0 && (
+      {pendingRequestsCount > 0 && (
         <Banner
           tone="warning"
           icon={<Clock className="h-5 w-5" aria-hidden="true" />}
           title={fill(c.library.pendingTitle, {
-            requests: counted(pendingCount, accessRequestsWord, ar ? "ar" : "en"),
+            requests: counted(pendingRequestsCount, accessRequestsWord, ar ? "ar" : "en"),
           })}
           body={c.library.pendingBody}
           action={
@@ -272,17 +274,17 @@ function HotelLibraryPage() {
               })),
             ]}
           />
-          {/* <Select
+          <Select
             label={c.library.relationship}
             value={status}
             onChange={setStatus}
             options={[
-              { value: "all", label: c.library.allStatuses },
-              ...(["available", "requested", "linked", "notApproved", "suspended"] as const).map(
+              { value: null, label: c.library.allStatuses },
+              ...(["not_requested", "requested", "linked", "rejected"] as const).map(
                 (key) => ({ value: key, label: c.library.status[key] }),
               ),
             ]}
-          /> */}
+          />
         </div>
         <div className="flex justify-end px-5 pb-5">
           {/* <Button variant="outline" size="sm" onClick={() => setPanel("filter")}>
@@ -309,13 +311,6 @@ function HotelLibraryPage() {
                 hotel={hotel}
                 relation={relation}
                 selected={active}
-                // onToggle={() =>
-                //   setPicked((prev) =>
-                //     prev.includes(hotel.id)
-                //       ? prev.filter((id) => id !== hotel.id)
-                //       : [...prev, hotel.id],
-                //   )
-                // }
                 note={
                   relation === "requested"
                     ? /* A request sent a moment ago did not go two days
@@ -443,7 +438,8 @@ function HotelLibraryPage() {
           hotel={quickHotel}
           name={ar ? quickHotel.nameAr : quickHotel.nameEn}
           meta={`${getCountryName(quickHotel.countryCode, lang)}${ar ? "\u060c" : ","} ${quickHotel.city} \u00b7 ${fill(c.library.stars, { count: quickHotel.starRating })} \u00b7 ${c.libraryOverlay.hotelianaId} ${quickHotel.id}`}
-          requested={(relations[quickHotel.id] ?? quickHotel.relation) === "requested"}
+          // requested={(relations[quickHotel.id] ?? quickHotel.relation) === "requested"}
+          requested={quickHotel.relation === "requested"}
           onClose={() => setQuickId(null)}
           onRequest={() => {
             setPicked([quickId]);
