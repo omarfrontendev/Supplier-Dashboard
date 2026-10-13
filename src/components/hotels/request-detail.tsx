@@ -109,7 +109,8 @@ export function RequestDetailDrawer({
               {action[k]}
             </Button>
           ))} */}
-          {<Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>}
+          {/* {console.log(shape.primary?.en === "Open in My Hotels")} */}
+          {shape.primary?.en === "Open in My Hotels" && <Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>}
         </>
       }
     >
