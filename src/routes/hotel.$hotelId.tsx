@@ -248,8 +248,8 @@ function HotelProfilePage() {
           </div>
           <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
             <Badge tone="success">{p.badgeLinked}</Badge>
-            <Badge tone="success">{p.badgeSelling}</Badge>
-            <Link
+            {/* <Badge tone="success">{p.badgeSelling}</Badge> */}
+            {/* <Link
               to="/rate-contracts/new"
               search={{ source: undefined }}
               className="min-w-0 flex-1 sm:flex-none"
@@ -257,7 +257,7 @@ function HotelProfilePage() {
               <Button variant="dark" className="h-11 w-full rounded-[10px] px-5 text-sm sm:w-auto">
                 {p.createContract}
               </Button>
-            </Link>
+            </Link> */}
           </div>
         </div>
 
@@ -613,8 +613,6 @@ function AddRoomDrawer({
   const objectUrlsRef = useRef<string[]>([]);
   const sending = isUploading || isCreating;
   const ready = hookForm.formState.isValid && selectedFiles.length > 2 && rights;
-
-  // console.log(!ready);
 
   const handleSelectImages = (files: FileList | null) => {
     if (!files) return;
