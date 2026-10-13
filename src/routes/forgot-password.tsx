@@ -40,7 +40,7 @@ function ForgotPasswordPage() {
   const { c } = useLanguage();
   const { state: initial } = Route.useSearch();
   const [state, setState] = useState<ForgotState>(initial ?? "ask");
-  const [email, setEmail] = useState("operations@jewaralsafwah.com");
+  const [email, setEmail] = useState("");
 
   const navigate = useNavigate()
 
