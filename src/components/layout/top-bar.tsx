@@ -164,9 +164,9 @@ export function TopBar() {
         <IconToggle />
       </ActionButton>
 
-      <ActionButton label={c.nav.search} onClick={() => setSearchOpen(true)}>
+      {/* <ActionButton label={c.nav.search} onClick={() => setSearchOpen(true)}>
         <IconSearch />
-      </ActionButton>
+      </ActionButton> */}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
