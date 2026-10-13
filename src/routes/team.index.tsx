@@ -214,9 +214,9 @@ function TeamPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/team/activity">
+          {/* <Link to="/team/activity">
             <Button variant="outline">{t.activity}</Button>
-          </Link>
+          </Link> */}
           {onRoles ? (
             <Gated permission="users.change_role">
               <Button variant="dark" onClick={() => setRole({ mode: "create" })}>

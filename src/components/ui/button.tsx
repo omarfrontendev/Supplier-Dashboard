@@ -77,7 +77,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     return (
       <button
-        className={cn(buttonVariants({ variant, size }), className)}
+        className={cn(buttonVariants({ variant, size }), className, "cursor-pointer")}
         ref={ref}
         disabled={off}
         {...(off && reason ? { title: reason } : {})}
