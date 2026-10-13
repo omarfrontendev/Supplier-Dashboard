@@ -320,7 +320,7 @@ function MyHotelsPage() {
                 )} */}
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Link to="/rate-contracts">
+                  <Link to="/rate-contracts" className="hidden">
                     <Button size="sm">
                       {hotel.contractAction === "draft"
                         ? c.myHotels.continueDraft

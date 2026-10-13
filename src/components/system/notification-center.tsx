@@ -83,11 +83,11 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
               </Button>
             ))}
           </div>
-          <div className="mb-3 rounded-lg bg-status-info-bg px-3 py-2 text-xs text-status-info">
+          {/* <div className="mb-3 rounded-lg bg-status-info-bg px-3 py-2 text-xs text-status-info">
             {ar
               ? "تقرأ هذه القائمة عناصر لوحة التحكم نفسها."
               : "This tab reads the dashboard’s own list. If the dashboard says four, this says four."}
-          </div>
+          </div> */}
           <div className="space-y-2">
             {notifications.map((n, i) => (
               <article
