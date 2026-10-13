@@ -328,7 +328,7 @@ function HotelLibraryPage() {
                 }
                 footer={
                   <>
-                    {!hotel?.hasPendingRequest && (
+                    {hotel?.linkingStatus === "linked" && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -342,20 +342,20 @@ function HotelLibraryPage() {
                         {c.library.openInMyHotels}
                       </Button>
                     )}
-                    {relation === "requested" && (
+                    {hotel?.linkingStatus === "requested" && (
                       <Link to="/requests">
                         <Button variant="ghost" size="sm">
                           {c.library.viewRequest}
                         </Button>
                       </Link>
                     )}
-                    {relation === "notApproved" && (
+                    {/* {relation === "notApproved" && (
                       <Link to="/requests">
                         <Button variant="ghost" size="sm">
                           {c.library.seeDecision}
                         </Button>
                       </Link>
-                    )}
+                    )} */}
                     {relation === "suspended" && (
                       <Link to="/sell-status">
                         <Button variant="ghost" size="sm">
