@@ -33,6 +33,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && token) {
       // 💡 Handle Unauthorized error (e.g., logout user)
       clearToken();
+      localStorage.removeItem("userData");
       handleUnauthorized();
     }
     return Promise.reject(error);

@@ -1,18 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  Check,
-  ChevronRight,
-  FileText,
-  Hotel,
-  Lock,
-  ShieldCheck,
-} from "lucide-react";
-import {
-  PageHeader,
-  PageShell,
-  SectionCard,
-  StatusPill,
-} from "@/components/layout/page-shell";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Check, ChevronRight, FileText, Hotel, Lock, ShieldCheck } from "lucide-react";
+import { PageHeader, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
 
@@ -35,6 +23,9 @@ export const Route = createFileRoute("/getting-started")({
       },
     ],
   }),
+  beforeLoad: () => {
+    throw redirect({ to: "/requests" });
+  },
   component: GettingStartedPage,
 });
 
@@ -64,16 +55,10 @@ function Row({
    * line and pushes the owner, the badge and the chevron onto the second
    * as a group, aligned to the end.
    */
-  const inner =
-    "flex flex-wrap items-center gap-x-3.5 gap-y-2 px-4 py-3";
+  const inner = "flex flex-wrap items-center gap-x-3.5 gap-y-2 px-4 py-3";
   return to ? (
     /* `to` is a union, so the per-route search type cannot be narrowed here. */
-    <Link
-      to={to}
-      search={(search ?? {}) as never}
-      aria-label={title}
-      className={inner}
-    >
+    <Link to={to} search={(search ?? {}) as never} aria-label={title} className={inner}>
       {children}
     </Link>
   ) : (
@@ -81,12 +66,7 @@ function Row({
   );
 }
 
-type StepLink =
-  | "/agreement"
-  | "/hotels"
-  | "/rate-contracts"
-  | "/rate-calendar"
-  | null;
+type StepLink = "/agreement" | "/hotels" | "/rate-contracts" | "/rate-calendar" | null;
 
 function GettingStartedPage() {
   const { c, lang } = useLanguage();
@@ -145,17 +125,13 @@ function GettingStartedPage() {
           >
             <span className="shrink-0 text-text-muted">{stat.icon}</span>
             <span className="min-w-0">
-              <span className="block text-overline text-text-muted">
-                {stat.data.label}
-              </span>
+              <span className="block text-overline text-text-muted">{stat.data.label}</span>
               {/* UI 01.5 — the number and what it means sit on one line. */}
               <span className="mt-1 flex flex-wrap items-baseline gap-2">
                 <span className="text-[21px] font-semibold tracking-tight text-text-primary">
                   {stat.data.value}
                 </span>
-                <span className="text-[13px] text-text-secondary">
-                  {stat.data.note}
-                </span>
+                <span className="text-[13px] text-text-secondary">{stat.data.note}</span>
               </span>
             </span>
           </div>
@@ -194,74 +170,68 @@ function GettingStartedPage() {
                   {...(step.search ? { search: step.search } : {})}
                   title={step.data.title}
                 >
-                <span
-                  className={
-                    step.state === "done"
-                      ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-success-bg text-status-success"
-                      : step.state === "locked"
-                        ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-subtle text-text-muted"
-                        : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-deep text-sm font-semibold text-primary"
-                  }
-                >
-                  {step.state === "done" ? (
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  ) : step.state === "locked" ? (
-                    <Lock className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    /* A step number reads in the digits around it. */
-                    (index + 1).toLocaleString(ar ? "ar-EG" : "en-US")
-                  )}
-                </span>
-                <div className="min-w-0 flex-1 basis-48">
-                  <p className="text-[13.5px] font-semibold text-text-primary">
-                    {step.data.title}
-                  </p>
-                  <p className="mt-0.5 text-[12.5px] leading-[18px] text-text-secondary">
-                    {step.data.body}
-                  </p>
-                </div>
-                {/* Who owns it, where it stands, and the way in - they
-                    travel together, so they wrap as one block rather than
-                    three loose pieces. */}
-                <div className="ms-auto flex shrink-0 items-center gap-3">
-                  <p className="text-xs text-text-muted">{step.data.owner}</p>
-                  <StatusPill
-                    tone={
+                  <span
+                    className={
                       step.state === "done"
-                        ? "success"
-                        : step.state === "next"
-                          ? "brand"
-                          : "neutral"
+                        ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-success-bg text-status-success"
+                        : step.state === "locked"
+                          ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-subtle text-text-muted"
+                          : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-deep text-sm font-semibold text-primary"
                     }
                   >
-                    {step.data.badge}
-                  </StatusPill>
-                  {step.to ? (
-                    <ChevronRight
-                      className="h-4 w-4 shrink-0 text-text-muted rtl:rotate-180"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <span className="w-4 shrink-0" aria-hidden="true" />
-                  )}
-                </div>
+                    {step.state === "done" ? (
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    ) : step.state === "locked" ? (
+                      <Lock className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      /* A step number reads in the digits around it. */
+                      (index + 1).toLocaleString(ar ? "ar-EG" : "en-US")
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1 basis-48">
+                    <p className="text-[13.5px] font-semibold text-text-primary">
+                      {step.data.title}
+                    </p>
+                    <p className="mt-0.5 text-[12.5px] leading-[18px] text-text-secondary">
+                      {step.data.body}
+                    </p>
+                  </div>
+                  {/* Who owns it, where it stands, and the way in - they
+                    travel together, so they wrap as one block rather than
+                    three loose pieces. */}
+                  <div className="ms-auto flex shrink-0 items-center gap-3">
+                    <p className="text-xs text-text-muted">{step.data.owner}</p>
+                    <StatusPill
+                      tone={
+                        step.state === "done"
+                          ? "success"
+                          : step.state === "next"
+                            ? "brand"
+                            : "neutral"
+                      }
+                    >
+                      {step.data.badge}
+                    </StatusPill>
+                    {step.to ? (
+                      <ChevronRight
+                        className="h-4 w-4 shrink-0 text-text-muted rtl:rotate-180"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <span className="w-4 shrink-0" aria-hidden="true" />
+                    )}
+                  </div>
                 </Row>
               </li>
             ))}
           </ol>
-          <p className="mt-5 text-xs leading-relaxed text-text-muted">
-            {g.footnote}
-          </p>
+          <p className="mt-5 text-xs leading-relaxed text-text-muted">{g.footnote}</p>
         </SectionCard>
 
         <div className="h-fit rounded-2xl bg-brand-deep p-6 text-text-inverse shadow-raised">
           <p className="text-overline text-primary">{g.next.overline}</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight">
-            {g.next.title}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-white/75">
-            {g.next.body}
-          </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">{g.next.title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-white/75">{g.next.body}</p>
           <Link to="/agreement" className="mt-6 block">
             <Button className="h-11 w-full">{g.next.cta}</Button>
           </Link>

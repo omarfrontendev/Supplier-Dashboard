@@ -6,18 +6,18 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { useNavigate } from "@tanstack/react-router";
 
 export const useLogin = () => {
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
-
-    return useMutation({
-        mutationFn: login,
-        onSuccess: (data) => {
-            setToken(data?.data?.accessToken);
-            toast.success(data?.message || "Login successful!");
-            navigate({ to: "/getting-started" });
-        },
-        onError: (error) => {
-            toast.error(getApiErrorMessage(error));
-        },
-    });
+  return useMutation({
+    mutationFn: login,
+    onSuccess: (data) => {
+      setToken(data?.data?.accessToken);
+      localStorage.setItem("userData", JSON.stringify(data?.data?.user));
+      toast.success(data?.message || "Login successful!");
+      navigate({ to: "/getting-started" });
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error));
+    },
+  });
 };

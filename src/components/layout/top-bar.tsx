@@ -223,6 +223,8 @@ export function TopBar() {
     </>
   );
 
+  const userData = JSON?.parse(localStorage.getItem("userData") || "null");
+
   const profile = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -236,9 +238,11 @@ export function TopBar() {
           </span>
           <span className="flex min-w-0 flex-col items-start leading-tight">
             <span className="truncate text-xs font-medium text-text-primary">
-              {c.nav.profileName}
+              {userData?.username}
             </span>
-            <span className="truncate text-[11px] text-text-muted">{c.common.supplierShort}</span>
+            <span className="truncate text-[11px] text-text-muted max-w-[110px]">
+              {userData?.email}
+            </span>
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
         </button>
@@ -246,8 +250,14 @@ export function TopBar() {
 
       <DropdownMenuContent align="end" className="w-[264px]">
         <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-text-primary">{c.nav.profileName}</span>
-          <span className="text-xs font-normal text-text-muted">{c.account.ownerLine}</span>
+          <span className="text-sm font-semibold text-text-primary">{userData?.username}</span>
+          <span className="text-xs font-normal text-text-muted">
+            {userData?.role === "super_admin"
+              ? lang === "en"
+                ? "Super Admin"
+                : "المسؤول الأعلى"
+              : userData?.role}
+          </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -261,7 +271,7 @@ export function TopBar() {
           </Link>
         </DropdownMenuItem>
 
-        <DropdownMenuItem asChild>
+        {/* <DropdownMenuItem asChild>
           <Link to="/getting-started" className="cursor-pointer gap-2.5">
             <Compass className="h-4 w-4 text-text-muted" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
@@ -279,7 +289,7 @@ export function TopBar() {
               <span className="text-[11px] text-text-muted">{c.account.casesHint}</span>
             </span>
           </Link>
-        </DropdownMenuItem>
+        </DropdownMenuItem> */}
 
         <DropdownMenuItem asChild>
           <Link to="/hotels" className="cursor-pointer gap-2.5">
@@ -297,6 +307,7 @@ export function TopBar() {
           <Button
             onClick={() => {
               localStorage.removeItem("authToken");
+              localStorage.removeItem("userData");
               navigate({ to: "/login" });
             }}
             className="cursor-pointer gap-2.5 text-status-danger bg-transparent flex justify-start w-full"

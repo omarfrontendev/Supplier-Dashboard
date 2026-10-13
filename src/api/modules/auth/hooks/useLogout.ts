@@ -4,14 +4,14 @@ import { logouthandler } from "@/api/modules/auth/auth";
 // import { useNavigate } from "react-router-dom";
 
 export const useLogout = () => {
+  // const navigate = useNavigate();
 
-    // const navigate = useNavigate();
-
-    return useMutation({
-        mutationFn: logouthandler,
-        onSuccess: () => {
-            // logout()
-            // navigate("/");
-        },
-    });
+  return useMutation({
+    mutationFn: logouthandler,
+    onSuccess: () => {
+      localStorage.removeItem("userData");
+      // logout()
+      // navigate("/");
+    },
+  });
 };
