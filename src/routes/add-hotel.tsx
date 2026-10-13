@@ -127,7 +127,7 @@ function AddHotelPage() {
   const { submitHotel } = usePortal();
   const a = c.addHotel;
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(0);
   const [sending, setSending] = useState(false);
   const [form, setForm] = useState({
     name: "",
