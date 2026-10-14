@@ -62,9 +62,9 @@ function RequestsPage() {
   /* OV 02.5B - a request pulled back, and the case opened instead. */
   const { withdrawnRequests, withdrawRequest } = usePortal();
   const [asking, setAsking] = useState<SupplierRequest | null>(null);
-  const [filter, setFilter] = useState<SupplierRequestKind | "all">("all");
+  const [filter, setFilter] = useState<SupplierRequestKind | "all">("access");
   const { loading } = useRemoteData(() => true);
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(null);
 
   const items = useMemo(
     () =>
@@ -112,7 +112,7 @@ function RequestsPage() {
 
   const tabs = (
     [
-      { key: "all", label: r.filterAll, count: metrics?.allRequests?.[3]?.value },
+      // { key: "all", label: r.filterAll, count: metrics?.allRequests?.[3]?.value },
       { key: "access", label: r.filterAccess, count: metrics?.hotel_access?.[3]?.value },
       { key: "hotel", label: r.filterHotels, count: metrics?.new_hotel?.[3]?.value },
       { key: "room", label: r.filterRooms, count: metrics?.new_room?.[3]?.value },
@@ -124,20 +124,22 @@ function RequestsPage() {
     type: filter,
     page: 1,
     limit: 100,
-    status: status === "all" ? null : status,
+    status: filter === "hotel" ? "pending" : status,
   });
 
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
   const shape = open ? detailFor("access", open.status) : null;
 
   const metricsKey = {
-    all: "allRequests",
+    // all: "allRequests",
     access: "hotel_access",
     hotel: "new_hotel",
     room: "new_room",
   } as const;
 
+  const metricsAllFixed = (index: number) => metrics?.["allRequests"]?.[index]?.value;
   const metricsValue = (index: number) => metrics?.[metricsKey[filter]]?.[index]?.value;
+
   return (
     <PageShell>
       <PageHeader
@@ -151,12 +153,48 @@ function RequestsPage() {
         }
       />
 
+      {metricsLoading ? (
+        <StatsSkeleton className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" />
+      ) : (
+        <div className="mb-6">
+          <p className="mb-3 text-overline text-text-muted">
+            {lang === "ar" ? "إحصائيات جميع الطلبات" : "ALL REQUESTS OVERVIEW"}
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat
+              icon={<Clock className="h-4 w-4" aria-hidden="true" />}
+              label={r.statWaiting}
+              value={metricsAllFixed(0)}
+              note={r.statWaitingNote}
+            />
+
+            <Stat
+              icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+              label={r.statApproved}
+              value={metricsAllFixed(1)}
+              note={r.statApprovedNote}
+            />
+
+            <Stat
+              icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
+              label={r.statRejected}
+              value={metricsAllFixed(2)}
+              note={r.statRejectedNote}
+            />
+          </div>
+        </div>
+      )}
+
       <div className=" scrollbar-none mb-5 flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border-subtle bg-surface-default p-1 shadow-card sm:w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
-            onClick={() => setFilter(tab.key)}
+            onClick={() => {
+              setFilter(tab.key);
+              setStatus(null);
+            }}
             className={cn(
               "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition-colors",
               filter === tab.key
@@ -200,33 +238,36 @@ function RequestsPage() {
           />
         </div>
       )}
-      <SectionCard className="mb-6">
-        <div className="w-100">
-          <Select
-            label={lang === "ar" ? "الحالة" : "Status"}
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: "all", label: c.library.allStatuses },
-              ...(["pending", "rejected", "info_requested"] as const).map((key) => ({
-                value: key,
-                label:
-                  lang === "ar"
-                    ? {
-                        pending: "قيد الانتظار",
-                        rejected: "مرفوض",
-                        info_requested: "مطلوب معلومات إضافية",
-                      }[key]
-                    : {
-                        pending: "Pending",
-                        rejected: "Rejected",
-                        info_requested: "Information Requested",
-                      }[key],
-              })),
-            ]}
-          />
-        </div>
-      </SectionCard>
+      {
+        <SectionCard className="mb-6">
+          <div className="w-100">
+            <Select
+              disabled={filter === "hotel"}
+              label={lang === "ar" ? "الحالة" : "Status"}
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: "all", label: c.library.allStatuses },
+                ...(["pending", "rejected", "info_requested"] as const).map((key) => ({
+                  value: key,
+                  label:
+                    lang === "ar"
+                      ? {
+                          pending: "قيد الانتظار",
+                          rejected: "مرفوض",
+                          info_requested: "مطلوب معلومات إضافية",
+                        }[key]
+                      : {
+                          pending: "Pending",
+                          rejected: "Rejected",
+                          info_requested: "Information Requested",
+                        }[key],
+                })),
+              ]}
+            />
+          </div>
+        </SectionCard>
+      }
 
       <SectionCard>
         {isLoading ? (
@@ -294,7 +335,9 @@ function RequestsPage() {
         )}
 
         <p className="mt-4 text-xs text-text-muted">
-          {fill(r.showing, { shown: requests?.length, total: meta?.total })}
+          {requests?.length
+            ? fill(r.showing, { shown: requests?.length, total: meta?.total })
+            : null}
         </p>
       </SectionCard>
 

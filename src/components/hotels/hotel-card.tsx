@@ -73,29 +73,9 @@ export function HotelCard({
         className="relative h-[132px] w-full overflow-hidden rounded-lg sm:h-[148px]"
         aria-hidden={hotel?.image ? undefined : true}
       >
-        {/* <HotelGalleryImage
-                      uploadId={hotel.images[at].uploadId}
-                      alt={fill(labels.alt, {
-                        name,
-                        at: at + 1,
-                      })}
-                      className="h-full w-full object-cover"
-                    /> */}
         {hotel?.coverImage?.uploadId ? (
-          // <img
-          //   src={hotel?.image}
-          //   alt={lang === "ar" ? hotel.nameAr : hotel.nameEn}
-          //   loading="lazy"
-          //   width={1024}
-          //   height={640}
-          //   className={cn("h-full w-full object-cover", unavailable && "opacity-45")}
-          // />
           <HotelGalleryImage
             uploadId={hotel?.coverImage?.uploadId}
-            // alt={fill(labels.alt, {
-            //   name,
-            //   at: at + 1,
-            // })}
             alt="TEST"
             className={cn("h-full w-full object-cover", unavailable && "opacity-45")}
           />
