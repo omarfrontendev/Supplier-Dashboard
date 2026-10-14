@@ -18,6 +18,7 @@ import { arDigits, counted, imagesWord } from "@/lib/arabic-count";
 import type { Hotel } from "@/lib/demo-data";
 import { fill, useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { HotelGalleryImage } from "./HotelGalleryImage";
 
 export function HotelGallery({
   hotel,
@@ -63,6 +64,8 @@ export function HotelGallery({
     </button>
   );
 
+  console.log(hotel?.images);
+
   return (
     <div
       className={cn("group relative overflow-hidden bg-surface-image", className)}
@@ -84,7 +87,7 @@ export function HotelGallery({
     >
       {hotel.images?.length ? (
         <div className="grid h-full w-full grid-cols-2 gap-1">
-          {hotel.images.map((image, index) => (
+          {/* {hotel.images.map((image, index) => (
             <img
               key={image?.uploadId ?? index}
               src={image?.url}
@@ -92,7 +95,21 @@ export function HotelGallery({
               loading="lazy"
               className="h-full w-full object-cover"
             />
-          ))}
+          ))} */}
+          {hotel.images?.length ? (
+            <HotelGalleryImage
+              uploadId={hotel.images[at].uploadId}
+              alt={fill(labels.alt, {
+                name,
+                at: at + 1,
+              })}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-primary/60">
+              <ImageIcon className="h-7 w-7" aria-hidden="true" />
+            </span>
+          )}
         </div>
       ) : (
         <span className="flex h-full w-full items-center justify-center text-primary/60">

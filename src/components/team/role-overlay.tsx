@@ -61,11 +61,13 @@ export function RoleOverlay({
   const k = lang === "ar" ? "ar" : "en";
   const c = roleOverlay;
 
-  const { profiles } = useAvailableProfiles();
+  const { profiles, isLoading } = useAvailableProfiles();
   const { mutate: saveProfile, isPending } = useUpsertProfile({ id: mode === "edit" && role?.id });
 
   // const [allowed, setAllowed] = useState<string[]>(COPIED[copyFrom ?? roleName] ?? []);
-  const [allowed, setAllowed] = useState<string[]>(role?.permissions.map((profile) => profile.key) || []);
+  const [allowed, setAllowed] = useState<string[]>(
+    role?.permissions.map((profile) => profile.key) || [],
+  );
 
   const toggle = (item: string) =>
     setAllowed((prev) =>
@@ -83,12 +85,12 @@ export function RoleOverlay({
     //   ? c.editNote[k]
     //       .replace("{count}", people === 1 ? c.onePerson[k] : String(people))
     //       .replace("{who}", holder ?? "")
-    //   : 
-      allowed.length === 0
-        ? c.emptyNote[k]
-        : c.tickedNote[k]
-            .replace("{count}", String(allowed.length))
-            .replace("{gaps}", gaps.join(lang === "ar" ? "، " : ", "));
+    //   :
+    allowed.length === 0
+      ? c.emptyNote[k]
+      : c.tickedNote[k]
+          .replace("{count}", String(allowed.length))
+          .replace("{gaps}", gaps.join(lang === "ar" ? "، " : ", "));
 
   // ======================================================================= //
   // ======================================================================= //
@@ -179,7 +181,6 @@ export function RoleOverlay({
           {...form.register(name)}
         />
       ))}
-
       {mode === "create" && role?.nameEn && (
         <div>
           <p className="text-overline text-text-muted">{c.startLabel[k]}</p>
@@ -188,7 +189,6 @@ export function RoleOverlay({
           </div>
         </div>
       )}
-
       <div className="mb-6 flex justify-end">
         <button
           type="button"
@@ -196,12 +196,15 @@ export function RoleOverlay({
           className="rounded-[10px] border border-border-default bg-surface-default px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-subtle"
         >
           {allPermissionKeys.every((key) => allowed.includes(key))
-            ? "Deselect All"
-            : "Select All Modules"}
+            ? lang === "ar"
+              ? "إلغاء تحديد الكل"
+              : "Deselect All"
+            : lang === "ar"
+              ? "تحديد الكل"
+              : "Select All Modules"}
         </button>
       </div>
-
-      {profiles.map((profile) => {
+      {/* {profiles?.map((profile) => {
         const moduleKeys = profile.methods.map((item) => item.key);
 
         const moduleSelected =
@@ -257,8 +260,92 @@ export function RoleOverlay({
             </div>
           </div>
         );
-      })}
+      })} */}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border-default bg-surface-default px-4 py-10">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-border-default border-t-brand-deep" />
 
+          <p className="text-sm text-text-muted">
+            {lang === "ar" ? "جاري تحميل الصلاحيات..." : "Loading permissions..."}
+          </p>
+        </div>
+      ) : !profiles?.length ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-subtle px-4 py-10 text-center">
+          <p className="text-sm font-medium text-text-primary">
+            {lang === "ar" ? "لا توجد صلاحيات متاحة" : "No permissions available"}
+          </p>
+
+          <p className="mt-1 text-xs text-text-muted">
+            {lang === "ar"
+              ? "لا توجد وحدات أو صلاحيات لعرضها حاليًا."
+              : "There are no modules or permissions to display right now."}
+          </p>
+        </div>
+      ) : (
+        profiles.map((profile) => {
+          const moduleKeys = profile.methods.map((item) => item.key);
+
+          const moduleSelected =
+            moduleKeys.length > 0 && moduleKeys.every((key) => allowed.includes(key));
+
+          return (
+            <div key={profile.module}>
+              <div className="flex items-center justify-between">
+                <p className="text-overline text-text-muted">{profile.module}</p>
+
+                <button
+                  type="button"
+                  onClick={() => toggleModule(profile.module)}
+                  className="text-sm font-medium text-brand-deep hover:underline"
+                >
+                  {moduleSelected
+                    ? lang === "ar"
+                      ? "إلغاء تحديد الكل"
+                      : "Deselect All"
+                    : lang === "ar"
+                      ? "تحديد الكل"
+                      : "Select All"}
+                </button>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {profile?.methods.map((item) => {
+                  const on = allowed.includes(item.key);
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-pressed={on}
+                      title={ownerOnly.includes(item.key) ? c.ownerOnlyNote[k] : undefined}
+                      onClick={() => toggle(item.key)}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[13px] transition-colors",
+                        on
+                          ? "border-primary-subtle-border bg-primary-subtle text-text-primary"
+                          : "border-border-default bg-surface-default text-text-primary hover:bg-surface-subtle",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "grid h-4 w-4 shrink-0 place-items-center rounded border",
+                          on
+                            ? "border-brand-deep bg-brand-deep text-text-inverse"
+                            : "border-border-strong bg-surface-default",
+                        )}
+                      >
+                        {on && <Check className="h-3 w-3" aria-hidden="true" />}
+                      </span>
+
+                      {item.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })
+      )}
       <p className="rounded-[10px] bg-surface-subtle px-3.5 py-3 text-[12.5px] leading-5 text-text-secondary">
         {note}
       </p>

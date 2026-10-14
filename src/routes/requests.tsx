@@ -207,7 +207,18 @@ function RequestsPage() {
               { value: "all", label: c.library.allStatuses },
               ...(["pending", "rejected", "info_requested"] as const).map((key) => ({
                 value: key,
-                label: key.toUpperCase(),
+                label:
+                  lang === "ar"
+                    ? {
+                        pending: "قيد الانتظار",
+                        rejected: "مرفوض",
+                        info_requested: "مطلوب معلومات إضافية",
+                      }[key]
+                    : {
+                        pending: "Pending",
+                        rejected: "Rejected",
+                        info_requested: "Information Requested",
+                      }[key],
               })),
             ]}
           />
