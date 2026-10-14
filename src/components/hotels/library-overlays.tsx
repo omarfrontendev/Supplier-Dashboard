@@ -19,6 +19,7 @@ import {
 } from "@/lib/library-overlay-data";
 import { useSingleHotel } from "@/api/modules/hotels/useSingleHotel";
 import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
+import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
 
 /** OV 02.2 — the overline and value of one profile line. */
 function ProfileRow({ label, value }: { label: string; value: string }) {
@@ -86,6 +87,57 @@ export function HotelQuickView({
 
   const { hotel: selectedHotel } = useSingleHotelOption(hotel?.id);
   const tone = badgeTone[hotel?.linkingStatus];
+
+  const { rooms, meta: roomsMeta } = useHotelRooms(hotel?.id);
+
+  const getRoomDetails = (room: any) => {
+    const ar = lang === "ar";
+
+    return [
+      {
+        key: "occupancy",
+        label: ar ? "السعة القصوى" : "Max occupancy",
+        value: room.maxOccupancy,
+      },
+      {
+        key: "adults",
+        label: ar ? "البالغون" : "Adults",
+        value: room.adults,
+      },
+      {
+        key: "children",
+        label: ar ? "الأطفال" : "Children",
+        value: room.children,
+      },
+      {
+        key: "maxChildAge",
+        label: ar ? "أقصى عمر للطفل" : "Max child age",
+        value: room.maxChildAge,
+      },
+      {
+        key: "bedType",
+        label: ar ? "نوع السرير" : "Bed type",
+        value: room.bedTypeId,
+      },
+      {
+        key: "roomSize",
+        label: ar ? "مساحة الغرفة" : "Room size",
+        value: room.areaSqm ? `${room.areaSqm} m²` : "—",
+      },
+      {
+        key: "view",
+        label: ar ? "الإطلالة" : "View",
+        value: room.view === "city" ? (ar ? "إطلالة على المدينة" : "City view") : room.view || "—",
+      },
+      // {
+      //   key: "status",
+      //   label: ar ? "الحالة" : "Status",
+      //   value: room.isActive ? (ar ? "متاحة" : "Active") : ar ? "غير متاحة" : "Inactive",
+      // },
+    ];
+  };
+
+  console.log(rooms);
 
   return (
     <Drawer
@@ -183,32 +235,72 @@ export function HotelQuickView({
           </div>
         </div>
 
-        {/* <div>
+        <div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <p className="text-overline text-text-muted">
-              {fill(c.cataloqueTitle[k], { count: quickViewRooms.length })}
+              {fill(c.cataloqueTitle[k], { count: roomsMeta?.total })}
             </p>
-            <p className="max-w-[220px] text-[11px] leading-4 text-text-muted">
+            {/* <p className="max-w-[220px] text-[11px] leading-4 text-text-muted">
               {c.catalogueNote[k]}
-            </p>
+            </p> */}
           </div>
           <div className="mt-2">
-            {quickViewRooms.map((room) => (
+            {/* {rooms?.map((room) => (
               <div
-                key={room.name.en}
+                key={room?.id}
                 className="flex flex-wrap items-center gap-3 border-t border-border-subtle py-2.5 first:border-t-0"
               >
                 <span className="w-[130px] shrink-0 text-[12.5px] font-semibold text-text-primary">
-                  {room.name[k]}
+                  {lang === "ar" ? room.nameAr : room.nameEn}
                 </span>
                 <span className="min-w-0 flex-1 text-[11.5px] text-text-secondary">
                   {room.detail[k]}
                 </span>
                 <span className="text-[11.5px] text-status-success">{room.state[k]}</span>
               </div>
-            ))}
+            ))} */}
+            {rooms?.map((room) => {
+              const details = getRoomDetails(room);
+
+              return (
+                <div
+                  key={room.id}
+                  className="border-t border-border-subtle py-2.5 first:border-t-0"
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="w-[130px] shrink-0 text-[12.5px] font-semibold text-text-primary">
+                      {lang === "ar" ? room.nameAr : room.nameEn}
+                    </span>
+
+                    <span className="min-w-0 flex-1 text-[11.5px] text-text-secondary">
+                      {details.map((detail) => `${detail.label}: ${detail.value}`).join(" · ")}
+                    </span>
+                    {/* <span
+                      className={cn(
+                        "inline-flex w-fit items-center gap-1.5 rounded-md ps-2 pe-[9px] py-1",
+                        tone.wrap,
+                      )}
+                    >
+                      <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" />
+                      <span
+                        className={cn(
+                          "text-[11px] font-medium uppercase tracking-[0.44px]",
+                          tone.text,
+                        )}
+                      >
+                        {c.library.status[room.status]}
+                      </span>
+                    </span> */}
+                    {/* <Badge tone="success">{lang === "ar" ? "رسمية" : "Official"}</Badge> */}
+                    <span className="text-[11.5px] text-status-success">
+                      {lang === "ar" ? "رسمية" : "Official"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div> */}
+        </div>
 
         <p className="flex items-start gap-2 rounded-[10px] bg-status-success-bg px-3.5 py-3 text-[12px] leading-4 text-text-body">
           <ShieldCheck

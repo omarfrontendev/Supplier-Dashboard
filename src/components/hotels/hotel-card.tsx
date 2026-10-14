@@ -4,7 +4,7 @@ import { fill, useLanguage } from "@/lib/i18n";
 import type { Hotel, HotelRelation } from "@/lib/demo-data";
 import { HotelOption } from "@/store/features/hotels/types";
 
-const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
+export const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
   not_requested: {
     wrap: "bg-status-neutral-bg",
     text: "text-status-neutral",

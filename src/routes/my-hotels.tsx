@@ -221,8 +221,8 @@ function MyHotelsPage() {
             onChange={setState}
             options={[
               { value: null, label: c.myHotels.anyState },
-              { value: "approved", label: "Approved" },
-              { value: "suspended", label: "suspended" },
+              { value: "approved", label: lang === "ar" ? "معتمد" :  "Approved" },
+              { value: "suspended", label: lang === "ar" ? "موقوف" : "suspended" },
               // { value: "none", label: c.myHotels.status.noContract },
             ]}
           />

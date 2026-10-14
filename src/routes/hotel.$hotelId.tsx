@@ -24,7 +24,6 @@ import { hotelLicences, hotels, roomCatalogue, type RoomType } from "@/lib/demo-
 import { HotelGallery } from "@/components/hotels/hotel-gallery";
 import { drawerMotion, panelMotion, scrimMotion, useDismiss } from "@/components/layout/overlay";
 import { cn } from "@/lib/utils";
-import { fetchSingleHotel } from "@/api/modules/hotels/useSingleHotel";
 import { useCreateRoom } from "@/api/modules/requests/useCreateRoom";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,10 +33,8 @@ import { useUploadFile } from "@/api/modules/useUploads";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
-import {
-  fetchSingleHotelOption,
-  useSingleHotelOption,
-} from "@/api/modules/hotels/useSinglHotelOption";
+import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
+import { badgeTone } from "@/components/hotels/hotel-card";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -57,32 +54,6 @@ export const Route = createFileRoute("/hotel/$hotelId")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  // loader: async ({ params }) => {
-  //   try {
-  //     const hotel = await fetchSingleHotelOption(params.hotelId);
-  //     //  fetchSingleHotelOption(params.hotelId);
-
-  //     if (!hotel) {
-  //       throw notFound();
-  //     }
-
-  //     return { hotel };
-  //   } catch (error) {
-  //     throw notFound();
-  //   }
-  // },
-  // loader: async ({ params }) => {
-  //   console.log("Hotel route loader executed");
-  //   console.log("Hotel ID:", params.hotelId);
-
-  //   const hotel = await fetchSingleHotelOption(params.hotelId);
-
-  //   if (!hotel) {
-  //     throw notFound();
-  //   }
-
-  //   return { hotel };
-  // },
   component: HotelProfilePage,
 });
 
@@ -181,6 +152,7 @@ function HotelProfilePage() {
   // const { hotel } = Route.useLoaderData();
   const { hotelId } = Route.useParams();
   const { hotel, isLoading } = useSingleHotelOption(hotelId);
+  // const { hotel, isLoading } = useSingleHotel(hotelId);
 
   const { c, lang, dir } = useLanguage();
   const { newRooms } = usePortal();
@@ -216,24 +188,30 @@ function HotelProfilePage() {
         ? fill(p.guestsOneChild, { adults: room.adults })
         : fill(p.guests, { adults: room.adults, children: room.children });
 
+  const approvedRooms = rooms?.filter((room) => room?.status === "active") ?? [];
+
+  const status = hotel?.linkingStatus;
+  const linkedHotel = status === "linked";
+  const tone = badgeTone[status];
+
   if (isLoading || !hotelId) return;
 
   return (
     <PageShell>
       <div className="flex flex-col gap-5">
         <Link
-          to="/my-hotels"
+          to={linkedHotel ? "/my-hotels" : "/hotels"}
           className="inline-flex w-fit items-center gap-2 rounded-[10px] border border-border-subtle bg-surface-default py-2 pe-3.5 ps-3 text-[13px] font-medium leading-[1.45] text-brand-deep transition-colors hover:bg-surface-subtle"
         >
           <BackIcon className="h-4 w-4" aria-hidden="true" />
-          {c.common.backToMyHotels}
+          {linkedHotel ? c.common.backToMyHotels : c.common.backToHotels}
         </Link>
 
         {/* Header */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium uppercase leading-[1.45] tracking-[0.08em] text-brand-mid">
-              {p.overline}
+              {linkedHotel ? p.overline : p.overlineHotelProfile}
             </p>
             <h1 className="text-[26px] font-semibold leading-[1.45] text-text-primary">
               {hotelName}
@@ -247,7 +225,20 @@ function HotelProfilePage() {
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
-            <Badge tone="success">{p.badgeLinked}</Badge>
+            {/* <Badge tone="success">{p.badgeLinked}</Badge> */}
+            <span
+              className={cn(
+                "inline-flex w-fit items-center gap-1.5 rounded-md ps-2 pe-[9px] py-1",
+                tone.wrap,
+              )}
+            >
+              <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" />
+              <span
+                className={cn("text-[11px] font-medium uppercase tracking-[0.44px]", tone.text)}
+              >
+                {c.library.status[status]}
+              </span>
+            </span>
             {/* <Badge tone="success">{p.badgeSelling}</Badge> */}
             {/* <Link
               to="/rate-contracts/new"
@@ -315,10 +306,10 @@ function HotelProfilePage() {
                 )} */}
                 <Row label={p.descEn} value={hotel?.hotel?.descriptionEn} />
                 <Row label={p.descAr} value={hotel?.hotel?.descriptionAr} dirAuto />
-                <Row
+                {/* <Row
                   label={p.distance}
                   value={ar ? hotel?.hotel?.distanceAr : hotel?.hotel?.distance}
-                />
+                /> */}
               </div>
             </div>
           </section>
@@ -376,32 +367,45 @@ function HotelProfilePage() {
                 <p className={COLS.status}>{p.table.status}</p>
               </div>
 
-              {rooms.map((room) => (
-                <div
-                  key={room.id}
-                  className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
-                >
-                  <p className={`${COLS.room} font-medium text-text-primary`}>
-                    {ar ? room.nameAr : room.nameEn}
+              {approvedRooms.length > 0 ? (
+                approvedRooms.map((room) => (
+                  <div
+                    key={room.id}
+                    className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
+                  >
+                    <p className={`${COLS.room} font-medium text-text-primary`}>
+                      {ar ? room.nameAr : room.nameEn}
+                    </p>
+
+                    <p className={COLS.occupancy}>{room.maxOccupancy}</p>
+                    <p className={COLS.guests}>{guestsLabel(room)}</p>
+
+                    <p className={COLS.childAge}>
+                      {room?.maxChildAge ? fill(p.upTo, { age: room.maxChildAge }) : "--"}
+                    </p>
+
+                    <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
+                    <p className={COLS.size}>{room.roomSizeId || "--"}</p>
+                    <p className={COLS.view}>{room?.view || "--"}</p>
+
+                    <p className={COLS.status}>
+                      <Badge tone="success">{lang === "ar" ? "رسمية" : "Official"}</Badge>
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center border-t border-border-subtle px-4 py-10 text-center">
+                  <p className="text-sm font-medium text-text-primary">
+                    {ar ? "لا توجد غرف معتمدة" : "No approved rooms"}
                   </p>
-                  <p className={COLS.occupancy}>{room.maxOccupancy}</p>
-                  <p className={COLS.guests}>{guestsLabel(room)}</p>
-                  <p className={COLS.childAge}>
-                    {room?.maxChildAge ? fill(p.upTo, { age: room?.maxChildAge }) : "--"}
-                  </p>
-                  <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
-                  <p className={COLS.size}>{room?.roomSizeId || "--"}</p>
-                  <p className={COLS.view}>{room?.view || "--"}</p>
-                  <p className={COLS.status}>
-                    {room.status === "pending" ? (
-                      // <Badge tone="warning">{p.statusPending}</Badge>
-                      <Badge tone="warning">{room.status}</Badge>
-                    ) : (
-                      <Badge tone="success">{room.status}</Badge>
-                    )}
+
+                  <p className="mt-1 text-xs text-text-muted">
+                    {ar
+                      ? "لا توجد غرف معتمدة لعرضها حاليًا."
+                      : "There are no approved rooms to display at the moment."}
                   </p>
                 </div>
-              ))}
+              )}
 
               {pendingRooms.map((room) => (
                 <div
@@ -444,38 +448,11 @@ function HotelProfilePage() {
 
 /* ---------- OV 02.R1 / R2 — add a missing room ---------- */
 
-function Field({
-  label,
-  value,
-  placeholder,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <label className="flex w-full min-w-0 flex-col gap-[7px]">
-      <span className="text-[12px] font-medium leading-[1.3] text-text-secondary">{label}</span>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-[10px] border border-border-strong bg-surface-default px-3.5 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-focus"
-      />
-    </label>
-  );
-}
-
 function AddRoomDrawer({
   hotelId,
   hotelName,
   onClose,
-  refetchRooms
+  refetchRooms,
 }: {
   hotelId: string;
   hotelName: string;

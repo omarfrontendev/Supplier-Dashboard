@@ -169,7 +169,7 @@ function HotelLibraryPage() {
         search: debouncedQuery,
         countryCode: country === "all" ? null : country,
         starRating: stars === "all" ? null : stars,
-        linkingStatus: status
+        linkingStatus: status,
       }),
     );
   }, [dispatch, debouncedQuery, country, stars, status]);
@@ -179,7 +179,7 @@ function HotelLibraryPage() {
     meta,
     loading,
     error,
-    pendingRequestsCount
+    pendingRequestsCount,
   } = useSelector((state: RootState) => state.hotelsOption);
 
   const quickHotel = hotelsOption.find((item) => item.id === quickId);
@@ -280,9 +280,10 @@ function HotelLibraryPage() {
             onChange={setStatus}
             options={[
               { value: null, label: c.library.allStatuses },
-              ...(["not_requested", "requested", "linked", "rejected"] as const).map(
-                (key) => ({ value: key, label: c.library.status[key] }),
-              ),
+              ...(["not_requested", "requested", "linked", "rejected"] as const).map((key) => ({
+                value: key,
+                label: c.library.status[key],
+              })),
             ]}
           />
         </div>
@@ -328,7 +329,7 @@ function HotelLibraryPage() {
                 }
                 footer={
                   <>
-                    {hotel?.linkingStatus === "linked" && (
+                    {hotel?.linkingStatus && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -339,9 +340,25 @@ function HotelLibraryPage() {
                           })
                         }
                       >
-                        {c.library.openInMyHotels}
+                        {hotel?.linkingStatus === "linked"
+                          ? c.library.openInMyHotels
+                          : c.library.openInHotelProfile}
                       </Button>
                     )}
+                    {/* {hotel?.linkingStatus !== "linked" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          navigate({
+                            to: "/hotel/$hotelId",
+                            params: { hotelId: hotel.id },
+                          })
+                        }
+                      >
+                        {c.library.openInHotelProfile}
+                      </Button>
+                    )} */}
                     {hotel?.linkingStatus === "requested" && (
                       <Link to="/requests">
                         <Button variant="ghost" size="sm">

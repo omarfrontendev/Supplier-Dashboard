@@ -5,6 +5,7 @@
 export const hotelEn = {
   hotelProfile: {
     overline: "MY HOTELS · HOTEL PROFILE",
+    overlineHotelProfile: "HOTEL PROFILE",
     // meta: "{district}, {city}, {country} · {stars} stars · Hoteliana ID {id}",
     meta: "{city}, {country} · {stars} stars",
     badgeLinked: "Linked",
@@ -128,6 +129,7 @@ export const hotelEn = {
 export const hotelAr: typeof hotelEn = {
   hotelProfile: {
     overline: "فنادقي · ملف الفندق",
+    overlineHotelProfile: "ملف الفندق",
     meta: "{city}، {country} · {stars} نجوم",
     badgeLinked: "مرتبط",
     badgeSelling: "يُباع",

@@ -128,7 +128,10 @@ function RequestsPage() {
   });
 
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
-  const shape = open ? detailFor("access", open.status) : null;
+  const shape = open ? detailFor(filter, open.status) : null;
+
+  // console.log("status: ", status);
+  console.log("filter: ", filter);
 
   return (
     <PageShell>
@@ -202,9 +205,10 @@ function RequestsPage() {
             onChange={setStatus}
             options={[
               { value: "all", label: c.library.allStatuses },
-              ...(["pending", "rejected", "info_requested", "approved"] as const).map(
-                (key) => ({ value: key, label: key.toUpperCase() }),
-              ),
+              ...(["pending", "rejected", "info_requested"] as const).map((key) => ({
+                value: key,
+                label: key.toUpperCase(),
+              })),
             ]}
           />
         </div>
@@ -223,8 +227,10 @@ function RequestsPage() {
               <thead>
                 <tr className="text-overline text-text-muted">
                   <th className="py-2 text-start font-semibold">{r.colRequest}</th>
-                  <th className="py-2 text-start font-semibold">{r.colType}</th>
-                  <th className="py-2 text-start font-semibold">{r.colWhat}</th>
+                  {/* <th className="py-2 text-start font-semibold">{r.colType}</th> */}
+                  {filter !== "room" && (
+                    <th className="py-2 text-start font-semibold">{r.colWhat}</th>
+                  )}
                   <th className="py-2 text-start font-semibold">{r.colSent}</th>
                   <th className="py-2 text-start font-semibold">{r.colStatus}</th>
                   <th className="py-2 text-start font-semibold">{r.colUpdate}</th>
@@ -233,12 +239,20 @@ function RequestsPage() {
               </thead>
               <tbody>
                 {requests.map((item) => (
-                  <tr key={item.id} className="border-t border-border-subtle align-middle">
-                    <td className="font-data py-3 pe-3 text-text-primary">{"ACC-04830"}</td>
-                    <td className="py-3 pe-3 text-text-secondary">{"Hotel access"}</td>
-                    <td className="py-3 pe-3 text-text-primary">
-                      {lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
+                  <tr
+                    key={item?.id || item?.roomId}
+                    className="border-t border-border-subtle align-middle"
+                  >
+                    <td className="font-data py-3 pe-3 text-text-primary">
+                      {item?.hotel?.id ? `#HO-${item?.hotel?.id}` : `#RO-${item?.roomId}`}
                     </td>
+                    {/* <td className="py-3 pe-3 text-text-secondary">{kindLabel["room"]}</td> */}
+                    {/* <td className="py-3 pe-3 text-text-secondary">{item.status}</td> */}
+                    {filter !== "room" && (
+                      <td className="py-3 pe-3 text-text-primary">
+                        {lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
+                      </td>
+                    )}
                     <td className="py-3 pe-3 text-text-secondary">
                       {/* {lang === "ar" ? item.sentAr : item.sent} */}
                       {formatDate(item.createdAt, lang)}
