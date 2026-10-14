@@ -130,9 +130,6 @@ function RequestsPage() {
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
   const shape = open ? detailFor("access", open.status) : null;
 
-  // console.log("meta: ", metrics);
-  console.log("filter: ", filter);
-
   const metricsKey = {
     all: "allRequests",
     access: "hotel_access",

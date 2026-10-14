@@ -84,7 +84,8 @@ export function HotelGallery({
         : {})}
     >
       {hotel.images?.length ? (
-        <div className="grid h-full w-full grid-cols-2 gap-1">
+        // <div className="grid h-full w-full grid-cols-2 gap-1">
+        <div className="grid h-full w-full">
           {/* {hotel.images.map((image, index) => (
             <img
               key={image?.uploadId ?? index}
