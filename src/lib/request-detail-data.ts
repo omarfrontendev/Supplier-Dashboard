@@ -29,20 +29,14 @@ export const requestDetail = {
   sentBy: t("Sent by", "أرسله"),
   sentByValue: t("Abdullrahman Najeh", "عبدالرحمن ناجح"),
   assignedTo: t("Assigned to", "مُسندة إلى"),
-  assignedToValue: t(
-    "Sara Al-Otaibi · Hoteliana reviewer",
-    "سارة العتيبي · مراجِعة هوتيليانا"
-  ),
+  assignedToValue: t("Sara Al-Otaibi · Hoteliana reviewer", "سارة العتيبي · مراجِعة هوتيليانا"),
   timeline: t("Timeline", "المسار"),
 
   /** The three steps, named for what the request is. */
   stepSent: t("Request sent", "أُرسل الطلب"),
   stepReviewAccess: t("Hoteliana review", "مراجعة هوتيليانا"),
   stepReviewRoom: t("Hoteliana verifies the room", "هوتيليانا تتحقق من الغرفة"),
-  stepReviewRoomDone: t(
-    "Hoteliana verified the room",
-    "تحقّقت هوتيليانا من الغرفة"
-  ),
+  stepReviewRoomDone: t("Hoteliana verified the room", "تحقّقت هوتيليانا من الغرفة"),
   stepDecision: t("Decision", "القرار"),
   inProgress: t("In progress", "قيد التنفيذ"),
   completeOn: t("Complete · {date}", "اكتملت · {date}"),
@@ -51,7 +45,7 @@ export const requestDetail = {
   replyTitle: t("Reply to Hoteliana", "الرد على هوتيليانا"),
   replyPlaceholder: t(
     "Write your answer here - it is added to the request timeline and Hoteliana is notified.",
-    "اكتب ردّك هنا - يُضاف إلى مسار الطلب وتُخطَر هوتيليانا به."
+    "اكتب ردّك هنا - يُضاف إلى مسار الطلب وتُخطَر هوتيليانا به.",
   ),
 
   withdraw: t("Withdraw request", "سحب الطلب"),
@@ -101,19 +95,12 @@ export const accessWaiting: DetailShape = {
   stateNote: t("usually within 2 working days", "عادةً خلال يومَي عمل"),
   tone: "warning",
   timeline: [
-    step(
-      d.stepSent,
-      t("Just now · recorded under your name", "الآن · مسجّل باسمك"),
-      "done"
-    ),
+    step(d.stepSent, t("Just now · recorded under your name", "الآن · مسجّل باسمك"), "done"),
     step(d.stepReviewAccess, d.inProgress, "active"),
     step(
       d.stepDecision,
-      t(
-        "You get the result here and in your notifications",
-        "تصلك النتيجة هنا وفي إشعاراتك"
-      ),
-      "waiting"
+      t("You get the result here and in your notifications", "تصلك النتيجة هنا وفي إشعاراتك"),
+      "waiting",
     ),
   ],
   listTitle: t("What you acknowledged", "ما أقررت به"),
@@ -121,16 +108,16 @@ export const accessWaiting: DetailShape = {
     t("The company can supply this hotel.", "الشركة قادرة على توريد هذا الفندق."),
     t(
       "Published rates, inventory and confirmations are binding under the Hoteliana agreement.",
-      "الأسعار والمخزون والتأكيدات المنشورة مُلزِمة بموجب اتفاقية هوتيليانا."
+      "الأسعار والمخزون والتأكيدات المنشورة مُلزِمة بموجب اتفاقية هوتيليانا.",
     ),
     t(
       "Hotel supply contracts for this hotel unlock only after approval.",
-      "لا تُفتح عقود توريد هذا الفندق إلا بعد الموافقة."
+      "لا تُفتح عقود توريد هذا الفندق إلا بعد الموافقة.",
     ),
   ],
   note: t(
     "Withdrawing cancels the review. You can request the same hotel again later.",
-    "السحب يلغي المراجعة. ويمكنك طلب الفندق نفسه لاحقًا."
+    "السحب يلغي المراجعة. ويمكنك طلب الفندق نفسه لاحقًا.",
   ),
   actions: [],
   primary: d.withdraw,
@@ -142,35 +129,31 @@ export const roomWaiting: DetailShape = {
   stateNote: t("usually within 2 working days", "عادةً خلال يومَي عمل"),
   tone: "warning",
   timeline: [
-    step(
-      d.stepSent,
-      t("12 Sep · 4 images attached", "١٢ سبتمبر · مرفق ٤ صور"),
-      "done"
-    ),
+    step(d.stepSent, t("12 Sep · 4 images attached", "١٢ سبتمبر · مرفق ٤ صور"), "done"),
     step(d.stepReviewRoom, d.inProgress, "active"),
     step(
       d.stepDecision,
       t(
         "Approved → “Added to official catalogue”, visible and in every supply contract room list",
-        "عند الموافقة ← «أُضيفت إلى الدليل الرسمي»، وتظهر في قائمة غرف كل عقد توريد"
+        "عند الموافقة ← «أُضيفت إلى الدليل الرسمي»، وتظهر في قائمة غرف كل عقد توريد",
       ),
-      "waiting"
+      "waiting",
     ),
   ],
   listTitle: t("While it is pending", "ما دام معلّقًا"),
   list: [
     t(
       "The room shows in the catalogue as “Pending Hoteliana”.",
-      "تظهر الغرفة في الدليل بـ«بانتظار هوتيليانا»."
+      "تظهر الغرفة في الدليل بـ«بانتظار هوتيليانا».",
     ),
     t(
       "It cannot be priced or sold in any supply contract yet.",
-      "ولا يمكن تسعيرها أو بيعها في أي عقد توريد بعد."
+      "ولا يمكن تسعيرها أو بيعها في أي عقد توريد بعد.",
     ),
   ],
   note: t(
     "Withdrawing removes the pending room. You can add it again later.",
-    "السحب يزيل الغرفة المعلّقة. ويمكنك إضافتها مرة أخرى لاحقًا."
+    "السحب يزيل الغرفة المعلّقة. ويمكنك إضافتها مرة أخرى لاحقًا.",
   ),
   actions: [d.openHotelProfile],
   primary: d.withdraw,
@@ -183,27 +166,20 @@ export const accessApproved: DetailShape = {
   tone: "success",
   timeline: [
     step(d.stepSent, t("05 Sep", "٥ سبتمبر"), "done"),
-    step(
-      d.stepReviewAccess,
-      t("Complete · 08 Sep", "اكتملت · ٨ سبتمبر"),
-      "done"
-    ),
+    step(d.stepReviewAccess, t("Complete · 08 Sep", "اكتملت · ٨ سبتمبر"), "done"),
     step(
       t("Approved", "مقبول"),
       t(
         "The hotel is linked. Create its first supply contract from My Hotels.",
-        "الفندق مرتبط. أنشئ أول عقد توريد له من «فنادقي»."
+        "الفندق مرتبط. أنشئ أول عقد توريد له من «فنادقي».",
       ),
-      "done"
+      "done",
     ),
   ],
   listTitle: t("What changed", "ما الذي تغيّر"),
   list: [
     t("Rawdah Suites appears in My Hotels.", "تظهر أجنحة الروضة في «فنادقي»."),
-    t(
-      "Hotel supply contracts for this hotel are unlocked.",
-      "فُتحت عقود توريد هذا الفندق."
-    ),
+    t("Hotel supply contracts for this hotel are unlocked.", "فُتحت عقود توريد هذا الفندق."),
   ],
   actions: [],
   primary: d.openInMyHotels,
@@ -216,29 +192,25 @@ export const roomApproved: DetailShape = {
   tone: "success",
   timeline: [
     step(d.stepSent, t("08 Sep", "٨ سبتمبر"), "done"),
-    step(
-      d.stepReviewRoomDone,
-      t("Complete · 09 Sep", "اكتملت · ٩ سبتمبر"),
-      "done"
-    ),
+    step(d.stepReviewRoomDone, t("Complete · 09 Sep", "اكتملت · ٩ سبتمبر"), "done"),
     step(
       t("Approved", "مقبول"),
       t(
         "In the catalogue and in every supply contract room list for this hotel.",
-        "في الدليل وفي قائمة غرف كل عقد توريد لهذا الفندق."
+        "في الدليل وفي قائمة غرف كل عقد توريد لهذا الفندق.",
       ),
-      "done"
+      "done",
     ),
   ],
   listTitle: t("What changed", "ما الذي تغيّر"),
   list: [
     t(
       "Superior King is an official room of Al Noor Makkah Hotel.",
-      "«سوبيريور كينج» غرفة رسمية في فندق النور مكة."
+      "«سوبيريور كينج» غرفة رسمية في فندق النور مكة.",
     ),
     t(
       "Price it inside a supply contract when you are ready.",
-      "سعّرها داخل عقد توريد حين تكون جاهزًا."
+      "سعّرها داخل عقد توريد حين تكون جاهزًا.",
     ),
   ],
   actions: [],
@@ -252,18 +224,14 @@ export const hotelNeedsYou: DetailShape = {
   tone: "danger",
   timeline: [
     step(d.stepSent, t("02 Sep", "٢ سبتمبر"), "done"),
-    step(
-      d.stepReviewAccess,
-      t("Complete · 04 Sep", "اكتملت · ٤ سبتمبر"),
-      "done"
-    ),
+    step(d.stepReviewAccess, t("Complete · 04 Sep", "اكتملت · ٤ سبتمبر"), "done"),
     step(
       t("Corrections requested", "طُلبت تصحيحات"),
       t(
         "“Map pin is 3 km off and the Arabic name does not match the licence.” Fix both and resubmit - the reference stays the same.",
-        "«موقع الخريطة يبعد ٣ كم والاسم العربي لا يطابق الرخصة.» صحّح الأمرين وأعد الإرسال - ويبقى المرجع كما هو."
+        "«موقع الخريطة يبعد ٣ كم والاسم العربي لا يطابق الرخصة.» صحّح الأمرين وأعد الإرسال - ويبقى المرجع كما هو.",
       ),
-      "active"
+      "active",
     ),
   ],
   listTitle: t("What Hoteliana needs", "ما تحتاجه هوتيليانا"),
@@ -271,7 +239,7 @@ export const hotelNeedsYou: DetailShape = {
     t("Correct map location", "تصحيح موقع الخريطة"),
     t(
       "Arabic hotel name exactly as on the tourism licence",
-      "اسم الفندق بالعربية كما في رخصة السياحة تمامًا"
+      "اسم الفندق بالعربية كما في رخصة السياحة تمامًا",
     ),
     t("Everything else you entered is kept", "وكل ما أدخلته غير ذلك محفوظ"),
   ],
@@ -283,36 +251,26 @@ export const hotelNeedsYou: DetailShape = {
 /** OV 02.5E — hotel access, not approved. */
 export const accessRejected: DetailShape = {
   stateLabel: t("Rejected", "مرفوض"),
-  stateNote: t(
-    "you can request it again from 10 Dec",
-    "يمكنك طلبه مجددًا من ١٠ ديسمبر"
-  ),
+  stateNote: t("you can request it again from 10 Dec", "يمكنك طلبه مجددًا من ١٠ ديسمبر"),
   tone: "danger",
   timeline: [
     step(d.stepSent, t("09 Sep", "٩ سبتمبر"), "done"),
-    step(
-      d.stepReviewAccess,
-      t("Complete · 11 Sep", "اكتملت · ١١ سبتمبر"),
-      "done"
-    ),
+    step(d.stepReviewAccess, t("Complete · 11 Sep", "اكتملت · ١١ سبتمبر"), "done"),
     step(
       t("Rejected", "مرفوض"),
       t(
         "“The hotel already has an exclusive supplier for this season.”",
-        "«للفندق مورّد حصري لهذا الموسم بالفعل.»"
+        "«للفندق مورّد حصري لهذا الموسم بالفعل.»",
       ),
-      "done"
+      "done",
     ),
   ],
   listTitle: t("What you can do", "ما يمكنك فعله"),
   list: [
-    t(
-      "Request this hotel again from 10 Dec.",
-      "اطلب هذا الفندق مجددًا من ١٠ ديسمبر."
-    ),
+    t("Request this hotel again from 10 Dec.", "اطلب هذا الفندق مجددًا من ١٠ ديسمبر."),
     t(
       "Ask Hoteliana if you believe the decision is wrong.",
-      "اسأل هوتيليانا إن كنت ترى القرار خاطئًا."
+      "اسأل هوتيليانا إن كنت ترى القرار خاطئًا.",
     ),
   ],
   actions: [d.askHoteliana],
@@ -329,28 +287,25 @@ export const hotelReady: DetailShape = {
     step(
       d.stepReviewAccess,
       t("Corrections requested · 04 Sep", "طُلبت تصحيحات · ٤ سبتمبر"),
-      "done"
+      "done",
     ),
     step(
       d.stepDecision,
       t("Resumes as soon as you resubmit", "تستأنف فور إعادة الإرسال"),
-      "waiting"
+      "waiting",
     ),
   ],
   fixed: {
-    title: t(
-      "Your corrections - ready to resubmit",
-      "تصحيحاتك - جاهزة لإعادة الإرسال"
-    ),
+    title: t("Your corrections - ready to resubmit", "تصحيحاتك - جاهزة لإعادة الإرسال"),
     body: t(
       "Map location moved to the hotel entrance · Arabic name now matches the tourism licence",
-      "نُقل موقع الخريطة إلى مدخل الفندق · والاسم العربي صار يطابق رخصة السياحة"
+      "نُقل موقع الخريطة إلى مدخل الفندق · والاسم العربي صار يطابق رخصة السياحة",
     ),
     link: d.editAgain,
   },
   quote: t(
     "Hoteliana: “Map pin is 3 km off and the Arabic name does not match the licence.”",
-    "هوتيليانا: «موقع الخريطة يبعد ٣ كم والاسم العربي لا يطابق الرخصة.»"
+    "هوتيليانا: «موقع الخريطة يبعد ٣ كم والاسم العربي لا يطابق الرخصة.»",
   ),
   listTitle: t("", ""),
   list: [],
@@ -366,27 +321,19 @@ export const hotelResubmitted: DetailShape = {
   tone: "warning",
   timeline: [
     step(d.stepSent, t("02 Sep", "٢ سبتمبر"), "done"),
-    step(
-      d.stepReviewAccess,
-      t("Resubmitted · 15 Sep", "أُعيد الإرسال · ١٥ سبتمبر"),
-      "active"
-    ),
-    step(
-      d.stepDecision,
-      t("Decision within 2 working days", "القرار خلال يومَي عمل"),
-      "waiting"
-    ),
+    step(d.stepReviewAccess, t("Resubmitted · 15 Sep", "أُعيد الإرسال · ١٥ سبتمبر"), "active"),
+    step(d.stepDecision, t("Decision within 2 working days", "القرار خلال يومَي عمل"), "waiting"),
   ],
   fixed: {
     title: t("What you changed", "ما الذي غيّرته"),
     body: t(
       "Hoteliana checks the two details again - everything else stays as accepted",
-      "تراجع هوتيليانا التفصيلين مرة أخرى - ويبقى كل ما عداهما مقبولًا"
+      "تراجع هوتيليانا التفصيلين مرة أخرى - ويبقى كل ما عداهما مقبولًا",
     ),
   },
   quote: t(
     "Hoteliana: “Map pin is 3 km off and the Arabic name does not match the licence.”",
-    "هوتيليانا: «موقع الخريطة يبعد ٣ كم والاسم العربي لا يطابق الرخصة.»"
+    "هوتيليانا: «موقع الخريطة يبعد ٣ كم والاسم العربي لا يطابق الرخصة.»",
   ),
   changed: t("Map location · Arabic name", "موقع الخريطة · الاسم العربي"),
   listTitle: t("", ""),
@@ -411,26 +358,26 @@ export const roomLinked: DetailShape = {
     step(
       t("Hoteliana verified the room", "تحققت هوتيليانا من الغرفة"),
       t("Complete · 21 Sep", "اكتمل · ٢١ سبتمبر"),
-      "done"
+      "done",
     ),
     step(
       t("Linked", "مرتبطة"),
       t(
         "The same room is already in the catalogue under another name.",
-        "الغرفة نفسها موجودة في الدليل باسم آخر."
+        "الغرفة نفسها موجودة في الدليل باسم آخر.",
       ),
-      "done"
+      "done",
     ),
   ],
   listTitle: t("What changed", "ما الذي تغيّر"),
   list: [
     t(
       "Your request now points to \u201cDeluxe · Haram view\u201d. No new room was added.",
-      "طلبك يشير الآن إلى «ديلوكس · إطلالة الحرم». ولم تُضف غرفة جديدة."
+      "طلبك يشير الآن إلى «ديلوكس · إطلالة الحرم». ولم تُضف غرفة جديدة.",
     ),
     t(
       "Price \u201cDeluxe · Haram view\u201d in your supply contract.",
-      "سعّر «ديلوكس · إطلالة الحرم» في عقد التوريد."
+      "سعّر «ديلوكس · إطلالة الحرم» في عقد التوريد.",
     ),
   ],
   actions: [],
@@ -447,7 +394,7 @@ export const roomNeedsYou: DetailShape = {
   stateLabel: t("Needs you", "يحتاجك"),
   stateNote: t(
     "question asked 24 Sep · the 1-day clock is paused",
-    "سُئل في ٢٤ سبتمبر · ومهلة اليوم موقوفة"
+    "سُئل في ٢٤ سبتمبر · ومهلة اليوم موقوفة",
   ),
   tone: "warning",
   timeline: [
@@ -455,29 +402,22 @@ export const roomNeedsYou: DetailShape = {
     step(
       t("Hoteliana review", "مراجعة هوتيليانا"),
       t("Complete · 24 Sep", "اكتملت · ٢٤ سبتمبر"),
-      "done"
+      "done",
     ),
     {
-      ...step(
-        t("Question from Hoteliana", "سؤال من هوتيليانا"),
-        t("", ""),
-        "active"
-      ),
+      ...step(t("Question from Hoteliana", "سؤال من هوتيليانا"), t("", ""), "active"),
       kind: "question" as const,
     },
   ],
   quote: t(
     "\u201cIs this the same view as \u2018Deluxe · Haram view\u2019, or partial from some floors only? Send one photo from the window.\u201d Answer below - the reference stays the same.",
-    "«هل هذه الإطلالة نفسها كـ«ديلوكس · إطلالة الحرم»، أم جزئية من بعض الأدوار فقط؟ أرسل صورة واحدة من النافذة.» أجب أدناه — والمرجع يبقى كما هو."
+    "«هل هذه الإطلالة نفسها كـ«ديلوكس · إطلالة الحرم»، أم جزئية من بعض الأدوار فقط؟ أرسل صورة واحدة من النافذة.» أجب أدناه — والمرجع يبقى كما هو.",
   ),
   listTitle: t("What Hoteliana needs", "ما تحتاجه هوتيليانا"),
   list: [
     t("Which view the room has", "أي إطلالة للغرفة"),
     t("One photo from the window", "صورة واحدة من النافذة"),
-    t(
-      "Everything else you entered is kept",
-      "وكل ما أدخلته غير ذلك محفوظ"
-    ),
+    t("Everything else you entered is kept", "وكل ما أدخلته غير ذلك محفوظ"),
   ],
   reply: true,
   actions: [d.withdraw],
@@ -499,7 +439,7 @@ export const roomRejected: DetailShape = {
     step(
       t("Hoteliana review", "مراجعة هوتيليانا"),
       t("Complete · 19 Sep", "اكتملت · ١٩ سبتمبر"),
-      "done"
+      "done",
     ),
     {
       ...step(t("Rejected", "مرفوضة"), t("", ""), "active"),
@@ -508,17 +448,17 @@ export const roomRejected: DetailShape = {
   ],
   quote: t(
     "\u201cThe hotel confirmed it has no triple rooms. Sell 3 guests as a Double with an extra bed.\u201d",
-    "«أكّد الفندق أنه لا يملك غرفًا ثلاثية. بع ثلاثة نزلاء على غرفة مزدوجة بسرير إضافي.»"
+    "«أكّد الفندق أنه لا يملك غرفًا ثلاثية. بع ثلاثة نزلاء على غرفة مزدوجة بسرير إضافي.»",
   ),
   listTitle: t("What you can do", "ما يمكنك فعله"),
   list: [
     t(
       "Price 3 guests on your Double room with an extra bed.",
-      "سعّر ثلاثة نزلاء على غرفتك المزدوجة بسرير إضافي."
+      "سعّر ثلاثة نزلاء على غرفتك المزدوجة بسرير إضافي.",
     ),
     t(
       "Ask Hoteliana if you believe the decision is wrong.",
-      "اسأل هوتيليانا إن رأيت القرار خاطئًا."
+      "اسأل هوتيليانا إن رأيت القرار خاطئًا.",
     ),
   ],
   actions: [d.askHoteliana],
@@ -527,9 +467,8 @@ export const roomRejected: DetailShape = {
 
 /** Which frame a row opens on, by what it is and where it stands. */
 export function detailFor(
-  kind: "access" | "hotel" | "room" | "company",
-  state: "waiting" | "needsYou" | "approved" | "rejected" | "linked"
-  
+  kind: "access" | "hotel" | "room" | "company" | "all",
+  state: "waiting" | "needsYou" | "approved" | "rejected" | "linked",
 ): DetailShape | null {
   if (kind === "room") {
     /* A new room ends four ways, and each of them has its own frame. */
@@ -541,6 +480,11 @@ export function detailFor(
   }
   /* Only a room can be linked to another room. */
   if (state === "linked") return null;
+  if (kind === "all") {
+    if (state === "needsYou") return hotelNeedsYou;
+    if (state === "waiting") return hotelResubmitted;
+    return null;
+  }
   if (kind === "hotel") {
     if (state === "needsYou") return hotelNeedsYou;
     if (state === "waiting") return hotelResubmitted;

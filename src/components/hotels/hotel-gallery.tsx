@@ -64,8 +64,6 @@ export function HotelGallery({
     </button>
   );
 
-  console.log(hotel?.images);
-
   return (
     <div
       className={cn("group relative overflow-hidden bg-surface-image", className)}

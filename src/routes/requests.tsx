@@ -112,10 +112,10 @@ function RequestsPage() {
 
   const tabs = (
     [
-      { key: "all", label: r.filterAll, count: metrics?.requests_count?.[0]?.value },
-      { key: "access", label: r.filterAccess, count: metrics?.requests_count?.[1]?.value },
-      { key: "hotel", label: r.filterHotels, count: metrics?.requests_count?.[2]?.value },
-      { key: "room", label: r.filterRooms, count: metrics?.requests_count?.[0]?.value },
+      { key: "all", label: r.filterAll, count: metrics?.allRequests?.[3]?.value },
+      { key: "access", label: r.filterAccess, count: metrics?.hotel_access?.[3]?.value },
+      { key: "hotel", label: r.filterHotels, count: metrics?.new_hotel?.[3]?.value },
+      { key: "room", label: r.filterRooms, count: metrics?.new_room?.[3]?.value },
       // { key: "company", label: r.filterCompany, count: kindCount("company") },
     ] as Array<{ key: SupplierRequestKind | "all"; label: string; count: number }>
   ).filter((tab) => tab.key === "all" || tab.count >= 0);
@@ -128,11 +128,19 @@ function RequestsPage() {
   });
 
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
-  const shape = open ? detailFor(filter, open.status) : null;
+  const shape = open ? detailFor("access", open.status) : null;
 
-  // console.log("status: ", status);
+  // console.log("meta: ", metrics);
   console.log("filter: ", filter);
 
+  const metricsKey = {
+    all: "allRequests",
+    access: "hotel_access",
+    hotel: "new_hotel",
+    room: "new_room",
+  } as const;
+
+  const metricsValue = (index: number) => metrics?.[metricsKey[filter]]?.[index]?.value;
   return (
     <PageShell>
       <PageHeader
@@ -172,27 +180,25 @@ function RequestsPage() {
           <Stat
             icon={<Clock className="h-4 w-4" aria-hidden="true" />}
             label={r.statWaiting}
-            value={metrics?.hotelRequests[0]?.value}
+            value={metricsValue(0)}
             note={r.statWaitingNote}
           />
-          <Stat
+          {/* <Stat
             icon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
             label={r.statNeedsYou}
-            value={metrics?.hotelRequests[1]?.value}
+            value={metricsValue(1)}
             note={r.statNeedsYouNote}
-          />
+          /> */}
           <Stat
             icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
             label={r.statApproved}
-            /* The tile reads "linked or added", so a room the catalogue
-               already had is counted here rather than nowhere. */
-            value={metrics?.hotelRequests[2]?.value}
+            value={metricsValue(1)}
             note={r.statApprovedNote}
           />
           <Stat
             icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
             label={r.statRejected}
-            value={metrics?.hotelRequests[3]?.value}
+            value={metricsValue(2)}
             note={r.statRejectedNote}
           />
         </div>
@@ -300,10 +306,10 @@ function RequestsPage() {
       </p>
 
       {/* OV 02.5B - 02.5F2 — the request, and what is left to do. */}
-      {open && shape && (
+      {open && (
         <RequestDetailDrawer
           request={open}
-          overline={`${stateLabel[open.status]} · ${"ACC-04830"}`}
+          overline={`${stateLabel[open.status]} · ${open?.hotel?.id ? `#HO-${open?.hotel?.id}` : `#RO-${open?.roomId}`}`}
           title={lang === "ar" ? open.hotel?.nameAr : open?.hotel?.nameEn}
           meta={formatDate(open.createdAt, lang)}
           shape={shape}
@@ -337,7 +343,7 @@ function RequestsPage() {
       )}
 
       {/* A company change keeps the generic drawer; no frame draws it. */}
-      {open && !shape && (
+      {/* {open && !shape && (
         <Drawer
           overline={kindLabel[filter]}
           title={lang === "ar" ? open.whatAr : open.what}
@@ -363,7 +369,7 @@ function RequestsPage() {
             </p>
           </div>
         </Drawer>
-      )}
+      )} */}
 
       {asking && (
         <AskHoteliana

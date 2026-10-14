@@ -292,7 +292,7 @@ export function TopBar() {
         </DropdownMenuItem> */}
 
         <DropdownMenuItem asChild>
-          <Link to="/hotels" className="cursor-pointer gap-2.5">
+          <Link to="/my-hotels" className="cursor-pointer gap-2.5">
             <Hotel className="h-4 w-4 text-text-muted" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
               <span>{c.account.hotels}</span>

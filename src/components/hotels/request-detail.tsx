@@ -105,12 +105,6 @@ export function RequestDetailDrawer({
       onClose={onClose}
       footer={
         <>
-          {/* {shape.actions.map((action) => (
-            <Button key={action.en} variant="outline" onClick={() => onSecondary?.(action)}>
-              {action[k]}
-            </Button>
-          ))} */}
-          {/* {console.log(shape.primary?.en === "Open in My Hotels")} */}
           {shape.primary?.en === "Open in My Hotels" && (
             <Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>
           )}
@@ -119,19 +113,16 @@ export function RequestDetailDrawer({
     >
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* <StatusPill tone={shape.tone}>{shape.stateLabel[k]}</StatusPill> */}
-          {/* <StatusPill tone={status?.tone}>{status?.label}</StatusPill> */}
           <StatusPill tone={status?.tone} className="uppercase">
             {stateLabel[request.status]}
-            {/* {request?.status} */}
           </StatusPill>
           <span className="text-[11.5px] text-text-muted">{shape.stateNote[k]}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* <div className="grid grid-cols-2 gap-4">
           <Who label={d.sentBy[k]} value={d.sentByValue[k]} />
           <Who label={d.assignedTo[k]} value={d.assignedToValue[k]} />
-        </div>
+        </div> */}
 
         <div>
           <p className="text-overline text-text-muted">{d.timeline[k]}</p>
@@ -150,9 +141,6 @@ export function RequestDetailDrawer({
                           : "bg-status-neutral-bg text-text-muted",
                   )}
                 >
-                  {/* A step that refused says so with a cross, and one
-                      holding a question with a mark - a number there would
-                      only say which step it is, which is not the news. */}
                   {item.state === "done" ? (
                     <Check className="h-2.5 w-2.5" aria-hidden="true" />
                   ) : item.kind === "refused" ? (
@@ -172,8 +160,6 @@ export function RequestDetailDrawer({
                     {index === 0 && formatDate(request.createdAt, lang)}
                     {index === 1 && item.note[k]}
                     {index === 2 && item.note[k]}
-                    {/* createdAt */}
-                    {/* reviewNote */}
                   </span>
                 </span>
               </li>
