@@ -158,7 +158,7 @@ function MyHotelsPage() {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      {/* <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <SetupStat
           icon={<FilePlus2 className="h-5 w-5" />}
           label={c.myHotels.statNoContract}
@@ -178,7 +178,7 @@ function MyHotelsPage() {
           note={fill(c.myHotels.statSellingNote, { count: needsAttention })}
           tone="warning"
         />
-      </div>
+      </div> */}
 
       <SectionCard className="mb-6">
         <div className="grid gap-4 md:grid-cols-3">

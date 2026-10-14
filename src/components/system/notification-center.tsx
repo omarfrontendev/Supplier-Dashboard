@@ -7,11 +7,11 @@ import { notices, type PortalNotice } from "@/lib/system-state-data";
 import { useLanguage } from "@/lib/i18n";
 import { useNotifications } from "@/api/modules/notification/useNotification";
 import { useUnreadNotificationsCount } from "@/api/modules/notification/useNotificationsCount";
-import { LoaderCircle } from "lucide-react";
+import { Bell, LoaderCircle } from "lucide-react";
 import { useReadNotification } from "@/api/modules/notification/useReadNotification";
 
 export function NotificationCenter({ onClose }: { onClose: () => void }) {
-  const { lang } = useLanguage();
+  const { lang, c } = useLanguage();
   const ar = lang === "ar";
   const [tab, setTab] = useState<"needs" | "all" | "read">("all");
   const [thread, setThread] = useState<PortalNotice | null>(null);
@@ -33,7 +33,7 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
     isRead: tab === "read" ? true : null,
   });
 
-  const { unreadCount, isLoading: unReadCountLoading } = useUnreadNotificationsCount();
+  const { isLoading: unReadCountLoading } = useUnreadNotificationsCount();
   const { readNotification, isPending } = useReadNotification();
 
   const handleReadNotification = (id: number) => {
@@ -89,63 +89,81 @@ export function NotificationCenter({ onClose }: { onClose: () => void }) {
               : "This tab reads the dashboard’s own list. If the dashboard says four, this says four."}
           </div> */}
           <div className="space-y-2">
-            {notifications.map((n, i) => (
-              <article
-                key={n.id}
-                className={`rounded-xl border bg-surface-default p-3 ${n?.kind === "action" ? "border-status-warning/40" : "border-border-subtle"}`}
-              >
-                <div className="flex gap-2">
-                  <span
-                    // className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${readIds.has(n.id) ? "bg-text-muted" : "bg-status-danger"}`}
-                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${!n?.readAt && tab === "all" ? "bg-status-success" : "bg-status-danger"}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold text-brand-deep">{n.title}</p>
-                    <p className="mt-1 text-xs text-text-secondary">{n?.body}</p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {/* {(ar ? n?.chipsAr : n?.chips)?.map((c) => (
+            {!notifications?.length ? (
+              <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+                {" "}
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-muted">
+                  {" "}
+                  <Bell className="size-6 text-muted-foreground" />{" "}
+                </div>{" "}
+                <h3 className="text-sm font-semibold text-foreground">
+                  {" "}
+                  {c.notifications.emptyTitle}{" "}
+                </h3>{" "}
+                <p className="mt-1 max-w-[240px] text-sm leading-6 text-muted-foreground">
+                  {" "}
+                  {c.notifications.emptyDescription}{" "}
+                </p>{" "}
+              </div>
+            ) : (
+              notifications.map((n, i) => (
+                <article
+                  key={n.id}
+                  className={`rounded-xl border bg-surface-default p-3 ${n?.kind === "action" ? "border-status-warning/40" : "border-border-subtle"}`}
+                >
+                  <div className="flex gap-2">
+                    <span
+                      // className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${readIds.has(n.id) ? "bg-text-muted" : "bg-status-danger"}`}
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${!n?.readAt && tab === "all" ? "bg-status-success" : "bg-status-danger"}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-brand-deep">{n.title}</p>
+                      <p className="mt-1 text-xs text-text-secondary">{n?.body}</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {/* {(ar ? n?.chipsAr : n?.chips)?.map((c) => (
                     <StatusPill key={c} tone={n.kind === "action" ? "warning" : "neutral"}>
                       {c}
                     </StatusPill>
                   ))} */}
-                      {/* {(ar ? n?.chipsAr : n?.chips)?.map((c) => ( */}
-                      {n.needsAction && (
-                        <StatusPill tone={n.needsAction ? "warning" : "neutral"}>
-                          {n.needsAction || "Needs Action"}
-                        </StatusPill>
-                      )}
-                      {/* ))} */}
+                        {/* {(ar ? n?.chipsAr : n?.chips)?.map((c) => ( */}
+                        {n.needsAction && (
+                          <StatusPill tone={n.needsAction ? "warning" : "neutral"}>
+                            {n.needsAction || "Needs Action"}
+                          </StatusPill>
+                        )}
+                        {/* ))} */}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {/* {!n.readAt && ( */}
-                  <Button
-                    size="sm"
-                    variant="dark"
-                    onClick={() => handleReadNotification(n.id)}
-                    disabled={isPending && readId === n.id}
-                  >
-                    {isPending && readId === n.id ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : lang === "ar" ? (
-                      "قراءة"
-                    ) : (
-                      "Read"
-                    )}
-                  </Button>
-                  {/* )} */}
-                  {/* <Link to={n.to}>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {/* {!n.readAt && ( */}
+                    <Button
+                      size="sm"
+                      variant="dark"
+                      onClick={() => handleReadNotification(n.id)}
+                      disabled={isPending && readId === n.id}
+                    >
+                      {isPending && readId === n.id ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : lang === "ar" ? (
+                        "قراءة"
+                      ) : (
+                        "Read"
+                      )}
+                    </Button>
+                    {/* )} */}
+                    {/* <Link to={n.to}>
                     <Button size="sm" variant="outline">
                       {ar ? "فتح الصفحة" : "Open"}
                     </Button>
                   </Link> */}
-                  <span className="ms-auto text-[11px] text-text-muted">
-                    {ar ? n.timeAr : n.time}
-                  </span>
-                </div>
-              </article>
-            ))}
+                    <span className="ms-auto text-[11px] text-text-muted">
+                      {ar ? n.timeAr : n.time}
+                    </span>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
           {/* <div className="mt-3 flex flex-wrap gap-2">
             <Link to="/dashboard">

@@ -209,9 +209,9 @@ function TeamPage() {
           <h1 className="mt-1 text-2xl font-semibold text-text-primary sm:text-[28px]">
             {t.title}
           </h1>
-          <p className="mt-2 max-w-[840px] text-xs leading-5 text-text-secondary">
+          {/* <p className="mt-2 max-w-[840px] text-xs leading-5 text-text-secondary">
             {onRoles ? t.rolesSubtitle : asAdmin ? t.adminSubtitle : t.subtitle}
-          </p>
+          </p> */}
         </div>
         <div className="flex flex-wrap gap-2">
           {/* <Link to="/team/activity">
@@ -558,7 +558,7 @@ function RolesTab({
   onEdit,
   onDuplicate,
   isLoading,
-  refetch
+  refetch,
 }: {
   roles: PermissionProfile | undefined;
   lang: "en" | "ar";
@@ -580,7 +580,6 @@ function RolesTab({
 
   const handleDeleteProfile = (id) => {
     if (!id) return;
-
     deleteProfile(
       { id },
       {
@@ -596,7 +595,7 @@ function RolesTab({
     if (!selectedRole) return;
 
     handleDeleteProfile(selectedRole);
-    setSelectedRole(null);
+    // setSelectedRole(null);
   };
 
   return (

@@ -92,8 +92,7 @@ export function useDismiss({
  * a reader who has asked for less movement gets none: the animation is
  * behind `motion-safe`, so without it the panel is simply there.
  */
-export const scrimMotion =
-  "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200";
+export const scrimMotion = "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200";
 export const panelMotion =
   "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 motion-safe:ease-out";
 /** A drawer comes in from the edge it is anchored to. */
@@ -136,47 +135,40 @@ export function Modal({
     <div
       dir={dir}
       {...dismiss.scrim}
-      className={cn(
-        "fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4",
-        scrimMotion
-      )}
+      className={cn("fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4", scrimMotion)}
     >
       {/* Centred, but a panel taller than the screen still scrolls to its top. */}
       <div className="flex min-h-full items-center justify-center">
-      <div
-        {...dismiss.panel}
-        className={cn(
-          "w-full max-w-xl rounded-[16px] bg-surface-default p-6 shadow-overlay",
-          panelMotion,
-          className
-        )}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            {overline && (
-              <p className="text-overline text-text-muted">{overline}</p>
-            )}
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-text-primary">
-              {title}
-            </h2>
-            {meta && <p className="mt-1 text-sm text-text-secondary">{meta}</p>}
+        <div
+          {...dismiss.panel}
+          className={cn(
+            "w-full max-w-xl rounded-[16px] bg-surface-default p-6 shadow-overlay",
+            panelMotion,
+            className,
+          )}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {overline && <p className="text-overline text-text-muted">{overline}</p>}
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-text-primary">
+                {title}
+              </h2>
+              {meta && <p className="mt-1 text-sm text-text-secondary">{meta}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={c.common.close}
+              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={c.common.close}
-            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
+          {children && <div className="mt-5">{children}</div>}
+          {footer && (
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">{footer}</div>
+          )}
         </div>
-        {children && <div className="mt-5">{children}</div>}
-        {footer && (
-          <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-            {footer}
-          </div>
-        )}
-      </div>
       </div>
     </div>
   );
@@ -186,6 +178,98 @@ export function Modal({
  * OV 01.6B / 01.6J / 01.6K — the overlay that opens with a tinted icon tile
  * beside its title, a wider body and its actions at the foot.
  */
+// export function IconModal({
+//   icon,
+//   tone = "brand",
+//   overline,
+//   title,
+//   body,
+//   onClose,
+//   children,
+//   footer,
+//   width = "660px",
+//   dirty = false,
+//   onGuard,
+// }: {
+//   /** Some panels open with a tinted tile, some with the title alone. */
+//   icon?: ReactNode;
+//   tone?: "brand" | "danger";
+//   overline: string;
+//   title: string;
+//   /* OV 10.9B - the description slot sometimes carries a control rather
+//      than a sentence, so it takes a node as readily as a string. */
+//   body?: ReactNode;
+//   onClose: () => void;
+//   children?: ReactNode;
+//   footer?: ReactNode;
+//   width?: string;
+//   /** BR-00-08 - see `Modal`; this panel obeys the same rule. */
+//   dirty?: boolean | undefined;
+//   onGuard?: (() => void) | undefined;
+// }) {
+//   const { c, dir } = useLanguage();
+
+//   const dismiss = useDismiss({ onClose, dirty, onGuard });
+
+//   return (
+//     <div
+//       // dir={dir}
+//       // {...dismiss.scrim}
+//       // className={cn("fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4", scrimMotion)}
+//       // dir={dir}
+//       dir={dir}
+//       {...dismiss.scrim}
+//       className={cn("fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4", scrimMotion)}
+//     >
+//       {/* Centred, but a panel taller than the screen still scrolls to its top. */}
+//       <div className="flex min-h-full items-center justify-center">
+//         <div
+//           {...dismiss.panel}
+//           style={{ maxWidth: width }}
+//           className={cn(
+//             "flex w-full flex-col gap-[14px] rounded-[16px] bg-surface-default px-6 py-[22px] shadow-overlay",
+//             panelMotion,
+//           )}
+//         >
+//           <div className="flex items-start gap-3">
+//             {icon && (
+//               <span
+//                 className={cn(
+//                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]",
+//                   tone === "danger"
+//                     ? "bg-status-danger-bg text-status-danger"
+//                     : "bg-primary-subtle text-brand-deep",
+//                 )}
+//               >
+//                 {icon}
+//               </span>
+//             )}
+//             <div className="min-w-0 flex-1 space-y-2">
+//               {overline && <p className="text-overline text-brand-deep">{overline}</p>}
+//               <h2 className="text-2xl font-semibold tracking-tight text-text-primary">{title}</h2>
+//               {body && (
+//                 <p className="whitespace-pre-line text-[13px] leading-5 text-text-secondary">
+//                   {body}
+//                 </p>
+//               )}
+//             </div>
+//             <button
+//               type="button"
+//               onClick={onClose}
+//               aria-label={c.common.close}
+//               className="shrink-0 rounded-lg bg-surface-subtle px-2.5 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-border-subtle"
+//             >
+//               ✕
+//             </button>
+//           </div>
+//           {children}
+//           {footer && <div className="flex flex-wrap justify-end gap-2.5">{footer}</div>}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
 export function IconModal({
   icon,
   tone = "brand",
@@ -199,20 +283,16 @@ export function IconModal({
   dirty = false,
   onGuard,
 }: {
-  /** Some panels open with a tinted tile, some with the title alone. */
   icon?: ReactNode;
   tone?: "brand" | "danger";
   overline: string;
   title: string;
-  /* OV 10.9B - the description slot sometimes carries a control rather
-     than a sentence, so it takes a node as readily as a string. */
   body?: ReactNode;
   onClose: () => void;
   children?: ReactNode;
   footer?: ReactNode;
   width?: string;
-  /** BR-00-08 - see `Modal`; this panel obeys the same rule. */
-  dirty?: boolean | undefined;
+  dirty?: boolean;
   onGuard?: (() => void) | undefined;
 }) {
   const { c, dir } = useLanguage();
@@ -222,62 +302,57 @@ export function IconModal({
   return (
     <div
       dir={dir}
-      {...dismiss.scrim}
-      className={cn(
-        "fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4",
-        scrimMotion
-      )}
+      className={cn("fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4", scrimMotion)}
     >
-      {/* Centred, but a panel taller than the screen still scrolls to its top. */}
       <div className="flex min-h-full items-center justify-center">
-      <div
-        {...dismiss.panel}
-        style={{ maxWidth: width }}
-        className={cn(
-          "flex w-full flex-col gap-[14px] rounded-[16px] bg-surface-default px-6 py-[22px] shadow-overlay",
-          panelMotion
-        )}
-      >
-        <div className="flex items-start gap-3">
-          {icon && (
-            <span
-              className={cn(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]",
-                tone === "danger"
-                  ? "bg-status-danger-bg text-status-danger"
-                  : "bg-primary-subtle text-brand-deep"
-              )}
-            >
-              {icon}
-            </span>
+        <div
+          {...dismiss.panel}
+          style={{ maxWidth: width }}
+          className={cn(
+            "flex w-full flex-col gap-[14px] rounded-[16px] bg-surface-default px-6 py-[22px] shadow-overlay",
+            panelMotion,
           )}
-          <div className="min-w-0 flex-1 space-y-2">
-            {overline && (
-              <p className="text-overline text-brand-deep">{overline}</p>
+        >
+          <div className="flex items-start gap-3">
+            {icon && (
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]",
+                  tone === "danger"
+                    ? "bg-status-danger-bg text-status-danger"
+                    : "bg-primary-subtle text-brand-deep",
+                )}
+              >
+                {icon}
+              </span>
             )}
-            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
-              {title}
-            </h2>
-            {body && (
-              <p className="whitespace-pre-line text-[13px] leading-5 text-text-secondary">
-                {body}
-              </p>
-            )}
+
+            <div className="min-w-0 flex-1 space-y-2">
+              {overline && <p className="text-overline text-brand-deep">{overline}</p>}
+
+              <h2 className="text-2xl font-semibold tracking-tight text-text-primary">{title}</h2>
+
+              {body && (
+                <p className="whitespace-pre-line text-[13px] leading-5 text-text-secondary">
+                  {body}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={c.common.close}
+              className="shrink-0 rounded-lg bg-surface-subtle px-2.5 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-border-subtle"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={c.common.close}
-            className="shrink-0 rounded-lg bg-surface-subtle px-2.5 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-border-subtle"
-          >
-            ✕
-          </button>
+
+          {children}
+
+          {footer && <div className="flex flex-wrap justify-end gap-2.5">{footer}</div>}
         </div>
-        {children}
-        {footer && (
-          <div className="flex flex-wrap justify-end gap-2.5">{footer}</div>
-        )}
-      </div>
       </div>
     </div>
   );
@@ -333,14 +408,14 @@ export function Drawer({
         style={{ width }}
         className={cn(
           "flex h-full max-w-full flex-col bg-surface-default shadow-drawer",
-          drawerMotion(dir)
+          drawerMotion(dir),
         )}
       >
         {/* OV 03.16 / 03.17 — the drawer head the frames draw. */}
         <div
           className={cn(
             "flex items-start justify-between gap-4 p-6",
-            divider && "border-b border-border-subtle"
+            divider && "border-b border-border-subtle",
           )}
         >
           <div className="min-w-0">
@@ -352,11 +427,7 @@ export function Drawer({
             <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-text-primary">
               {title}
             </h2>
-            {meta && (
-              <p className="mt-1 text-[12.5px] leading-5 text-text-muted">
-                {meta}
-              </p>
-            )}
+            {meta && <p className="mt-1 text-[12.5px] leading-5 text-text-muted">{meta}</p>}
           </div>
           <button
             type="button"
@@ -372,7 +443,7 @@ export function Drawer({
           <div
             className={cn(
               "flex flex-wrap items-center justify-end gap-3 p-6",
-              divider && "border-t border-border-subtle"
+              divider && "border-t border-border-subtle",
             )}
           >
             {footer}
@@ -400,7 +471,7 @@ export function Timeline({
                 ? "bg-status-success"
                 : item.state === "active"
                   ? "bg-status-warning"
-                  : "bg-border-default"
+                  : "bg-border-default",
             )}
           />
           <div className="min-w-0">

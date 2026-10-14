@@ -266,7 +266,7 @@ export function TopBar() {
             <Building2 className="h-4 w-4 text-text-muted" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
               <span>{c.account.companyMenu}</span>
-              <span className="text-[11px] text-text-muted">{c.account.companyHint}</span>
+              {/* <span className="text-[11px] text-text-muted">{c.account.companyHint}</span> */}
             </span>
           </Link>
         </DropdownMenuItem>
@@ -296,7 +296,7 @@ export function TopBar() {
             <Hotel className="h-4 w-4 text-text-muted" aria-hidden="true" />
             <span className="flex min-w-0 flex-col">
               <span>{c.account.hotels}</span>
-              <span className="text-[11px] text-text-muted">{c.account.hotelsHint}</span>
+              {/* <span className="text-[11px] text-text-muted">{c.account.hotelsHint}</span> */}
             </span>
           </Link>
         </DropdownMenuItem>

@@ -199,7 +199,7 @@ function HotelProfilePage() {
     );
   };
 
-  const { rooms, meta } = useHotelRooms(hotel?.hotel?.id);
+  const { rooms, meta, refetch } = useHotelRooms(hotel?.hotel?.id);
 
   const pendingRooms = newRooms.filter((room) => room?.hotelId === hotel?.id);
   const pendingCount =
@@ -435,6 +435,7 @@ function HotelProfilePage() {
           hotelId={hotel?.hotel?.id}
           hotelName={hotelName}
           onClose={() => setRoomOpen(false)}
+          refetchRooms={refetch}
         />
       )}
     </PageShell>
@@ -474,10 +475,12 @@ function AddRoomDrawer({
   hotelId,
   hotelName,
   onClose,
+  refetchRooms
 }: {
   hotelId: string;
   hotelName: string;
   onClose: () => void;
+  refetchRooms: () => void;
 }) {
   const { c, dir, lang } = useLanguage();
   const dismiss = useDismiss({ onClose });
@@ -687,7 +690,7 @@ function AddRoomDrawer({
         ...values,
         images,
       });
-
+      refetchRooms();
       onClose();
     } catch (error) {
       console.error("Failed to create room:", error);
@@ -1169,7 +1172,7 @@ function AddRoomDrawer({
           <Button
             type="button"
             className="h-11 rounded-[10px] px-5 text-sm"
-            // disabled={!ready}
+            disabled={!rights}
             loading={sending}
             onClick={hookForm.handleSubmit(onSubmit)}
           >

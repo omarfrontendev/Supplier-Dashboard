@@ -184,7 +184,7 @@ function AgreementPage() {
               </DataRow>
               <DataRow label={a.company.country}>
                 <span className="text-sm text-text-primary">
-                  {getCountryName(profile?.countryCode, lang)} . {profile?.city}
+                  {profile?.countryCode && getCountryName(profile?.countryCode, lang)} . {profile?.city}
                 </span>
               </DataRow>
               <DataRow label={a.company.phone}>

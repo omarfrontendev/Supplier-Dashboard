@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { requestDetail, type DetailShape } from "@/lib/request-detail-data";
 import type { Bi } from "@/lib/library-overlay-data";
 import { HotelRequest } from "@/api/modules/requests/types";
+import { formatDate } from "@/routes/team.index";
 
 /** Who sent it and who holds it — one line each. */
 function Who({ label, value }: { label: string; value: string }) {
@@ -110,7 +111,9 @@ export function RequestDetailDrawer({
             </Button>
           ))} */}
           {/* {console.log(shape.primary?.en === "Open in My Hotels")} */}
-          {shape.primary?.en === "Open in My Hotels" && <Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>}
+          {shape.primary?.en === "Open in My Hotels" && (
+            <Button onClick={onPrimary ?? onClose}>{shape.primary[k]}</Button>
+          )}
         </>
       }
     >
@@ -165,7 +168,12 @@ export function RequestDetailDrawer({
                     {item.title[k]}
                   </span>
                   <span className="mt-0.5 block text-[11.5px] leading-4 text-text-muted">
-                    {item.note[k]}
+                    {/* {item.note[k]} */}
+                    {index === 0 && formatDate(request.createdAt, lang)}
+                    {index === 1 && item.note[k]}
+                    {index === 2 && item.note[k]}
+                    {/* createdAt */}
+                    {/* reviewNote */}
                   </span>
                 </span>
               </li>
@@ -239,7 +247,7 @@ export function RequestDetailDrawer({
           </div>
         )}
 
-        {shape.note && <p className="text-[11.5px] leading-4 text-text-muted">{shape.note[k]}</p>}
+        {/* {shape.note && <p className="text-[11.5px] leading-4 text-text-muted">{shape.note[k]}</p>} */}
       </div>
     </Drawer>
   );

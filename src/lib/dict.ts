@@ -5,6 +5,10 @@ import { contractAr, contractEn } from "./dict-contract";
 export type Language = "en" | "ar";
 
 const en = {
+  notifications: {
+    emptyTitle: "No notifications yet",
+    emptyDescription: "You're all caught up! New notifications will appear here.",
+  },
   common: {
     deleteTitle: "Delete Role",
     deleteDescription: "Are you sure you want to delete this role? This action cannot be undone.",
@@ -842,6 +846,10 @@ const en = {
 };
 
 const ar: typeof en = {
+  notifications: {
+    emptyTitle: "لا توجد إشعارات حتى الآن",
+    emptyDescription: "أنت على اطلاع بكل جديد! ستظهر الإشعارات الجديدة هنا.",
+  },
   common: {
     delete: "حذف",
     super_admin: "مدير النظام الأعلى",
