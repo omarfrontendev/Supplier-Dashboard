@@ -137,8 +137,6 @@ export function HotelQuickView({
     ];
   };
 
-  console.log(rooms);
-
   return (
     <Drawer
       width="560px"
@@ -158,27 +156,16 @@ export function HotelQuickView({
       }
     >
       <div className="space-y-4">
-        {/* <StatusPill tone={hotel?.linkingStatus}>
-          {hotel?.linkingStatus}
-        </StatusPill> */}
         <span
           className={cn(
             "inline-flex w-fit items-center gap-1.5 rounded-md ps-2 pe-[9px] py-1",
             tone.wrap,
           )}
         >
-          {/* <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" /> */}
           <span className={cn("text-[11px] font-medium uppercase tracking-[0.44px]", tone.text)}>
             {c2.library.status[hotel?.linkingStatus]}
           </span>
         </span>
-        {/* <StatusPill tone={hotel?.hotel?.status !== "active" ? "warning" : "neutral"}>
-          {hotel?.hotel?.status === "active" ? c.requested[k] : c.available[k]}
-        </StatusPill> */}
-
-        {/* The photographs Hoteliana holds. The frame draws the cover
-            alone and no count; the arrows are the only thing that says
-            there is more than one, so they carry it on their own. */}
         <HotelGallery
           hotel={hotel}
           name={name}
@@ -193,9 +180,6 @@ export function HotelQuickView({
 
         <div className="rounded-[12px] bg-surface-subtle px-4 py-3">
           <p className="text-overline text-text-muted">{c.profileOverline[k]}</p>
-          {/* The profile is the hotel's own, not the frame's one hotel
-              repeated: a quick view that names Al Safa City and then
-              describes Al Noor is worse than no quick view. */}
           <div className="mt-2">
             <ProfileRow label={c.nameAr[k]} value={hotel.nameAr} />
             <ProfileRow
@@ -212,10 +196,6 @@ export function HotelQuickView({
                 k === "ar" ? selectedHotel?.hotel.descriptionAr : selectedHotel?.hotel.descriptionEn
               }
             />
-            {/* <ProfileRow
-              label={c.distance[k]}
-              value={k === "ar" ? hotel.distanceAr : hotel.distance}
-            /> */}
             <ProfileRow label={c.licence[k]} value={c.licenceValue[k]} />
           </div>
         </div>
@@ -223,15 +203,21 @@ export function HotelQuickView({
         <div>
           <p className="text-overline text-text-muted">{c.amenitiesTitle[k]}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {selectedHotel?.hotel?.amenities?.map((item) => (
-              <span
-                key={item.id}
-                className="inline-flex items-center gap-1 rounded-full border border-border-subtle px-2.5 py-1 text-[11.5px] text-text-body"
-              >
-                <Check className="h-3 w-3 text-status-success" aria-hidden="true" />
-                {k === "ar" ? item.nameAr : item?.nameEn}
-              </span>
-            ))}
+            {selectedHotel?.hotel?.amenities?.length ? (
+              selectedHotel.hotel.amenities.map((item) => (
+                <span
+                  key={item.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-border-subtle px-2.5 py-1 text-[11.5px] text-text-body"
+                >
+                  <Check className="h-3 w-3 text-status-success" aria-hidden="true" />
+                  {k === "ar" ? item.nameAr : item.nameEn}
+                </span>
+              ))
+            ) : (
+              <p className="text-sm text-text-muted">
+                {k === "ar" ? "لا توجد وسائل راحة متاحة" : "No amenities available"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -240,65 +226,40 @@ export function HotelQuickView({
             <p className="text-overline text-text-muted">
               {fill(c.cataloqueTitle[k], { count: roomsMeta?.total })}
             </p>
-            {/* <p className="max-w-[220px] text-[11px] leading-4 text-text-muted">
-              {c.catalogueNote[k]}
-            </p> */}
           </div>
           <div className="mt-2">
-            {/* {rooms?.map((room) => (
-              <div
-                key={room?.id}
-                className="flex flex-wrap items-center gap-3 border-t border-border-subtle py-2.5 first:border-t-0"
-              >
-                <span className="w-[130px] shrink-0 text-[12.5px] font-semibold text-text-primary">
-                  {lang === "ar" ? room.nameAr : room.nameEn}
-                </span>
-                <span className="min-w-0 flex-1 text-[11.5px] text-text-secondary">
-                  {room.detail[k]}
-                </span>
-                <span className="text-[11.5px] text-status-success">{room.state[k]}</span>
-              </div>
-            ))} */}
-            {rooms?.map((room) => {
-              const details = getRoomDetails(room);
+            {rooms?.length ? (
+              rooms.map((room) => {
+                const details = getRoomDetails(room);
 
-              return (
-                <div
-                  key={room.id}
-                  className="border-t border-border-subtle py-2.5 first:border-t-0"
-                >
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="w-[130px] shrink-0 text-[12.5px] font-semibold text-text-primary">
-                      {lang === "ar" ? room.nameAr : room.nameEn}
-                    </span>
-
-                    <span className="min-w-0 flex-1 text-[11.5px] text-text-secondary">
-                      {details.map((detail) => `${detail.label}: ${detail.value}`).join(" · ")}
-                    </span>
-                    {/* <span
-                      className={cn(
-                        "inline-flex w-fit items-center gap-1.5 rounded-md ps-2 pe-[9px] py-1",
-                        tone.wrap,
-                      )}
-                    >
-                      <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" />
-                      <span
-                        className={cn(
-                          "text-[11px] font-medium uppercase tracking-[0.44px]",
-                          tone.text,
-                        )}
-                      >
-                        {c.library.status[room.status]}
+                return (
+                  <div
+                    key={room.id}
+                    className="border-t border-border-subtle py-2.5 first:border-t-0"
+                  >
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="w-[130px] shrink-0 text-[12.5px] font-semibold text-text-primary">
+                        {lang === "ar" ? room.nameAr : room.nameEn}
                       </span>
-                    </span> */}
-                    {/* <Badge tone="success">{lang === "ar" ? "رسمية" : "Official"}</Badge> */}
-                    <span className="text-[11.5px] text-status-success">
-                      {lang === "ar" ? "رسمية" : "Official"}
-                    </span>
+
+                      <span className="min-w-0 flex-1 text-[11.5px] text-text-secondary">
+                        {details.map((detail) => `${detail.label}: ${detail.value}`).join(" · ")}
+                      </span>
+
+                      <span className="text-[11.5px] text-status-success">
+                        {lang === "ar" ? "رسمية" : "Official"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="flex items-center justify-center py-8 text-center">
+                <p className="text-sm text-text-muted">
+                  {lang === "ar" ? "لا توجد غرف متاحة" : "No rooms available"}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

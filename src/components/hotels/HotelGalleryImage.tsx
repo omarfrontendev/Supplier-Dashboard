@@ -13,6 +13,7 @@ export function HotelGalleryImage({
   alt,
   className,
 }: HotelGalleryImageProps) {
+
   const { data: blob, isLoading, isError } = useGetUploadContent(uploadId);
   const [imageUrl, setImageUrl] = useState<string>();
 
