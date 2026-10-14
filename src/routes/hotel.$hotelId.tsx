@@ -478,7 +478,6 @@ function AddRoomDrawer({
   const [images, setImages] = useState(0);
   const [override, setOverride] = useState(false);
   const [rights, setRights] = useState(false);
-  // const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
   const set = (key: keyof typeof form) => (value: string) =>
@@ -1149,7 +1148,8 @@ function AddRoomDrawer({
           <Button
             type="button"
             className="h-11 rounded-[10px] px-5 text-sm"
-            disabled={!rights}
+            disabled={!rights || selectedImages?.length < 2}
+            // disabled={!rights || images?.length < 2}
             loading={sending}
             onClick={hookForm.handleSubmit(onSubmit)}
           >
