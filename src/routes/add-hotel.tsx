@@ -344,8 +344,6 @@ function AddHotelPage() {
     }
   });
 
-  console.log(hookForm.formState.errors)
-
   return (
     <PageShell>
       <BackLink

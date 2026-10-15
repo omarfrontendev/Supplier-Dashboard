@@ -64,7 +64,7 @@ function RequestsPage() {
   const [asking, setAsking] = useState<SupplierRequest | null>(null);
   const [filter, setFilter] = useState<SupplierRequestKind | "all">("access");
   const { loading } = useRemoteData(() => true);
-  const [status, setStatus] = useState("pedning");
+  const [status, setStatus] = useState("pending");
 
   const items = useMemo(
     () =>
@@ -307,9 +307,9 @@ function RequestsPage() {
               <tr className="text-overline text-text-muted">
                 <th className="py-2 text-start font-semibold">{r.colRequest}</th>
 
-                {filter !== "room" && (
-                  <th className="py-2 text-start font-semibold">{r.colWhat}</th>
-                )}
+                {/* {filter !== "room" && ( */}
+                <th className="py-2 text-start font-semibold">{r.colWhat}</th>
+                {/* )} */}
 
                 <th className="py-2 text-start font-semibold">{r.colSent}</th>
 
@@ -367,11 +367,12 @@ function RequestsPage() {
                       {item?.hotel?.id ? `#HO-${item.hotel.id}` : `#RO-${item?.roomId}`}
                     </td>
 
-                    {filter !== "room" && (
-                      <td className="py-3 pe-3 text-text-primary">
-                        {lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
-                      </td>
-                    )}
+                    {/* {filter !== "room" && ( */}
+                    <td className="py-3 pe-3 text-text-primary">
+                      {filter !== "room" && lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
+                      {filter === "room" && lang === "ar" ? item.room?.nameAr : item.room?.nameEn}
+                    </td>
+                    {/* )} */}
 
                     <td className="py-3 pe-3 text-text-secondary">
                       {formatDate(item.createdAt, lang)}
