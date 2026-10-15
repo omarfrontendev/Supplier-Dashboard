@@ -335,7 +335,6 @@ function AddHotelPage() {
       // 3. Create the property using the mutation hook.
       const response = await createProperty(payload);
 
-
       // 4. Continue after successful submission.
       setStep(3);
     } catch (error) {
@@ -344,6 +343,8 @@ function AddHotelPage() {
       setSending(false);
     }
   });
+
+  console.log(hookForm.formState.errors)
 
   return (
     <PageShell>
@@ -480,8 +481,8 @@ function AddHotelPage() {
                     value={field.value}
                     onChange={field.onChange}
                     options={[5, 4, 3, 2, 1].map((n) => ({
-                      value: String(n),
-                      label: fill(c.library.stars, { count: n }),
+                      value: n,
+                      label: fill(c.library.stars, { count: +n }),
                     }))}
                   />
                 )}
@@ -898,9 +899,7 @@ function AddHotelPage() {
             <div className="flex flex-wrap gap-2">
               {" "}
               {amenityOptions.map((amenity) => {
-                const active = selectedAmenities.some(
-                  (item) => item.amenityId === amenity.id,
-                );
+                const active = selectedAmenities.some((item) => item.amenityId === amenity.id);
 
                 return (
                   <button
