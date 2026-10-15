@@ -378,14 +378,16 @@ function TeamPage() {
                   <div className="flex flex-wrap gap-1.5 min-h-[60px]">
                     {role?.permissions?.slice(0, 6)?.map((permission) => (
                       <ReachChip key={permission?.id} tint={permission?.httpMethod}>
-                        <div className="truncate max-w-[120px] px-2">{permission?.nameEn}</div>
+                        <div className="truncate max-w-[120px] px-2">
+                          {permission?.[lang === "ar" ? "nameAr" : "nameEn"]}
+                        </div>
                       </ReachChip>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex flex-col gap-3 rounded-lg bg-surface-subtle p-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* <div className="mt-4 flex flex-col gap-3 rounded-lg bg-surface-subtle p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <b className="text-sm text-text-primary">{t.areasTitle}</b>
                 <p className="mt-1 max-w-[620px] text-xs leading-5 text-text-secondary">
@@ -396,14 +398,19 @@ function TeamPage() {
                 <BookOpen className="h-4 w-4" />
                 {t.permissionReference}
               </Button>
-            </div>
+            </div> */}
           </section>
           <p className="mt-4 rounded-lg bg-surface-subtle p-4 text-xs leading-5 text-text-secondary">
             {t.footer}
           </p>
         </>
       )}
-      <InviteDialog open={invite} onClose={() => setInvite(false)} roles={roles} teamParams={teamParams} />
+      <InviteDialog
+        open={invite}
+        onClose={() => setInvite(false)}
+        roles={roles}
+        teamParams={teamParams}
+      />
       {selected && (
         <ManageMemberDrawer
           teamParams={teamParams}
@@ -706,9 +713,15 @@ function RolesTab({
                   {r.kind === "custom" ? t.custom : t.builtIn}
                 </StatusPill>
               </div>
-              {/* <p className="mt-2 text-xs text-text-muted">
-                  {r.people === 1 ? t.onePerson : fill(t.manyPeople, { count: r.people })}
-                </p> */}
+              <span className="mt-2 text-xs text-text-muted line-clamp-2">
+                {r?.permissions
+                  // ?.slice(0, 2)
+                  .map((item) => item?.[`name${lang === "en" ? "En" : "Ar"}`])
+                  .join(", ") || "noRolesSelected"}
+              </span>
+              <p className="mt-2 text-xs text-text-muted">
+                <span>{fill(t.manyPeople, { count: r.totalAssignedUsers })}</span>
+              </p>
             </article>
           ))}
         </div>

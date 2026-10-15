@@ -186,21 +186,21 @@ function RequestsPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
               icon={<Clock className="h-4 w-4" aria-hidden="true" />}
-              label={`${r.statWaiting} . ${lang === "ar" ? "(جميع الطلبات)" : "(ALL REQUESTS)"}`}
+              label={`${r.statWaiting} . ${lang === "ar" ? "(جميع الطلبات المعلقة)" : "(ALL Pedning REQUESTS)"}`}
               value={metricsAllFixed(0)}
               note={r.statWaitingNote}
             />
 
             <Stat
               icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
-              label={`${r.statApproved} . ${lang === "ar" ? "(جميع الطلبات)" : "(ALL REQUESTS)"}`}
+              label={`${r.statApproved} . ${lang === "ar" ? "(جميع الطلبات المعلقة)" : "(ALL Pedning REQUESTS)"}`}
               value={metricsAllFixed(1)}
               note={r.statApprovedNote}
             />
 
             <Stat
               icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
-              label={`${r.statRejected} . ${lang === "ar" ? "(جميع الطلبات)" : "(ALL REQUESTS)"}`}
+              label={`${r.statRejected} . ${lang === "ar" ? "(جميع الطلبات المعلقة)" : "(ALL Pedning REQUESTS)"}`}
               value={metricsAllFixed(2)}
               note={r.statRejectedNote}
             />
@@ -233,32 +233,33 @@ function RequestsPage() {
       {metricsLoading ? (
         <StatsSkeleton className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" />
       ) : (
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat
-            icon={<Clock className="h-4 w-4" aria-hidden="true" />}
-            label={r.statWaiting}
-            value={metricsValue(0)}
-            note={r.statWaitingNote}
-          />
-          {/* <Stat
-            icon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
-            label={r.statNeedsYou}
-            value={metricsValue(1)}
-            note={r.statNeedsYouNote}
-          /> */}
-          <Stat
-            icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
-            label={r.statApproved}
-            value={metricsValue(1)}
-            note={r.statApprovedNote}
-          />
-          <Stat
-            icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
-            label={r.statRejected}
-            value={metricsValue(2)}
-            note={r.statRejectedNote}
-          />
-        </div>
+        <>
+          <p className="mb-3 text-text-muted">
+            {lang === "ar"
+              ? "كل الطلبات " + `(${tabs.find((tab) => tab.key === filter)?.label})`
+              : "Total Requests" + `(${tabs.find((tab) => tab.key === filter)?.label})`}
+          </p>
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat
+              icon={<Clock className="h-4 w-4" aria-hidden="true" />}
+              label={r.statWaiting}
+              value={metricsValue(0)}
+              note={r.statWaitingNote}
+            />
+            <Stat
+              icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+              label={r.statApproved}
+              value={metricsValue(1)}
+              note={r.statApprovedNote}
+            />
+            <Stat
+              icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
+              label={r.statRejected}
+              value={metricsValue(2)}
+              note={r.statRejectedNote}
+            />
+          </div>
+        </>
       )}
 
       {/* <SectionCard className="mb-6">
