@@ -128,15 +128,18 @@ export function InviteDialog({
   open,
   onClose,
   roles,
+  teamParams,
 }: {
   open: boolean;
   onClose: () => void;
   roles: PermissionProfile[];
+  teamParams: Object;
 }) {
   const { c, lang } = useLanguage();
   const t = teamCopy[lang];
   const [role, setRole] = useState<number[] | null>([]);
   const [pick, setPick] = useState(false);
+  const dispatch = useDispatch();
 
   const form = useForm<any>({
     resolver: zodResolver(memberSchema()),
@@ -155,6 +158,7 @@ export function InviteDialog({
         form.reset();
         setRole([]);
         setPick(false);
+        dispatch(fetchTeam(teamParams));
       },
     });
   };

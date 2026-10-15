@@ -26,7 +26,7 @@ export const memberFields = () => {
       label: c.common.phoneNumberLabel,
       placeholder: c.common.phoneNumberPlaceholder,
       colSpan: "col-span-6",
-      type: "number",
+      type: "tel",
     },
     // {
     //   name: "permissionProfileIds",

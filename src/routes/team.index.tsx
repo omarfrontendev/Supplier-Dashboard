@@ -403,7 +403,7 @@ function TeamPage() {
           </p>
         </>
       )}
-      <InviteDialog open={invite} onClose={() => setInvite(false)} roles={roles} />
+      <InviteDialog open={invite} onClose={() => setInvite(false)} roles={roles} teamParams={teamParams} />
       {selected && (
         <ManageMemberDrawer
           teamParams={teamParams}
