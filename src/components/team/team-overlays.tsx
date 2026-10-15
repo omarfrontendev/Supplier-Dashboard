@@ -44,43 +44,42 @@ function RolePicker({
   onClose,
 }: {
   value: number[];
-  onChange: (roles: PermissionProfile[]) => void;
+  onChange: (roleIds: number[]) => void;
   onClose: () => void;
   roles: PermissionProfile[];
 }) {
   const { c, lang } = useLanguage();
 
-  const toggleRole = (role: PermissionProfile) => {
-    const selectedRoleIds = Array.isArray(value) ? value : [];
+  const selectedRoleId = value?.[0];
 
-    const isSelected = selectedRoleIds.some((item) => Number(item) === Number(role.id));
+  const toggleRole = (role: PermissionProfile) => {
+    const isSelected = Number(selectedRoleId) === Number(role.id);
 
     if (isSelected) {
-      onChange(value?.filter((item) => +item !== +role.id));
+      onChange([]);
     } else {
-      onChange([...value, role?.id]);
+      onChange([role.id]);
     }
   };
 
   return (
-    <div className="grid gap-1.5 relative">
+    <div className="relative grid gap-1.5">
       {roles.map((role) => {
-        const selectedRoleIds = Array.isArray(value) ? value : [];
-
-        const isSelected = selectedRoleIds.some((item) => Number(item) === Number(role.id));
+        const isSelected = Number(selectedRoleId) === Number(role.id);
 
         return (
           <button
             type="button"
             key={role.id}
             onClick={() => toggleRole(role)}
-            className={`flex w-full gap-3 rounded-lg border p-3 text-start ${
+            aria-pressed={isSelected}
+            className={`flex w-full cursor-pointer gap-3 rounded-lg border p-3 text-start ${
               isSelected
                 ? "border-2 border-brand-deep bg-surface-subtle"
                 : "border-border-default bg-surface-default"
             }`}
           >
-            {/* Checkbox */}
+            {/* Selection Indicator */}
             <span
               className={`mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded border ${
                 isSelected
@@ -89,7 +88,11 @@ function RolePicker({
               }`}
             >
               {isSelected && (
-                <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3 text-white">
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  className="h-3 w-3 text-white"
+                >
                   <path
                     d="M4 10.5L8 14L16 6"
                     stroke="currentColor"
@@ -101,7 +104,7 @@ function RolePicker({
               )}
             </span>
 
-            {/* Role info */}
+            {/* Role Information */}
             <span>
               <b className="block text-[13px] font-medium text-text-primary">
                 {role[`name${lang === "en" ? "En" : "Ar"}`]}
@@ -110,11 +113,12 @@ function RolePicker({
           </button>
         );
       })}
+
       <Button
         type="button"
         onClick={onClose}
         aria-label="Confirm selection"
-        disabled={value?.length === 0}
+        disabled={!value?.length}
         variant="dark"
       >
         <Check className="h-4 w-4" />

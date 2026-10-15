@@ -492,7 +492,9 @@ function MemberRow({
     <div className="grid grid-cols-[258px_158px_1fr_138px_118px_170px] items-center gap-3 border-t border-border-subtle px-4 py-3">
       <Person m={m} lang={lang} />
       <div>
-        <b className="text-xs text-text-primary">{c.common[m.role]}</b>
+        <b className="text-xs text-text-primary">
+          {m?.permissionProfiles[0]?.[lang === "ar" ? "nameAr" : "nameEn"]}
+        </b>
       </div>
       <div className="flex flex-wrap gap-1">
         {m?.permissionProfiles?.flatMap((profile) =>
