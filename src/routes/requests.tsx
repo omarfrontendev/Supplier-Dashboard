@@ -64,7 +64,7 @@ function RequestsPage() {
   const [asking, setAsking] = useState<SupplierRequest | null>(null);
   const [filter, setFilter] = useState<SupplierRequestKind | "all">("access");
   const { loading } = useRemoteData(() => true);
-  const [status, setStatus] = useState(null);
+  const [status, setStatus] = useState("pedning");
 
   const items = useMemo(
     () =>
@@ -124,14 +124,13 @@ function RequestsPage() {
     type: filter,
     page: 1,
     limit: 100,
-    status: filter === "hotel" ? "pending" : status,
+    status: status === "all" ? null : status,
   });
 
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
   const shape = open ? detailFor("access", open.status) : null;
 
   const metricsKey = {
-    // all: "allRequests",
     access: "hotel_access",
     hotel: "new_hotel",
     room: "new_room",
@@ -139,6 +138,29 @@ function RequestsPage() {
 
   const metricsAllFixed = (index: number) => metrics?.["allRequests"]?.[index]?.value;
   const metricsValue = (index: number) => metrics?.[metricsKey[filter]]?.[index]?.value;
+
+  const statusOptions = {
+    access: ["pending", "approved", "rejected", "suspended"],
+    hotel: ["pending", "info_requested", "approved", "rejected"],
+    room: ["pending", "info_requested", "approved", "rejected"],
+  } as const;
+
+  const statusLabels = {
+    en: {
+      pending: "Pending",
+      approved: "Approved",
+      rejected: "Rejected",
+      suspended: "Suspended",
+      info_requested: "Information Requested",
+    },
+    ar: {
+      pending: "قيد الانتظار",
+      approved: "مقبول",
+      rejected: "مرفوض",
+      suspended: "موقوف",
+      info_requested: "مطلوب معلومات إضافية",
+    },
+  } as const;
 
   return (
     <PageShell>
@@ -157,28 +179,28 @@ function RequestsPage() {
         <StatsSkeleton className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" />
       ) : (
         <div className="mb-6">
-          <p className="mb-3 text-overline text-text-muted">
+          <p className="mb-3 text-text-muted">
             {lang === "ar" ? "إحصائيات جميع الطلبات" : "ALL REQUESTS OVERVIEW"}
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
               icon={<Clock className="h-4 w-4" aria-hidden="true" />}
-              label={r.statWaiting}
+              label={`${r.statWaiting} . ${lang === "ar" ? "(جميع الطلبات)" : "(ALL REQUESTS)"}`}
               value={metricsAllFixed(0)}
               note={r.statWaitingNote}
             />
 
             <Stat
               icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
-              label={r.statApproved}
+              label={`${r.statApproved} . ${lang === "ar" ? "(جميع الطلبات)" : "(ALL REQUESTS)"}`}
               value={metricsAllFixed(1)}
               note={r.statApprovedNote}
             />
 
             <Stat
               icon={<XCircle className="h-4 w-4" aria-hidden="true" />}
-              label={r.statRejected}
+              label={`${r.statRejected} . ${lang === "ar" ? "(جميع الطلبات)" : "(ALL REQUESTS)"}`}
               value={metricsAllFixed(2)}
               note={r.statRejectedNote}
             />
@@ -193,7 +215,7 @@ function RequestsPage() {
             type="button"
             onClick={() => {
               setFilter(tab.key);
-              setStatus(null);
+              setStatus("pending");
             }}
             className={cn(
               "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition-colors",
@@ -238,11 +260,10 @@ function RequestsPage() {
           />
         </div>
       )}
-      {
-        <SectionCard className="mb-6">
+
+      {/* <SectionCard className="mb-6">
           <div className="w-100">
             <Select
-              disabled={filter === "hotel"}
               label={lang === "ar" ? "الحالة" : "Status"}
               value={status}
               onChange={setStatus}
@@ -266,77 +287,123 @@ function RequestsPage() {
               ]}
             />
           </div>
-        </SectionCard>
-      }
+        </SectionCard> */}
 
       <SectionCard>
-        {isLoading ? (
-          <RowsSkeleton />
-        ) : requests.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border-default p-10 text-center text-sm text-text-secondary">
-            {r.empty}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-sm">
-              <thead>
-                <tr className="text-overline text-text-muted">
-                  <th className="py-2 text-start font-semibold">{r.colRequest}</th>
-                  {/* <th className="py-2 text-start font-semibold">{r.colType}</th> */}
-                  {filter !== "room" && (
-                    <th className="py-2 text-start font-semibold">{r.colWhat}</th>
-                  )}
-                  <th className="py-2 text-start font-semibold">{r.colSent}</th>
-                  <th className="py-2 text-start font-semibold">{r.colStatus}</th>
-                  <th className="py-2 text-start font-semibold">{r.colUpdate}</th>
-                  <th className="py-2 text-end font-semibold">{r.colAction}</th>
+        <div className="overflow-x-auto min-h-[320px]">
+          <table className="w-full min-w-[900px] border-collapse text-sm">
+            <colgroup>
+              <col className="w-[120px]" />
+
+              {filter !== "room" && <col className="w-[220px]" />}
+
+              <col className="w-[150px]" />
+              <col className="w-[190px]" />
+              <col className="w-[150px]" />
+              <col className="w-[100px]" />
+            </colgroup>
+            <thead>
+              <tr className="text-overline text-text-muted">
+                <th className="py-2 text-start font-semibold">{r.colRequest}</th>
+
+                {filter !== "room" && (
+                  <th className="py-2 text-start font-semibold">{r.colWhat}</th>
+                )}
+
+                <th className="py-2 text-start font-semibold">{r.colSent}</th>
+
+                <th className="py-2 text-start font-semibold">
+                  <Select
+                    className="w-[200px]"
+                    size="sm"
+                    value={status}
+                    onChange={setStatus}
+                    placeholder={lang === "ar" ? "الحالة" : "Status"}
+                    clearable
+                    options={[
+                      { value: "all", label: c.library.allStatuses },
+
+                      ...statusOptions[filter].map((key) => ({
+                        value: key,
+                        label: statusLabels[lang][key],
+                      })),
+                    ]}
+                  />
+                </th>
+
+                <th className="py-2 text-start font-semibold">{r.colUpdate}</th>
+                <th className="py-2 text-end font-semibold">{r.colAction}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td
+                    colSpan={filter !== "room" ? 6 : 5}
+                    className="border-t border-border-subtle p-4"
+                  >
+                    <RowsSkeleton />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {requests.map((item) => (
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={filter !== "room" ? 6 : 5}
+                    className="border-t border-border-subtle p-10 text-center"
+                  >
+                    <div className="rounded-xl border border-dashed border-border-default p-8 text-sm text-text-secondary">
+                      {r.empty}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                requests.map((item) => (
                   <tr
                     key={item?.id || item?.roomId}
                     className="border-t border-border-subtle align-middle"
                   >
                     <td className="font-data py-3 pe-3 text-text-primary">
-                      {item?.hotel?.id ? `#HO-${item?.hotel?.id}` : `#RO-${item?.roomId}`}
+                      {item?.hotel?.id ? `#HO-${item.hotel.id}` : `#RO-${item?.roomId}`}
                     </td>
-                    {/* <td className="py-3 pe-3 text-text-secondary">{kindLabel["room"]}</td> */}
-                    {/* <td className="py-3 pe-3 text-text-secondary">{item.status}</td> */}
+
                     {filter !== "room" && (
                       <td className="py-3 pe-3 text-text-primary">
                         {lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
                       </td>
                     )}
+
                     <td className="py-3 pe-3 text-text-secondary">
-                      {/* {lang === "ar" ? item.sentAr : item.sent} */}
                       {formatDate(item.createdAt, lang)}
                     </td>
+
                     <td className="py-3 pe-3">
                       <StatusPill tone={stateTone[item.status]} className="uppercase">
-                        {/* {item.status} */}
                         {stateLabel[item.status]}
                       </StatusPill>
                     </td>
+
                     <td className="py-3 pe-3 text-text-secondary">
                       {formatDate(item.updatedAt, lang)}
                     </td>
+
                     <td className="py-3 text-end">
                       <Button variant="outline" size="sm" onClick={() => setOpenId(item.id)}>
-                        {/* {lang === "ar" ? item.actionAr : item.action} */}
                         {lang === "en" ? "Open" : "فتح"}
                       </Button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
         <p className="mt-4 text-xs text-text-muted">
-          {requests?.length
-            ? fill(r.showing, { shown: requests?.length, total: meta?.total })
+          {requests.length
+            ? fill(r.showing, {
+                shown: requests.length,
+                total: meta?.total,
+              })
             : null}
         </p>
       </SectionCard>
@@ -454,6 +521,16 @@ function Stat({
       </div>
       <p className="font-data mt-3 text-3xl font-semibold text-text-primary">{value}</p>
       <p className="mt-1 text-xs text-text-muted">{note}</p>
+    </div>
+  );
+}
+
+/** UI 03.0 — every filter sits under its own label. */
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-text-secondary">{label}</p>
+      {children}
     </div>
   );
 }
