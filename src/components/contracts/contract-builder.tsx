@@ -16,6 +16,7 @@ import {
 } from "@/components/contracts/create-overlays";
 import { BasicsFields } from "@/components/contracts/contract-form/basics-fields";
 import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
+import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import {
@@ -66,7 +67,6 @@ import { usePortal } from "@/lib/portal-store";
 import {
   BASE_WEEKDAY,
   MONTHS,
-  childBands,
   contractRestrictions,
   contractRooms,
   inventoryCaps,
@@ -145,8 +145,8 @@ export function ContractBuilder({
 
   /*
    * UI 03.1 / 03.1O — the rail and every section head read from one list.
-   * A fixed-price contract has no base and no supplements, so Extra
-   * children and Meal plans drop out and the rest renumber.
+   * A fixed-price contract has no base and no supplements, so Meal plans
+   * drop out and the rest renumber.
    */
   const sectionList = (
     fixed
@@ -154,6 +154,7 @@ export function ContractBuilder({
           ["basics", t.sections[0]!],
           ["pricing", t.pricingFixedTitle],
           ["rooms", t.sections[2]!],
+          ["children", t.sections[3]!],
           ["inventory", t.sections[5]!],
           ["seasons", t.sections[6]!],
           ["restrictions", t.sections[7]!],
@@ -478,9 +479,6 @@ export function ContractBuilder({
             <RoomsFields />
           </Section>
 
-          {!fixed && (
-            <>
-          {/* 4 — Extra children */}
           <Section
             id={num("children")}
             title={t.sections[3]!}
@@ -488,17 +486,11 @@ export function ContractBuilder({
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <Table
-              head={["", t.colChild, t.colBasis, t.colSameNight]}
-              rows={childBands.map((band) => [
-                band.included ? "✓" : "",
-                lang === "ar" ? band.labelAr : band.label,
-                lang === "ar" ? band.basisAr : band.basis,
-                lang === "ar" ? band.supplementAr : band.supplement,
-              ])}
-            />
+            <ChildrenFields />
           </Section>
 
+          {!fixed && (
+            <>
           {/* 5 — Meal plans */}
           <Section
             id={num("meals")}

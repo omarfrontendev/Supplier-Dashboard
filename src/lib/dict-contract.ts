@@ -517,6 +517,26 @@ export const contractEn = {
         supplement: "Enter a supplement for every selected room",
         fixedRooms: "Add at least one room",
         fixedPrice: "Enter the prices for every room",
+        childAges: "Child ages must be whole numbers from 0 to {max}, and From can't be after To",
+        childPrice: "Enter the price for every selected child rule",
+        childOverlap: "Sharing parents' bed and Shared bed can't cover the same ages",
+      },
+      children: {
+        colRule: "Child rule",
+        colAgeFrom: "Age from",
+        colAgeTo: "Age to",
+        colPrice: "Price per night",
+        free: "Free",
+        rules: {
+          sharing_parents: "Sharing parents' bed",
+          shared_bed: "Shared bed",
+          extra_bed: "Extra bed",
+        },
+        hints: {
+          sharing_parents: "Sleeps in the parents' bed - always free.",
+          shared_bed: "Shares a bed in the room - charged per night.",
+          extra_bed: "Gets an extra bed in the room - charged per night.",
+        },
       },
     },
     restrictionsNone:
@@ -1150,6 +1170,26 @@ export const contractAr: typeof contractEn = {
         supplement: "اكتب الفرق لكل غرفة مختارة",
         fixedRooms: "أضف غرفة واحدة على الأقل",
         fixedPrice: "اكتب الأسعار لكل غرفة",
+        childAges: "أعمار الأطفال أرقام صحيحة من 0 إلى {max}، ولا يكون «من» بعد «إلى»",
+        childPrice: "اكتب السعر لكل قاعدة أطفال مختارة",
+        childOverlap: "لا يغطي «سرير الوالدين» و«سرير مشترك» نفس الأعمار",
+      },
+      children: {
+        colRule: "قاعدة الطفل",
+        colAgeFrom: "العمر من",
+        colAgeTo: "العمر إلى",
+        colPrice: "السعر لليلة",
+        free: "مجانًا",
+        rules: {
+          sharing_parents: "سرير الوالدين",
+          shared_bed: "سرير مشترك",
+          extra_bed: "سرير إضافي",
+        },
+        hints: {
+          sharing_parents: "ينام مع الوالدين في سريرهم - مجانًا دائمًا.",
+          shared_bed: "يشارك سريرًا في الغرفة - بسعر لكل ليلة.",
+          extra_bed: "يحصل على سرير إضافي في الغرفة - بسعر لكل ليلة.",
+        },
       },
     },
     restrictionsNone:

@@ -84,10 +84,26 @@ export interface FixedPriceRoom {
   weekendPrice: string;
 }
 
+export type ChildRuleKey = "sharing_parents" | "shared_bed" | "extra_bed";
+
+export const CHILD_RULES: ChildRuleKey[] = ["sharing_parents", "shared_bed", "extra_bed"];
+
+export const CHILD_MAX_AGE = 17;
+
+export interface ChildRule {
+  enabled: boolean;
+  ageFrom: string;
+  ageTo: string;
+  price: string;
+}
+
+export type ChildRules = Record<ChildRuleKey, ChildRule>;
+
 export interface ContractDraftState {
   basics: ContractBasics;
   pricingModel: PricingModel;
   weekPricing: WeekPricing;
   baseSupplements: BaseSupplements;
   fixedRooms: FixedPriceRoom[];
+  children: ChildRules;
 }

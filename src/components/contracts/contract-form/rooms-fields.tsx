@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import { useLinkedHotelRooms } from "@/api/modules/hotels/useLinkedHotelRooms";
 import { Table } from "@/components/contracts/contract-parts";
 import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 import { effectivePrice } from "@/store/features/contracts/contract-payload";
 import {
   removeFixedRoom,
@@ -15,39 +14,14 @@ import {
   toggleSupplementRoom,
 } from "@/store/features/contracts/contract-draft.slice";
 import { AddRoomDialog } from "./add-room-dialog";
-import { AmountInput, formatAmount, roomLabel, useAppDispatch, useContractDraft } from "./shared";
-
-function RoomTick({
-  on,
-  locked,
-  label,
-  onToggle,
-}: {
-  on: boolean;
-  locked: boolean;
-  label: string;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={on}
-      aria-label={label}
-      disabled={locked}
-      onClick={onToggle}
-      className={cn(
-        "grid size-[22px] place-items-center rounded-md transition-colors",
-        on
-          ? "bg-brand-deep text-primary"
-          : "border-[1.5px] border-border-strong bg-surface-default",
-        locked ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-      )}
-    >
-      {on && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-    </button>
-  );
-}
+import {
+  AmountInput,
+  formatAmount,
+  RoomTick,
+  roomLabel,
+  useAppDispatch,
+  useContractDraft,
+} from "./shared";
 
 export function RoomsFields() {
   const { c, lang } = useLanguage();

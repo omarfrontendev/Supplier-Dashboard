@@ -1,4 +1,4 @@
-import type { ContractDraftState } from "./types";
+import { CHILD_RULES, type ContractDraftState } from "./types";
 
 export const toAmount = (value: string): number | null => {
   const trimmed = value.trim();
@@ -60,6 +60,24 @@ export function buildContractPayload(draft: ContractDraftState) {
             weekendPrice: split ? toAmount(room.weekendPrice) : null,
           }))
         : null,
+    extraChildren: Object.fromEntries(
+      CHILD_RULES.map((key) => {
+        const rule = draft.children[key];
+        return [
+          key,
+          rule.enabled
+            ? {
+                from: toAmount(rule.ageFrom),
+                to: toAmount(rule.ageTo),
+                price: key === "sharing_parents" ? 0 : toAmount(rule.price),
+              }
+            : null,
+        ];
+      }),
+    ) as Record<
+      (typeof CHILD_RULES)[number],
+      { from: number | null; to: number | null; price: number | null } | null
+    >,
   };
 }
 

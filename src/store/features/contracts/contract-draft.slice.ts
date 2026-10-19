@@ -1,6 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import type {
+  ChildRule,
+  ChildRuleKey,
   ContractBasics,
   ContractDraftState,
   FixedPriceRoom,
@@ -31,6 +33,11 @@ const initialState: ContractDraftState = {
   weekPricing: "weekday_weekend",
   baseSupplements: emptyBaseSupplements(),
   fixedRooms: [],
+  children: {
+    sharing_parents: { enabled: false, ageFrom: "0", ageTo: "5", price: "0" },
+    shared_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
+    extra_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
+  },
 };
 
 export const sameFixedOffer = (
@@ -144,6 +151,24 @@ export const contractDraftSlice = createSlice({
         row.weekendPrice = action.payload.value;
       }
     },
+
+    toggleChildRule: (state, action: PayloadAction<ChildRuleKey>) => {
+      const rule = state.children[action.payload];
+      rule.enabled = !rule.enabled;
+    },
+
+    setChildRule: (
+      state,
+      action: PayloadAction<{
+        key: ChildRuleKey;
+        field: keyof Omit<ChildRule, "enabled">;
+        value: string;
+      }>,
+    ) => {
+      const { key, field, value } = action.payload;
+      if (key === "sharing_parents" && field === "price") return;
+      state.children[key][field] = value;
+    },
   },
 });
 
@@ -159,6 +184,8 @@ export const {
   addFixedRoom,
   removeFixedRoom,
   setFixedPrice,
+  toggleChildRule,
+  setChildRule,
 } = contractDraftSlice.actions;
 
 export default contractDraftSlice.reducer;
