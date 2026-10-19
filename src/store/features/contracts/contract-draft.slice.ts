@@ -1,0 +1,164 @@
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+
+import type {
+  ContractBasics,
+  ContractDraftState,
+  FixedPriceRoom,
+  PricingModel,
+  WeekPricing,
+} from "./types";
+
+const emptyBaseSupplements = (): ContractDraftState["baseSupplements"] => ({
+  baseRoomId: null,
+  weekdayBaseCost: "",
+  weekendBaseCost: "",
+  rooms: [],
+});
+
+const initialState: ContractDraftState = {
+  basics: {
+    hotelId: null,
+    name: "",
+    startDate: "",
+    endDate: "",
+    currency: null,
+    weekendDays: [],
+    bookingType: "allotment",
+    slaMinutes: "",
+    slaExpiryAction: "auto_reject",
+  },
+  pricingModel: "base_supplements",
+  weekPricing: "weekday_weekend",
+  baseSupplements: emptyBaseSupplements(),
+  fixedRooms: [],
+};
+
+export const sameFixedOffer = (
+  a: Pick<FixedPriceRoom, "roomId" | "mealPlan" | "view">,
+  b: Pick<FixedPriceRoom, "roomId" | "mealPlan" | "view">,
+) => a.roomId === b.roomId && a.mealPlan === b.mealPlan && a.view === b.view;
+
+export const contractDraftSlice = createSlice({
+  name: "contractDraft",
+  initialState,
+  reducers: {
+    resetDraft: (_state, action: PayloadAction<Partial<ContractBasics> | undefined>) => ({
+      ...initialState,
+      basics: { ...initialState.basics, ...action.payload },
+    }),
+
+    updateBasics: (state, action: PayloadAction<Partial<ContractBasics>>) => {
+      const next = { ...state.basics, ...action.payload };
+      if (next.hotelId !== state.basics.hotelId) {
+        state.baseSupplements = emptyBaseSupplements();
+        state.fixedRooms = [];
+      }
+      if (next.bookingType === "allotment") {
+        next.slaMinutes = "";
+        next.slaExpiryAction = "auto_reject";
+      }
+      state.basics = next;
+    },
+
+    setPricingModel: (state, action: PayloadAction<PricingModel>) => {
+      if (state.pricingModel === action.payload) return;
+      state.pricingModel = action.payload;
+      state.baseSupplements = emptyBaseSupplements();
+      state.fixedRooms = [];
+    },
+
+    setWeekPricing: (state, action: PayloadAction<WeekPricing>) => {
+      state.weekPricing = action.payload;
+      if (action.payload === "one_price") {
+        state.baseSupplements.weekendBaseCost = "";
+        state.fixedRooms.forEach((room) => {
+          room.weekendPrice = "";
+        });
+      }
+    },
+
+    setBaseRoom: (state, action: PayloadAction<number>) => {
+      const base = state.baseSupplements;
+      base.baseRoomId = action.payload;
+      const row = base.rooms.find((room) => room.roomId === action.payload);
+      if (row) {
+        row.supplement = "0";
+      } else {
+        base.rooms.push({ roomId: action.payload, supplement: "0" });
+      }
+    },
+
+    setBaseCost: (state, action: PayloadAction<{ day: "weekday" | "weekend"; value: string }>) => {
+      if (action.payload.day === "weekday") {
+        state.baseSupplements.weekdayBaseCost = action.payload.value;
+      } else {
+        state.baseSupplements.weekendBaseCost = action.payload.value;
+      }
+    },
+
+    toggleSupplementRoom: (state, action: PayloadAction<number>) => {
+      const base = state.baseSupplements;
+      if (action.payload === base.baseRoomId) return;
+      const index = base.rooms.findIndex((room) => room.roomId === action.payload);
+      if (index >= 0) {
+        base.rooms.splice(index, 1);
+      } else {
+        base.rooms.push({ roomId: action.payload, supplement: "" });
+      }
+    },
+
+    setRoomSupplement: (state, action: PayloadAction<{ roomId: number; value: string }>) => {
+      const row = state.baseSupplements.rooms.find((room) => room.roomId === action.payload.roomId);
+      if (row && row.roomId !== state.baseSupplements.baseRoomId) {
+        row.supplement = action.payload.value;
+      }
+    },
+
+    addFixedRoom: (
+      state,
+      action: PayloadAction<Pick<FixedPriceRoom, "roomId" | "mealPlan" | "view">>,
+    ) => {
+      if (state.fixedRooms.some((room) => sameFixedOffer(room, action.payload))) {
+        return;
+      }
+      state.fixedRooms.push({ ...action.payload, weekdayPrice: "", weekendPrice: "" });
+    },
+
+    removeFixedRoom: (state, action: PayloadAction<number>) => {
+      state.fixedRooms.splice(action.payload, 1);
+    },
+
+    setFixedPrice: (
+      state,
+      action: PayloadAction<{
+        index: number;
+        day: "weekday" | "weekend";
+        value: string;
+      }>,
+    ) => {
+      const row = state.fixedRooms[action.payload.index];
+      if (!row) return;
+      if (action.payload.day === "weekday") {
+        row.weekdayPrice = action.payload.value;
+      } else {
+        row.weekendPrice = action.payload.value;
+      }
+    },
+  },
+});
+
+export const {
+  resetDraft,
+  updateBasics,
+  setPricingModel,
+  setWeekPricing,
+  setBaseRoom,
+  setBaseCost,
+  toggleSupplementRoom,
+  setRoomSupplement,
+  addFixedRoom,
+  removeFixedRoom,
+  setFixedPrice,
+} = contractDraftSlice.actions;
+
+export default contractDraftSlice.reducer;

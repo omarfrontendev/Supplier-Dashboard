@@ -97,7 +97,7 @@ export function Section({
   return (
     <section
       id={`contract-section-${id}`}
-      className="min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-border-subtle bg-surface-default px-5 py-5"
+      className="min-w-0 scroll-mt-24 rounded-2xl border border-border-subtle bg-surface-default px-5 py-5"
     >
       <header className="mb-4 flex flex-wrap items-start gap-3">
         {/* UI 03.1 — the number says where the section stands. */}

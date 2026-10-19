@@ -127,19 +127,25 @@ export function PickerOverlay({
 /** OV 03.1Q / Q2 / Q3 — the term, the bad end date, and the overlap. */
 export function TermOverlay({
   state = "ok",
+  initialStart,
+  initialEnd,
   onClose,
   onConfirm,
 }: {
   state?: "ok" | "error" | "overlap";
+  initialStart?: string;
+  initialEnd?: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (start: string, end: string) => void;
 }) {
   const { lang } = useLanguage();
   const ar = lang === "ar";
   const p = termPanel;
   /* The dates are the supplier's to set, so they are held, not printed. */
-  const [start, setStart] = useState("2026-09-01");
-  const [end, setEnd] = useState(state === "error" ? "2026-08-15" : "2027-08-31");
+  const [start, setStart] = useState(initialStart || "2026-09-01");
+  const [end, setEnd] = useState(
+    initialEnd || (state === "error" ? "2026-08-15" : "2027-08-31")
+  );
   const bad = state === "error" || end < start;
   const nights =
     Math.round(
@@ -177,7 +183,7 @@ export function TermOverlay({
           <Button variant="outline" onClick={onClose}>
             {ar ? p.cancelAr : p.cancel}
           </Button>
-          <Button disabled={bad} onClick={onConfirm}>
+          <Button disabled={bad} onClick={() => onConfirm(start, end)}>
             {state === "overlap"
               ? ar
                 ? p.confirmOverlapAr
@@ -250,16 +256,20 @@ export function TermOverlay({
 
 /** OV 03.1S — the two nights that carry the weekend price. */
 export function WeekendOverlay({
+  initial,
   onClose,
   onConfirm,
 }: {
+  initial?: string[];
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (days: string[]) => void;
 }) {
   const { lang } = useLanguage();
   const ar = lang === "ar";
   const p = weekendPanel;
-  const [picked, setPicked] = useState<string[]>([...p.selected]);
+  const [picked, setPicked] = useState<string[]>(
+    initial?.length ? initial : [...p.selected]
+  );
 
   return (
     <IconModal
@@ -273,7 +283,9 @@ export function WeekendOverlay({
           <Button variant="outline" onClick={onClose}>
             {ar ? p.cancelAr : p.cancel}
           </Button>
-          <Button onClick={onConfirm}>{ar ? p.confirmAr : p.confirm}</Button>
+          <Button disabled={picked.length === 0} onClick={() => onConfirm(picked)}>
+            {ar ? p.confirmAr : p.confirm}
+          </Button>
         </>
       }
     >

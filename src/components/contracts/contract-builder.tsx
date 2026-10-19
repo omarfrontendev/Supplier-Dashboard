@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useSelector } from "react-redux";
 import {
   Check,
   ChevronRight,
@@ -10,12 +11,24 @@ import {
 } from "lucide-react";
 import { PageShell, StatusPill } from "@/components/layout/page-shell";
 import {
-  PickerOverlay,
   SeasonOverlapOverlay,
-  TermOverlay,
   UnsavedOverlay,
-  WeekendOverlay,
 } from "@/components/contracts/create-overlays";
+import { BasicsFields } from "@/components/contracts/contract-form/basics-fields";
+import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
+import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
+import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
+import {
+  useAppDispatch,
+  useContractDraft,
+} from "@/components/contracts/contract-form/shared";
+import {
+  validateContract,
+  type ContractSectionKey,
+} from "@/components/contracts/contract-form/schema";
+import { readableDay } from "@/components/ui/date-field";
+import { resetDraft } from "@/store/features/contracts/contract-draft.slice";
+import type { RootState } from "@/store";
 import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
 import {
   CancellationDrawer,
@@ -39,10 +52,6 @@ import {
   DeleteRestrictionOverlay,
   RestrictionDrawer,
 } from "@/components/contracts/restriction-overlays";
-import {
-  currencyPanel,
-  hotelPickerPanel,
-} from "@/lib/contract-overlay-data";
 import { ChoiceRow, RoomGroup, Section, Table } from "@/components/contracts/contract-parts";
 import {
   RestrictionDayDialog,
@@ -53,18 +62,15 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
-import { hotels } from "@/lib/demo-data";
 import { usePortal } from "@/lib/portal-store";
 import {
   BASE_WEEKDAY,
-  BASE_WEEKEND,
   MONTHS,
   childBands,
   contractRestrictions,
   contractRooms,
   inventoryCaps,
   perRoomStock,
-  fixedPriceRooms,
   mealPlans,
   rateSeasons,
   roomPrice,
@@ -79,39 +85,6 @@ type Inventory = "shared" | "perRoom" | "free";
  * Ten sections down the page, a sticky rail on the left and a live summary
  * that fills in as the contract takes shape.
  */
-/** UI 03.1F — a room is ticked on sale; the base room is ticked and locked. */
-function RoomTick({
-  on,
-  locked,
-  label,
-  onToggle,
-}: {
-  on: boolean;
-  locked: boolean;
-  label: string;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={on}
-      aria-label={label}
-      disabled={locked}
-      onClick={onToggle}
-      className={cn(
-        "grid size-[22px] place-items-center rounded-md transition-colors",
-        on
-          ? "bg-brand-deep text-primary"
-          : "border-[1.5px] border-border-strong bg-surface-default",
-        locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
-      )}
-    >
-      {on && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-    </button>
-  );
-}
-
 export function ContractBuilder({
   mode = "create",
   contractId,
@@ -127,20 +100,15 @@ export function ContractBuilder({
   const { contracts, addContract } = usePortal();
   const source = contracts.find((x) => x.id === (contractId ?? sourceId));
 
-  const [hotelId, setHotelId] = useState(source?.hotelId ?? "");
-  const [name, setName] = useState(source?.name ?? "");
-  const [term, setTerm] = useState(source?.dates ?? "");
-  const [currency, setCurrency] = useState("");
-  const [weekend, setWeekend] = useState("");
-  const [type, setType] = useState<"block" | "request">("block");
-  const [slaExpiry, setSlaExpiry] = useState<"reject" | "escalate">("reject");
-  const [roomAdded, setRoomAdded] = useState(false);
-  /* OV 03.1P - 03.13 — the panels each field opens. */
-  const [picker, setPicker] = useState<
-    "hotel" | "term" | "termError" | "termOverlap" | "currency" | "weekend" | "unsaved" | "overlap" | null
-  >(null);
-  const [pricing, setPricing] = useState<"supplements" | "fixed">("supplements");
-  const [week, setWeek] = useState<"one" | "split">("split");
+  const dispatch = useAppDispatch();
+  const draft = useContractDraft();
+  const { basics } = draft;
+  const sourceName = source?.name;
+  useEffect(() => {
+    dispatch(resetDraft(sourceName ? { name: sourceName } : undefined));
+  }, [dispatch, sourceName]);
+  const linkedHotels = useSelector((state: RootState) => state.hotels.hotels);
+  const [picker, setPicker] = useState<"unsaved" | "overlap" | null>(null);
   const [inventory, setInventory] = useState<Inventory>("shared");
   const [stock, setStock] = useState("50");
   const [soldOut, setSoldOut] = useState<SoldOut>("overbooking");
@@ -164,10 +132,15 @@ export function ContractBuilder({
   /* OV 03.RS / RSE / RSD — the restriction drawer and its delete. */
   const [ruleDrawer, setRuleDrawer] = useState<"add" | "edit" | "delete" | null>(null);
 
-  const onRequest = type === "request";
-  const fixed = pricing === "fixed";
+  const onRequest = basics.bookingType === "on_request";
+  const fixed = draft.pricingModel === "fixed_price";
+  const f = t.form;
+  const term =
+    basics.startDate && basics.endDate
+      ? `${readableDay(basics.startDate, lang)} – ${readableDay(basics.endDate, lang)}`
+      : "";
   /** Sections 2-6 and 8-10 stay locked until the hotel and term are set. */
-  const basicsDone = Boolean(hotelId && term.trim());
+  const basicsDone = Boolean(basics.hotelId && term);
   const seasonsDone = basicsDone && hasRestrictions !== null && hasPolicies !== null;
 
   /*
@@ -185,6 +158,7 @@ export function ContractBuilder({
           ["seasons", t.sections[6]!],
           ["restrictions", t.sections[7]!],
           ["policies", t.sections[8]!],
+          ["booking", f.bookingTitle],
           ["review", t.sections[9]!],
         ] as const)
       : ([
@@ -197,6 +171,7 @@ export function ContractBuilder({
           ["seasons", t.sections[6]!],
           ["restrictions", t.sections[7]!],
           ["policies", t.sections[8]!],
+          ["booking", f.bookingTitle],
           ["review", t.sections[9]!],
         ] as const)
   ).map(([key, title]) => ({ key, title }));
@@ -206,7 +181,7 @@ export function ContractBuilder({
     key === "basics" ? false : key === "seasons" ? !seasonsDone : !basicsDone;
   const sectionDone = (key: string) =>
     key === "basics"
-      ? basicsDone && Boolean(name.trim())
+      ? basicsDone && Boolean(basics.name.trim())
       : key === "review"
         ? seasonsDone
         : basicsDone;
@@ -217,25 +192,37 @@ export function ContractBuilder({
 
   /* UI 03.1F section 3 — the rooms are a checklist, so what is on sale
      is held here and section 2's base row follows it. */
-  const roomKey = (room: (typeof contractRooms)[number]) =>
-    `${room.type} · ${room.view}`;
-  const [picked, setPicked] = useState<string[]>(() =>
-    contractRooms.filter((room) => room.onSale).map(roomKey)
-  );
-  const onSale = contractRooms.filter((room) => picked.includes(roomKey(room)));
-  const baseRoom = onSale.find((room) => room.base);
+  const onSale = contractRooms.filter((room) => room.onSale);
   const roomTypes = new Set(onSale.map((room) => room.type)).size;
+  const contractRoomCount = fixed
+    ? draft.fixedRooms.length
+    : draft.baseSupplements.rooms.length;
   const seasons = rateSeasons.filter((season) => !season.base);
   const seasonNights = seasons.reduce((sum, season) => sum + season.nights, 0);
 
-  const hotel = hotels.find((h) => h.id === hotelId);
-  const hotelOptions = hotels
-    .filter((h) => h.relation === "linked")
-    .map((h) => ({
-      value: h.id,
-      label: lang === "ar" ? h.nameAr : h.nameEn,
-      hint: `${h.city} · ${h.stars}★`,
-    }));
+  const hotel = linkedHotels.find((item) => item.hotelId === basics.hotelId)?.hotel;
+  const hotelName = hotel
+    ? lang === "ar"
+      ? hotel.nameAr || hotel.nameEn
+      : hotel.nameEn
+    : "";
+
+  function openReview() {
+    const issues = validateContract(draft, f.v);
+    if (issues.length > 0) {
+      notify.error(
+        fill(f.reviewBlocked, { count: issues.length, first: issues[0]!.message })
+      );
+      jumpTo(issues[0]!.section);
+      return;
+    }
+    setReviewOpen(true);
+  }
+  function jumpTo(section: ContractSectionKey) {
+    document
+      .getElementById(`contract-section-${num(section)}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const grouped = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -255,26 +242,22 @@ export function ContractBuilder({
   const priceMeals = mealPlans.filter((meal) => meal.included);
 
   function activate() {
-    if (!basicsDone || !name.trim()) {
-      notify.error(c.contractFlow.required ?? t.reviewActivate);
-      return;
-    }
     setSaving(true);
     void (async () => {
       await wait(650);
       addContract({
         id: contractId ?? `SC-2027-${String(Math.floor(Math.random() * 9000) + 1000)}`,
-        hotelId,
-        name,
-        nameAr: name,
+        hotelId: String(basics.hotelId),
+        name: basics.name,
+        nameAr: basics.name,
         dates: term,
         datesAr: term,
         period: term,
         periodAr: term,
-        model: type === "block" ? "instant" : "onRequest",
-        rooms: onSale.length,
+        model: onRequest ? "onRequest" : "instant",
+        rooms: contractRoomCount,
         state: "active",
-        roomNames: onSale.map((room) => `${room.type} · ${room.view}`),
+        roomNames: [],
         allotment: Number(stock) || 0,
         roomTypes,
         soldOut:
@@ -327,7 +310,7 @@ export function ContractBuilder({
             <Save className="h-4 w-4" aria-hidden="true" />
             {t.saveDraft}
           </Button>
-          <Button loading={saving} onClick={() => setReviewOpen(true)}>
+          <Button loading={saving} onClick={openReview}>
             {t.reviewActivate}
           </Button>
         </div>
@@ -392,19 +375,20 @@ export function ContractBuilder({
             <p className="text-overline text-text-muted">{t.summaryOverline}</p>
             <dl className="mt-3 space-y-2.5 text-sm">
               {[
-                [
-                  t.summaryHotel,
-                  hotel ? (lang === "ar" ? hotel.nameAr : hotel.nameEn) : t.summaryEmpty,
-                ],
+                [t.summaryHotel, hotelName || t.summaryEmpty],
                 [t.summaryTerm, term || t.summaryEmpty],
                 [
                   t.summaryType,
-                  basicsDone ? (type === "block" ? t.typeBlock : t.typeRequest) : t.summaryEmpty,
+                  basicsDone
+                    ? onRequest
+                      ? f.bookingRequest
+                      : f.bookingAllotment
+                    : t.summaryEmpty,
                 ],
                 [
                   t.summaryRooms,
                   basicsDone
-                    ? fill(t.summaryRoomsValue, { count: onSale.length })
+                    ? fill(t.summaryRoomsValue, { count: contractRoomCount })
                     : t.summaryEmpty,
                 ],
                 [
@@ -449,133 +433,7 @@ export function ContractBuilder({
             body={t.basicsBody}
             done={sectionDone("basics")}
           >
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => setPicker("hotel")}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-primary hover:bg-surface-subtle"
-                >
-                  <span className="truncate">
-                    {hotel
-                      ? lang === "ar"
-                        ? hotel.nameAr
-                        : hotel.nameEn
-                      : t.hotelPh}
-                  </span>
-                  <ChevronRight
-                    className="h-4 w-4 shrink-0 text-text-muted rtl:rotate-180"
-                    aria-hidden="true"
-                  />
-                </button>
-                {!hotelId && (
-                  <p className="mt-1.5 text-xs text-text-muted">{t.hotelHint}</p>
-                )}
-              </div>
-              <Input
-                label={t.name}
-                placeholder={t.namePh}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <div>
-                <p className="mb-1.5 text-sm font-medium text-text-primary">
-                  {t.term}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPicker("term")}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-primary hover:bg-surface-subtle"
-                >
-                  <span className="truncate">{term || t.termPh}</span>
-                  <ChevronRight
-                    className="h-4 w-4 shrink-0 text-text-muted rtl:rotate-180"
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-              <div>
-                <p className="mb-1.5 text-sm font-medium text-text-primary">
-                  {t.currency}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPicker("currency")}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-primary hover:bg-surface-subtle"
-                >
-                  <span className="truncate">{currency ? "SAR · Saudi Riyal" : t.selectPh}</span>
-                  <ChevronRight
-                    className="h-4 w-4 shrink-0 text-text-muted rtl:rotate-180"
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-              <div>
-                <p className="mb-1.5 text-sm font-medium text-text-primary">
-                  {t.weekend}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPicker("weekend")}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-primary hover:bg-surface-subtle"
-                >
-                  <span className="truncate">{weekend ? "Thu · Fri" : t.selectPh}</span>
-                  <ChevronRight
-                    className="h-4 w-4 shrink-0 text-text-muted rtl:rotate-180"
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-            </div>
-            <p className="mt-4 text-sm font-medium text-text-primary">{t.type}</p>
-            <ChoiceRow
-              value={type}
-              onChange={(next) => setType(next as typeof type)}
-              options={[
-                { value: "block", label: t.typeBlock },
-                { value: "request", label: t.typeRequest },
-              ]}
-            />
-            <p className="mt-2 text-xs leading-relaxed text-text-muted">
-              {onRequest ? t.requestTypeHint : t.typeHint}
-            </p>
-
-            {/* UI 03.1B / 03.1B2 — On Request replaces stock with a clock. */}
-            {onRequest && (
-              <div className="mt-4 rounded-xl border border-border-subtle bg-surface-subtle p-4">
-                <p className="text-sm font-medium text-text-primary">
-                  {t.slaBlockTitle}
-                </p>
-                <div className="mt-3 max-w-xs">
-                  <Input label={t.slaLabel} value={t.slaValue} readOnly />
-                </div>
-                <p className="mt-1.5 text-xs text-text-muted">
-                  {t.slaCountdown}
-                </p>
-                <p className="mt-4 text-sm font-medium text-text-primary">
-                  {t.slaExpires}
-                </p>
-                <ChoiceRow
-                  value={slaExpiry}
-                  onChange={(next) => setSlaExpiry(next as typeof slaExpiry)}
-                  options={[
-                    { value: "reject", label: t.slaReject },
-                    { value: "escalate", label: t.slaEscalate },
-                  ]}
-                />
-                <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                  {slaExpiry === "escalate" ? t.slaEscalateNote : t.slaRejectNote}
-                </p>
-              </div>
-            )}
-            {!hotelId && (
-              <Link
-                to="/hotels"
-                className="mt-4 inline-block text-xs font-medium text-text-link hover:underline"
-              >
-                {t.hotelMissing}
-              </Link>
-            )}
+            <BasicsFields />
             {!basicsDone && (
               <div className="mt-4 flex gap-2 rounded-xl border border-border-subtle bg-surface-subtle p-3.5">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
@@ -600,52 +458,7 @@ export function ContractBuilder({
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <p className="text-sm font-medium text-text-primary">
-              {t.pricingModel}
-            </p>
-            <ChoiceRow
-              value={pricing}
-              onChange={(next) => setPricing(next as typeof pricing)}
-              options={[
-                { value: "supplements", label: t.modelSupplements },
-                { value: "fixed", label: t.modelFixed },
-              ]}
-            />
-            <p className="mt-2 text-xs leading-relaxed text-text-muted">
-              {t.modelHint}
-            </p>
-            {/* Flow 12 · Row D — one line, and no VAT choice anywhere. */}
-            <p className="mt-3 text-[13px] font-medium text-brand-deep">
-              {t.vatIncluded}
-            </p>
-            {!fixed && (
-              <Table
-                head={[
-                  t.colRoom,
-                  t.colMeal,
-                  t.colView,
-                  t.colWeekday,
-                  t.colWeekend,
-                ]}
-                rows={[
-                  [
-                    baseRoom
-                      ? lang === "ar"
-                        ? baseRoom.typeAr
-                        : baseRoom.type
-                      : "-",
-                    "Room Only",
-                    baseRoom
-                      ? lang === "ar"
-                        ? baseRoom.viewAr
-                        : baseRoom.view.replace(/ View$/, "")
-                      : "-",
-                    `${BASE_WEEKDAY} SAR`,
-                    `${BASE_WEEKEND} SAR`,
-                  ],
-                ]}
-              />
-            )}
+            <PricingFields />
           </Section>
 
           {/* 3 — Rooms */}
@@ -661,113 +474,8 @@ export function ContractBuilder({
             }
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
-            right={
-              <div className="flex flex-wrap gap-2">
-                {fixed && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setRoomAdded(true)}
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    {t.addRoom}
-                  </Button>
-                )}
-                <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  {t.requestRoom}
-                </Button>
-              </div>
-            }
           >
-            <p className="text-sm font-medium text-text-primary">{t.weekTitle}</p>
-            <ChoiceRow
-              value={week}
-              onChange={(next) => setWeek(next as typeof week)}
-              options={[
-                { value: "one", label: t.weekOne },
-                { value: "split", label: t.weekSplit },
-              ]}
-            />
-            <p className="mt-2 text-xs leading-relaxed text-text-muted">
-              {week === "one" ? t.weekOneHint : t.weekHint}
-            </p>
-            {/* UI 03.1O — a fixed-price contract lists whole prices instead. */}
-            {fixed ? (
-              <Table
-                head={[
-                  "",
-                  t.colRoom,
-                  t.colMealView,
-                  t.colWeekdayTotal,
-                  t.colWeekendTotal,
-                ]}
-                rows={fixedPriceRooms
-                  .filter((room) => roomAdded || !room.added)
-                  .map((room) => [
-                  "✓",
-                  lang === "ar" ? room.roomAr : room.room,
-                  `${lang === "ar" ? room.mealAr : room.meal}${room.added ? `  ·  ${t.justAdded}` : ""}`,
-                  lang === "ar" ? room.weekdayAr : room.weekday,
-                  lang === "ar" ? room.weekendAr : room.weekend,
-                  ])}
-              />
-            ) : (
-              <Table
-                head={
-                  week === "one"
-                    ? ["", t.colRoom, t.colPricePerNight]
-                    : ["", t.colRoom, t.colSupplement, t.colSells]
-                }
-                muted={contractRooms
-                  .map((room, index) => (room.base ? index : -1))
-                  .filter((index) => index >= 0)}
-                rows={contractRooms.map((room) => {
-                  const name = `${lang === "ar" ? room.typeAr : room.type} · ${lang === "ar" ? room.viewAr : room.view}`;
-                  const on = picked.includes(roomKey(room));
-                  const box = (
-                    <RoomTick
-                      on={on}
-                      locked={Boolean(room.base)}
-                      label={name}
-                      onToggle={() =>
-                        setPicked((prev) =>
-                          prev.includes(roomKey(room))
-                            ? prev.filter((key) => key !== roomKey(room))
-                            : [...prev, roomKey(room)]
-                        )
-                      }
-                    />
-                  );
-                  if (week === "one") {
-                    return [
-                      box,
-                      name,
-                      !on
-                        ? "-"
-                        : room.base
-                          ? fill(t.baseRoomOne, { price: BASE_WEEKDAY })
-                          : fill(t.supplementOne, {
-                              add: room.supplement,
-                              total: BASE_WEEKDAY + room.supplement,
-                            }),
-                    ];
-                  }
-                  return [
-                    box,
-                    name,
-                    !on
-                      ? "-"
-                      : room.base
-                        ? t.baseRoom
-                        : `+ ${room.supplement} SAR`,
-                    !on
-                      ? "-"
-                      : `${BASE_WEEKDAY + room.supplement} / ${BASE_WEEKEND + room.supplement} SAR`,
-                  ];
-                })}
-              />
-            )}
+            <RoomsFields />
           </Section>
 
           {!fixed && (
@@ -1409,6 +1117,16 @@ export function ContractBuilder({
             )}
           </Section>
 
+          <Section
+            id={num("booking")}
+            title={f.bookingTitle}
+            body={f.bookingBody}
+            locked={!basicsDone}
+            tone={basicsDone ? "done" : "locked"}
+          >
+            <BookingFields />
+          </Section>
+
           {/* 10 — Review & activate */}
           <Section
             id={num("review")}
@@ -1431,7 +1149,7 @@ export function ContractBuilder({
               <Button
                 variant={seasonsDone ? "default" : "outline"}
                 loading={saving}
-                onClick={() => setReviewOpen(true)}
+                onClick={openReview}
               >
                 {t.reviewActivate}
               </Button>
@@ -1498,55 +1216,6 @@ export function ContractBuilder({
         />
       )}
 
-      {picker === "hotel" && (
-        <PickerOverlay
-          panel={hotelPickerPanel}
-          icon="hotel"
-          onClose={() => setPicker(null)}
-          onConfirm={(index) => {
-            setHotelId(hotelOptions[index]?.value ?? hotelOptions[0]?.value ?? "");
-            setPicker(null);
-          }}
-        />
-      )}
-      {picker === "currency" && (
-        <PickerOverlay
-          panel={currencyPanel}
-          icon="currency"
-          onClose={() => setPicker(null)}
-          onConfirm={() => {
-            setCurrency("SAR");
-            setPicker(null);
-          }}
-        />
-      )}
-      {(picker === "term" ||
-        picker === "termError" ||
-        picker === "termOverlap") && (
-        <TermOverlay
-          state={
-            picker === "termError"
-              ? "error"
-              : picker === "termOverlap"
-                ? "overlap"
-                : "ok"
-          }
-          onClose={() => setPicker(null)}
-          onConfirm={() => {
-            setTerm("01 Sep 2026 - 31 Aug 2027");
-            setPicker(null);
-          }}
-        />
-      )}
-      {picker === "weekend" && (
-        <WeekendOverlay
-          onClose={() => setPicker(null)}
-          onConfirm={() => {
-            setWeekend("thu-fri");
-            setPicker(null);
-          }}
-        />
-      )}
       {picker === "unsaved" && (
         <UnsavedOverlay
           onClose={() => setPicker(null)}
