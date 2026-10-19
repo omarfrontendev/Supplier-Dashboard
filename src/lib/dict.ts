@@ -10,6 +10,8 @@ const en = {
     emptyDescription: "You're all caught up! New notifications will appear here.",
   },
   common: {
+    invalidTime: "Please enter a valid time.",
+    checkOutMustBeAfterCheckIn: "Check-out time must be after check-in time.",
     deleteTitle: "Delete Role",
     deleteDescription: "Are you sure you want to delete this role? This action cannot be undone.",
     super_admin: "Super Admin",
@@ -853,6 +855,8 @@ const ar: typeof en = {
     emptyDescription: "أنت على اطلاع بكل جديد! ستظهر الإشعارات الجديدة هنا.",
   },
   common: {
+    invalidTime: "يرجى إدخال وقت صحيح.",
+    checkOutMustBeAfterCheckIn: "يجب أن يكون وقت تسجيل المغادرة بعد وقت تسجيل الوصول.",
     delete: "حذف",
     super_admin: "مدير النظام الأعلى",
     admin: "مدير",

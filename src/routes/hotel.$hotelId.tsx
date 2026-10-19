@@ -300,16 +300,12 @@ function HotelProfilePage() {
                     label={p.tourismLicence}
                     value={`${licence.number} · ${ar ? licence.issuerAr : licence.issuer}`}
                   />
-                )}
-                {licence && (
-                  <Row label={p.licenceExpiry} value={ar ? licence.expiryAr : licence.expiry} />
                 )} */}
+                {/* {licence && ( */}
+                <Row label={c.addHotel.policies} value={ar ? hotel?.hotel?.policies?.ar : hotel?.hotel?.policies?.ar} />
+                {/* )} */}
                 <Row label={p.descEn} value={hotel?.hotel?.descriptionEn} />
                 <Row label={p.descAr} value={hotel?.hotel?.descriptionAr} dirAuto />
-                {/* <Row
-                  label={p.distance}
-                  value={ar ? hotel?.hotel?.distanceAr : hotel?.hotel?.distance}
-                /> */}
               </div>
             </div>
           </section>

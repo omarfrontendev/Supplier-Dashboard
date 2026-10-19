@@ -314,6 +314,12 @@ function AddHotelPage() {
     }
   });
 
+  const checkInTime = hookForm.watch("checkInTime");
+
+  useEffect(() => {
+    void hookForm.trigger("checkOutTime");
+  }, [checkInTime, hookForm.trigger]);
+
   return (
     <PageShell>
       <BackLink
@@ -436,6 +442,20 @@ function AddHotelPage() {
                 placeholder={a.nameArPh}
                 {...hookForm.register("nameAr")}
                 error={hookForm.formState.errors?.["nameAr"]?.message ?? ""}
+              />
+
+              <Input
+                label={a.checkInTime}
+                type="time"
+                {...hookForm.register("checkInTime")}
+                error={hookForm.formState.errors.checkInTime?.message ?? ""}
+              />
+
+              <Input
+                label={a.checkOutTime}
+                type="time"
+                {...hookForm.register("checkOutTime")}
+                error={hookForm.formState.errors.checkOutTime?.message ?? ""}
               />
 
               <Controller
