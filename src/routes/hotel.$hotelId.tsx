@@ -35,6 +35,7 @@ import { Select } from "@/components/ui/select";
 import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
 import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
 import { badgeTone } from "@/components/hotels/hotel-card";
+import { formatTime } from "@/lib/format-time";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -295,17 +296,20 @@ function HotelProfilePage() {
                   label={p.starRating}
                   value={fill(p.starsValue, { stars: hotel?.hotel?.starRating })}
                 />
-                {/* {licence && (
-                  <Row
-                    label={p.tourismLicence}
-                    value={`${licence.number} · ${ar ? licence.issuerAr : licence.issuer}`}
-                  />
-                )} */}
-                {/* {licence && ( */}
-                <Row label={c.addHotel.policies} value={ar ? hotel?.hotel?.policies?.ar : hotel?.hotel?.policies?.ar} />
-                {/* )} */}
+                <Row
+                  label={c.addHotel.policies}
+                  value={ar ? hotel?.hotel?.policies?.ar : hotel?.hotel?.policies?.ar}
+                />
                 <Row label={p.descEn} value={hotel?.hotel?.descriptionEn} />
                 <Row label={p.descAr} value={hotel?.hotel?.descriptionAr} dirAuto />
+                <Row
+                  label={c.addHotel.checkInTime}
+                  value={formatTime(hotel?.hotel?.checkInTime, lang)}
+                />
+                <Row
+                  label={c.addHotel.checkOutTime}
+                  value={formatTime(hotel?.hotel?.checkOutTime, lang)}
+                />
               </div>
             </div>
           </section>
