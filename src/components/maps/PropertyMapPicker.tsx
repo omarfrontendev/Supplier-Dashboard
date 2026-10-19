@@ -14,6 +14,8 @@ import { Input } from "../ui/input";
 interface PropertyMapPickerProps {
   latitude: number | null;
   longitude: number | null;
+  countryCode?: string | null;
+  city?: string | null;
   onLocationChange: (latitude: number, longitude: number) => void;
 }
 
@@ -21,6 +23,7 @@ interface SearchResult {
   display_name: string;
   lat: string;
   lon: string;
+  boundingbox?: [string, string, string, string];
 }
 
 const DEFAULT_POSITION: [number, number] = [24.7136, 46.6753];
@@ -29,21 +32,24 @@ const markerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl:
     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  shadowUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 });
 
 function MapUpdater({
   position,
+  zoom,
 }: {
   position: [number, number];
+  zoom: number;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    map.setView(position, 14);
-  }, [map, position]);
+    map.setView(position, zoom);
+  }, [map, position, zoom]);
 
   return null;
 }
@@ -65,6 +71,8 @@ function MapClickHandler({
 export default function PropertyMapPicker({
   latitude,
   longitude,
+  countryCode,
+  city,
   onLocationChange,
 }: PropertyMapPickerProps) {
   const [search, setSearch] = useState("");
@@ -72,11 +80,94 @@ export default function PropertyMapPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  const hasLocation = latitude !== null && longitude !== null;
+  const hasLocation = latitude != null && longitude != null;
 
+  const [mapPosition, setMapPosition] =
+    useState<[number, number]>(DEFAULT_POSITION);
+
+  // Keep the map center separate from the hotel's saved coordinates.
   const position: [number, number] = hasLocation
     ? [latitude, longitude]
-    : DEFAULT_POSITION;
+    : mapPosition;
+
+  // Center the map when the selected city or country changes.
+  useEffect(() => {
+    const normalizedCity = city?.trim();
+    const normalizedCountryCode = countryCode?.trim().toLowerCase();
+
+    if (!normalizedCity && !normalizedCountryCode) {
+      if (!hasLocation) {
+        setMapPosition(DEFAULT_POSITION);
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const centerMap = async () => {
+      try {
+        const params = new URLSearchParams({
+          format: "jsonv2",
+          limit: "1",
+          addressdetails: "1",
+        });
+
+        if (normalizedCity) {
+          params.set(
+            "q",
+            [normalizedCity, countryCode?.trim()]
+              .filter(Boolean)
+              .join(", "),
+          );
+        } else {
+          params.set("countrycodes", normalizedCountryCode!);
+        }
+
+        if (normalizedCountryCode) {
+          params.set("countrycodes", normalizedCountryCode);
+        }
+
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error("Unable to locate the selected city or country.");
+        }
+
+        const data: SearchResult[] = await response.json();
+
+        if (!data.length) {
+          console.warn("No location found for:", {
+            city: normalizedCity,
+            countryCode: normalizedCountryCode,
+          });
+          return;
+        }
+
+        const result = data[0];
+        const lat = Number(result.lat);
+        const lng = Number(result.lon);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return;
+        }
+
+        setMapPosition([lat, lng]);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+
+        console.error("Failed to center map:", error);
+      }
+    };
+
+    void centerMap();
+
+    return () => controller.abort();
+  }, [city, countryCode, hasLocation]);
 
   const searchPlaces = async () => {
     const query = search.trim();
@@ -92,7 +183,12 @@ export default function PropertyMapPicker({
         q: query,
         format: "jsonv2",
         limit: "5",
+        addressdetails: "1",
       });
+
+      if (countryCode?.trim()) {
+        params.set("countrycodes", countryCode.trim().toLowerCase());
+      }
 
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?${params.toString()}`,
@@ -120,9 +216,18 @@ export default function PropertyMapPicker({
     const lat = Number(result.lat);
     const lng = Number(result.lon);
 
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    setMapPosition([lat, lng]);
     onLocationChange(lat, lng);
     setSearch(result.display_name);
     setResults([]);
+    setSearchError("");
+  };
+
+  const handleLocationChange = (lat: number, lng: number) => {
+    setMapPosition([lat, lng]);
+    onLocationChange(lat, lng);
   };
 
   return (
@@ -146,7 +251,6 @@ export default function PropertyMapPicker({
           type="button"
           onClick={() => void searchPlaces()}
           disabled={isSearching || !search.trim()}
-        //   className="rounded-lg bg-primary px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSearching ? "Searching..." : "Search"}
         </Button>
@@ -175,7 +279,7 @@ export default function PropertyMapPicker({
       <div className="h-80 overflow-hidden rounded-xl border border-border-default">
         <MapContainer
           center={position}
-          zoom={hasLocation ? 14 : 5}
+          zoom={hasLocation ? 14 : city ? 12 : 5}
           scrollWheelZoom
           className="h-full w-full"
         >
@@ -184,13 +288,16 @@ export default function PropertyMapPicker({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <MapUpdater position={position} />
+          <MapUpdater
+            position={position}
+            zoom={hasLocation ? 14 : city ? 12 : 5}
+          />
 
-          <MapClickHandler onLocationChange={onLocationChange} />
+          <MapClickHandler onLocationChange={handleLocationChange} />
 
           {hasLocation && (
             <Marker
-              position={position}
+              position={[latitude, longitude]}
               icon={markerIcon}
               draggable
               eventHandlers={{
@@ -198,7 +305,7 @@ export default function PropertyMapPicker({
                   const marker = event.target as L.Marker;
                   const point = marker.getLatLng();
 
-                  onLocationChange(point.lat, point.lng);
+                  handleLocationChange(point.lat, point.lng);
                 },
               }}
             />

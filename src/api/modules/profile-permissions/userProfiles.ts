@@ -21,29 +21,46 @@ type ApiErrorResponse = {
   };
 };
 
-const fetchProfiles = async (): Promise<PermissionProfilesData> => {
+type ProfilesParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+};
+
+const fetchProfiles = async ({
+  page = 1,
+  limit = 10,
+  search = "",
+}: ProfilesParams = {}): Promise<PermissionProfilesData> => {
   const response = await api.get<ApiResponse<PermissionProfilesData>>(
     endpoints.profiles.getProfiles,
+    {
+      params: {
+        page,
+        limit,
+        search: search || undefined,
+      },
+    },
   );
 
   return response.data.data;
 };
 
-export const useProfiles = () => {
+export const useProfiles = ({ page = 1, limit = 10, search = "" }: ProfilesParams = {}) => {
   const { data, error, isFetching, isError, refetch } = useQuery<
     PermissionProfilesData,
     AxiosError<ApiErrorResponse>
   >({
-    queryKey: ["profiles"],
-    queryFn: fetchProfiles,
+    queryKey: ["profiles", page, limit, search],
+    queryFn: () => fetchProfiles({ page, limit, search }),
   });
 
   const profiles =
     data?.profiles.map((profile) => ({
       ...profile,
-      kind: "custom",
+      kind: "custom" as const,
     })) ?? [];
-    
+
   return {
     profiles,
     meta: data?.meta,

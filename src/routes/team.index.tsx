@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CircleAlert, RefreshCw, UserPlus, UsersRound } from "lucide-react";
+import { BookOpen, CircleAlert, RefreshCw, Search, UserPlus, UsersRound } from "lucide-react";
 import { PageShell, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,8 @@ import { TableSkeleton } from "@/components/ui/skeletons";
 import { useMetrics } from "@/api/modules/team/userMetrics";
 import { DeleteDialog } from "@/components/ui/DeleteDialog";
 import { useDeletePermissionProfile } from "@/api/modules/profile-permissions/useDeletepermission";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
+import { useDebounce } from "./my-hotels";
 
 export const Route = createFileRoute("/team/")({
   validateSearch: (
@@ -67,43 +69,41 @@ function TeamPage() {
   const asAdmin = as === "admin";
 
   const dispatch = useDispatch<any>();
-  const { team, loading, error } = useSelector((state: any) => state.team);
-
-  // const people = useMemo(
-  //   () =>
-  //     asAdmin
-  //       ? teamMembers.map((m) =>
-  //           m.id === "USR-008"
-  //             ? {
-  //                 ...m,
-  //                 status: "active" as const,
-  //                 roleLabel: undefined,
-  //                 lastSeen: "you · now",
-  //                 lastSeenAr: "أنت · الآن",
-  //                 isCurrent: true,
-  //                 inviteExpired: true,
-  //                 reach: [t.adminReach],
-  //                 reachAr: [t.adminReach],
-  //               }
-  //             : m.id === "USR-001"
-  //               ? { ...m, isCurrent: false, lastSeen: "today 09:40", lastSeenAr: "اليوم ٠٩:٤٠" }
-  //               : m,
-  //         )
-  //       : teamMembers,
-  //   [asAdmin, teamMembers, t.adminReach],
-  // );
-
+  const { team, loading, error, meta } = useSelector((state: any) => state.team);
   const [filter, setFilter] = useState<"all" | TeamStatus>("all");
   const [invite, setInvite] = useState(false);
   const [selected, setSelected] = useState<TeamMember | null>(null);
   const [permissions, setPermissions] = useState(false);
   const [transfer, setTransfer] = useState(false);
-  const { profiles: roles, isLoading, refetch } = useProfiles();
+  const [page, setPage] = useState(1);
+  const totalPages = meta?.totalPages ?? 1;
+  const PAGE_SIZE = 10;
+
+  const [searchRole, setSearchRole] = useState("");
+  const debouncedSearchRole = useDebounce(searchRole, 500);
+  const [rolepage, setRolePage] = useState(1);
+
+  const {
+    profiles: roles,
+    isLoading,
+    refetch,
+    meta: rolesMeta,
+  } = useProfiles({
+    page: rolepage,
+    limit: PAGE_SIZE,
+    search: debouncedSearchRole.trim(),
+  });
+
+  const totalRolesPages = rolesMeta?.totalPages ?? 1;
+
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
 
   // active => isActive && isActivated true
   const teamParams = {
-    page: 1, // API expects 1-based page
-    limit: 100,
+    page, // API expects 1-based page
+    limit: PAGE_SIZE,
+    search: debouncedSearch.trim(),
     isActive:
       filter === "active"
         ? true
@@ -117,7 +117,15 @@ function TeamPage() {
 
   useEffect(() => {
     void dispatch(fetchTeam(teamParams));
-  }, [dispatch, filter]);
+  }, [dispatch, page, filter, debouncedSearch]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, debouncedSearch]);
+
+  useEffect(() => {
+    setRolePage(1);
+  }, [debouncedSearchRole]);
 
   const { data: metrics } = useMetrics();
 
@@ -209,14 +217,8 @@ function TeamPage() {
           <h1 className="mt-1 text-2xl font-semibold text-text-primary sm:text-[28px]">
             {t.title}
           </h1>
-          {/* <p className="mt-2 max-w-[840px] text-xs leading-5 text-text-secondary">
-            {onRoles ? t.rolesSubtitle : asAdmin ? t.adminSubtitle : t.subtitle}
-          </p> */}
         </div>
         <div className="flex flex-wrap gap-2">
-          {/* <Link to="/team/activity">
-            <Button variant="outline">{t.activity}</Button>
-          </Link> */}
           {onRoles ? (
             <Gated permission="users.change_role">
               <Button variant="dark" onClick={() => setRole({ mode: "create" })}>
@@ -253,10 +255,16 @@ function TeamPage() {
         <RolesTab
           lang={lang}
           t={t}
+          page={rolepage}
+          search={searchRole}
+          setPage={setRolePage}
+          totalPages={totalRolesPages}
+          setSearch={setSearchRole}
           created={state === "created"}
           onEdit={(r) => setRole({ mode: "edit", row: r })}
           onDuplicate={(r) => setRole({ mode: "create", row: r, copyFrom: r.name })}
           roles={roles}
+          meta={rolesMeta}
           isLoading={isLoading}
           refetch={refetch}
         />
@@ -301,8 +309,36 @@ function TeamPage() {
             </div>
             <p className="ms-auto text-xs text-text-muted">{t.outside}</p>
           </div>
+          <div className="mb-4">
+            <label
+              htmlFor="team-search"
+              className="mb-2 block text-sm font-medium text-text-primary"
+            >
+              {lang === "ar" ? "البحث عن عضو" : "Search team members"}
+            </label>
+
+            <div className="relative w-full max-w-md">
+              <Search
+                aria-hidden="true"
+                className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+              />
+
+              <input
+                id="team-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={
+                  lang === "ar"
+                    ? "ابحث بالاسم أو البريد الإلكتروني..."
+                    : "Search by name or email..."
+                }
+                className="h-10 w-full rounded-lg border border-border-subtle bg-surface-default ps-10 pe-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted"
+              />
+            </div>
+          </div>
           <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
-            <div className="overflow-x-auto lg:block">
+            <div className="overflow-x-auto">
               <div className="min-w-[1180px]">
                 <div className="grid grid-cols-[258px_158px_1fr_138px_118px_170px] gap-3 bg-surface-subtle px-4 py-3 text-overline text-text-muted">
                   <span>{t.person}</span>
@@ -312,6 +348,7 @@ function TeamPage() {
                   <span>{t.phoneNumber}</span>
                   <span />
                 </div>
+
                 {loading ? (
                   <div className="p-4">
                     <TableSkeleton cols={1} />
@@ -328,7 +365,9 @@ function TeamPage() {
 
                     <button
                       type="button"
-                      onClick={() => dispatch(fetchTeam(teamParams))}
+                      onClick={() => {
+                        void dispatch(fetchTeam(teamParams));
+                      }}
                       className="mt-4 inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
                     >
                       <RefreshCw className="mr-2 h-4 w-4" />
@@ -360,6 +399,17 @@ function TeamPage() {
                 )}
               </div>
             </div>
+
+            {!loading && !error && totalPages > 1 && (
+              <ReusablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                isLoading={loading}
+                lang={lang}
+                showBorder
+              />
+            )}
           </section>
           <section className="mt-5 rounded-lg border border-border-subtle bg-surface-default p-5">
             <h2 className="text-base font-semibold text-text-primary">{t.roleMatrix}</h2>
@@ -387,18 +437,6 @@ function TeamPage() {
                 </div>
               ))}
             </div>
-            {/* <div className="mt-4 flex flex-col gap-3 rounded-lg bg-surface-subtle p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <b className="text-sm text-text-primary">{t.areasTitle}</b>
-                <p className="mt-1 max-w-[620px] text-xs leading-5 text-text-secondary">
-                  {t.areasBody}
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => setPermissions(true)}>
-                <BookOpen className="h-4 w-4" />
-                {t.permissionReference}
-              </Button>
-            </div> */}
           </section>
           <p className="mt-4 rounded-lg bg-surface-subtle p-4 text-xs leading-5 text-text-secondary">
             {t.footer}
@@ -560,6 +598,12 @@ export const formatDate = (date: string, lang: "en" | "ar") => {
 };
 
 function RolesTab({
+  page,
+  search,
+  setPage,
+  totalPages,
+  setSearch,
+  meta,
   roles,
   lang,
   t,
@@ -569,13 +613,20 @@ function RolesTab({
   isLoading,
   refetch,
 }: {
+  page: number;
+  PAGE_SIZE: number;
+  search: string;
+  totalPages: any;
   roles: PermissionProfile | undefined;
   lang: "en" | "ar";
   t: any;
+  meta: any;
   created: boolean;
   onEdit: (r: RoleRow) => void;
   onDuplicate: (r: RoleRow) => void;
   refetch: () => void;
+  setPage: () => void;
+  setSearch: () => void;
   isLoading: boolean;
 }) {
   const [selectedRole, setSelectedRole] = useState<number | null>(null);
@@ -604,7 +655,6 @@ function RolesTab({
     if (!selectedRole) return;
 
     handleDeleteProfile(selectedRole);
-    // setSelectedRole(null);
   };
 
   return (
@@ -619,9 +669,27 @@ function RolesTab({
           })}
         </div>
       )}
-      {/* {isLoading ? (
-        <TableSkeleton />
-      ) : ( */}
+      <div className="mb-4">
+        <label htmlFor="roles-search" className="mb-2 block text-sm font-medium text-text-primary">
+          {lang === "ar" ? "البحث عن دور" : "Search roles"}
+        </label>
+
+        <div className="relative w-full max-w-md">
+          <Search
+            aria-hidden="true"
+            className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+          />
+
+          <input
+            id="roles-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={lang === "ar" ? "ابحث عن دور..." : "Search roles..."}
+            className="h-10 w-full rounded-lg border border-border-subtle bg-surface-default ps-10 pe-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted"
+          />
+        </div>
+      </div>
       <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-default">
         <div className="hidden overflow-x-auto lg:block">
           <div className="min-w-[980px]">
@@ -653,7 +721,6 @@ function RolesTab({
                   <span>{fill(t.manyPeople, { count: r.totalAssignedUsers })}</span>
                   <span className="text-text-secondary line-clamp-2">
                     {r?.permissions
-                      // ?.slice(0, 2)
                       .map((item) => item?.[`name${lang === "en" ? "En" : "Ar"}`])
                       .join(", ") || "noRolesSelected"}
                   </span>
@@ -665,7 +732,6 @@ function RolesTab({
                     <Button size="sm" variant="outline" onClick={() => onDuplicate(r)}>
                       {t.duplicate}
                     </Button>
-                    {/* {r.totalAssignedUsers > 0 && ( */}
                     <Button
                       disabled={r.totalAssignedUsers}
                       size="sm"
@@ -674,14 +740,8 @@ function RolesTab({
                     >
                       {t.remove}
                     </Button>
-                    {/* )} */}
                   </div>
                   <DeleteDialog
-                    // title="Delete Role"
-                    // description={`Are you sure you want to delete "${"TEST"}"?`}
-                    // onClose={() => setSelectedRole(null)}
-                    // onConfirm={handleDelete}
-                    // open={!!selectedRole}
                     open={selectedRole === r.id}
                     title={c.common.deleteTitle}
                     description={c.common.deleteDescription}
@@ -704,6 +764,16 @@ function RolesTab({
                 </p>
               </div>
             )}
+            {!isLoading && totalPages > 1 && (
+              <ReusablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                isLoading={isLoading}
+                lang={lang}
+                showBorder
+              />
+            )}
           </div>
         </div>
         <div className="grid gap-3 p-3 lg:hidden">
@@ -717,7 +787,6 @@ function RolesTab({
               </div>
               <span className="mt-2 text-xs text-text-muted line-clamp-2">
                 {r?.permissions
-                  // ?.slice(0, 2)
                   .map((item) => item?.[`name${lang === "en" ? "En" : "Ar"}`])
                   .join(", ") || "noRolesSelected"}
               </span>
@@ -726,10 +795,20 @@ function RolesTab({
               </p>
             </article>
           ))}
+          {!isLoading && totalPages > 1 && (
+            <ReusablePagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              isLoading={isLoading}
+              lang={lang}
+              showBorder
+            />
+          )}
         </div>
         <div className="border-t border-border-subtle px-4 py-4 text-xs text-text-muted">
           {fill(t.rolesFooter, {
-            total: roles.length,
+            total: meta?.total ?? roles.length,
             builtIn: 0,
             custom: roles.length,
             people: 0,

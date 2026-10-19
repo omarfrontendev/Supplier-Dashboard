@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { PageHeader, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Drawer } from "@/components/layout/overlay";
@@ -23,6 +23,16 @@ import { useMetrics } from "@/api/modules/team/userMetrics";
 import { useRequests } from "@/api/modules/requests/useRequests";
 import { formatDate } from "./team.index";
 import { Select } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
 
 export const Route = createFileRoute("/requests")({
   head: () => ({
@@ -120,12 +130,29 @@ function RequestsPage() {
     ] as Array<{ key: SupplierRequestKind | "all"; label: string; count: number }>
   ).filter((tab) => tab.key === "all" || tab.count >= 0);
 
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+
   const { requests, meta, isLoading } = useRequests({
     type: filter,
-    page: 1,
-    limit: 100,
+    page,
+    limit: PAGE_SIZE,
     status: status === "all" ? null : status,
   });
+
+  const totalPages = meta?.totalPages ?? 1;
+
+  const getVisiblePages = () => {
+    const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+
+    return [...pages].filter((item) => item >= 1 && item <= totalPages).sort((a, b) => a - b);
+  };
+
+  const visiblePages = getVisiblePages();
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, status]);
 
   const open = requests.find((item) => +item.id === Number(openId)) ?? null;
   const shape = open ? detailFor("access", open.status) : null;
@@ -218,7 +245,7 @@ function RequestsPage() {
               setStatus("pending");
             }}
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition-colors",
+              "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer",
               filter === tab.key
                 ? "bg-surface-inverse font-semibold text-text-inverse"
                 : "font-medium text-text-secondary hover:text-text-primary",
@@ -261,55 +288,24 @@ function RequestsPage() {
           </div>
         </>
       )}
-
-      {/* <SectionCard className="mb-6">
-          <div className="w-100">
-            <Select
-              label={lang === "ar" ? "الحالة" : "Status"}
-              value={status}
-              onChange={setStatus}
-              options={[
-                { value: "all", label: c.library.allStatuses },
-                ...(["pending", "rejected", "info_requested"] as const).map((key) => ({
-                  value: key,
-                  label:
-                    lang === "ar"
-                      ? {
-                          pending: "قيد الانتظار",
-                          rejected: "مرفوض",
-                          info_requested: "مطلوب معلومات إضافية",
-                        }[key]
-                      : {
-                          pending: "Pending",
-                          rejected: "Rejected",
-                          info_requested: "Information Requested",
-                        }[key],
-                })),
-              ]}
-            />
-          </div>
-        </SectionCard> */}
-
       <SectionCard>
-        <div className="overflow-x-auto min-h-[320px]">
+        {/* Responsive table */}
+        <div className="w-full overflow-x-auto">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <colgroup>
               <col className="w-[120px]" />
-
-              {filter !== "room" && <col className="w-[220px]" />}
-
               <col className="w-[150px]" />
               <col className="w-[190px]" />
-              <col className="w-[150px]" />
+              <col className="w-[220px]" />
+              <col className="w-[190px]" />
               <col className="w-[100px]" />
             </colgroup>
+
             <thead>
               <tr className="text-overline text-text-muted">
                 <th className="py-2 text-start font-semibold">{r.colRequest}</th>
 
-                {/* {filter !== "room" && ( */}
                 <th className="py-2 text-start font-semibold">{r.colWhat}</th>
-                {/* )} */}
 
                 <th className="py-2 text-start font-semibold">{r.colSent}</th>
 
@@ -322,8 +318,10 @@ function RequestsPage() {
                     placeholder={lang === "ar" ? "الحالة" : "Status"}
                     clearable
                     options={[
-                      { value: "all", label: c.library.allStatuses },
-
+                      {
+                        value: "all",
+                        label: c.library.allStatuses,
+                      },
                       ...statusOptions[filter].map((key) => ({
                         value: key,
                         label: statusLabels[lang][key],
@@ -333,26 +331,22 @@ function RequestsPage() {
                 </th>
 
                 <th className="py-2 text-start font-semibold">{r.colUpdate}</th>
+
                 <th className="py-2 text-end font-semibold">{r.colAction}</th>
               </tr>
             </thead>
+
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={filter !== "room" ? 6 : 5}
-                    className="border-t border-border-subtle p-4"
-                  >
+                  <td colSpan={6} className="border-t border-border-subtle p-4">
                     <RowsSkeleton />
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={filter !== "room" ? 6 : 5}
-                    className="border-t border-border-subtle p-10 text-center"
-                  >
-                    <div className="rounded-xl border border-dashed border-border-default p-8 text-sm text-text-secondary">
+                  <td colSpan={6} className="border-t border-border-subtle p-4 sm:p-10">
+                    <div className="rounded-xl border border-dashed border-border-default p-5 text-center text-sm text-text-secondary sm:p-8">
                       {r.empty}
                     </div>
                   </td>
@@ -367,12 +361,15 @@ function RequestsPage() {
                       {item?.hotel?.id ? `#HO-${item.hotel.id}` : `#RO-${item?.roomId}`}
                     </td>
 
-                    {/* {filter !== "room" && ( */}
                     <td className="py-3 pe-3 text-text-primary">
-                      {filter !== "room" && lang === "ar" ? item.hotel?.nameAr : item.hotel?.nameEn}
-                      {filter === "room" && lang === "ar" ? item.room?.nameAr : item.room?.nameEn}
+                      {filter !== "room" && lang === "ar"
+                        ? item.hotel?.nameAr
+                        : filter !== "room"
+                          ? item.hotel?.nameEn
+                          : lang === "ar"
+                            ? item.room?.nameAr
+                            : item.room?.nameEn}
                     </td>
-                    {/* )} */}
 
                     <td className="py-3 pe-3 text-text-secondary">
                       {formatDate(item.createdAt, lang)}
@@ -400,14 +397,26 @@ function RequestsPage() {
           </table>
         </div>
 
-        <p className="mt-4 text-xs text-text-muted">
-          {requests.length
-            ? fill(r.showing, {
+        {/* Pagination */}
+        <ReusablePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          isLoading={isLoading}
+          lang={lang}
+        />
+
+        {/* Results summary */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-4 pt-2 sm:px-0">
+          {requests.length > 0 && (
+            <p className="text-xs text-text-muted">
+              {fill(r.showing, {
                 shown: requests.length,
                 total: meta?.total,
-              })
-            : null}
-        </p>
+              })}
+            </p>
+          )}
+        </div>
       </SectionCard>
 
       <p className="mt-5 max-w-4xl text-xs leading-relaxed text-text-muted">

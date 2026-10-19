@@ -7,6 +7,7 @@ const initialState: TeamState = {
   loading: false,
   error: null,
   total: 0,
+  meta: null
 };
 
 export const teamsSlice = createSlice({
@@ -40,6 +41,7 @@ export const teamsSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.team = action.payload?.data?.users as TeamMember[];
+        state.meta = action.payload?.data?.meta;
         state.total = action.payload?.data?.meta?.total || 0;
       })
       .addCase(fetchTeam.rejected, (state, action) => {

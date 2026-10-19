@@ -29,6 +29,7 @@ import { fetchHotelsOptions } from "@/store/features/hotels/hotel-options.slice"
 import { RootState } from "@/store";
 import { getCountryName, useDebounce } from "./my-hotels";
 import { useCreateHotelLinkingRequest } from "@/api/modules/team/useCreateHotelLinkingRequest";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
 // import { useDispatch, useSelector } from "react-redux";
 // import { RootState } from "@/store";
 // import { fetchHotels } from "@/store/features/hotels/hotels.slice";
@@ -158,21 +159,8 @@ function HotelLibraryPage() {
   // ================================================================= //
 
   const dispatch = useDispatch();
-
+  const [page, setPage] = useState(1);
   const debouncedQuery = useDebounce(query, 500);
-
-  useEffect(() => {
-    dispatch(
-      fetchHotelsOptions({
-        page: 1,
-        limit: 100,
-        search: debouncedQuery,
-        countryCode: country === "all" ? null : country,
-        starRating: stars === "all" ? null : stars,
-        linkingStatus: status,
-      }),
-    );
-  }, [dispatch, debouncedQuery, country, stars, status]);
 
   const {
     hotels: hotelsOption,
@@ -181,6 +169,26 @@ function HotelLibraryPage() {
     error,
     pendingRequestsCount,
   } = useSelector((state: RootState) => state.hotelsOption);
+
+  const totalPages = meta?.totalPages ?? 1;
+  const PAGE_SIZE = 9;
+
+  useEffect(() => {
+    dispatch(
+      fetchHotelsOptions({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedQuery,
+        countryCode: country === "all" ? null : country,
+        starRating: stars === "all" ? null : stars,
+        linkingStatus: status,
+      }),
+    );
+  }, [dispatch, page, debouncedQuery, country, stars, status]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, country, stars, status]);
 
   const quickHotel = hotelsOption.find((item) => item.id === quickId);
 
@@ -297,102 +305,107 @@ function HotelLibraryPage() {
 
       {loading ? (
         <HotelGridSkeleton />
-      ) : hotelsOption.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center text-sm text-text-secondary">
-          {c.library.empty}
-        </p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {hotelsOption.map((hotel) => {
-            const relation = relationOf(hotel);
-            const active = picked.includes(hotel.id);
-            return (
-              <HotelCard
-                key={hotel.id}
-                hotel={hotel}
-                relation={relation}
-                selected={active}
-                note={
-                  relation === "requested"
-                    ? /* A request sent a moment ago did not go two days
-                         ago, whatever the seeded card says. */
-                      asked.includes(hotel.id)
-                      ? c.library.sentJustNow
-                      : fill(c.library.sentAgo, {
-                          days: hotel.id === "HTL-1091" ? 3 : 2,
-                        })
-                    : relation === "notApproved"
-                      ? `${c.library.rejectedReason} ${c.library.requestAgain}`
-                      : relation === "suspended"
-                        ? c.library.contractsPaused
-                        : undefined
-                }
-                footer={
-                  <>
-                    {hotel?.linkingStatus && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          navigate({
-                            to: "/hotel/$hotelId",
-                            params: { hotelId: hotel.id },
-                          })
-                        }
-                      >
-                        {hotel?.linkingStatus === "linked"
-                          ? c.library.openInMyHotels
-                          : c.library.openInHotelProfile}
-                      </Button>
-                    )}
-                    {/* {hotel?.linkingStatus !== "linked" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          navigate({
-                            to: "/hotel/$hotelId",
-                            params: { hotelId: hotel.id },
-                          })
-                        }
-                      >
-                        {c.library.openInHotelProfile}
-                      </Button>
-                    )} */}
-                    {hotel?.linkingStatus === "requested" && (
-                      <Link to="/requests">
-                        <Button variant="ghost" size="sm">
-                          {c.library.viewRequest}
-                        </Button>
-                      </Link>
-                    )}
-                    {/* {relation === "notApproved" && (
-                      <Link to="/requests">
-                        <Button variant="ghost" size="sm">
-                          {c.library.seeDecision}
-                        </Button>
-                      </Link>
-                    )} */}
-                    {relation === "suspended" && (
-                      <Link to="/sell-status">
-                        <Button variant="ghost" size="sm">
-                          {c.library.seeWhy}
-                        </Button>
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setQuickId(hotel.id)}
-                      className="ms-auto text-xs font-medium text-text-link hover:underline"
-                    >
-                      {c.libraryOverlay.quickView}
-                    </button>
-                  </>
-                }
-              />
-            );
-          })}
+      ) : error ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center text-sm text-text-secondary"
+        >
+          {lang === "ar"
+            ? "حدث خطأ أثناء تحميل الفنادق. حاول مرة أخرى."
+            : "Something went wrong while loading hotels. Please try again."}
         </div>
+      ) : hotelsOption.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center">
+          <p className="text-sm text-text-secondary">{c.library.empty}</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {hotelsOption.map((hotel) => {
+              const relation = relationOf(hotel);
+              const active = picked.includes(hotel.id);
+
+              return (
+                <HotelCard
+                  key={hotel.id}
+                  hotel={hotel}
+                  relation={relation}
+                  selected={active}
+                  note={
+                    relation === "requested"
+                      ? asked.includes(hotel.id)
+                        ? c.library.sentJustNow
+                        : fill(c.library.sentAgo, {
+                            days: hotel.id === "HTL-1091" ? 3 : 2,
+                          })
+                      : relation === "notApproved"
+                        ? `${c.library.rejectedReason} ${c.library.requestAgain}`
+                        : relation === "suspended"
+                          ? c.library.contractsPaused
+                          : undefined
+                  }
+                  footer={
+                    <>
+                      {hotel?.linkingStatus && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            navigate({
+                              to: "/hotel/$hotelId",
+                              params: { hotelId: hotel.id },
+                            })
+                          }
+                        >
+                          {hotel?.linkingStatus === "linked"
+                            ? c.library.openInMyHotels
+                            : c.library.openInHotelProfile}
+                        </Button>
+                      )}
+
+                      {hotel?.linkingStatus === "requested" && (
+                        <Link to="/requests">
+                          <Button variant="ghost" size="sm">
+                            {c.library.viewRequest}
+                          </Button>
+                        </Link>
+                      )}
+
+                      {relation === "suspended" && (
+                        <Link to="/sell-status">
+                          <Button variant="ghost" size="sm">
+                            {c.library.seeWhy}
+                          </Button>
+                        </Link>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setQuickId(hotel.id)}
+                        className="ms-auto text-xs font-medium text-text-link hover:underline"
+                      >
+                        {c.libraryOverlay.quickView}
+                      </button>
+                    </>
+                  }
+                />
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <SectionCard className="mt-6">
+              <ReusablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                isLoading={loading}
+                lang={lang}
+                showBorder={false}
+              />
+            </SectionCard>
+          )}
+        </>
       )}
 
       <p className="mt-5 max-w-4xl text-xs leading-relaxed text-text-muted">{c.library.notFound}</p>

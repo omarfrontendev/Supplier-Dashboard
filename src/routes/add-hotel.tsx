@@ -260,21 +260,6 @@ function AddHotelPage() {
     };
   }, []);
 
-  // const amenityOptions = [
-  //   { id: 1, name: "Wi-Fi" },
-  //   { id: 2, name: "Parking" },
-  //   { id: 3, name: "Restaurant" },
-  //   { id: 4, name: "Room service" },
-  //   { id: 5, name: "Swimming pool" },
-  //   { id: 6, name: "Gym" },
-  //   { id: 7, name: "Airport shuttle" },
-  //   { id: 8, name: "Family rooms" },
-  //   { id: 9, name: "Accessibility" },
-  //   { id: 10, name: "24-hour reception" },
-  //   { id: 11, name: "Prayer room" },
-  //   { id: 12, name: "Laundry" },
-  // ];
-
   const { amenities: amenityOptions } = useAmenityOptions();
 
   const selectedAmenities = hookForm.watch("amenities") ?? [];
@@ -289,21 +274,6 @@ function AddHotelPage() {
 
   const { mutateAsync: uploadFile } = useUploadFile();
   const { mutateAsync: createProperty } = useCreateProperty();
-
-  // const onSubmit = () => {
-  //   console.log(selectedImages);
-  //   console.log(formValues);
-  //   // setSending(true);
-  //   // void (async () => {
-  //   //   await wait(650);
-  //   //   submitHotel(form.name || "Makkah Gate Hotel");
-  //   //   notify.success(c.toast.hotelSubmitted, {
-  //   //     description: c.toast.hotelSubmittedDesc,
-  //   //   });
-  //   //   setSending(false);
-  //   //   setStep(3);
-  //   // })();
-  // };
 
   const onSubmit = hookForm.handleSubmit(async (values) => {
     setSending(true);
@@ -412,8 +382,6 @@ function AddHotelPage() {
                         key={item.name}
                         className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface-default p-4"
                       >
-                        {/* The library's own picture, so the row is
-                            recognised before it is read. */}
                         <span
                           aria-hidden="true"
                           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-deep text-text-inverse"
@@ -508,6 +476,52 @@ function AddHotelPage() {
             </div>
           </SectionCard>
 
+          <SectionCard overline={a.policies} title={a.policies}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Textarea
+                label={a.policiesEn}
+                placeholder={a.policiesEnPlaceholder}
+                {...hookForm.register("policies.en")}
+                error={hookForm.formState.errors.policies?.en?.message ?? ""}
+              />
+
+              <Textarea
+                label={a.policiesAr}
+                placeholder={a.policiesArPlaceholder}
+                {...hookForm.register("policies.ar")}
+                error={hookForm.formState.errors.policies?.ar?.message ?? ""}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard overline={a.contact} title={a.contactInformation}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                label={a.phone}
+                placeholder={a.phonePlaceholder}
+                type="tel"
+                {...hookForm.register("contact.phone")}
+                error={hookForm.formState.errors.contact?.phone?.message ?? ""}
+              />
+
+              <Input
+                label={a.email}
+                placeholder={a.emailPlaceholder}
+                type="email"
+                {...hookForm.register("contact.email")}
+                error={hookForm.formState.errors.contact?.email?.message ?? ""}
+              />
+
+              <Input
+                label={a.website}
+                placeholder={a.websitePlaceholder}
+                type="url"
+                {...hookForm.register("contact.website")}
+                error={hookForm.formState.errors.contact?.website?.message ?? ""}
+              />
+            </div>
+          </SectionCard>
+
           <SectionCard overline={a.locationOverline} title={a.locationTitle}>
             <div className="grid gap-4 md:grid-cols-2">
               <Controller
@@ -581,6 +595,8 @@ function AddHotelPage() {
                         <PropertyMapPicker
                           latitude={latitudeField.value ?? null}
                           longitude={longitudeField.value ?? null}
+                          countryCode={hookForm.watch("countryCode")}
+                          city={hookForm.watch("city")}
                           onLocationChange={(latitude, longitude) => {
                             latitudeField.onChange(latitude);
                             longitudeField.onChange(longitude);
