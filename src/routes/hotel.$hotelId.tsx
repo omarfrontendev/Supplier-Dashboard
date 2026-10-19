@@ -36,6 +36,7 @@ import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
 import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
 import { badgeTone } from "@/components/hotels/hotel-card";
 import { formatTime } from "@/lib/format-time";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -172,7 +173,21 @@ function HotelProfilePage() {
     );
   };
 
-  const { rooms, meta, refetch } = useHotelRooms(hotel?.hotel?.id);
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+
+  const {
+    rooms,
+    meta,
+    refetch,
+    isLoading: roomsLoading,
+  } = useHotelRooms({
+    id: hotel?.hotel?.id,
+    page,
+    limit: PAGE_SIZE,
+  });
+
+  const totalPages = meta?.totalPages ?? 1;
 
   const pendingRooms = newRooms.filter((room) => room?.hotelId === hotel?.id);
   const pendingCount =
@@ -366,33 +381,55 @@ function HotelProfilePage() {
                 <p className={COLS.view}>{p.table.view}</p>
                 <p className={COLS.status}>{p.table.status}</p>
               </div>
+              {roomsLoading ? (
+                <div className="flex flex-col items-center justify-center border-t border-border-subtle px-4 py-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-border-subtle border-t-text-primary" />
+                  <p className="mt-3 text-sm text-text-muted">
+                    {ar ? "جاري تحميل الغرف..." : "Loading rooms..."}
+                  </p>
+                </div>
+              ) : approvedRooms.length > 0 ? (
+                <>
+                  {approvedRooms.map((room) => (
+                    <div
+                      key={room.id}
+                      className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
+                    >
+                      <p className={`${COLS.room} font-medium text-text-primary`}>
+                        {ar ? room.nameAr : room.nameEn}
+                      </p>
 
-              {approvedRooms.length > 0 ? (
-                approvedRooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="flex items-center gap-3 border-t border-border-subtle py-3 text-[12.5px] leading-[1.45] text-text-body"
-                  >
-                    <p className={`${COLS.room} font-medium text-text-primary`}>
-                      {ar ? room.nameAr : room.nameEn}
-                    </p>
+                      <p className={COLS.occupancy}>{room.maxOccupancy}</p>
 
-                    <p className={COLS.occupancy}>{room.maxOccupancy}</p>
-                    <p className={COLS.guests}>{guestsLabel(room)}</p>
+                      <p className={COLS.guests}>{guestsLabel(room)}</p>
 
-                    <p className={COLS.childAge}>
-                      {room?.maxChildAge ? fill(p.upTo, { age: room.maxChildAge }) : "--"}
-                    </p>
+                      <p className={COLS.childAge}>
+                        {room?.maxChildAge ? fill(p.upTo, { age: room.maxChildAge }) : "--"}
+                      </p>
 
-                    <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
-                    <p className={COLS.size}>{room.roomSizeId || "--"}</p>
-                    <p className={COLS.view}>{room?.view || "--"}</p>
+                      <p className={COLS.bed}>{room.bedTypeId || "--"}</p>
 
-                    <p className={COLS.status}>
-                      <Badge tone="success">{lang === "ar" ? "رسمية" : "Official"}</Badge>
-                    </p>
-                  </div>
-                ))
+                      <p className={COLS.size}>{room.roomSizeId || "--"}</p>
+
+                      <p className={COLS.view}>{room?.view || "--"}</p>
+
+                      <p className={COLS.status}>
+                        <Badge tone="success">{lang === "ar" ? "رسمية" : "Official"}</Badge>
+                      </p>
+                    </div>
+                  ))}
+
+                  {totalPages > 1 && (
+                    <ReusablePagination
+                      page={page}
+                      totalPages={totalPages}
+                      onPageChange={setPage}
+                      isLoading={roomsLoading}
+                      lang={lang}
+                      showBorder
+                    />
+                  )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center border-t border-border-subtle px-4 py-10 text-center">
                   <p className="text-sm font-medium text-text-primary">
@@ -406,7 +443,6 @@ function HotelProfilePage() {
                   </p>
                 </div>
               )}
-
               {pendingRooms.map((room) => (
                 <div
                   key={room.id}
