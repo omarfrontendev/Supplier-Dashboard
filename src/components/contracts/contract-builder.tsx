@@ -17,6 +17,7 @@ import { BasicsFields } from "@/components/contracts/contract-form/basics-fields
 import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
 import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
 import { MealsFields } from "@/components/contracts/contract-form/meals-fields";
+import { PoliciesSummary } from "@/components/contracts/contract-form/policies-summary";
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import {
@@ -28,7 +29,12 @@ import {
   type ContractSectionKey,
 } from "@/components/contracts/contract-form/schema";
 import { readableDay } from "@/components/ui/date-field";
-import { resetDraft } from "@/store/features/contracts/contract-draft.slice";
+import {
+  resetDraft,
+  saveCancellationPolicy,
+  saveReleasePolicy,
+  setPoliciesEnabled,
+} from "@/store/features/contracts/contract-draft.slice";
 import type { RootState } from "@/store";
 import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
 import {
@@ -110,7 +116,6 @@ export function ContractBuilder({
   const [soldOut, setSoldOut] = useState<SoldOut>("overbooking");
   const [overLimit, setOverLimit] = useState("2");
   const [hasRestrictions, setHasRestrictions] = useState(true);
-  const [hasPolicies, setHasPolicies] = useState(true);
   const [dayScope, setDayScope] = useState<RestrictionScope | null>(null);
   const [saving, setSaving] = useState(false);
   /* OV 03.2 — the drawer that shows every section before it goes live. */
@@ -128,6 +133,7 @@ export function ContractBuilder({
   const [ruleDrawer, setRuleDrawer] = useState<"add" | "edit" | "delete" | null>(null);
 
   const onRequest = basics.bookingType === "on_request";
+  const hasPolicies = draft.policies.enabled;
   const fixed = draft.pricingModel === "fixed_price";
   const f = t.form;
   const term =
@@ -872,7 +878,7 @@ export function ContractBuilder({
           >
             <ChoiceRow
               value={hasPolicies ? "add" : "none"}
-              onChange={(next) => setHasPolicies(next === "add")}
+              onChange={(next) => dispatch(setPoliciesEnabled(next === "add"))}
               options={[
                 { value: "add", label: t.addToContract },
                 { value: "none", label: t.noneOnContract },
@@ -890,28 +896,10 @@ export function ContractBuilder({
             )}
             {hasPolicies && (
               <>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border-subtle p-4">
-                    <p className="text-overline text-text-muted">
-                      {t.cancellation}
-                    </p>
-                    <p className="mt-1.5 text-sm font-medium text-text-primary">
-                      {t.cancellationValue}
-                    </p>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {t.cancellationTiers}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border-subtle p-4">
-                    <p className="text-overline text-text-muted">{t.release}</p>
-                    <p className="mt-1.5 text-sm font-medium text-text-primary">
-                      {t.releaseValue}
-                    </p>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {t.releaseHint}
-                    </p>
-                  </div>
-                </div>
+                <PoliciesSummary
+                  onCancellation={() => setPolicy("cancellation")}
+                  onRelease={() => setPolicy("release")}
+                />
 
                 <p className="mt-5 text-overline text-text-muted">
                   {t.seasonPolicyOverline}
@@ -970,22 +958,6 @@ export function ContractBuilder({
                   </table>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPolicy("cancellation")}
-                  >
-                    {t.editCancellation}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPolicy("release")}
-                  >
-                    {t.editRelease}
-                  </Button>
-                </div>
               </>
             )}
           </Section>
@@ -1074,9 +1046,19 @@ export function ContractBuilder({
         />
       )}
       {policy === "cancellation" && (
-        <CancellationDrawer onClose={() => setPolicy(null)} />
+        <CancellationDrawer
+          initial={draft.policies.cancellation}
+          onSave={(tiers) => dispatch(saveCancellationPolicy(tiers))}
+          onClose={() => setPolicy(null)}
+        />
       )}
-      {policy === "release" && <ReleaseDrawer onClose={() => setPolicy(null)} />}
+      {policy === "release" && (
+        <ReleaseDrawer
+          initial={draft.policies.release}
+          onSave={(release) => dispatch(saveReleasePolicy(release))}
+          onClose={() => setPolicy(null)}
+        />
+      )}
 
       {reviewOpen && (
         <ActivateDrawer

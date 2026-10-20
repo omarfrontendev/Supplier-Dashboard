@@ -17,6 +17,17 @@ import {
   type ChargeKind,
   type SeasonPolicy,
 } from "@/lib/policy-overlay-data";
+import {
+  cancellationIssues,
+  releaseIssues,
+} from "@/components/contracts/contract-form/schema";
+import {
+  MAX_CANCELLATION_TIERS,
+  type AfterRelease,
+  type CancellationCharge,
+  type CancellationTier,
+  type ReleasePolicy,
+} from "@/store/features/contracts/types";
 
 const DRAWER_WIDTH = "640px";
 
@@ -36,17 +47,26 @@ const START: Tier[] = [
 function NumberCell({
   value,
   placeholder,
+  decimal = false,
+  label,
   onChange,
 }: {
   value: string;
   placeholder?: string;
+  decimal?: boolean;
+  label?: string;
   onChange: (next: string) => void;
 }) {
   return (
     <input
       value={value}
+      inputMode={decimal ? "decimal" : "numeric"}
+      aria-label={label}
       placeholder={placeholder ?? ""}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) => {
+        const next = event.target.value;
+        if ((decimal ? /^\d*\.?\d{0,2}$/ : /^\d{0,3}$/).test(next)) onChange(next);
+      }}
       className="font-data h-9 w-14 rounded-lg border border-border-strong bg-surface-default px-2 text-center text-sm text-text-primary placeholder:text-text-muted focus-visible:border-border-focus focus-visible:outline-none"
     />
   );
@@ -107,24 +127,46 @@ function ChargeMenu({
  */
 export function CancellationDrawer({
   season,
+  initial,
+  onSave,
   onClose,
 }: {
   season?: SeasonPolicy;
+  initial?: CancellationTier[] | null;
+  onSave?: (tiers: CancellationTier[]) => void;
   onClose: () => void;
 }) {
-  const { lang } = useLanguage();
+  const { c: dict, lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = cancellationDrawer;
-  const [tiers, setTiers] = useState<Tier[]>(
-    season ? [{ id: 1, days: "14", charge: "free", value: "" }] : START
+  const [tiers, setTiers] = useState<Tier[]>(() =>
+    initial?.length
+      ? initial.map((tier, index) => ({ id: index + 1, ...tier }))
+      : season
+        ? [{ id: 1, days: "14", charge: "free", value: "" }]
+        : START
   );
+  const [issues, setIssues] = useState<string[]>([]);
+
+  const save = () => {
+    const next = tiers.map(({ days, charge, value }) => ({
+      days,
+      charge: charge as CancellationCharge | "",
+      value: charge === "free" ? "" : value,
+    }));
+    const found = cancellationIssues(next, dict.builder.form.v);
+    setIssues(found);
+    if (found.length > 0) return;
+    onSave?.(next);
+    onClose();
+  };
   const [removed, setRemoved] = useState<{ tier: Tier; at: number } | null>(
     null
   );
 
   const last = tiers[tiers.length - 1];
   const isNew = Boolean(last && !last.days);
-  const full = tiers.length >= 3;
+  const full = tiers.length >= MAX_CANCELLATION_TIERS;
 
   const update = (id: number, patch: Partial<Tier>) =>
     setTiers((prev) =>
@@ -148,7 +190,7 @@ export function CancellationDrawer({
           <Button variant="outline" onClick={onClose}>
             {c.cancel[k]}
           </Button>
-          <Button onClick={onClose}>{c.confirm[k]}</Button>
+          <Button onClick={save}>{c.confirm[k]}</Button>
         </>
       }
     >
@@ -170,6 +212,7 @@ export function CancellationDrawer({
           <span className="flex items-center gap-2">
             <NumberCell
               value={tier.days}
+              label={`${fill(c.tierName[k], { n: index + 1 })} · ${c.daysBefore[k]}`}
               placeholder={c.daysPlaceholder[k]}
               onChange={(next) => update(tier.id, { days: next })}
             />
@@ -187,6 +230,8 @@ export function CancellationDrawer({
             ) : (
               <NumberCell
                 value={tier.value}
+                decimal={tier.charge === "fixed"}
+                label={fill(c.tierName[k], { n: index + 1 })}
                 onChange={(next) => update(tier.id, { value: next })}
               />
             )}
@@ -279,6 +324,16 @@ export function CancellationDrawer({
         )}
       </div>
 
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {issues.map((message) => (
+            <li key={message} className="text-[12.5px] text-status-danger">
+              {message}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <p className="mt-4 text-[11.5px] leading-5 text-text-muted">{c.note[k]}</p>
       {/* The season's own policy only wins inside its own dates. */}
       {season && (
@@ -331,56 +386,46 @@ function Segmented({
   );
 }
 
-/** A read-only field: small label, bordered box, hint under it. */
-function FieldBox({
-  label,
-  value,
-  hint,
-  muted = false,
-  trailing,
+export function ReleaseDrawer({
+  initial,
+  onSave,
+  onClose,
 }: {
-  label: string;
-  value: string;
-  hint?: string;
-  muted?: boolean;
-  trailing?: React.ReactNode;
+  initial?: ReleasePolicy | null;
+  onSave?: (release: ReleasePolicy) => void;
+  onClose: () => void;
 }) {
-  return (
-    <div>
-      <p className="text-[10px] font-medium uppercase tracking-[0.04em] text-text-muted">
-        {label}
-      </p>
-      <div
-        className={cn(
-          "mt-1.5 flex items-center justify-between gap-2 rounded-[10px] border border-border-strong px-3 py-2.5 text-[13px] font-medium",
-          muted
-            ? "bg-surface-subtle text-text-muted"
-            : "bg-surface-default text-text-primary"
-        )}
-      >
-        <span className="truncate">{value}</span>
-        {trailing}
-      </div>
-      {hint && (
-        <p className="mt-1.5 text-[11px] leading-4 text-text-muted">{hint}</p>
-      )}
-    </div>
-  );
-}
-
-/** OV 03.17 / B / D — when the rooms go back, and what agents see then. */
-export function ReleaseDrawer({ onClose }: { onClose: () => void }) {
-  const { lang } = useLanguage();
+  const { c: dict, lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const r = releaseDrawer;
-  const [sameDay, setSameDay] = useState(false);
-  const [after, setAfter] = useState<"stop" | "request">("request");
+  const p = dict.builder.form.policies;
+  const [sameDay, setSameDay] = useState(initial?.period === "same_day");
+  const [days, setDays] = useState(initial?.days || "3");
+  const [time, setTime] = useState(initial?.time || "18:00");
+  const [after, setAfter] = useState<AfterRelease>(initial?.afterRelease ?? "on_request");
+  const [issues, setIssues] = useState<string[]>([]);
+
+  const save = () => {
+    const next: ReleasePolicy = {
+      period: sameDay ? "same_day" : "days",
+      days: sameDay ? "" : days,
+      time,
+      afterRelease: after,
+    };
+    const found = releaseIssues(next, dict.builder.form.v);
+    setIssues(found);
+    if (found.length > 0) return;
+    onSave?.(next);
+    onClose();
+  };
+
+  const fieldClass =
+    "mt-1.5 h-11 w-full rounded-[10px] border border-border-strong bg-surface-default px-3 text-[13px] font-medium text-text-primary focus-visible:border-border-focus focus-visible:outline-none disabled:bg-surface-subtle disabled:text-text-muted";
 
   return (
     <Drawer
       width={DRAWER_WIDTH}
       overline={r.overline[k]}
-
       title={r.title[k]}
       meta={r.body[k]}
       onClose={onClose}
@@ -389,7 +434,7 @@ export function ReleaseDrawer({ onClose }: { onClose: () => void }) {
           <Button variant="outline" onClick={onClose}>
             {r.cancel[k]}
           </Button>
-          <Button onClick={onClose}>{r.confirm[k]}</Button>
+          <Button onClick={save}>{r.confirm[k]}</Button>
         </>
       }
     >
@@ -405,22 +450,42 @@ export function ReleaseDrawer({ onClose }: { onClose: () => void }) {
       />
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <FieldBox
-          label={r.daysLabel[k]}
-          muted={sameDay}
-          value={sameDay ? r.daysValueSameDay[k] : r.daysValue[k]}
-          hint={sameDay ? r.daysHintSameDay[k] : r.daysHint[k]}
-        />
-        <FieldBox
-          label={r.timeLabel[k]}
-          value={sameDay ? r.timeValueSameDay[k] : r.timeValue[k]}
-          trailing={
+        <label className="block">
+          <span className="text-[10px] font-medium uppercase tracking-[0.04em] text-text-muted">
+            {p.daysLabel}
+          </span>
+          <input
+            inputMode="numeric"
+            disabled={sameDay}
+            value={sameDay ? "" : days}
+            placeholder={sameDay ? r.daysValueSameDay[k] : ""}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (/^\d{0,3}$/.test(next)) setDays(next);
+            }}
+            className={fieldClass}
+          />
+          <span className="mt-1.5 block text-[11px] leading-4 text-text-muted">
+            {sameDay ? p.sameDayHint : p.daysHint}
+          </span>
+        </label>
+        <label className="block">
+          <span className="text-[10px] font-medium uppercase tracking-[0.04em] text-text-muted">
+            {p.timeLabel}
+          </span>
+          <span className="relative block">
+            <input
+              type="time"
+              value={time}
+              onChange={(event) => setTime(event.target.value)}
+              className={fieldClass}
+            />
             <Timer
-              className="h-3.5 w-3.5 shrink-0 text-text-muted"
+              className="pointer-events-none absolute end-3 top-1/2 mt-[3px] h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
               aria-hidden="true"
             />
-          }
-        />
+          </span>
+        </label>
       </div>
 
       <div className="mt-5">
@@ -428,18 +493,27 @@ export function ReleaseDrawer({ onClose }: { onClose: () => void }) {
           label={r.afterLabel[k]}
           hint={r.afterHint[k]}
           value={after}
-          onChange={(next) => setAfter(next as typeof after)}
+          onChange={(next) => setAfter(next as AfterRelease)}
           options={[
-            ["stop", r.stopSale[k]],
-            ["request", r.switchRequest[k]],
+            ["stop_sale", r.stopSale[k]],
+            ["on_request", r.switchRequest[k]],
           ]}
         />
       </div>
-      {/* OV 03.17B — stop sale closes the night outright. */}
-      {after === "stop" && (
+      {after === "stop_sale" && (
         <p className="mt-3 rounded-[12px] bg-surface-subtle px-3.5 py-3 text-[11.5px] leading-5 text-text-body">
           {r.stopSaleNote[k]}
         </p>
+      )}
+
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {issues.map((message) => (
+            <li key={message} className="text-[12.5px] text-status-danger">
+              {message}
+            </li>
+          ))}
+        </ul>
       )}
     </Drawer>
   );

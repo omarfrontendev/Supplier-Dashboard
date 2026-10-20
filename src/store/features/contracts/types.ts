@@ -94,6 +94,33 @@ export interface MealRule {
 
 export type MealRules = Record<MealPlan, MealRule>;
 
+export type CancellationCharge = "free" | "nights" | "percent" | "fixed";
+
+export interface CancellationTier {
+  days: string;
+  charge: CancellationCharge | "";
+  value: string;
+}
+
+export const MAX_CANCELLATION_TIERS = 4;
+
+export type ReleasePeriod = "same_day" | "days";
+
+export type AfterRelease = "stop_sale" | "on_request";
+
+export interface ReleasePolicy {
+  period: ReleasePeriod;
+  days: string;
+  time: string;
+  afterRelease: AfterRelease;
+}
+
+export interface ContractPolicies {
+  enabled: boolean;
+  cancellation: CancellationTier[] | null;
+  release: ReleasePolicy | null;
+}
+
 export type ChildRuleKey = "sharing_parents" | "shared_bed" | "extra_bed";
 
 export const CHILD_RULES: ChildRuleKey[] = ["sharing_parents", "shared_bed", "extra_bed"];
@@ -117,4 +144,5 @@ export interface ContractDraftState {
   fixedRooms: FixedPriceRoom[];
   children: ChildRules;
   meals: MealRules;
+  policies: ContractPolicies;
 }

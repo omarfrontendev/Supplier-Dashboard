@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import type {
+  CancellationTier,
   ChildRule,
   ChildRuleKey,
   MealBasis,
@@ -9,6 +10,7 @@ import type {
   ContractDraftState,
   FixedPriceRoom,
   PricingModel,
+  ReleasePolicy,
   WeekPricing,
 } from "./types";
 
@@ -49,6 +51,7 @@ const initialState: ContractDraftState = {
     extra_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
   },
   meals: emptyMeals(),
+  policies: { enabled: true, cancellation: null, release: null },
 };
 
 export const sameFixedOffer = (
@@ -182,6 +185,25 @@ export const contractDraftSlice = createSlice({
       state.children[key][field] = value;
     },
 
+    setPoliciesEnabled: (state, action: PayloadAction<boolean>) => {
+      state.policies.enabled = action.payload;
+      if (!action.payload) {
+        state.policies.cancellation = null;
+        state.policies.release = null;
+      }
+    },
+
+    saveCancellationPolicy: (state, action: PayloadAction<CancellationTier[]>) => {
+      state.policies.cancellation = action.payload;
+    },
+
+    saveReleasePolicy: (state, action: PayloadAction<ReleasePolicy>) => {
+      state.policies.release = {
+        ...action.payload,
+        days: action.payload.period === "same_day" ? "" : action.payload.days,
+      };
+    },
+
     toggleMeal: (state, action: PayloadAction<MealPlan>) => {
       if (action.payload === "room_only") return;
       const meal = state.meals[action.payload];
@@ -217,6 +239,9 @@ export const {
   toggleMeal,
   setMealPrice,
   setMealBasis,
+  setPoliciesEnabled,
+  saveCancellationPolicy,
+  saveReleasePolicy,
 } = contractDraftSlice.actions;
 
 export default contractDraftSlice.reducer;

@@ -65,6 +65,26 @@ export function buildContractPayload(draft: ContractDraftState) {
             weekendPrice: split ? toAmount(room.weekendPrice) : null,
           }))
         : null,
+    policies: draft.policies.enabled
+      ? {
+          cancellationTiers: (draft.policies.cancellation ?? []).map((tier) => ({
+            minDaysBeforeCheckIn: toAmount(tier.days),
+            charge: tier.charge,
+            value: tier.charge === "free" ? null : toAmount(tier.value),
+          })),
+          release: draft.policies.release
+            ? {
+                period: draft.policies.release.period,
+                daysBeforeCheckIn:
+                  draft.policies.release.period === "days"
+                    ? toAmount(draft.policies.release.days)
+                    : null,
+                releaseTime: draft.policies.release.time,
+                afterRelease: draft.policies.release.afterRelease,
+              }
+            : null,
+        }
+      : null,
     mealPlans:
       pricingModel === "base_supplements"
         ? MEAL_PLANS.filter((meal) => draft.meals[meal].enabled).map((meal) => ({
