@@ -8,7 +8,7 @@ import {
   Plus,
   Save,
 } from "lucide-react";
-import { PageShell, StatusPill } from "@/components/layout/page-shell";
+import { PageShell } from "@/components/layout/page-shell";
 import {
   SeasonOverlapOverlay,
   UnsavedOverlay,
@@ -18,6 +18,7 @@ import { BookingFields } from "@/components/contracts/contract-form/booking-fiel
 import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
 import { MealsFields } from "@/components/contracts/contract-form/meals-fields";
 import { PoliciesSummary } from "@/components/contracts/contract-form/policies-summary";
+import { RestrictionsFields } from "@/components/contracts/contract-form/restrictions-fields";
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import {
@@ -55,15 +56,7 @@ import {
   seasonDetails,
   type SeasonDetail,
 } from "@/lib/season-detail-data";
-import {
-  DeleteRestrictionOverlay,
-  RestrictionDrawer,
-} from "@/components/contracts/restriction-overlays";
 import { ChoiceRow, Section, Table } from "@/components/contracts/contract-parts";
-import {
-  RestrictionDayDialog,
-  type RestrictionScope,
-} from "@/components/contracts/restriction-day-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -72,7 +65,6 @@ import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
 import {
   MONTHS,
-  contractRestrictions,
   inventoryCaps,
   perRoomStock,
   rateSeasons,
@@ -115,8 +107,6 @@ export function ContractBuilder({
   const [stock, setStock] = useState("50");
   const [soldOut, setSoldOut] = useState<SoldOut>("overbooking");
   const [overLimit, setOverLimit] = useState("2");
-  const [hasRestrictions, setHasRestrictions] = useState(true);
-  const [dayScope, setDayScope] = useState<RestrictionScope | null>(null);
   const [saving, setSaving] = useState(false);
   /* OV 03.2 — the drawer that shows every section before it goes live. */
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -129,11 +119,10 @@ export function ContractBuilder({
     seasonDetails.find((x) => x.name.en === name) ?? null;
   /* OV 03.12 — Edit season opens the season editor itself. */
   const [seasonEditor, setSeasonEditor] = useState<SeasonDetail | null>(null);
-  /* OV 03.RS / RSE / RSD — the restriction drawer and its delete. */
-  const [ruleDrawer, setRuleDrawer] = useState<"add" | "edit" | "delete" | null>(null);
 
   const onRequest = basics.bookingType === "on_request";
   const hasPolicies = draft.policies.enabled;
+  const hasRestrictions = draft.restrictions.enabled;
   const fixed = draft.pricingModel === "fixed_price";
   const f = t.form;
   const term =
@@ -746,126 +735,8 @@ export function ContractBuilder({
             body={t.restrictionsBody}
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
-            right={
-              hasRestrictions ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRuleDrawer("add")}
-                >
-                  {t.addRestriction}
-                </Button>
-              ) : undefined
-            }
           >
-            <ChoiceRow
-              value={hasRestrictions ? "add" : "none"}
-              onChange={(next) => setHasRestrictions(next === "add")}
-              options={[
-                { value: "add", label: t.addToContract },
-                { value: "none", label: t.noneOnContract },
-              ]}
-            />
-            {!hasRestrictions && (
-              <p className="mt-3 text-xs leading-relaxed text-text-muted">
-                {t.restrictionsNone}
-              </p>
-            )}
-            {hasRestrictions && (
-              <>
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[820px] border-collapse text-sm">
-                    <thead>
-                      <tr className="text-overline text-text-muted">
-                        {[t.colApplies, t.colDates, t.colMinNights, t.colChecks, t.colStatus].map(
-                          (cell) => (
-                            <th key={cell} className="py-2 text-start font-semibold">
-                              {cell}
-                            </th>
-                          )
-                        )}
-                        <th className="py-2 text-end font-semibold" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contractRestrictions.map((rule) => (
-                        <tr
-                          key={`${rule.scope}-${rule.dates}`}
-                          className="border-t border-border-subtle align-top"
-                        >
-                          <td className="py-3 pe-3">
-                            <p className="text-text-primary">
-                              {lang === "ar" ? rule.scopeAr : rule.scope}
-                            </p>
-                            <p className="mt-0.5 text-xs text-text-muted">
-                              {lang === "ar" ? rule.updatedAr : rule.updated}
-                            </p>
-                          </td>
-                          <td className="py-3 pe-3 text-text-secondary">
-                            <p>{lang === "ar" ? rule.datesAr : rule.dates}</p>
-                            {(lang === "ar" ? rule.overlapAr : rule.overlap) && (
-                              <p className="mt-0.5 text-xs text-status-warning">
-                                {lang === "ar" ? rule.overlapAr : rule.overlap}
-                              </p>
-                            )}
-                          </td>
-                          <td className="py-3 pe-3 text-text-secondary">
-                            {lang === "ar" ? rule.minNightsAr : rule.minNights}
-                          </td>
-                          <td className="py-3 pe-3 text-text-secondary">
-                            {lang === "ar" ? rule.checksAr : rule.checks}
-                          </td>
-                          <td className="py-3 pe-3">
-                            <StatusPill tone={rule.active ? "success" : "neutral"}>
-                              {rule.active ? t.active : t.inactive}
-                            </StatusPill>
-                          </td>
-                          <td className="py-3 text-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRuleDrawer("edit")}
-                            >
-                              {t.edit}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setDayScope({
-                                  kind: "weekday",
-                                  label:
-                                    lang === "ar"
-                                      ? "كل جمعة · ١٨ فبراير - ٩ مارس"
-                                      : "Every Friday · 18 Feb - 09 Mar",
-                                  meta:
-                                    lang === "ar"
-                                      ? "٣ جُمَع في هذا النطاق"
-                                      : "3 Fridays in this range",
-                                })
-                              }
-                            >
-                              {t.colChecks}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-status-danger"
-                              onClick={() => setRuleDrawer("delete")}
-                            >
-                              {t.delete}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                  {t.restrictionsNote}
-                </p>
-              </>
-            )}
+            <RestrictionsFields />
           </Section>
 
           {/* 9 — Policies */}
@@ -1003,23 +874,6 @@ export function ContractBuilder({
         </div>
       </div>
 
-      {ruleDrawer === "add" && (
-        <RestrictionDrawer onClose={() => setRuleDrawer(null)} />
-      )}
-      {ruleDrawer === "edit" && (
-        <RestrictionDrawer
-          mode="edit"
-          onClose={() => setRuleDrawer(null)}
-          onDelete={() => setRuleDrawer("delete")}
-        />
-      )}
-      {ruleDrawer === "delete" && (
-        <DeleteRestrictionOverlay
-          onClose={() => setRuleDrawer(null)}
-          onConfirm={() => setRuleDrawer(null)}
-        />
-      )}
-
       {seasonDetail && (
         <SeasonDetailPanel
           season={seasonDetail}
@@ -1085,13 +939,6 @@ export function ContractBuilder({
         />
       )}
 
-      {dayScope && (
-        <RestrictionDayDialog
-          scope={dayScope}
-          checkIn={dayScope.kind === "weekday" ? false : true}
-          onClose={() => setDayScope(null)}
-        />
-      )}
     </PageShell>
   );
 }

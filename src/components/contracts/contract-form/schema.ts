@@ -15,10 +15,11 @@ import {
   type ChildRules,
   type ContractDraftState,
   type ReleasePolicy,
+  type RestrictionRule,
 } from "@/store/features/contracts/types";
 
 export type ContractSectionKey =
-  "basics" | "pricing" | "rooms" | "children" | "meals" | "policies" | "booking";
+  "basics" | "pricing" | "rooms" | "children" | "meals" | "restrictions" | "policies" | "booking";
 
 export interface ContractIssue {
   section: ContractSectionKey;
@@ -73,6 +74,24 @@ export function releaseIssues(release: ReleasePolicy, m: Messages): string[] {
     issues.push(m.releaseDays);
   }
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(release.time)) issues.push(m.releaseTime);
+  return issues;
+}
+
+export function restrictionIssues(
+  rule: RestrictionRule,
+  term: { startDate: string; endDate: string },
+  m: Messages,
+): string[] {
+  const issues: string[] = [];
+  if (!rule.startDate || !rule.endDate) {
+    issues.push(m.restrictionDates);
+  } else if (
+    (term.startDate && rule.startDate < term.startDate) ||
+    (term.endDate && rule.endDate > term.endDate)
+  ) {
+    issues.push(m.restrictionOutside);
+  }
+  if (!wholeNumber(rule.minNights, 1, 99)) issues.push(m.restrictionMinNights);
   return issues;
 }
 
@@ -159,6 +178,15 @@ export const contractFinalSchema = (m: Messages) =>
     }
 
     childIssues(draft.children, m).forEach((message) => issue("children", message));
+
+    if (draft.restrictions.enabled) {
+      if (draft.restrictions.rules.length === 0) {
+        issue("restrictions", m.restrictionsEmpty);
+      }
+      draft.restrictions.rules.forEach((rule) =>
+        restrictionIssues(rule, basics, m).forEach((message) => issue("restrictions", message)),
+      );
+    }
 
     if (draft.policies.enabled) {
       const { cancellation, release } = draft.policies;

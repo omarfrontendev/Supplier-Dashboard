@@ -65,6 +65,18 @@ export function buildContractPayload(draft: ContractDraftState) {
             weekendPrice: split ? toAmount(room.weekendPrice) : null,
           }))
         : null,
+    restrictions: draft.restrictions.enabled
+      ? draft.restrictions.rules.map((rule) => ({
+          roomId: rule.roomId,
+          startDate: rule.startDate,
+          endDate: rule.endDate,
+          minNights: toAmount(rule.minNights),
+          appliesOn: rule.appliesOn,
+          restrictedCheckInDates: rule.closedCheckIn,
+          restrictedCheckOutDates: rule.closedCheckOut,
+          active: rule.active,
+        }))
+      : null,
     policies: draft.policies.enabled
       ? {
           cancellationTiers: (draft.policies.cancellation ?? []).map((tier) => ({

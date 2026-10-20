@@ -11,6 +11,7 @@ import type {
   FixedPriceRoom,
   PricingModel,
   ReleasePolicy,
+  RestrictionRule,
   WeekPricing,
 } from "./types";
 
@@ -52,6 +53,7 @@ const initialState: ContractDraftState = {
   },
   meals: emptyMeals(),
   policies: { enabled: true, cancellation: null, release: null },
+  restrictions: { enabled: true, rules: [] },
 };
 
 export const sameFixedOffer = (
@@ -73,6 +75,9 @@ export const contractDraftSlice = createSlice({
       if (next.hotelId !== state.basics.hotelId) {
         state.baseSupplements = emptyBaseSupplements();
         state.fixedRooms = [];
+        state.restrictions.rules.forEach((rule) => {
+          rule.roomId = null;
+        });
       }
       if (next.bookingType === "allotment") {
         next.slaMinutes = "";
@@ -185,6 +190,26 @@ export const contractDraftSlice = createSlice({
       state.children[key][field] = value;
     },
 
+    setRestrictionsEnabled: (state, action: PayloadAction<boolean>) => {
+      state.restrictions.enabled = action.payload;
+      if (!action.payload) state.restrictions.rules = [];
+    },
+
+    saveRestriction: (state, action: PayloadAction<RestrictionRule>) => {
+      const index = state.restrictions.rules.findIndex((rule) => rule.id === action.payload.id);
+      if (index >= 0) {
+        state.restrictions.rules[index] = action.payload;
+      } else {
+        state.restrictions.rules.push(action.payload);
+      }
+    },
+
+    removeRestriction: (state, action: PayloadAction<string>) => {
+      state.restrictions.rules = state.restrictions.rules.filter(
+        (rule) => rule.id !== action.payload,
+      );
+    },
+
     setPoliciesEnabled: (state, action: PayloadAction<boolean>) => {
       state.policies.enabled = action.payload;
       if (!action.payload) {
@@ -239,6 +264,9 @@ export const {
   toggleMeal,
   setMealPrice,
   setMealBasis,
+  setRestrictionsEnabled,
+  saveRestriction,
+  removeRestriction,
   setPoliciesEnabled,
   saveCancellationPolicy,
   saveReleasePolicy,

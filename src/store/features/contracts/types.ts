@@ -115,6 +115,25 @@ export interface ReleasePolicy {
   afterRelease: AfterRelease;
 }
 
+export type RestrictionAppliesOn = "every_day" | "weekend_only";
+
+export interface RestrictionRule {
+  id: string;
+  roomId: number | null;
+  startDate: string;
+  endDate: string;
+  minNights: string;
+  appliesOn: RestrictionAppliesOn;
+  closedCheckIn: string[];
+  closedCheckOut: string[];
+  active: boolean;
+}
+
+export interface ContractRestrictions {
+  enabled: boolean;
+  rules: RestrictionRule[];
+}
+
 export interface ContractPolicies {
   enabled: boolean;
   cancellation: CancellationTier[] | null;
@@ -145,4 +164,5 @@ export interface ContractDraftState {
   children: ChildRules;
   meals: MealRules;
   policies: ContractPolicies;
+  restrictions: ContractRestrictions;
 }

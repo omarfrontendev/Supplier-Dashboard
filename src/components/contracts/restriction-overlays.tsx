@@ -1,20 +1,28 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, Trash2 } from "lucide-react";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { DatePicker, dateOf, keyOf } from "@/components/ui/date-picker";
+import { readableDay } from "@/components/ui/date-field";
 import {
   RestrictionDayDialog,
   type RestrictionScope,
 } from "@/components/contracts/restriction-day-dialog";
-import { useLanguage } from "@/lib/i18n";
+import { restrictionIssues } from "@/components/contracts/contract-form/schema";
+import { fill, useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
-  datePickerPanel,
   deleteRestrictionDialog,
   restrictionDrawer,
   type DayState,
 } from "@/lib/restriction-overlay-data";
+import {
+  WEEKDAYS,
+  type RestrictionRule,
+  type Weekday,
+} from "@/store/features/contracts/types";
 
 const DRAWER_WIDTH = "760px";
 
@@ -22,15 +30,28 @@ const DRAWER_WIDTH = "760px";
 const CHIP_OPEN = "bg-chip-open text-chip-open-fg";
 const CHIP_CLOSED = "bg-chip-closed text-chip-closed-fg";
 
-/** OV 03.RSB — a day in the range, with the two chips it carries. */
+const JS_DAY: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const MAX_MONTHS = 3;
+
+const columnOf = (key: string) => (dateOf(key).getDay() + 1) % 7;
+const weekdayOf = (key: string) => JS_DAY[dateOf(key).getDay()]!;
+
+function daysBetween(start: string, end: string) {
+  const days: string[] = [];
+  for (let date = dateOf(start); keyOf(date) <= end; date.setDate(date.getDate() + 1)) {
+    days.push(keyOf(date));
+  }
+  return days;
+}
+
 function DayCell({
-  night,
+  day,
   state,
   label,
   outside,
   onClick,
 }: {
-  night: number;
+  day: number;
   state: DayState;
   label: { in: string; out: string };
   outside: boolean;
@@ -42,7 +63,7 @@ function DayCell({
   if (outside) {
     return (
       <span className="flex h-[52px] flex-col rounded-lg bg-surface-subtle px-2 py-1.5">
-        <span className="text-[11.5px] text-border-strong">{night}</span>
+        <span className="text-[11.5px] text-border-strong">{day}</span>
       </span>
     );
   }
@@ -53,14 +74,12 @@ function DayCell({
       onClick={onClick}
       className="flex h-[52px] flex-col gap-1 rounded-lg border border-border-default bg-surface-default px-2 py-1.5 text-start"
     >
-      <span className="text-[11.5px] font-medium text-text-primary">
-        {night}
-      </span>
+      <span className="text-[11.5px] font-medium text-text-primary">{day}</span>
       <span className="flex gap-1">
         <span
           className={cn(
             "rounded-md px-1.5 text-[10px] leading-[17px]",
-            inOpen ? CHIP_OPEN : CHIP_CLOSED
+            inOpen ? CHIP_OPEN : CHIP_CLOSED,
           )}
         >
           {label.in}
@@ -68,7 +87,7 @@ function DayCell({
         <span
           className={cn(
             "rounded-md px-1.5 text-[10px] leading-[17px]",
-            outOpen ? CHIP_OPEN : CHIP_CLOSED
+            outOpen ? CHIP_OPEN : CHIP_CLOSED,
           )}
         >
           {label.out}
@@ -78,7 +97,6 @@ function DayCell({
   );
 }
 
-/** A small label above a field, the way the drawer draws every one. */
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-[10px] font-medium uppercase tracking-[0.04em] text-text-muted">
@@ -87,118 +105,150 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Box({
-  value,
-  muted = false,
-  trailing,
-}: {
+export interface RestrictionRoomOption {
   value: string;
-  muted?: boolean;
-  trailing?: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "mt-1.5 flex items-center justify-between gap-2 rounded-[10px] border border-border-strong px-3 py-2.5 text-[13px] font-medium",
-        muted ? "text-text-muted" : "text-text-primary",
-        "bg-surface-default"
-      )}
-    >
-      <span className="truncate">{value}</span>
-      {trailing}
-    </div>
-  );
+  label: string;
 }
 
-/** OV 03.RS / RSB / RSS / RSE / RSW / RSK — one rule, in every state. */
 export function RestrictionDrawer({
   mode = "add",
-  fromSeason = false,
+  initial,
+  rooms = [],
+  term,
+  weekendDays = [],
+  onSave,
   onClose,
   onDelete,
 }: {
   mode?: "add" | "edit";
-  /** OV 03.RSS — opened from a season, so the dates arrive filled. */
-  fromSeason?: boolean;
+  initial?: RestrictionRule | null;
+  rooms?: RestrictionRoomOption[];
+  term?: { startDate: string; endDate: string };
+  weekendDays?: Weekday[];
+  onSave?: (rule: RestrictionRule) => void;
   onClose: () => void;
   onDelete?: () => void;
 }) {
-  const { lang } = useLanguage();
+  const { c, lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const r = restrictionDrawer;
+  const f = c.builder.form;
+  const t = f.restrictions;
   const editing = mode === "edit";
 
-  const [dates, setDates] = useState(
-    fromSeason ? "18 Feb - 09 Mar 2027" : editing ? "20 - 25 Sep 2026" : ""
-  );
-  const [minNights, setMinNights] = useState(editing ? "4" : "");
-  const [weekendOnly, setWeekendOnly] = useState(false);
-  const [active, setActive] = useState(!editing);
+  const [roomId, setRoomId] = useState(initial?.roomId ? String(initial.roomId) : "all");
+  const [startDate, setStartDate] = useState(initial?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
+  const [minNights, setMinNights] = useState(initial?.minNights ?? "");
+  const [weekendOnly, setWeekendOnly] = useState(initial?.appliesOn === "weekend_only");
+  const [active, setActive] = useState(initial?.active ?? true);
+  const [closedIn, setClosedIn] = useState<string[]>(initial?.closedCheckIn ?? []);
+  const [closedOut, setClosedOut] = useState<string[]>(initial?.closedCheckOut ?? []);
   const [picking, setPicking] = useState(false);
-  const [days, setDays] = useState<Record<number, DayState>>({});
-  /* OV 03.RSP1 - RSP6 — tapping a day, or a weekday name. */
-  const [scope, setScope] = useState<RestrictionScope | null>(null);
+  const [scope, setScope] = useState<(RestrictionScope & { keys: string[] }) | null>(null);
+  const [issues, setIssues] = useState<string[]>([]);
 
-  const hasRange = Boolean(dates);
+  const hasRange = Boolean(startDate && endDate);
   const minIsZero = minNights === "0";
-  /* The drawn range runs 20 - 25 Sep; everything else is outside it. */
-  const inRange = (night: number) => night >= 20 && night <= 25;
-  const isWeekendDay = (index: number) => index === 5 || index === 6;
-  /* 1 Sep 2026 is a Tuesday — the fourth column of a Saturday-first week. */
-  const FIRST_COLUMN = 3;
-  const columnOf = (night: number) => (FIRST_COLUMN + night - 1) % 7;
+  const weekendSet = new Set(weekendDays);
+  const WEEKDAY_SHORT = k === "ar" ? r.weekdaysAr : r.weekdays;
+  const WEEKDAY_LONG = k === "ar" ? r.weekdaysAr : r.weekdaysLong;
 
-  const WEEKDAYS = k === "ar" ? r.weekdaysAr : r.weekdays;
-  const LONG = k === "ar" ? r.weekdaysAr : r.weekdaysLong;
-  const openDay = (night: number) =>
+  const inRule = (key: string) => !weekendOnly || weekendSet.has(weekdayOf(key));
+  const rangeDays = useMemo(
+    () => (hasRange ? daysBetween(startDate, endDate) : []),
+    [hasRange, startDate, endDate],
+  );
+  const months = useMemo(() => {
+    const list: Array<{ year: number; month: number }> = [];
+    rangeDays.forEach((key) => {
+      const date = dateOf(key);
+      const last = list[list.length - 1];
+      if (!last || last.year !== date.getFullYear() || last.month !== date.getMonth()) {
+        list.push({ year: date.getFullYear(), month: date.getMonth() });
+      }
+    });
+    return list;
+  }, [rangeDays]);
+
+  const stateOf = (key: string): DayState => {
+    const noIn = closedIn.includes(key);
+    const noOut = closedOut.includes(key);
+    return noIn && noOut ? "closed" : noIn ? "noIn" : noOut ? "noOut" : "open";
+  };
+
+  const applyTo = (keys: string[], next: { checkIn: boolean; checkOut: boolean }) => {
+    setClosedIn((prev) => {
+      const rest = prev.filter((key) => !keys.includes(key));
+      return next.checkIn ? rest : [...rest, ...keys].sort();
+    });
+    setClosedOut((prev) => {
+      const rest = prev.filter((key) => !keys.includes(key));
+      return next.checkOut ? rest : [...rest, ...keys].sort();
+    });
+  };
+
+  const dayKeysFor = (column: number) =>
+    rangeDays.filter((key) => columnOf(key) === column && inRule(key));
+
+  const openDay = (key: string) => {
+    const column = columnOf(key);
     setScope({
       kind: "day",
-      label:
-        k === "ar"
-          ? `${WEEKDAYS[columnOf(night)]} ${night} سبتمبر ٢٠٢٦`
-          : `${WEEKDAYS[columnOf(night)]} ${night} Sep 2026`,
-      meta:
-        k === "ar"
-          ? `كل الغرف · ${minNights || "4"} ليالٍ كحد أدنى على هذه القاعدة`
-          : `All rooms · min ${minNights || "4"} nights on this rule`,
-      weekday: LONG[columnOf(night)] ?? "",
+      label: `${WEEKDAY_LONG[column]} ${readableDay(key, lang)}`,
+      meta: minNights ? fill(t.minNights, { count: minNights }) : "",
+      weekday: WEEKDAY_LONG[column] ?? "",
+      keys: [key],
     });
+  };
 
-  const openWeekday = (index: number) =>
+  const openWeekday = (column: number) => {
+    const keys = dayKeysFor(column);
+    if (keys.length === 0) return;
     setScope({
       kind: "weekday",
-      label:
-        k === "ar"
-          ? `كل ${LONG[index]} · ${dates}`
-          : `Every ${LONG[index]} · ${dates}`,
-      meta:
-        k === "ar"
-          ? `${LONG[index]} واحد في هذا النطاق`
-          : `1 ${LONG[index]} in this range`,
+      label: `${WEEKDAY_LONG[column]} · ${readableDay(startDate, lang)} – ${readableDay(endDate, lang)}`,
+      meta: `${keys.length} × ${WEEKDAY_LONG[column]}`,
+      keys,
     });
+  };
 
-  /** What the popover's two switches leave the day in. */
-  const applyDay = (
-    night: number,
-    next: { checkIn: boolean; checkOut: boolean }
-  ) =>
-    setDays((prev) => ({
-      ...prev,
-      [night]: next.checkIn
-        ? next.checkOut
-          ? "open"
-          : "noOut"
-        : next.checkOut
-          ? "noIn"
-          : "closed",
-    }));
+  const save = () => {
+    const keep = (keys: string[]) =>
+      keys.filter((key) => key >= startDate && key <= endDate && inRule(key));
+    const rule: RestrictionRule = {
+      id: initial?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      roomId: roomId === "all" ? null : Number(roomId),
+      startDate,
+      endDate,
+      minNights,
+      appliesOn: weekendOnly ? "weekend_only" : "every_day",
+      closedCheckIn: keep(closedIn),
+      closedCheckOut: keep(closedOut),
+      active,
+    };
+    const found = restrictionIssues(rule, term ?? { startDate: "", endDate: "" }, f.v);
+    setIssues(found);
+    if (found.length > 0) return;
+    onSave?.(rule);
+    onClose();
+  };
+
+  const weekendLabel =
+    weekendDays.length > 0
+      ? fill(t.weekendOnly, {
+          days: WEEKDAYS.filter((day) => weekendSet.has(day))
+            .map((day) => f.days[day])
+            .join(lang === "ar" ? "، " : ", "),
+        })
+      : t.weekendNotSet;
 
   return (
     <Drawer
       width={DRAWER_WIDTH}
-      overline={r.overline[k]}
+      overline={r.addTitle[k]}
       title={editing ? r.editTitle[k] : r.addTitle[k]}
-      meta={editing ? r.editBody[k] : r.addBody[k]}
+      meta={r.addBody[k]}
       onClose={onClose}
       footer={
         <>
@@ -211,7 +261,7 @@ export function RestrictionDrawer({
           <Button variant="outline" onClick={onClose}>
             {r.cancel[k]}
           </Button>
-          <Button disabled={minIsZero} onClick={onClose}>
+          <Button disabled={minIsZero} onClick={save}>
             {editing ? r.saveChanges[k] : r.save[k]}
           </Button>
         </>
@@ -220,47 +270,67 @@ export function RestrictionDrawer({
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <FieldLabel>{r.roomLabel[k]}</FieldLabel>
-          <Box value={editing ? "Deluxe Room City View" : r.allRooms[k]} />
+          <Select
+            className="mt-1.5"
+            value={roomId}
+            onChange={(value) => setRoomId(value || "all")}
+            options={[{ value: "all", label: t.roomPh }, ...rooms]}
+          />
         </div>
-        <div>
+        <div className="relative">
           <FieldLabel>{r.datesLabel[k]}</FieldLabel>
           <button
             type="button"
-            onClick={() => setPicking(true)}
-            className="w-full text-start"
+            onClick={() => setPicking((prev) => !prev)}
+            className="mt-1.5 flex h-[42px] w-full items-center justify-between gap-2 rounded-[10px] border border-border-strong bg-surface-default px-3 text-start text-[13px] font-medium"
           >
-            <Box
-              value={dates || r.datesPlaceholder[k]}
-              muted={!dates}
-              trailing={
-                <CalendarDays
-                  className="h-3.5 w-3.5 shrink-0 text-text-muted"
-                  aria-hidden="true"
-                />
-              }
-            />
+            <span className={cn("truncate", hasRange ? "text-text-primary" : "text-text-muted")}>
+              {hasRange
+                ? `${readableDay(startDate, lang)} – ${readableDay(endDate, lang)}`
+                : t.datesPh}
+            </span>
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
           </button>
+          {picking && (
+            <div className="absolute start-0 z-50 mt-2 w-[393px] max-w-[calc(100vw-4rem)]">
+              <DatePicker
+                className="w-full"
+                {...(hasRange ? { value: { start: startDate, end: endDate } } : {})}
+                weekend={weekendDays.map((day) => JS_DAY.indexOf(day))}
+                {...(term?.startDate ? { min: term.startDate } : {})}
+                {...(term?.endDate ? { max: term.endDate } : {})}
+                onCancel={() => setPicking(false)}
+                onApply={(range) => {
+                  setStartDate(range.start);
+                  setEndDate(range.end ?? range.start);
+                  setPicking(false);
+                }}
+              />
+            </div>
+          )}
         </div>
         <div>
           <FieldLabel>{r.minLabel[k]}</FieldLabel>
           <input
             value={minNights}
+            inputMode="numeric"
+            aria-label={r.minLabel[k]}
             placeholder={r.minPlaceholder[k]}
-            onChange={(event) => setMinNights(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (/^\d{0,2}$/.test(next)) setMinNights(next);
+            }}
             className={cn(
               "mt-1.5 h-[42px] w-full rounded-[10px] border bg-surface-default px-3 text-[13px] font-medium text-text-primary placeholder:font-normal placeholder:text-text-muted focus-visible:outline-none",
-              minIsZero ? "border-status-danger" : "border-border-strong"
+              minIsZero ? "border-status-danger" : "border-border-strong",
             )}
           />
         </div>
       </div>
 
-      {/* OV 03.RSK — a one-night minimum is no rule at all. */}
       {minIsZero && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-[11.5px] leading-4 text-status-danger">
-            {r.minError[k]}
-          </p>
+          <p className="text-[11.5px] leading-4 text-status-danger">{r.minError[k]}</p>
           <button
             type="button"
             onClick={() => setMinNights("2")}
@@ -271,7 +341,12 @@ export function RestrictionDrawer({
         </div>
       )}
       <p className="mt-2 text-[11px] leading-4 text-text-muted">
-        {fromSeason ? r.seasonNote[k] : r.termNote[k]}
+        {term?.startDate && term.endDate
+          ? fill(t.termNote, {
+              start: readableDay(term.startDate, lang),
+              end: readableDay(term.endDate, lang),
+            })
+          : t.termMissing}
       </p>
 
       <div className="mt-5">
@@ -280,18 +355,18 @@ export function RestrictionDrawer({
           {(
             [
               [false, r.everyDay[k]],
-              [true, r.weekendOnly[k]],
+              [true, weekendLabel],
             ] as Array<[boolean, string]>
           ).map(([value, label]) => (
             <button
-              key={label}
+              key={String(value)}
               type="button"
               onClick={() => setWeekendOnly(value)}
               className={cn(
                 "flex-1 rounded-lg py-2 text-center text-[12.5px] transition-colors",
                 weekendOnly === value
                   ? "bg-surface-default font-medium text-brand-deep"
-                  : "text-text-body hover:bg-surface-default/60"
+                  : "text-text-body hover:bg-surface-default/60",
               )}
             >
               {label}
@@ -305,54 +380,65 @@ export function RestrictionDrawer({
 
       <div className="mt-5">
         <FieldLabel>{r.daysLabel[k]}</FieldLabel>
-        <p className="mt-1.5 text-[11px] leading-4 text-text-muted">
-          {r.daysHint[k]}
-        </p>
+        <p className="mt-1.5 text-[11px] leading-4 text-text-muted">{r.daysHint[k]}</p>
 
         {!hasRange ? (
           <p className="mt-3 rounded-[12px] bg-surface-subtle px-3.5 py-6 text-center text-[12px] text-text-muted">
             {r.emptyCalendar[k]}
           </p>
         ) : (
-          <div className="mt-3">
-            <p className="text-[12.5px] font-semibold text-text-primary">
-              {r.month[k]}
-            </p>
-            <div className="mt-2 grid grid-cols-7 gap-1.5">
-              {(k === "ar" ? r.weekdaysAr : r.weekdays).map((day, index) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => openWeekday(index)}
-                  className="pb-1 text-center text-[10px] font-medium text-text-muted hover:text-text-primary"
-                >
-                  {day}
-                  {weekendOnly && isWeekendDay(index) && (
-                    <span className="mt-0.5 block text-[8px] font-normal text-brand-deep">
-                      {r.legendWeekend[k]}
-                    </span>
-                  )}
-                </button>
-              ))}
-              {Array.from({ length: FIRST_COLUMN }, (_, index) => (
-                <span key={`lead-${index}`} aria-hidden="true" />
-              ))}
-              {Array.from({ length: 30 }, (_, index) => index + 1).map(
-                (night) => (
-                  <DayCell
-                    key={night}
-                    night={night}
-                    state={days[night] ?? "open"}
-                    label={{ in: r.legendIn[k], out: r.legendOut[k] }}
-                    outside={
-                      !inRange(night) ||
-                      (weekendOnly && !isWeekendDay(columnOf(night)))
-                    }
-                    onClick={() => openDay(night)}
-                  />
-                )
-              )}
-            </div>
+          <>
+            {months.length > MAX_MONTHS && (
+              <p className="mt-3 text-[11.5px] text-text-muted">{t.tooLong}</p>
+            )}
+            {months.slice(0, MAX_MONTHS).map(({ year, month }) => {
+              const first = new Date(year, month, 1);
+              const total = new Date(year, month + 1, 0).getDate();
+              const lead = (first.getDay() + 1) % 7;
+              return (
+                <div key={`${year}-${month}`} className="mt-3">
+                  <p className="text-[12.5px] font-semibold text-text-primary">
+                    {first.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                  <div className="mt-2 grid grid-cols-7 gap-1.5">
+                    {WEEKDAY_SHORT.map((day, column) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => openWeekday(column)}
+                        className="pb-1 text-center text-[10px] font-medium text-text-muted hover:text-text-primary"
+                      >
+                        {day}
+                        {weekendOnly && weekendSet.has(JS_DAY[(column + 6) % 7]!) && (
+                          <span className="mt-0.5 block text-[8px] font-normal text-brand-deep">
+                            {r.legendWeekend[k]}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    {Array.from({ length: lead }, (_, index) => (
+                      <span key={`lead-${index}`} aria-hidden="true" />
+                    ))}
+                    {Array.from({ length: total }, (_, index) => index + 1).map((day) => {
+                      const key = keyOf(new Date(year, month, day));
+                      return (
+                        <DayCell
+                          key={key}
+                          day={day}
+                          state={stateOf(key)}
+                          label={{ in: r.legendIn[k], out: r.legendOut[k] }}
+                          outside={key < startDate || key > endDate || !inRule(key)}
+                          onClick={() => openDay(key)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-text-muted">
               <span className="flex items-center gap-1.5">
                 <span className={cn("rounded-md px-1.5 leading-[17px]", CHIP_OPEN)}>
@@ -368,16 +454,9 @@ export function RestrictionDrawer({
               </span>
               <span>{r.legendTap[k]}</span>
             </div>
-          </div>
+          </>
         )}
       </div>
-
-      {/* OV 03.RSB / RSW — what this rule takes over from an older one. */}
-      {hasRange && (
-        <p className="mt-3 rounded-[10px] border border-notice-border bg-notice px-3.5 py-3 text-[11.5px] leading-5 text-text-body">
-          {weekendOnly ? r.replacesWeekend[k] : r.replaces[k]}
-        </p>
-      )}
 
       <div className="mt-5 border-t border-border-subtle pt-4">
         <div className="flex items-center justify-between gap-4">
@@ -385,102 +464,38 @@ export function RestrictionDrawer({
             <p className="text-[13px] font-medium text-text-primary">
               {active ? r.active[k] : r.inactive[k]}
             </p>
-            <p className="mt-0.5 text-[11px] leading-4 text-text-muted">
-              {r.activeHint[k]}
-            </p>
+            <p className="mt-0.5 text-[11px] leading-4 text-text-muted">{r.activeHint[k]}</p>
           </div>
           <Switch checked={active} onCheckedChange={setActive} />
         </div>
       </div>
 
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {issues.map((message) => (
+            <li key={message} className="text-[12.5px] text-status-danger">
+              {message}
+            </li>
+          ))}
+        </ul>
+      )}
+
       {scope && (
         <RestrictionDayDialog
           scope={scope}
+          checkIn={!scope.keys.every((key) => closedIn.includes(key))}
+          checkOut={!scope.keys.every((key) => closedOut.includes(key))}
           onClose={() => setScope(null)}
           onApply={(next) => {
-            if (scope.kind === "day") {
-              const night = Number(scope.label.match(/\d+/)?.[0] ?? 0);
-              if (night) applyDay(night, next);
-            }
-          }}
-        />
-      )}
-
-      {picking && (
-        <DatePickerOverlay
-          onClose={() => setPicking(false)}
-          onApply={() => {
-            setDates("20 - 25 Sep 2026");
-            setPicking(false);
+            const keys =
+              scope.kind === "day" && next.everyWeekday
+                ? dayKeysFor(columnOf(scope.keys[0]!))
+                : scope.keys;
+            applyTo(keys, next);
           }}
         />
       )}
     </Drawer>
-  );
-}
-
-/** OV 03.RSDP — the range picker that fills the Dates field. */
-export function DatePickerOverlay({
-  onClose,
-  onApply,
-}: {
-  onClose: () => void;
-  onApply: () => void;
-}) {
-  const { lang } = useLanguage();
-  const k = lang === "ar" ? "ar" : "en";
-  const p = datePickerPanel;
-
-  return (
-    <IconModal
-      width="520px"
-      icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
-      overline=""
-      title={p.title[k]}
-      body={p.picked[k]}
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            {restrictionDrawer.cancel[k]}
-          </Button>
-          <Button onClick={onApply}>{p.apply[k]}</Button>
-        </>
-      }
-    >
-      <div className="rounded-[12px] bg-surface-subtle p-3.5">
-        <p className="text-[12.5px] font-semibold text-text-primary">
-          {p.month[k]}
-        </p>
-        <div className="mt-2 grid grid-cols-7 gap-1">
-          {(k === "ar" ? p.weekdaysAr : p.weekdays).map((day) => (
-            <span
-              key={day}
-              className="text-center text-[10px] font-semibold text-text-muted"
-            >
-              {day}
-            </span>
-          ))}
-          {Array.from({ length: 30 }, (_, index) => index + 1).map((night) => {
-            const picked = night >= 20 && night <= 25;
-            return (
-              <span
-                key={night}
-                className={cn(
-                  "rounded py-1 text-center text-[10px] font-semibold",
-                  picked
-                    ? "bg-brand-deep text-primary"
-                    : "bg-surface-default text-text-secondary"
-                )}
-              >
-                {night}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-      <p className="text-[11px] leading-4 text-text-muted">{p.note[k]}</p>
-    </IconModal>
   );
 }
 
