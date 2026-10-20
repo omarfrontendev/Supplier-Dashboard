@@ -31,6 +31,7 @@ export interface TeamState {
   loading: boolean;
   error: string | null;
   total: number;
+  meta: object | null
 }
 
 export interface GetUsersPayload {

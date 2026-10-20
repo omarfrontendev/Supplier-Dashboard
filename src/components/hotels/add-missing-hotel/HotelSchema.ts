@@ -4,140 +4,143 @@ import { z } from "zod";
 export const hotelSchema = () => {
   const { c } = useLanguage();
 
-  return z.object({
-    nameEn: z
-      .string()
-      .trim()
-      .nonempty({ message: c.common.fieldRequired })
-      .refine((val) => !/[\u0600-\u06FF]/.test(val), {
-        message: c.common.arabicLettersNotAllowed,
-      }),
+  return z
+    .object({
+      nameEn: z
+        .string()
+        .trim()
+        .nonempty({ message: c.common.fieldRequired })
+        .refine((val) => !/[\u0600-\u06FF]/.test(val), {
+          message: c.common.arabicLettersNotAllowed,
+        }),
 
-    nameAr: z
-      .string()
-      .trim()
-      .nonempty({ message: c.common.fieldRequired })
-      .refine((val) => !/[A-Za-z]/.test(val), {
-        message: c.common.englishLettersNotAllowed,
-      }),
+      nameAr: z
+        .string()
+        .trim()
+        .nonempty({ message: c.common.fieldRequired })
+        .refine((val) => !/[A-Za-z]/.test(val), {
+          message: c.common.englishLettersNotAllowed,
+        }),
 
-    // aliases: z.array(z.string().trim()),
+      checkInTime: z
+        .string()
+        .min(1, { message: c.common.fieldRequired })
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/, {
+          message: c.common.invalidTime,
+        }),
 
-    // propertyType: z.enum(["hotel"]),
+      checkOutTime: z
+        .string()
+        .min(1, { message: c.common.fieldRequired })
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/, {
+          message: c.common.invalidTime,
+        }),
 
-    // brand: z.string().trim(),
-    // chain: z.string().trim(),
+      countryCode: z
+        .string()
+        .trim()
+        .length(2, { message: c.common.fieldRequired })
+        .regex(/^[A-Za-z]{2}$/, {
+          message: c.common.fieldRequired,
+        }),
 
-    countryCode: z
-      .string()
-      .trim()
-      .length(2, { message: c.common.fieldRequired })
-      .regex(/^[A-Za-z]{2}$/, {
+      city: z.string().trim().nonempty({
         message: c.common.fieldRequired,
       }),
 
-    city: z.string().trim().nonempty({
-      message: c.common.fieldRequired,
-    }),
+      area: z.string().trim().min(1, { message: c.common.fieldRequired }),
 
-    area: z.string().trim(),
+      addressEn: z
+        .string()
+        .trim()
+        .nonempty({ message: c.common.fieldRequired })
+        .refine((val) => !/[\u0600-\u06FF]/.test(val), {
+          message: c.common.arabicLettersNotAllowed,
+        }),
 
-    addressEn: z
-      .string()
-      .trim()
-      .nonempty({ message: c.common.fieldRequired })
-      .refine((val) => !/[\u0600-\u06FF]/.test(val), {
-        message: c.common.arabicLettersNotAllowed,
+      addressAr: z
+        .string()
+        .trim()
+        .nonempty({ message: c.common.fieldRequired })
+        .refine((val) => !/[A-Za-z]/.test(val), {
+          message: c.common.englishLettersNotAllowed,
+        }),
+
+      latitude: z.number().min(-90).max(90),
+
+      longitude: z.number().min(-180).max(180),
+
+      starRating: z.number().int().min(1).max(5),
+
+      descriptionEn: z
+        .string()
+        .trim()
+        .min(1, { message: c.common.fieldRequired })
+        .refine((val) => !/[\u0600-\u06FF]/.test(val), {
+          message: c.common.arabicLettersNotAllowed,
+        }),
+
+      descriptionAr: z
+        .string()
+        .trim()
+        .min(1, { message: c.common.fieldRequired })
+        .refine((val) => !/[A-Za-z]/.test(val), {
+          message: c.common.englishLettersNotAllowed,
+        }),
+
+      policies: z.object({
+        en: z.string().trim().min(1, {
+          message: c.common.fieldRequired,
+        }),
+        ar: z.string().trim().min(1, {
+          message: c.common.fieldRequired,
+        }),
       }),
 
-    addressAr: z
-      .string()
-      .trim()
-      .nonempty({ message: c.common.fieldRequired })
-      .refine((val) => !/[A-Za-z]/.test(val), {
-        message: c.common.englishLettersNotAllowed,
+      contact: z.object({
+        phone: z.string().trim().min(1, { message: c.common.fieldRequired }),
+
+        email: z
+          .string()
+          .trim()
+          .min(1, { message: c.common.fieldRequired })
+          .email({ message: c.common.fieldRequired }),
+
+        website: z.string().trim().min(1, { message: c.common.fieldRequired }),
       }),
 
-    // postalCode: z.string().trim(),
+      amenities: z.array(
+        z.object({
+          amenityId: z.number().int().positive(),
+          value: z.boolean(),
+        }),
+      ),
+    })
+    .superRefine((data, ctx) => {
+      console.log(data);
 
-    latitude: z.number().min(-90).max(90),
+      const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-    longitude: z.number().min(-180).max(180),
+      if (!timeRegex.test(data.checkInTime) || !timeRegex.test(data.checkOutTime)) {
+        return;
+      }
 
-    // timezone: z.string().trim().nonempty({
-    //   message: c.common.fieldRequired,
-    // }),
+      const toMinutes = (time: string) => {
+        const [hours, minutes] = time.split(":").map(Number);
+        return hours * 60 + minutes;
+      };
 
-    starRating: z.number().int().min(1).max(5),
+      const checkIn = toMinutes(data.checkInTime);
+      const checkOut = toMinutes(data.checkOutTime);
 
-    descriptionEn: z
-      .string()
-      .trim()
-      .refine((val) => !/[\u0600-\u06FF]/.test(val), {
-        message: c.common.arabicLettersNotAllowed,
-      }),
-
-    descriptionAr: z
-      .string()
-      .trim()
-      .refine((val) => !/[A-Za-z]/.test(val), {
-        message: c.common.englishLettersNotAllowed,
-      }),
-      
-    // checkInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, {
-    //   message: c.common.fieldRequired,
-    // }),
-
-    // checkOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, {
-    //   message: c.common.fieldRequired,
-    // }),
-
-    // policies: z.object({
-    //   en: z.string().trim(),
-    //   ar: z.string().trim(),
-    // }),
-
-    // contact: z.object({
-    //   phone: z.string().trim(),
-
-    //   email: z.string().trim().email().or(z.literal("")),
-
-    //   website: z.string().trim(),
-    // }),
-
-    amenities: z.array(
-      z.object({
-        amenityId: z.number().int().positive(),
-        value: z.boolean(),
-      }),
-    ),
-
-    // images: z.array(
-    //   z.object({
-    //     uploadId: z.number().int().positive(),
-
-    //     captionEn: z
-    //       .string()
-    //       .trim()
-    //       .refine((val) => !/[\u0600-\u06FF]/.test(val), {
-    //         message: c.common.arabicLettersNotAllowed,
-    //       }),
-
-    //     captionAr: z
-    //       .string()
-    //       .trim()
-    //       .refine((val) => !/[A-Za-z]/.test(val), {
-    //         message: c.common.englishLettersNotAllowed,
-    //       }),
-
-    //     sortOrder: z.number().int().min(0),
-
-    //     isCover: z.boolean(),
-    //   }),
-    // ),
-
-    // note: z.string().trim(),
-  });
+      if (checkOut < checkIn) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["checkOutTime"],
+          message: c.common.checkOutMustBeAfterCheckIn,
+        });
+      }
+    });
 };
 
-export type PropertyFormValues = z.infer<ReturnType<typeof propertySchema>>;
+export type PropertyFormValues = z.infer<ReturnType<typeof hotelSchema>>;

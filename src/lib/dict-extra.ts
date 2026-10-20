@@ -25,8 +25,7 @@ export const extraEn = {
     partlyListTitle: "Decision by detail",
     reasonOverline: "REASON FROM HOTELIANA",
     reasonTitle: "Why it was rejected",
-    approvedNoteFooter:
-      "The approved values are now visible on the Agreement page.",
+    approvedNoteFooter: "The approved values are now visible on the Agreement page.",
     rejectedNoteFooter:
       "Rejection reason: the submitted document does not match the registered legal company record.",
     partlyNoteFooter:
@@ -81,7 +80,8 @@ export const extraEn = {
     colStatus: "STATUS",
     colUpdate: "LATEST UPDATE",
     colAction: "ACTION",
-    showing: "Showing {shown} of {total} requests · sorted by: needs you first, then oldest waiting",
+    showing:
+      "Showing {shown} of {total} requests · sorted by: needs you first, then oldest waiting",
     footer:
       "One list for everything you sent to Hoteliana. A decision never changes your current data until it is approved.",
     emptyFooter:
@@ -121,6 +121,21 @@ export const extraEn = {
     complete: "Complete",
   },
   addHotel: {
+    checkInTime: "Check-in Time",
+    checkOutTime: "Check-out Time",
+    policies: "Policies",
+    policiesEn: "Policies (English)",
+    policiesAr: "Policies (Arabic)",
+    policiesEnPlaceholder: "Enter policies in English",
+    policiesArPlaceholder: "Enter policies in Arabic",
+    contact: "Contact",
+    contactInformation: "Contact Information",
+    phone: "Phone",
+    phonePlaceholder: "Enter phone number",
+    email: "Email",
+    emailPlaceholder: "Enter email address",
+    website: "Website",
+    websitePlaceholder: "https://example.com",
     overline: "HOTEL LIBRARY · ADD A MISSING HOTEL",
     title: "Add a missing hotel",
     subtitle:
@@ -141,13 +156,13 @@ export const extraEn = {
     licenceHint: "The strongest way to catch a duplicate",
     stars: "Star rating *",
     starsPh: "e.g. 4 stars · Official (Ministry of Tourism)",
-    descEn: "Description (English) · optional",
+    descEn: "Description (English) *",
     descEnPh: "Short hotel description",
-    descAr: "Description (Arabic) · optional",
+    descAr: "Description (Arabic) *",
     descArPh: "وصف مختصر للفندق",
     country: "Country *",
     city: "City *",
-    area: "Area · optional",
+    area: "Area *",
     areaPh: "Select area",
     address: "Address *",
     addressPh: "Street, district and building details",
@@ -164,16 +179,11 @@ export const extraEn = {
     backMedia: "Back to photos & amenities",
     /* Arabic agrees the verb with the count as well as the noun, so
        the whole sentence is chosen rather than a number slotted in. */
-    duplicateTitleOne:
-      "1 hotel in the library looks like the one you are adding",
-    duplicateTitleTwo:
-      "2 hotels in the library look like the one you are adding",
-    duplicateTitleFew:
-      "{n} hotels in the library look like the one you are adding",
-    duplicateTitleMany:
-      "{n} hotels in the library look like the one you are adding",
-    duplicateBody:
-      "Creating a duplicate splits the same hotel across two records.",
+    duplicateTitleOne: "1 hotel in the library looks like the one you are adding",
+    duplicateTitleTwo: "2 hotels in the library look like the one you are adding",
+    duplicateTitleFew: "{n} hotels in the library look like the one you are adding",
+    duplicateTitleMany: "{n} hotels in the library look like the one you are adding",
+    duplicateBody: "Creating a duplicate splits the same hotel across two records.",
     duplicateNote:
       "Continue only if this is a genuinely different property. Hoteliana runs the same check again before approval, and a duplicate is rejected at that point.",
     matchNote: "Map pin {distance} from yours · name match {match}",
@@ -181,11 +191,9 @@ export const extraEn = {
     view: "View",
     mediaOverline: "HOTEL IMAGES · {count} UPLOADED",
     mediaTitle: "Hotel photos",
-    mediaSubtitle:
-      "Upload clear hotel images and select every amenity guests can use.",
+    mediaSubtitle: "Upload clear hotel images and select every amenity guests can use.",
     dropzone: "Drop images here or choose files",
-    dropzoneHint:
-      "At least 3 images · JPG or PNG · up to 10 MB each · the first is the cover",
+    dropzoneHint: "At least 3 images · JPG or PNG · up to 10 MB each · the first is the cover",
     mediaNote:
       "Avoid logos, screenshots and duplicate angles. Images stay pending until Hoteliana approves the hotel.",
     browse: "Choose files",
@@ -207,8 +215,7 @@ export const extraEn = {
       "Only select amenities currently available to guests. Hoteliana may ask for proof of any amenity.",
     amenities: "Amenities",
     reviewTitle: "Review the submission",
-    reviewSubtitle:
-      "Check every detail before sending the hotel to Hoteliana for approval.",
+    reviewSubtitle: "Check every detail before sending the hotel to Hoteliana for approval.",
     reviewStep1: "STEP 1 · HOTEL DETAILS",
     reviewStep2: "STEP 2 · PHOTOS & AMENITIES",
     reviewMedia: "{images} images · {amenities} amenities",
@@ -224,8 +231,7 @@ export const extraEn = {
     fieldDescAr: "Description (AR)",
     duplicateSummary:
       "You continued past {count} similar hotels - Makkah Gate Towers (91%) and Bab Makkah (82%)",
-    reviewLegal:
-      "I confirm these details are accurate under the active Supplier Agreement.",
+    reviewLegal: "I confirm these details are accurate under the active Supplier Agreement.",
     submit: "Submit for approval",
     sentOverline: "SENT TO HOTELIANA",
     sentTitle: "The hotel is with Hoteliana",
@@ -308,8 +314,7 @@ export const extraEn = {
     confirmStep3: "Approved hotels appear in My Hotels, ready for a supply contract",
     confirmSubmit: "Send the request",
     sentTitle: "Request sent",
-    sentBody:
-      "{count} hotels are now with Hoteliana. Follow the decision in Requests.",
+    sentBody: "{count} hotels are now with Hoteliana. Follow the decision in Requests.",
     openRequests: "Open Requests",
     keepBrowsing: "Keep browsing",
     bookingType: "Booking confirmation type",
@@ -320,7 +325,6 @@ export const extraEn = {
     onRequest: "On Request",
     onRequestHint: "Each booking waits for your confirmation before it is final.",
     bookingTypeRequired: "Select a booking confirmation type to continue.",
-
   },
   docViewer: {
     overline: "VERIFIED COMPANY DOCUMENT",
@@ -372,8 +376,7 @@ export const extraEn = {
     tab: "Hotel supply contracts",
     overline: "PROPERTY · SUPPLY CONTRACTS",
     title: "Supply contracts",
-    subtitle:
-      "Every supply contract across your linked hotels, with its selling state.",
+    subtitle: "Every supply contract across your linked hotels, with its selling state.",
     empty: "No supply contracts yet. Link a hotel first, then create a contract.",
     create: "Create supply contract",
     continueDraft: "Continue draft",
@@ -387,8 +390,6 @@ export const extraEn = {
     onRequest: "On request",
   },
 };
-
-
 
 export const extraAr: typeof extraEn = {
   decision: {
@@ -417,8 +418,7 @@ export const extraAr: typeof extraEn = {
     reasonOverline: "سبب هوتيليانا",
     reasonTitle: "سبب الرفض",
     approvedNoteFooter: "القيم المقبولة ظاهرة الآن في صفحة الاتفاقية.",
-    rejectedNoteFooter:
-      "سبب الرفض: المستند المُرسل لا يطابق السجل القانوني المسجّل للشركة.",
+    rejectedNoteFooter: "سبب الرفض: المستند المُرسل لا يطابق السجل القانوني المسجّل للشركة.",
     partlyNoteFooter:
       "رقم الهاتف والسجل التجاري فعّالان الآن. ورُفض الآيبان - الخطاب لا يطابق الاسم القانوني المسجّل للشركة.",
     applied: "مقبول",
@@ -474,8 +474,7 @@ export const extraAr: typeof extraEn = {
     showing: "عرض {shown} من {total} طلبات · الترتيب: ما يحتاج ردّك أولًا ثم الأقدم انتظارًا",
     footer:
       "قائمة واحدة لكل ما أرسلته إلى هوتيليانا. ولا يغيّر أي قرار بياناتك الحالية حتى يُعتمد.",
-    emptyFooter:
-      "لا شيء عليك الآن. سيصلك إشعار عندما تقرر هوتيليانا أو تحتاج شيئًا منك.",
+    emptyFooter: "لا شيء عليك الآن. سيصلك إشعار عندما تقرر هوتيليانا أو تحتاج شيئًا منك.",
     listOverline: "كل الطلبات",
     listTitle: "{count} طلبات",
     withdrawn: "سُحب الطلب",
@@ -510,6 +509,21 @@ export const extraAr: typeof extraEn = {
     complete: "مكتمل",
   },
   addHotel: {
+    checkInTime: "وقت تسجيل الوصول",
+    checkOutTime: "وقت تسجيل المغادرة",
+    policies: "السياسات",
+    policiesEn: "السياسات (بالإنجليزية)",
+    policiesAr: "السياسات (بالعربية)",
+    policiesEnPlaceholder: "أدخل السياسات باللغة الإنجليزية",
+    policiesArPlaceholder: "أدخل السياسات باللغة العربية",
+    contact: "التواصل",
+    contactInformation: "معلومات التواصل",
+    phone: "رقم الهاتف",
+    phonePlaceholder: "أدخل رقم الهاتف",
+    email: "البريد الإلكتروني",
+    emailPlaceholder: "أدخل البريد الإلكتروني",
+    website: "الموقع الإلكتروني",
+    websitePlaceholder: "https://example.com",
     overline: "مكتبة الفنادق · إضافة فندق غير موجود",
     title: "إضافة فندق غير موجود",
     subtitle:
@@ -530,13 +544,13 @@ export const extraAr: typeof extraEn = {
     licenceHint: "أقوى وسيلة لاكتشاف التكرار",
     stars: "التصنيف بالنجوم *",
     starsPh: "مثال: ٤ نجوم · رسمي (وزارة السياحة)",
-    descEn: "الوصف (إنجليزي) · اختياري",
+    descEn: "الوصف (إنجليزي) *",
     descEnPh: "وصف مختصر للفندق",
-    descAr: "الوصف (عربي) · اختياري",
+    descAr: "الوصف (عربي) *",
     descArPh: "وصف مختصر للفندق",
     country: "الدولة *",
     city: "المدينة *",
-    area: "المنطقة · اختياري",
+    area: "* اختياري",
     areaPh: "اختر المنطقة",
     address: "العنوان *",
     addressPh: "الشارع والحي وتفاصيل المبنى",
@@ -565,8 +579,7 @@ export const extraAr: typeof extraEn = {
     mediaTitle: "صور الفندق",
     mediaSubtitle: "ارفع صورًا واضحة للفندق واختر كل مرفق متاح للنزلاء.",
     dropzone: "أفلت الصور هنا أو اختر الملفات",
-    dropzoneHint:
-      "٣ صور على الأقل · JPG أو PNG · حتى ١٠ ميجابايت لكل صورة · الأولى هي صورة الغلاف",
+    dropzoneHint: "٣ صور على الأقل · JPG أو PNG · حتى ١٠ ميجابايت لكل صورة · الأولى هي صورة الغلاف",
     mediaNote:
       "تجنّب الشعارات ولقطات الشاشة والزوايا المكررة. تبقى الصور قيد المراجعة حتى تعتمد هوتيليانا الفندق.",
     browse: "اختيار الملفات",
@@ -584,8 +597,7 @@ export const extraAr: typeof extraEn = {
       "أؤكد أننا نملك حقوق هذه الصور أو نحوزها، ونسمح لهوتيليانا بعرضها على المنصة وقنوات الشركاء.",
     amenitiesOverline: "مرافق الفندق · {count} مختارة",
     amenitiesTitle: "المرافق المتاحة",
-    amenitiesNote:
-      "اختر المرافق المتاحة فعليًا للنزلاء فقط. قد تطلب هوتيليانا إثباتًا لأي مرفق.",
+    amenitiesNote: "اختر المرافق المتاحة فعليًا للنزلاء فقط. قد تطلب هوتيليانا إثباتًا لأي مرفق.",
     amenities: "المرافق",
     reviewTitle: "مراجعة الطلب",
     reviewSubtitle: "راجع كل التفاصيل قبل إرسال الفندق إلى هوتيليانا للاعتماد.",
@@ -659,8 +671,7 @@ export const extraAr: typeof extraEn = {
     imagesHint:
       "أفلت صور الغرفة هنا أو اختر من جهازك. JPG أو PNG · حتى ١٠ ميجابايت للصورة · أول صورة هي الغلاف.",
     similarTitle: "توجد غرفة مشابهة بالفعل",
-    similarBody:
-      "«جناح عائلي» مسجّلة بمساحة ٦٢ م² وبنفس الأسرّة. تابع فقط إن كانت غرفة مختلفة.",
+    similarBody: "«جناح عائلي» مسجّلة بمساحة ٦٢ م² وبنفس الأسرّة. تابع فقط إن كانت غرفة مختلفة.",
     similarContinue: "إنها غرفة مختلفة",
     submit: "إرسال لمراجعة هوتيليانا",
     sentTitle: "أُرسلت الغرفة للتحقق",
@@ -673,12 +684,10 @@ export const extraAr: typeof extraEn = {
     hotelianaId: "معرّف هوتيليانا",
     quickRooms: "الغرف المسجّلة",
     quickAmenities: "الخدمات",
-    quickNote:
-      "هذا الفندق مملوك وموثّق من هوتيليانا. اطلب الوصول لبيعه تحت اتفاقيتك.",
+    quickNote: "هذا الفندق مملوك وموثّق من هوتيليانا. اطلب الوصول لبيعه تحت اتفاقيتك.",
     requestOne: "طلب الوصول",
     confirmTitle: "طلب الوصول إلى {count} فنادق",
-    confirmBody:
-      "تراجع هوتيليانا العلاقة بين شركتك وكل فندق قبل منح الوصول.",
+    confirmBody: "تراجع هوتيليانا العلاقة بين شركتك وكل فندق قبل منح الوصول.",
     confirmNext: "ما سيحدث بعد ذلك",
     confirmStep1: "يُرسل الآن — ويُسجّل باسم المستخدم ووقت الإرسال",
     confirmStep2: "تراجع هوتيليانا العلاقة (عادةً يومَي عمل)",
@@ -689,14 +698,12 @@ export const extraAr: typeof extraEn = {
     openRequests: "فتح الطلبات",
     keepBrowsing: "متابعة التصفح",
     bookingType: "نوع تأكيد الحجز",
-    bookingTypeHint:
-      "اختر طريقة تأكيد الحجوزات لهذا الفندق. تطبّقها هوتيليانا بعد منح الوصول.",
+    bookingTypeHint: "اختر طريقة تأكيد الحجوزات لهذا الفندق. تطبّقها هوتيليانا بعد منح الوصول.",
     instant: "تأكيد فوري",
     instantHint: "تُأكَّد الحجوزات فورًا من الأماكن المتاحة لك.",
     onRequest: "عند الطلب",
     onRequestHint: "كل حجز ينتظر تأكيدك قبل أن يصبح نهائيًا.",
     bookingTypeRequired: "اختر نوع تأكيد الحجز للمتابعة.",
-
   },
   docViewer: {
     overline: "مستند شركة موثّق",
@@ -705,7 +712,8 @@ export const extraAr: typeof extraEn = {
     expiryDate: "\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0627\u0646\u062a\u0647\u0627\u0621",
     statusLabel: "\u0627\u0644\u062d\u0627\u0644\u0629",
     valid: "\u0633\u0627\u0631\u064d",
-    expiring: "\u0639\u0644\u0649 \u0648\u0634\u0643 \u0627\u0644\u0627\u0646\u062a\u0647\u0627\u0621",
+    expiring:
+      "\u0639\u0644\u0649 \u0648\u0634\u0643 \u0627\u0644\u0627\u0646\u062a\u0647\u0627\u0621",
     currentFile: "\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u062d\u0627\u0644\u064a",
     viewOnly:
       "\u0645\u0633\u062a\u0646\u062f \u0644\u0644\u0639\u0631\u0636 \u0641\u0642\u0637. \u0648\u0623\u064a \u0627\u0633\u062a\u0628\u062f\u0627\u0644 \u064a\u062d\u062a\u0627\u062c \u0637\u0644\u0628 \u062a\u063a\u064a\u064a\u0631 \u0648\u0645\u0648\u0627\u0641\u0642\u0629 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627.",
@@ -762,5 +770,3 @@ export const extraAr: typeof extraEn = {
     onRequest: "عند الطلب",
   },
 };
-
-

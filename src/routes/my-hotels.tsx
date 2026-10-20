@@ -21,6 +21,7 @@ import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { fetchHotels } from "@/store/features/hotels/hotels.slice";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
 
 // import countries from "i18n-iso-countries";
 // import en from "i18n-iso-countries/langs/en.json";
@@ -75,8 +76,6 @@ export const Route = createFileRoute("/my-hotels")({
 function MyHotelsPage() {
   const { c, lang } = useLanguage();
   const { relations } = usePortal();
-  // const { loading } = useRemoteData(() => hotels);
-
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState(null);
@@ -87,40 +86,34 @@ function MyHotelsPage() {
   // ================================================ //
 
   const debouncedQuery = useDebounce(query, 500);
-
+  const [page, setPage] = useState(1);
   const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(
-      fetchHotels({
-        page: 1,
-        limit: 20,
-        search: debouncedQuery,
-        countryCode: city === "all" ? null : city,
-        status: state
-      }),
-    );
-  }, [dispatch, debouncedQuery, city, state]);
 
   const {
     hotels: linkedHotels,
     meta,
     loading,
     error,
-    emptyState,
   } = useSelector((state: RootState) => state.hotels);
 
-  // const countryOptions = [
-  //   {
-  //     value: "all",
-  //     label: c.myHotels.allCountries,
-  //   },
-  //   ...Object.keys(countries.getAlpha2Codes()).map((code) => ({
-  //     value: code,
-  //     label: getCountryName(code, lang),
-  //     // label: countries.getName(code, lang === "ar" ? "arabic" : "english") ?? code,
-  //   })),
-  // ];
+  const totalPages = meta?.totalPages ?? 1;
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    dispatch(
+      fetchHotels({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedQuery,
+        countryCode: city === "all" ? null : city,
+        status: state,
+      }),
+    );
+  }, [dispatch, page, debouncedQuery, city, state]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, city, state]);
 
   // ================================================ //
   // ================================================ //
@@ -157,29 +150,6 @@ function MyHotelsPage() {
           </Link>
         }
       />
-
-      {/* <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <SetupStat
-          icon={<FilePlus2 className="h-5 w-5" />}
-          label={c.myHotels.statNoContract}
-          value={String(noContract)}
-          note={c.myHotels.statNoContractNote}
-        />
-        <SetupStat
-          icon={<FileClock className="h-5 w-5" />}
-          label={c.myHotels.statDraft}
-          value={String(drafts)}
-          note={c.myHotels.statDraftNote}
-        />
-        <SetupStat
-          icon={<AlertTriangle className="h-5 w-5" />}
-          label={c.myHotels.statSelling}
-          value={String(selling)}
-          note={fill(c.myHotels.statSellingNote, { count: needsAttention })}
-          tone="warning"
-        />
-      </div> */}
-
       <SectionCard className="mb-6">
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block">
@@ -221,9 +191,8 @@ function MyHotelsPage() {
             onChange={setState}
             options={[
               { value: null, label: c.myHotels.anyState },
-              { value: "approved", label: lang === "ar" ? "معتمد" :  "Approved" },
+              { value: "approved", label: lang === "ar" ? "معتمد" : "Approved" },
               { value: "suspended", label: lang === "ar" ? "موقوف" : "suspended" },
-              // { value: "none", label: c.myHotels.status.noContract },
             ]}
           />
         </div>
@@ -235,7 +204,6 @@ function MyHotelsPage() {
           </Button> */}
         </div>
       </SectionCard>
-
       {filter && (
         <LibraryFilterOverlay
           copy={myHotelsFilter}
@@ -246,104 +214,117 @@ function MyHotelsPage() {
           onClose={() => setFilter(false)}
         />
       )}
-
       {loading ? (
         <HotelGridSkeleton count={4} />
-      ) : linkedHotels.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center text-sm text-text-secondary">
-          {c.myHotels.empty}
-        </p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {linkedHotels.map(({ hotel }) => {
-            // Figma UI 02.6 labels the pill by contract state; "needs attention"
-            // is carried by the note under it.
-            const contractStatus =
-              hotel.contract === "selling"
-                ? c.myHotels.status.selling
-                : hotel.contract === "draft"
-                  ? c.myHotels.status.draft
-                  : c.myHotels.status.noContract;
-
-            return (
-              <article
-                key={hotel.id}
-                className="rounded-2xl border border-border-subtle bg-surface-default p-5 shadow-card"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold text-text-primary md:max-w-[250px]">
-                      {lang === "ar" ? hotel.nameAr : hotel.nameEn}
-                    </h2>
-                    <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-text-secondary">
-                      <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                      {getCountryName(hotel.countryCode, lang)} · {hotel.city}`
-                    </p>
-                  </div>
-                  <StatusPill
-                    tone={
-                      hotel.contract === "selling"
-                        ? "success"
-                        : hotel.contract === "draft"
-                          ? "warning"
-                          : "neutral"
-                    }
-                  >
-                    {hotel.needsAttention && (
-                      <AlertTriangle className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                    )}
-                    {contractStatus}
-                  </StatusPill>
-                </div>
-
-                <div className="mt-3 flex items-center gap-1">
-                  {Array.from({ length: hotel.starRating }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className="h-3.5 w-3.5 fill-current text-status-warning"
-                      aria-hidden="true"
-                    />
-                  ))}
-                  <span className="font-data ms-2 text-xs text-text-muted">{hotel.starRating}</span>
-                </div>
-
-                {/* {hotel.contractCount && (
-                  <p className="mt-3 text-sm text-text-secondary">
-                    {lang === "ar" ? hotel.contractCountAr : hotel.contractCount}
-                  </p>
-                )} */}
-
-                {/* {hotel.contractNote && (
-                  <p className="mt-2 rounded-lg bg-surface-subtle px-3 py-2 text-sm text-text-secondary">
-                    {lang === "ar" ? hotel.contractNoteAr : hotel.contractNote}
-                  </p>
-                )} */}
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Link to="/rate-contracts" className="hidden">
-                    <Button size="sm">
-                      {hotel.contractAction === "draft"
-                        ? c.myHotels.continueDraft
-                        : hotel.contractAction === "expiring"
-                          ? c.myHotels.reviewExpiring
-                          : hotel.contractAction === "open"
-                            ? c.myHotels.openContract
-                            : c.myHotels.createContract}
-                    </Button>
-                  </Link>
-
-                  <Link to="/hotel/$hotelId" params={{ hotelId: hotel.id }}>
-                    <Button size="sm" variant="outline">
-                      {c.myHotels.openProfile}
-                    </Button>
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
+      ) : error ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center text-sm text-text-secondary"
+        >
+          {lang === "ar"
+            ? "حدث خطأ أثناء تحميل الفنادق. حاول مرة أخرى."
+            : "Something went wrong while loading hotels. Please try again."}
         </div>
-      )}
+      ) : linkedHotels.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border-default bg-surface-default p-10 text-center">
+          <p className="text-sm text-text-secondary">{c.myHotels.empty}</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {linkedHotels.map(({ hotel }) => {
+              const contractStatus =
+                hotel.contract === "selling"
+                  ? c.myHotels.status.selling
+                  : hotel.contract === "draft"
+                    ? c.myHotels.status.draft
+                    : c.myHotels.status.noContract;
 
+              return (
+                <article
+                  key={hotel.id}
+                  className="rounded-2xl border border-border-subtle bg-surface-default p-5 shadow-card"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-base font-semibold text-text-primary md:max-w-[250px]">
+                        {lang === "ar" ? hotel.nameAr : hotel.nameEn}
+                      </h2>
+
+                      <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-text-secondary">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        {getCountryName(hotel.countryCode, lang)} · {hotel.city}
+                      </p>
+                    </div>
+
+                    <StatusPill
+                      tone={
+                        hotel.contract === "selling"
+                          ? "success"
+                          : hotel.contract === "draft"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
+                      {hotel.needsAttention && (
+                        <AlertTriangle className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+
+                      {contractStatus}
+                    </StatusPill>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-1">
+                    {Array.from({ length: hotel.starRating }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className="h-3.5 w-3.5 fill-current text-status-warning"
+                        aria-hidden="true"
+                      />
+                    ))}
+
+                    <span className="font-data ms-2 text-xs text-text-muted">
+                      {hotel.starRating}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link to="/rate-contracts" className="hidden">
+                      <Button size="sm">
+                        {hotel.contractAction === "draft"
+                          ? c.myHotels.continueDraft
+                          : hotel.contractAction === "expiring"
+                            ? c.myHotels.reviewExpiring
+                            : hotel.contractAction === "open"
+                              ? c.myHotels.openContract
+                              : c.myHotels.createContract}
+                      </Button>
+                    </Link>
+
+                    <Link to="/hotel/$hotelId" params={{ hotelId: hotel.id }}>
+                      <Button size="sm" variant="outline">
+                        {c.myHotels.openProfile}
+                      </Button>
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {!loading && totalPages > 1 && (
+            <SectionCard className="mt-6">
+              <ReusablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                isLoading={loading}
+                lang={lang}
+                showBorder={false}
+              />
+            </SectionCard>
+          )}
+        </>
+      )}
       <p className="mt-6 max-w-3xl text-xs leading-relaxed text-text-muted">{c.myHotels.note}</p>
     </PageShell>
   );
