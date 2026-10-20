@@ -3,6 +3,8 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type {
   ChildRule,
   ChildRuleKey,
+  MealBasis,
+  MealPlan,
   ContractBasics,
   ContractDraftState,
   FixedPriceRoom,
@@ -15,6 +17,14 @@ const emptyBaseSupplements = (): ContractDraftState["baseSupplements"] => ({
   weekdayBaseCost: "",
   weekendBaseCost: "",
   rooms: [],
+});
+
+const emptyMeals = (): ContractDraftState["meals"] => ({
+  room_only: { enabled: true, price: "0", basis: "per_room" },
+  bed_breakfast: { enabled: false, price: "", basis: "per_person" },
+  half_board: { enabled: false, price: "", basis: "per_person" },
+  full_board: { enabled: false, price: "", basis: "per_person" },
+  iftar_sohour: { enabled: false, price: "", basis: "per_person" },
 });
 
 const initialState: ContractDraftState = {
@@ -38,6 +48,7 @@ const initialState: ContractDraftState = {
     shared_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
     extra_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
   },
+  meals: emptyMeals(),
 };
 
 export const sameFixedOffer = (
@@ -72,6 +83,7 @@ export const contractDraftSlice = createSlice({
       state.pricingModel = action.payload;
       state.baseSupplements = emptyBaseSupplements();
       state.fixedRooms = [];
+      state.meals = emptyMeals();
     },
 
     setWeekPricing: (state, action: PayloadAction<WeekPricing>) => {
@@ -169,6 +181,22 @@ export const contractDraftSlice = createSlice({
       if (key === "sharing_parents" && field === "price") return;
       state.children[key][field] = value;
     },
+
+    toggleMeal: (state, action: PayloadAction<MealPlan>) => {
+      if (action.payload === "room_only") return;
+      const meal = state.meals[action.payload];
+      meal.enabled = !meal.enabled;
+    },
+
+    setMealPrice: (state, action: PayloadAction<{ meal: MealPlan; value: string }>) => {
+      if (action.payload.meal === "room_only") return;
+      state.meals[action.payload.meal].price = action.payload.value;
+    },
+
+    setMealBasis: (state, action: PayloadAction<{ meal: MealPlan; basis: MealBasis }>) => {
+      if (action.payload.meal === "room_only") return;
+      state.meals[action.payload.meal].basis = action.payload.basis;
+    },
   },
 });
 
@@ -186,6 +214,9 @@ export const {
   setFixedPrice,
   toggleChildRule,
   setChildRule,
+  toggleMeal,
+  setMealPrice,
+  setMealBasis,
 } = contractDraftSlice.actions;
 
 export default contractDraftSlice.reducer;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSelector } from "react-redux";
 import {
@@ -7,7 +7,6 @@ import {
   Lock,
   Plus,
   Save,
-  Search,
 } from "lucide-react";
 import { PageShell, StatusPill } from "@/components/layout/page-shell";
 import {
@@ -17,6 +16,7 @@ import {
 import { BasicsFields } from "@/components/contracts/contract-form/basics-fields";
 import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
 import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
+import { MealsFields } from "@/components/contracts/contract-form/meals-fields";
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import {
@@ -53,7 +53,7 @@ import {
   DeleteRestrictionOverlay,
   RestrictionDrawer,
 } from "@/components/contracts/restriction-overlays";
-import { ChoiceRow, RoomGroup, Section, Table } from "@/components/contracts/contract-parts";
+import { ChoiceRow, Section, Table } from "@/components/contracts/contract-parts";
 import {
   RestrictionDayDialog,
   type RestrictionScope,
@@ -65,15 +65,11 @@ import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
 import {
-  BASE_WEEKDAY,
   MONTHS,
   contractRestrictions,
-  contractRooms,
   inventoryCaps,
   perRoomStock,
-  mealPlans,
   rateSeasons,
-  roomPrice,
   seasonPolicies,
 } from "@/lib/contract-data";
 
@@ -115,7 +111,6 @@ export function ContractBuilder({
   const [overLimit, setOverLimit] = useState("2");
   const [hasRestrictions, setHasRestrictions] = useState(true);
   const [hasPolicies, setHasPolicies] = useState(true);
-  const [query, setQuery] = useState("");
   const [dayScope, setDayScope] = useState<RestrictionScope | null>(null);
   const [saving, setSaving] = useState(false);
   /* OV 03.2 — the drawer that shows every section before it goes live. */
@@ -193,8 +188,6 @@ export function ContractBuilder({
 
   /* UI 03.1F section 3 — the rooms are a checklist, so what is on sale
      is held here and section 2's base row follows it. */
-  const onSale = contractRooms.filter((room) => room.onSale);
-  const roomTypes = new Set(onSale.map((room) => room.type)).size;
   const contractRoomCount = fixed
     ? draft.fixedRooms.length
     : draft.baseSupplements.rooms.length;
@@ -225,22 +218,6 @@ export function ContractBuilder({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const grouped = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    const rows = onSale.filter(
-      (room) =>
-        !term ||
-        `${room.type} ${room.view}`.toLowerCase().includes(term) ||
-        `${room.typeAr} ${room.viewAr}`.includes(term)
-    );
-    const map = new Map<string, typeof rows>();
-    for (const room of rows) {
-      map.set(room.type, [...(map.get(room.type) ?? []), room]);
-    }
-    return [...map.entries()];
-  }, [onSale, query]);
-
-  const priceMeals = mealPlans.filter((meal) => meal.included);
 
   function activate() {
     setSaving(true);
@@ -260,7 +237,7 @@ export function ContractBuilder({
         state: "active",
         roomNames: [],
         allotment: Number(stock) || 0,
-        roomTypes,
+        roomTypes: contractRoomCount,
         soldOut:
           soldOut === "stop"
             ? "stop"
@@ -499,103 +476,7 @@ export function ContractBuilder({
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <Table
-              head={["", t.colMealPlan, t.colBasis, t.colSameNight]}
-              rows={mealPlans.map((meal) => [
-                meal.included ? "✓" : "",
-                lang === "ar" ? meal.nameAr : meal.name,
-                lang === "ar" ? meal.basisAr : meal.basis,
-                meal.supplement === null ? "-" : `+ ${meal.supplement} SAR`,
-              ])}
-            />
-
-            <div className="mt-6">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">
-                    {t.priceListTitle}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                    {t.priceListBody}
-                  </p>
-                </div>
-                <div className="relative">
-                  <Search
-                    className="absolute top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted start-3"
-                    aria-hidden="true"
-                  />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t.priceListSearch}
-                    className="h-10 w-full min-w-[220px] rounded-lg border border-border-default bg-surface-default ps-9 pe-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-border-focus focus-visible:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
-                <StatusPill tone="neutral">
-                  {fill(t.priceListRooms, { count: onSale.length })}
-                </StatusPill>
-                <StatusPill tone="neutral">
-                  {fill(t.priceListTypes, { count: roomTypes })}
-                </StatusPill>
-                <StatusPill tone="brand">
-                  {fill(t.priceListFrom, { amount: BASE_WEEKDAY })}
-                </StatusPill>
-                <span className="self-center">{t.priceListBase}</span>
-              </div>
-
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full min-w-[720px] border-collapse text-sm">
-                  <thead>
-                    <tr className="text-overline text-text-muted">
-                      <th className="py-2 text-start font-semibold">
-                        {t.colRoomView}
-                      </th>
-                      {priceMeals.map((meal) => (
-                        <th key={meal.name} className="py-2 text-end font-semibold">
-                          {lang === "ar" ? meal.nameAr : meal.name}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {grouped.map(([type, rows]) => (
-                      <RoomGroup
-                        key={type}
-                        label={fill(t.roomGroup, {
-                          room: lang === "ar" ? rows[0]!.typeAr : type,
-                          views:
-                            rows.length === 1
-                              ? t.oneView
-                              : fill(t.views, { count: rows.length }),
-                          guests: rows[0]!.guests,
-                        })}
-                        rows={rows}
-                        meals={priceMeals}
-                        lang={lang}
-                        t={t}
-                      />
-                    ))}
-                    {contractRooms
-                      .filter((room) => !room.onSale)
-                      .map((room) => (
-                        <tr key={`${room.type}-off`} className="border-t border-border-subtle">
-                          <td
-                            colSpan={priceMeals.length + 1}
-                            className="py-3 text-xs text-text-muted"
-                          >
-                            {fill(t.notOnSale, {
-                              room: `${lang === "ar" ? room.typeAr : room.type} · ${lang === "ar" ? room.viewAr : room.view}`,
-                            })}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <MealsFields />
           </Section>
             </>
           )}

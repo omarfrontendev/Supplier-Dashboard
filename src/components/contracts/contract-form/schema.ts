@@ -6,6 +6,7 @@ import { toAmount } from "@/store/features/contracts/contract-payload";
 import {
   CHILD_MAX_AGE,
   CHILD_RULES,
+  MEAL_PLANS,
   SLA_MAX_MINUTES,
   SLA_MIN_MINUTES,
   type ChildRule,
@@ -13,7 +14,7 @@ import {
   type ContractDraftState,
 } from "@/store/features/contracts/types";
 
-export type ContractSectionKey = "basics" | "pricing" | "rooms" | "children" | "booking";
+export type ContractSectionKey = "basics" | "pricing" | "rooms" | "children" | "meals" | "booking";
 
 export interface ContractIssue {
   section: ContractSectionKey;
@@ -98,6 +99,14 @@ export const contractFinalSchema = (m: Messages) =>
       if (base.rooms.some((room) => room.roomId !== base.baseRoomId && !filled(room.supplement))) {
         issue("rooms", m.supplement);
       }
+      if (
+        MEAL_PLANS.some(
+          (meal) =>
+            meal !== "room_only" && draft.meals[meal].enabled && !filled(draft.meals[meal].price),
+        )
+      ) {
+        issue("meals", m.mealPrice);
+      }
     } else {
       if (draft.fixedRooms.length === 0) issue("rooms", m.fixedRooms);
       if (
@@ -119,4 +128,14 @@ export function validateContract(draft: ContractDraftState, m: Messages): Contra
     section: issue.path[0] as ContractSectionKey,
     message: issue.message,
   }));
+}
+
+export function contractIssuesFor(
+  draft: ContractDraftState,
+  m: Messages,
+  section: ContractSectionKey,
+): string[] {
+  return validateContract(draft, m)
+    .filter((issue) => issue.section === section)
+    .map((issue) => issue.message);
 }

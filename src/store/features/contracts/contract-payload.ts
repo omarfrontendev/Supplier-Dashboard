@@ -1,4 +1,4 @@
-import { CHILD_RULES, type ContractDraftState } from "./types";
+import { CHILD_RULES, MEAL_PLANS, type ContractDraftState, type MealRule } from "./types";
 
 export const toAmount = (value: string): number | null => {
   const trimmed = value.trim();
@@ -14,6 +14,11 @@ export function effectivePrice(baseCost: string, supplement: string) {
   const add = toAmount(supplement);
   if (base === null || add === null) return null;
   return Math.round((base + add) * 100) / 100;
+}
+
+export function mealSupplement(meal: MealRule, guests: number) {
+  const price = toAmount(meal.price) ?? 0;
+  return meal.basis === "per_person" ? price * guests : price;
 }
 
 export function buildContractPayload(draft: ContractDraftState) {
@@ -58,6 +63,14 @@ export function buildContractPayload(draft: ContractDraftState) {
             view: room.view,
             weekdayPrice: toAmount(room.weekdayPrice),
             weekendPrice: split ? toAmount(room.weekendPrice) : null,
+          }))
+        : null,
+    mealPlans:
+      pricingModel === "base_supplements"
+        ? MEAL_PLANS.filter((meal) => draft.meals[meal].enabled).map((meal) => ({
+            mealPlan: meal,
+            basis: draft.meals[meal].basis,
+            price: meal === "room_only" ? 0 : toAmount(draft.meals[meal].price),
           }))
         : null,
     extraChildren: Object.fromEntries(

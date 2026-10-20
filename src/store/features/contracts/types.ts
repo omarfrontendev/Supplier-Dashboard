@@ -84,6 +84,16 @@ export interface FixedPriceRoom {
   weekendPrice: string;
 }
 
+export type MealBasis = "per_room" | "per_person";
+
+export interface MealRule {
+  enabled: boolean;
+  price: string;
+  basis: MealBasis;
+}
+
+export type MealRules = Record<MealPlan, MealRule>;
+
 export type ChildRuleKey = "sharing_parents" | "shared_bed" | "extra_bed";
 
 export const CHILD_RULES: ChildRuleKey[] = ["sharing_parents", "shared_bed", "extra_bed"];
@@ -106,4 +116,5 @@ export interface ContractDraftState {
   baseSupplements: BaseSupplements;
   fixedRooms: FixedPriceRoom[];
   children: ChildRules;
+  meals: MealRules;
 }
