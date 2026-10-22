@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -34,11 +34,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select, SelectOption } from "@/components/ui/select";
 import { hotels } from "@/lib/demo-data";
 import { fill, useLanguage } from "@/lib/i18n";
 import { usePortal } from "@/lib/portal-store";
-import { ConfirmOverlay, FilterMenu, FilterPanel } from "@/components/contracts/contract-overlays";
+import {
+  ConfirmOverlay,
+  ContractListFilterValues,
+  FilterMenu,
+  FilterPanel,
+} from "@/components/contracts/contract-overlays";
 import {
   deleteDraftPanel,
   periodPanel,
@@ -50,8 +55,15 @@ import { ReusablePagination } from "@/components/ui/ReusablePagination";
 import { useDebounce } from "./my-hotels";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
 import { RowsSkeleton } from "@/components/ui/skeletons";
-import { BookingType, PricingModel, SupplyContract } from "@/api/modules/hotel-contract/types";
+import {
+  BookingType,
+  ContractPeriod,
+  PricingModel,
+  SupplyContract,
+} from "@/api/modules/hotel-contract/types";
 import { ContractStatus } from "@/store/features/contracts/types";
+import { api } from "@/api/client";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/rate-contracts/")({
   head: () => ({
@@ -77,6 +89,14 @@ type Action = "pause" | "resume" | "delete" | "terminate" | "stopSell" | null;
 
 const copy = {
   en: {
+    periodLabel: "Coverage period",
+    anyPeriod: "Any period",
+    customPeriod: "Custom date range",
+    coveringToday: "Covering today",
+    startingNext90Days: "Starting in the next 90 days",
+    endingNext90Days: "Ending in the next 90 days",
+    alreadyOver: "Already over",
+    periodsSelected: "periods selected",
     draft: "Draft",
     scheduled: "Scheduled",
     activated: "Active",
@@ -101,7 +121,7 @@ const copy = {
     attentionHint: "contracts · {count} issues",
     alerts: "Stock alerts",
     alertsHint: "rooms with ≤ 2 left tonight",
-    search: "Search contract or hotel",
+    search: "Search contract",
     periodLabel: "Period",
     statusLabel: "Status",
     hotelLabel: "Hotel",
@@ -113,9 +133,9 @@ const copy = {
     needAttention: "NEED ATTENTION",
     contract: "CONTRACT",
     period: "PERIOD",
-    allotment: "ALLOTMENT / NIGHT",
-    confirmation: "CONFIRMATION",
-    soldOut: "WHEN SOLD OUT",
+    allotment: "Pricing model",
+    confirmation: "booking type",
+    soldOut: "Sell Status",
     release: "RELEASE",
     status: "STATUS",
     actions: "ACTIONS",
@@ -178,6 +198,14 @@ const copy = {
     apply: "Confirm",
   },
   ar: {
+    periodLabel: "فترة التغطية",
+    anyPeriod: "كل الفترات",
+    customPeriod: "فترة زمنية مخصصة",
+    coveringToday: "تشمل اليوم",
+    startingNext90Days: "تبدأ خلال الـ 90 يومًا القادمة",
+    endingNext90Days: "تنتهي خلال الـ 90 يومًا القادمة",
+    alreadyOver: "انتهت بالفعل",
+    periodsSelected: "فترات محددة",
     draft: "مسودة",
     scheduled: "مجدول",
     activated: "نشط",
@@ -201,7 +229,7 @@ const copy = {
     attentionHint: "عقود · {count} ملاحظات",
     alerts: "تنبيهات المخزون",
     alertsHint: "غرف متبقٍ منها ≤ ٢ الليلة",
-    search: "ابحث عن عقد أو فندق",
+    search: "ابحث عن عقد",
     periodLabel: "الفترة",
     statusLabel: "الحالة",
     hotelLabel: "الفندق",
@@ -213,9 +241,9 @@ const copy = {
     needAttention: "تحتاج انتباهك",
     contract: "العقد",
     period: "الفترة",
-    allotment: "الحصة / الليلة",
-    confirmation: "التأكيد",
-    soldOut: "عند النفاد",
+    allotment: "نموذج التسعير",
+    confirmation: "نوع الحجز",
+    soldOut: "حالة البيع",
     release: "الاسترجاع",
     status: "الحالة",
     actions: "الإجراءات",
@@ -276,31 +304,65 @@ const copy = {
     apply: "تأكيد",
   },
 };
-
 const PAGE_SIZE = 10;
-
 interface FiltersState {
   page: number;
   search: string;
   hotelId: number | undefined;
-  pricingModel: string | undefined;
   status: string;
+  pricingModel: PricingModel | undefined;
+  periods: ContractPeriod[];
+  dateFrom: string;
+  dateTo: string;
+  sortBy: string | undefined;
 }
-
-type FiltersAction =
-  | { type: "SET_SEARCH"; payload: string }
-  | { type: "SET_HOTEL"; payload: number | undefined }
-  | { type: "SET_PRICING_MODEL"; payload: string | undefined }
-  | { type: "SET_PAGE"; payload: number }
-  | { type: "SET_STATUS"; payload: string };
 
 const initialState: FiltersState = {
   page: 1,
   search: "",
+  status: "",
   hotelId: undefined,
   pricingModel: undefined,
-  status: "",
+  periods: ["everything"],
+  dateFrom: "",
+  dateTo: "",
+  sortBy: undefined,
 };
+
+type FiltersAction =
+  | { type: "SET_SEARCH"; payload: string }
+  | { type: "SET_HOTEL"; payload: number | undefined }
+  | { type: "SET_PRICING_MODEL"; payload: PricingModel | undefined }
+  | { type: "SET_PAGE"; payload: number }
+  | { type: "SET_STATUS"; payload: string }
+  | { type: "SET_PERIODS"; payload: ContractPeriod[] }
+  | { type: "SET_DATE_RANGE"; payload: { dateFrom: string; dateTo: string } }
+  | { type: "SET_SORT_BY"; payload: string | undefined }
+  | {
+      type: "SET_CONTRACT_FILTERS";
+      payload: ContractListFilterValues;
+    }
+  | { type: "CLEAR_FILTERS" };
+
+// const initialState: FiltersState = {
+//   page: 1,
+//   search: "",
+//   status: "",
+//   hotelId: undefined,
+//   pricingModel: undefined,
+//   periods: [],
+//   dateFrom: "",
+//   dateTo: "",
+//   sortBy: "newest_first",
+// };
+
+function normalizePeriods(periods: ContractPeriod[]): ContractPeriod[] {
+  if (periods.includes("everything")) {
+    return ["everything"];
+  }
+
+  return [...new Set(periods)];
+}
 
 function filtersReducer(state: FiltersState, action: FiltersAction): FiltersState {
   switch (action.type) {
@@ -325,23 +387,76 @@ function filtersReducer(state: FiltersState, action: FiltersAction): FiltersStat
         page: 1,
       };
 
+    case "SET_STATUS":
+      return {
+        ...state,
+        status: action.payload,
+        page: 1,
+      };
+
     case "SET_PAGE":
       return {
         ...state,
         page: action.payload,
       };
 
-    case "SET_STATUS":
+    case "SET_PERIODS": {
+      const periods = normalizePeriods(action.payload);
+
       return {
         ...state,
-        status: action.payload,
+        periods,
+        dateFrom: periods.includes("custom") ? state.dateFrom : "",
+        dateTo: periods.includes("custom") ? state.dateTo : "",
+        page: 1,
+      };
+    }
+
+    case "SET_DATE_RANGE":
+      return {
+        ...state,
+        dateFrom: action.payload.dateFrom,
+        dateTo: action.payload.dateTo,
+        page: 1,
+      };
+
+    case "SET_SORT_BY":
+      return {
+        ...state,
+        sortBy: action.payload,
+        page: 1,
+      };
+
+    case "SET_CONTRACT_FILTERS": {
+      const periods = normalizePeriods(action.payload.periods);
+
+      return {
+        ...state,
+        periods,
+        dateFrom: periods.includes("custom") ? action.payload.dateFrom : "",
+        dateTo: periods.includes("custom") ? action.payload.dateTo : "",
+        sortBy: action.payload.sortBy,
+        page: 1,
+      };
+    }
+
+    case "CLEAR_FILTERS":
+      return {
+        ...state,
+        page: 1,
+        status: "",
+        hotelId: undefined,
+        pricingModel: undefined,
+        periods: ["everything"],
+        dateFrom: "",
+        dateTo: "",
+        sortBy: undefined,
       };
 
     default:
       return state;
   }
 }
-
 function RateContractsPage() {
   const { lang } = useLanguage();
   const t = copy[lang];
@@ -364,6 +479,11 @@ function RateContractsPage() {
     limit: PAGE_SIZE,
     search: debouncedSearch,
     status: filters.status,
+    pricingModel: filters.pricingModel,
+    periods: filters.periods,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    sortBy: filters.sortBy,
     ...(filters.hotelId !== undefined && { hotelId: filters.hotelId }),
     ...(filters.pricingModel !== undefined && { pricingModel: filters.pricingModel }),
   };
@@ -373,62 +493,154 @@ function RateContractsPage() {
   const filtered = data?.contracts;
   const meta = data?.meta;
 
-  const { data: hotelsData, isPending: isHotelsLoading } = useContractHotels({
-    page: 1,
-    limit: 100,
+  const [hotelSearch, setHotelSearch] = useState("");
+  const debouncedHotelSearch = useDebounce(hotelSearch, 500);
+
+  const [hotelPage, setHotelPage] = useState(1);
+  const HOTEL_PAGE_SIZE = 20; // Keep it small for pagination testing.
+
+  const [hotelOptions, setHotelOptions] = useState<SelectOption[]>([]);
+  const [hotelLabels, setHotelLabels] = useState<Record<string, string>>({});
+
+  const previousSearchRef = useRef(debouncedHotelSearch);
+  const resettingSearchRef = useRef(false);
+
+  const {
+    data: hotelsData,
+    isPending: isHotelsLoading,
+    isFetching: isHotelsFetching,
+    isError: isHotelsError,
+    refetch: refetchHotels,
+  } = useContractHotels({
+    page: hotelPage,
+    limit: HOTEL_PAGE_SIZE,
+    search: debouncedHotelSearch,
   });
 
-  const hotels = hotelsData?.hotels ?? [];
+  const hotelsMeta = hotelsData?.meta;
 
-  const [query, setQuery] = useState("");
-  const [hotel, setHotel] = useState("");
-  const [status, setStatus] = useState("");
-  const [period, setPeriod] = useState("");
-  const [attention, setAttention] = useState("");
-  const [pending, setPending] = useState<{ contract: SupplyContract; action: Action } | null>(null);
+  const hasNextHotelPage = hotelPage < (hotelsMeta?.totalPages ?? 1);
+
+  // Reset pagination and accumulated options when the debounced search changes.
+  useEffect(() => {
+    if (previousSearchRef.current === debouncedHotelSearch) return;
+
+    previousSearchRef.current = debouncedHotelSearch;
+    resettingSearchRef.current = true;
+
+    setHotelPage(1);
+    setHotelOptions([]);
+  }, [debouncedHotelSearch]);
+
+  // Accumulate the current page without removing previously loaded options.
+  useEffect(() => {
+    if (!hotelsData?.hotels) return;
+
+    const responsePage = hotelsMeta?.page ?? hotelPage;
+
+    // Ignore stale data belonging to a different page.
+    if (responsePage !== hotelPage) return;
+
+    // Wait for page 1 when a new search is being initialized.
+    if (resettingSearchRef.current && hotelPage !== 1) return;
+
+    const incomingOptions: SelectOption[] = hotelsData.hotels.map((hotel) => ({
+      value: String(hotel.id),
+      label: hotel.nameEn,
+    }));
+
+    // Preserve labels for selected hotels, even after the options are reset.
+    setHotelLabels((current) => ({
+      ...current,
+      ...Object.fromEntries(incomingOptions.map((option) => [option.value, option.label])),
+    }));
+
+    if (hotelPage === 1) {
+      setHotelOptions(incomingOptions);
+      resettingSearchRef.current = false;
+      return;
+    }
+
+    setHotelOptions((currentOptions) => {
+      const existingValues = new Set(currentOptions.map((option) => option.value));
+
+      const uniqueIncomingOptions = incomingOptions.filter(
+        (option) => !existingValues.has(option.value),
+      );
+
+      return [...currentOptions, ...uniqueIncomingOptions];
+    });
+  }, [hotelsData, hotelsMeta?.page, hotelPage]);
+
+  const handleHotelSearchChange = (search: string) => {
+    setHotelSearch(search);
+  };
+
+  const handleLoadMoreHotels = () => {
+    if (
+      !hasNextHotelPage ||
+      isHotelsFetching ||
+      isHotelsLoading ||
+      isHotelsError ||
+      resettingSearchRef.current
+    ) {
+      return;
+    }
+
+    setHotelPage((currentPage) => currentPage + 1);
+  };
+
+  // const [hotel, setHotel] = useState("");
+  // const [status, setStatus] = useState("");
+  // const [period, setPeriod] = useState("");
+  // const [pending, setPending] = useState<{ contract: SupplyContract; action: Action } | null>(null);
   /* OV 03.0G / 03.0L — the two panels the list opens over itself. */
   const [panel, setPanel] = useState<"attention" | "period" | null>(null);
-  // const filtered = useMemo(
-  //   () =>
-  //     contracts.filter((item) => {
-  //       const h = hotels.find((x) => x.id === item.hotelId);
-  //       const hay = `${item.name} ${item.nameAr} ${h?.nameEn} ${h?.nameAr}`.toLowerCase();
-  //       return (
-  //         (!query || hay.includes(query.toLowerCase())) &&
-  //         (!hotel || item.hotelId === hotel) &&
-  //         (!status || item.status === status) &&
-  //         (!period || item.period === period) &&
-  //         (!attention || Boolean(item.attention))
-  //       );
-  //     }),
-  //   [contracts, query, hotel, status, period, attention],
-  // );
-  // Figma counts a scheduled contract as active — both rows offer "Open".
   // UI 03.0 draws these four numbers for the whole account, not for the rows below.
-  const stats = { active: 3, hotels: 3, rooms: 24, attention: 2, issues: 4, alerts: 2 };
-  // const activeContracts = contracts.filter(
-  //   (item) => item.status === "active" || item.status === "scheduled",
-  // );
-  // const activeHotels = new Set(activeContracts.map((item) => item.hotelId)).size;
-  // const activeRooms = activeContracts.reduce((sum, item) => sum + item.allotment, 0);
-  // const attentionCount = contracts.filter((item) => Boolean(item.attention)).length;
-  // const issueCount = contracts.reduce((sum, item) => sum + (item.attention ? 2 : 0), 0);
-  // const stockAlerts = contracts.filter(
-  //   (item) => item.status === "active" && item.allotment > 0 && item.allotment <= 8,
-  // ).length;
-  const act = () => {
-    if (!pending?.action) return;
-    if (pending.action === "delete") deleteContract(pending.contract.id);
-    else
-      setContractState(
-        pending.contract.id,
-        pending.action === "pause"
-          ? "paused"
-          : pending.action === "resume"
-            ? "active"
-            : "terminated",
-      );
-    setPending(null);
+  // const stats = { active: 3, hotels: 3, rooms: 24, attention: 2, issues: 4, alerts: 2 };
+  // const act = () => {
+  //   if (!pending?.action) return;
+  //   if (pending.action === "delete") deleteContract(pending.contract.id);
+  //   else
+  //     setContractState(
+  //       pending.contract.id,
+  //       pending.action === "pause"
+  //         ? "paused"
+  //         : pending.action === "resume"
+  //           ? "active"
+  //           : "terminated",
+  //     );
+  //   setPending(null);
+  // };
+
+  const isPeriodFilterActive =
+    filters.periods.length > 0 && !filters.periods.includes("everything");
+
+  const getPeriodLabel = () => {
+    if (!isPeriodFilterActive) {
+      return t.anyPeriod;
+    }
+
+    if (filters.periods.includes("custom")) {
+      return filters.dateFrom && filters.dateTo
+        ? `${filters.dateFrom} – ${filters.dateTo}`
+        : t.customPeriod;
+    }
+
+    if (filters.periods.length === 1) {
+      const selectedPeriod = filters.periods[0];
+
+      const periodLabels: Partial<Record<ContractPeriod, string>> = {
+        covering_today: t.coveringToday,
+        starting_next_90_days: t.startingNext90Days,
+        ending_next_90_days: t.endingNext90Days,
+        already_over: t.alreadyOver,
+      };
+
+      return periodLabels[selectedPeriod] ?? t.anyPeriod;
+    }
+
+    return `${filters.periods.length} ${t.periodsSelected}`;
   };
 
   return (
@@ -453,34 +665,15 @@ function RateContractsPage() {
           </div>
         }
       />
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
-          icon={<FileText />}
-          value={num(stats.active)}
-          label={t.active}
-          hint={fill(t.activeHint, { count: stats.hotels })}
-        />
-        <Stat icon={<BedDouble />} value={num(stats.rooms)} label={t.rooms} hint={t.roomsHint} />
-        <Stat
-          icon={<CalendarClock />}
-          value={num(stats.attention)}
-          label={t.attention}
-          hint={fill(t.attentionHint, { count: stats.issues })}
-          warning
-        />
-        <Stat
-          icon={<ShieldAlert />}
-          value={num(stats.alerts)}
-          label={t.alerts}
-          hint={t.alertsHint}
-          warning
-        />
-      </div>
       <section className="overflow-visible rounded-[14px] border border-border-subtle bg-surface-default shadow-card">
-        <div className="grid gap-4 border-b border-border-subtle p-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_.9fr]">
+        <div className="grid gap-4 border-b border-border-subtle p-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_auto_1fr]">
           <FilterField label={t.searchLabel}>
-            <div className="relative">
-              <Search className="absolute start-3 top-3 h-4 w-4 text-text-muted" />
+            <div className="relative block">
+              {/* <Search
+                className="absolute top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted start-3"
+                aria-hidden="true"
+              /> */}
+              <Search className="absolute start-3 top-3 h-4 w-4 text-text-muted z-1" />
               <Input
                 aria-label={t.search}
                 placeholder={t.search}
@@ -497,23 +690,52 @@ function RateContractsPage() {
           </FilterField>
           <FilterField label={t.hotelLabel}>
             <Select
-              size="sm"
-              value={filters.hotelId != null ? String(filters.hotelId) : ""}
-              onChange={(value) =>
+              placeholder="Select a hotel"
+              value={filters?.hotelId}
+              onChange={(e) => {
                 dispatch({
                   type: "SET_HOTEL",
-                  payload: value ? Number(value) : undefined,
+                  payload: e ? Number(e) : undefined,
+                });
+              }}
+              options={hotelOptions}
+              selectedLabels={hotelLabels}
+              searchable
+              serverSearch
+              clearable
+              onSearchChange={handleHotelSearchChange}
+              loading={isHotelsLoading || (isHotelsFetching && hotelOptions.length === 0)}
+              {...(isHotelsError ? { loadError: "Failed to load hotels." } : {})}
+              onRetry={() => refetchHotels()}
+              hasMore={hasNextHotelPage}
+              loadingMore={isHotelsFetching && hotelOptions.length > 0}
+              onLoadMore={handleLoadMoreHotels}
+              onRefresh={() => refetchHotels()}
+              refreshing={isHotelsFetching}
+            />
+          </FilterField>
+          <FilterField label={t.allotment}>
+            <Select
+              size="sm"
+              value={filters.pricingModel ?? ""}
+              onChange={(value) =>
+                dispatch({
+                  type: "SET_PRICING_MODEL",
+                  payload: value ? (value as PricingModel) : undefined,
                 })
               }
-              placeholder={t.allHotels}
+              placeholder={t.allPricingModels}
               clearable
-              options={hotels.map((hotel) => ({
-                value: String(hotel.id),
-                label: lang === "ar" ? hotel.nameAr : hotel.nameEn,
-                hint: fill(t.contractCount, {
-                  count: contracts.filter((contract) => contract.hotelId === hotel.id).length,
-                }),
-              }))}
+              options={[
+                {
+                  value: "base_plus_supplements",
+                  label: t.basePlusSupplements,
+                },
+                {
+                  value: "fixed_per_room",
+                  label: t.fixedPerRoom,
+                },
+              ]}
             />
           </FilterField>
           <FilterField label={t.statusLabel}>
@@ -529,53 +751,53 @@ function RateContractsPage() {
               t={t}
             />
           </FilterField>
-          <FilterField label={t.periodLabel}>
+          {/* <FilterField label={t.periodLabel}>
             <button
               type="button"
               onClick={() => setPanel("period")}
               className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-primary hover:bg-surface-subtle"
             >
-              <span className="truncate">{period || t.anyPeriod}</span>
+              <span className="truncate">{t.anyPeriod}</span>
               <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
             </button>
-          </FilterField>
-          {/* <FilterField label={t.needAttention}>
-            <div className="flex items-center gap-2">
-              <FilterMenu
-                panel={attentionPanel}
-                onApply={() => setAttention("yes")}
-                trigger={
-                  <button
-                    type="button"
-                    className="flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-primary hover:bg-surface-subtle"
-                  >
-                    <span className="truncate">
-                      {attention ? fill(t.issues, { count: issueCount }) : t.anyAttention}
-                    </span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
-                  </button>
-                }
-              />
-              {attention && (
-                <button
-                  type="button"
-                  onClick={() => setAttention("")}
-                  className="shrink-0 whitespace-nowrap text-xs font-medium text-text-link hover:underline"
-                >
-                  {t.clearFilter}
-                </button>
-              )}
-            </div>
           </FilterField> */}
+          <FilterField label={t.periodLabel}>
+            <button
+              type="button"
+              onClick={() => setPanel("period")}
+              aria-pressed={isPeriodFilterActive}
+              className={cn(
+                "flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 text-start text-sm transition-colors",
+                isPeriodFilterActive
+                  ? "border-[#164d3b] bg-[#edffd8] text-[#164d3b]"
+                  : "border-border-default bg-surface-default text-text-primary hover:bg-surface-subtle",
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-medium">{getPeriodLabel()}</span>
+
+                {isPeriodFilterActive && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-[#164d3b]" />
+                )}
+              </span>
+
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isPeriodFilterActive ? "text-[#164d3b]" : "text-text-muted",
+                )}
+              />
+            </button>
+          </FilterField>
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[1260px]">
-            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.9fr_.6fr_110px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
+            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_110px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
               <span>{t.contract}</span>
               <span>{t.period}</span>
               <span>{t.allotment}</span>
               <span>{t.confirmation}</span>
-              <span>{t.soldOut}</span>
+              {/* <span>{t.soldOut}</span> */}
               <span>{t.release}</span>
               <span>{t.status}</span>
               <span>{t.actions}</span>
@@ -660,6 +882,18 @@ function RateContractsPage() {
                         type: "SET_SEARCH",
                         payload: "",
                       });
+                      dispatch({
+                        type: "SET_PRICING_MODEL",
+                        payload: undefined,
+                      });
+                      dispatch({
+                        type: "SET_STATUS",
+                        payload: "",
+                      });
+                      dispatch({
+                        type: "SET_PAGE",
+                        payload: 1,
+                      });
                       // Clear the remaining filters here if needed.
                     }}
                   >
@@ -707,7 +941,7 @@ function RateContractsPage() {
             ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول يتيحان التشغيل والتعديل؛ المسودة للمتابعة أو الحذف؛ المنتهي للعرض أو النسخ فقط."
             : "Row actions depend on the contract state: Active · Scheduled → open, edit operational settings, amend, pause, stop sale, duplicate, terminate · Paused → resume · Draft → continue or delete · Expired → copy to a new period · Terminated → view only."}
       </p>
-      {pending?.action === "stopSell" && (
+      {/* {pending?.action === "stopSell" && (
         <ConfirmOverlay
           panel={stopSellPanel}
           onClose={() => setPending(null)}
@@ -738,8 +972,25 @@ function RateContractsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )} */}
+      {panel === "period" && (
+        <FilterPanel
+          panel={periodPanel}
+          onClose={() => setPanel(false)}
+          initialFilters={{
+            periods: filters.periods,
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+            sortBy: filters.sortBy,
+          }}
+          onApplyFilters={(nextFilters) => {
+            dispatch({
+              type: "SET_CONTRACT_FILTERS",
+              payload: nextFilters,
+            });
+          }}
+        />
       )}
-      {panel === "period" && <FilterPanel panel={periodPanel} onClose={() => setPanel(null)} />}
     </PageShell>
   );
 }
@@ -822,7 +1073,7 @@ function ContractRow({
             ? "danger"
             : "neutral";
   return (
-    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.9fr_.6fr_110px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
+    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_110px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
       <div className="min-w-0">
         <span
           // to="/rate-contracts/$contractId"
@@ -834,29 +1085,14 @@ function ContractRow({
       </div>
       <span className="text-text-secondary">{contractPeriod}</span>
       <span className="font-data text-sm font-semibold text-text-primary">
-        {bookingTypeLabel(item.bookingType, t)}
+        {pricingModelLabel(item.pricingModel, t)}
       </span>
       {/* <span>{item.model === "instant" ? t.instant : t.request}</span> */}
-      <span>{pricingModelLabel(item.pricingModel, t)}</span>
-      {/* <span>
-        {item.soldOut === "stop"
-          ? t.stop
-          : item.soldOut === "onRequest"
-            ? t.request
-            : item.soldOut === "notSet"
-              ? t.notSet
-              : fill(t.overbooking, { count: item.overbooking ?? 2 })}
-      </span> */}
+      <span>{bookingTypeLabel(item.bookingType, t)}</span>
       <span className="text-text-muted">—</span>
-      {/* <span>
-        {item.releaseDays === null ? t.none : fill(t.daysBefore, { count: item.releaseDays })}
-      </span> */}
-      <span className="text-text-muted">—</span>
+      {/* <span className="text-text-muted">—</span> */}
 
-      <StatusPill tone={tone}>
-        {/* {t.available} */}
-        {statusLabel}
-      </StatusPill>
+      <StatusPill tone={tone}>{statusLabel}</StatusPill>
       <div className="flex items-center justify-end gap-1">
         <Link to="/rate-contracts/$contractId" params={{ contractId: item.id }}>
           <Button size="sm" variant="outline">
@@ -1137,7 +1373,7 @@ function StatusFilter({
         </DropdownMenuLabel>
         <DropdownMenuItem className="cursor-pointer justify-between" onSelect={() => onChange("")}>
           <span>{t.allStatuses}</span>
-          <span className="font-data text-xs text-text-muted">{STATUS_COUNTS["all"]}</span>
+          {/* <span className="font-data text-xs text-text-muted">{STATUS_COUNTS["all"]}</span> */}
         </DropdownMenuItem>
         {rows.map((row) => (
           <DropdownMenuItem
@@ -1146,7 +1382,7 @@ function StatusFilter({
             onSelect={() => onChange(row)}
           >
             <span>{stateLabel(row, lang)}</span>
-            <span className="font-data text-xs text-text-muted">{STATUS_COUNTS[row]}</span>
+            {/* <span className="font-data text-xs text-text-muted">{STATUS_COUNTS[row]}</span> */}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />

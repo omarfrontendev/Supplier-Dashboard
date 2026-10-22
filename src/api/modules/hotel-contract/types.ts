@@ -1,16 +1,20 @@
-export type ContractStatus =
-  | "draft"
-  | "scheduled"
-  | "active"
-  | "paused"
-  | "expired"
-  | "terminated";
+export type ContractStatus = "draft" | "scheduled" | "active" | "paused" | "expired" | "terminated";
 
 export type BookingType = "allotment_block" | "on_request";
 
-export type PricingModel =
-  | "base_plus_supplements"
-  | "fixed_per_room";
+export type PricingModel = "base_plus_supplements" | "fixed_per_room";
+
+export const CONTRACT_PERIODS = [
+  "everything",
+  "covering_today",
+  "starting_next_90_days",
+  "ending_next_90_days",
+  "already_over",
+  "custom",
+] as const;
+
+export type ContractPeriod = (typeof CONTRACT_PERIODS)[number];
+export type ContractSortBy = string;
 
 export interface SupplyContract {
   id: number;
@@ -101,10 +105,13 @@ export interface SupplierHotelContractsResponse {
 }
 
 export interface GetHotelContractsParams {
-  page?: number;
-  limit?: number;
-  search?: string;
+  page: number;
+  limit: number;
+  search: string;
   hotelId?: number;
   pricingModel?: string;
-  status?: ContractStatus;
+  periods: ContractPeriod[];
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy: ContractSortBy;
 }

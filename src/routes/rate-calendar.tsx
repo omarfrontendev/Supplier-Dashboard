@@ -16,12 +16,7 @@ import {
   Upload,
   type LucideIcon,
 } from "lucide-react";
-import {
-  BackLink,
-  PageShell,
-  SectionCard,
-  StatusPill,
-} from "@/components/layout/page-shell";
+import { BackLink, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { DatePicker, dateOf } from "@/components/ui/date-picker";
 import { datePickerCopy } from "@/lib/date-picker-copy";
@@ -36,14 +31,8 @@ import {
   PoolBreakdownOverlay,
   PricesForOverlay,
 } from "@/components/rate-calendar/rate-overlays";
-import {
-  ColourKeyDialog,
-  ThresholdDialog,
-} from "@/components/rate-calendar/colour-key";
-import {
-  RateGrid,
-  type GridRowKind,
-} from "@/components/rate-calendar/rate-grid";
+import { ColourKeyDialog, ThresholdDialog } from "@/components/rate-calendar/colour-key";
+import { RateGrid, type GridRowKind } from "@/components/rate-calendar/rate-grid";
 import { cn } from "@/lib/utils";
 import { winLines } from "@/lib/win-list-data";
 import { BulkRangeOverlay } from "@/components/rate-calendar/bulk-range-overlay";
@@ -73,15 +62,13 @@ import {
 
 export const Route = createFileRoute("/rate-calendar")({
   validateSearch: (
-    search: Record<string, unknown>
+    search: Record<string, unknown>,
   ): {
     contract?: string;
     state?: "draft" | "published";
     rooms?: "unpriced";
   } => ({
-    ...(typeof search["contract"] === "string"
-      ? { contract: search["contract"] }
-      : {}),
+    ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(search["state"] === "draft" || search["state"] === "published"
       ? { state: search["state"] }
       : {}),
@@ -112,15 +99,7 @@ export const Route = createFileRoute("/rate-calendar")({
 
 /** OV 04.4 / 04.5 / 04.6 name the weekday in full the way the frames do. */
 const DAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const DAY_AR = [
-  "الأحد",
-  "الإثنين",
-  "الثلاثاء",
-  "الأربعاء",
-  "الخميس",
-  "الجمعة",
-  "السبت",
-];
+const DAY_AR = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 /** Figma UI 04.1 — Rates & Availability for one contract and one month. */
 function RateCalendarPage() {
@@ -133,15 +112,13 @@ function RateCalendarPage() {
   const { contracts } = usePortal();
 
   // The grid is drawn per contract shape (UI 04.1, F, P, S, Q, E).
-  const grid =
-    gridContracts.find((item) => item.key === contractParam) ?? gridContracts[0]!;
+  const grid = gridContracts.find((item) => item.key === contractParam) ?? gridContracts[0]!;
   const [monthKey, setMonthKey] = useState(grid.month ?? "2026-09");
   const unpricedOnly = roomsParam === "unpriced";
   /* The grid starts and ends on a day, so From and To pick days. */
   const [span, setSpan] = useState(() => wholeMonth(grid.month ?? "2026-09"));
   const month = windowFor(span.start, span.end);
-  const holdsNothing =
-    grid.model === "free" || grid.model === "onRequest";
+  const holdsNothing = grid.model === "free" || grid.model === "onRequest";
   const monthRows = grid.fixedPrice
     ? fixedPriceRows
     : month.key === "2026-09"
@@ -156,7 +133,12 @@ function RateCalendarPage() {
       ].map((row) =>
         unpriced.includes(row.name)
           ? { ...row, meta: t.noRateYet, metaAr: t.noRateYet, unpriced: true }
-          : { ...row, meta: row.base ? `BASE · ${t.seasonPriced}` : `${row.meta.split(" · ")[0]} · ${t.seasonPriced}` }
+          : {
+              ...row,
+              meta: row.base
+                ? `BASE · ${t.seasonPriced}`
+                : `${row.meta.split(" · ")[0]} · ${t.seasonPriced}`,
+            },
       )
     : monthRows;
   const contract =
@@ -171,9 +153,7 @@ function RateCalendarPage() {
     restrictions: true,
     release: true,
   });
-  const [visibleRooms, setVisibleRooms] = useState<string[]>(
-    allRows.map((row) => row.name)
-  );
+  const [visibleRooms, setVisibleRooms] = useState<string[]>(allRows.map((row) => row.name));
   const [openMeals, setOpenMeals] = useState<string[]>([]);
   const [colourKey, setColourKey] = useState(false);
   const [threshold, setThreshold] = useState(4);
@@ -238,9 +218,7 @@ function RateCalendarPage() {
 
   /** UI 04.1VS — the rooms and the nights the picked cells cover. */
   const pickedRooms = [...new Set(selected.map((key) => key.split("|")[0]!))];
-  const pickedNights = selected
-    .map((key) => Number(key.split("|")[1]))
-    .sort((a, b) => a - b);
+  const pickedNights = selected.map((key) => Number(key.split("|")[1])).sort((a, b) => a - b);
   /*
    * OV 04.6H / 04.6N - what the nights being priced already carry, read
    * off the month itself rather than assumed: which of them were edited,
@@ -248,15 +226,8 @@ function RateCalendarPage() {
    * season. Each band on the overlay only appears when its answer is yes.
    */
   const overlayNights =
-    typedNights ??
-    (pickedNights.length
-      ? pickedNights
-      : nightCell
-        ? [nightCell.night]
-        : []);
-  const nightSeason = overlayNights.length
-    ? seasonOf(dateOfNight(month, overlayNights[0]!))
-    : null;
+    typedNights ?? (pickedNights.length ? pickedNights : nightCell ? [nightCell.night] : []);
+  const nightSeason = overlayNights.length ? seasonOf(dateOfNight(month, overlayNights[0]!)) : null;
   /*
    * OV 04.6G / 04.6O - a run of nights can cross a season boundary. The
    * spans are collected in the order the nights run, so the band can name
@@ -287,28 +258,22 @@ function RateCalendarPage() {
           ar
             ? datePickerCopy.ar.monthsShort[date.getMonth()]
             : datePickerCopy.en.monthsShort[date.getMonth()];
-        const day = (date: Date) =>
-          ar ? arNum(date.getDate()) : String(date.getDate());
-        const name = (date: Date) =>
-          ar ? DAY_AR[date.getDay()] : DAY_EN[date.getDay()];
+        const day = (date: Date) => (ar ? arNum(date.getDate()) : String(date.getDate()));
+        const name = (date: Date) => (ar ? DAY_AR[date.getDay()] : DAY_EN[date.getDay()]);
         const sameMonth = first.getMonth() === last.getMonth();
         const year = ar ? arNum(last.getFullYear()) : String(last.getFullYear());
         const weekend = overlayNights
           .map((night) => dateOfNight(month, night))
           .filter((date) => WEEKEND_DAYS.includes(date.getDay()))
           .map((date) =>
-            ar
-              ? `${DAY_AR[date.getDay()]} ${day(date)}`
-              : `${DAY_EN[date.getDay()]} ${day(date)}`
+            ar ? `${DAY_AR[date.getDay()]} ${day(date)}` : `${DAY_EN[date.getDay()]} ${day(date)}`,
           );
         /* OV 04.6L - the weekday is named too, not only counted. */
         const weekdayList = overlayNights
           .map((night) => dateOfNight(month, night))
           .filter((date) => !WEEKEND_DAYS.includes(date.getDay()))
           .map((date) =>
-            ar
-              ? `${DAY_AR[date.getDay()]} ${day(date)}`
-              : `${DAY_EN[date.getDay()]} ${day(date)}`
+            ar ? `${DAY_AR[date.getDay()]} ${day(date)}` : `${DAY_EN[date.getDay()]} ${day(date)}`,
           );
         return {
           /* OV 04.6B / 04.6C / 04.6L - the frames name the day, because
@@ -347,17 +312,12 @@ function RateCalendarPage() {
     /* The grid carries no per-night stop sale yet, so this stays empty
        until it does - the band simply does not draw. */
     closed: [] as Array<{ en: string; ar: string }>,
-    booked: overlayNights.reduce(
-      (sum, night) => sum + (month.baseSold[night - 1] ?? 0),
-      0
-    ),
+    booked: overlayNights.reduce((sum, night) => sum + (month.baseSold[night - 1] ?? 0), 0),
   };
 
   const pickedRange = pickedNights.length
     ? `${ar ? arNum(pickedNights[0]!) : pickedNights[0]} - ${
-        ar
-          ? arNum(pickedNights[pickedNights.length - 1]!)
-          : pickedNights[pickedNights.length - 1]
+        ar ? arNum(pickedNights[pickedNights.length - 1]!) : pickedNights[pickedNights.length - 1]
       } ${ar ? month.pickerAr.split(" ")[0] : month.picker.slice(0, 3)}`
     : "";
 
@@ -368,9 +328,7 @@ function RateCalendarPage() {
    */
   const rows = allRows
     .filter(
-      (row) =>
-        visibleRooms.includes(row.name) &&
-        (!unpricedOnly || unpriced.includes(row.name))
+      (row) => visibleRooms.includes(row.name) && (!unpricedOnly || unpriced.includes(row.name)),
     )
     .map((row) =>
       priceGroup === "everyone"
@@ -379,25 +337,16 @@ function RateCalendarPage() {
             ...row,
             rate: row.rate.map((value, index) => {
               const on = dateOfNight(month, index + 1);
-              return groupRate(
-                priceGroup,
-                row.name,
-                on,
-                WEEKEND_DAYS.includes(on.getDay()),
-                value
-              );
+              return groupRate(priceGroup, row.name, on, WEEKEND_DAYS.includes(on.getDay()), value);
             }),
-          }
+          },
     );
 
   /* OV 04.1PN0 - a window with no season priced by nationality. */
   const seasoned = hasGroupPrices(
-    Array.from({ length: month.base.length }, (_, index) =>
-      dateOfNight(month, index + 1)
-    )
+    Array.from({ length: month.base.length }, (_, index) => dateOfNight(month, index + 1)),
   );
-  const group =
-    calendarGroups.find((item) => item.id === priceGroup) ?? calendarGroups[0]!;
+  const group = calendarGroups.find((item) => item.id === priceGroup) ?? calendarGroups[0]!;
 
   const counts = {
     all: allRows.length,
@@ -409,11 +358,11 @@ function RateCalendarPage() {
       {/* UI 04.1 - back, title and publish share one 44px row. */}
       <header className="mb-5 flex flex-wrap items-center gap-4">
         {/*
-          * The frame draws no back link: Rates & Availability is a place of
-          * its own, reached from the nav. It only earns one when you came
-          * from a contract - which is what `?contract=` says - so that the
-          * way back is the way you came.
-          */}
+         * The frame draws no back link: Rates & Availability is a place of
+         * its own, reached from the nav. It only earns one when you came
+         * from a contract - which is what `?contract=` says - so that the
+         * way back is the way you came.
+         */}
         {contractParam && (
           <BackLink
             inline
@@ -431,12 +380,8 @@ function RateCalendarPage() {
             })}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-3">
-            <h1 className="text-[28px] font-semibold leading-7 text-text-primary">
-              {t.title}
-            </h1>
-            <StatusPill status={grid.status}>
-              {ar ? grid.statusAr : grid.status}
-            </StatusPill>
+            <h1 className="text-[28px] font-semibold leading-7 text-text-primary">{t.title}</h1>
+            <StatusPill status={grid.status}>{ar ? grid.statusAr : grid.status}</StatusPill>
           </div>
         </div>
         {/* Flow 04-W - the Win list, with this week's open lines. */}
@@ -452,18 +397,14 @@ function RateCalendarPage() {
           </Link>
         </Gated>
         {grid.readOnly ? (
-          <StatusPill tone="neutral">
-            {ar ? grid.publishStateAr : grid.publishState}
-          </StatusPill>
+          <StatusPill tone="neutral">{ar ? grid.publishStateAr : grid.publishState}</StatusPill>
         ) : (
           <Gated
             permission="rates.publish"
             ask={{ hotel: grid.hotel }}
             instead={
               <p className="max-w-[220px] text-xs leading-5 text-text-muted">
-                {ar
-                  ? "اطلب من شخص يملك صلاحية النشر."
-                  : "Ask someone who can publish."}
+                {ar ? "اطلب من شخص يملك صلاحية النشر." : "Ask someone who can publish."}
               </p>
             }
           >
@@ -482,29 +423,20 @@ function RateCalendarPage() {
 
       {grid.readOnly && (
         <div className="mb-4 rounded-xl border border-border-subtle bg-surface-subtle p-4">
-          <p className="text-sm leading-relaxed text-text-secondary">
-            {t.endedBanner}
-          </p>
+          <p className="text-sm leading-relaxed text-text-secondary">{t.endedBanner}</p>
         </div>
       )}
 
       {grid.notStarted && (
         <div className="mb-4 rounded-xl border border-status-info/25 bg-status-info-bg p-4">
-          <p className="text-sm leading-relaxed text-text-secondary">
-            {t.notStarted}
-          </p>
+          <p className="text-sm leading-relaxed text-text-secondary">{t.notStarted}</p>
         </div>
       )}
 
       {state === "published" && (
         <div className="mb-4 flex gap-3 rounded-xl border border-status-success/25 bg-status-success-bg p-4">
-          <Check
-            className="mt-0.5 h-5 w-5 shrink-0 text-status-success"
-            aria-hidden="true"
-          />
-          <p className="text-sm leading-relaxed text-text-secondary">
-            {t.publishedBanner}
-          </p>
+          <Check className="mt-0.5 h-5 w-5 shrink-0 text-status-success" aria-hidden="true" />
+          <p className="text-sm leading-relaxed text-text-secondary">{t.publishedBanner}</p>
         </div>
       )}
 
@@ -538,12 +470,7 @@ function RateCalendarPage() {
             span={span}
             onPick={(next) => setSpan(next)}
           />
-          <DayField
-            label={t.to}
-            value={span.end}
-            span={span}
-            onPick={(next) => setSpan(next)}
-          />
+          <DayField label={t.to} value={span.end} span={span} onPick={(next) => setSpan(next)} />
           {/* OV 04.1PN - the field that opens the nationality menu. */}
           <PickerField
             label={pricesForCopy.label[k]}
@@ -557,24 +484,20 @@ function RateCalendarPage() {
               onChange={(e) => setIncludeEnded(e.target.checked)}
               className="h-[18px] w-[18px] rounded accent-[var(--brand-deep)]"
             />
-            <span className="text-sm leading-[18px] text-text-secondary">
-              {t.includeEnded}
-            </span>
+            <span className="text-sm leading-[18px] text-text-secondary">{t.includeEnded}</span>
           </label>
         </div>
 
         {/* UI 04.1 — the contract's terms read as one band under the pickers. */}
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-surface-subtle px-3 py-2.5">
-          <span className="text-overline me-1.5 text-text-muted">
-            {t.fromContract}
-          </span>
+          <span className="text-overline me-1.5 text-text-muted">{t.fromContract}</span>
           {(ar ? grid.summaryAr : grid.summary)
             .map((line, index, all) =>
               index === all.length - 1 && !grid.readOnly
                 ? ar
                   ? month.seasonLineAr
                   : month.seasonLine
-                : line
+                : line,
             )
             .map((line) => (
               <span
@@ -595,39 +518,31 @@ function RateCalendarPage() {
       </SectionCard>
 
       {/*
-        * UI 04.1TGCC / TIM / TPK - the band that says what is on screen.
-        * It reads as a whole sentence because half of it is the part people
-        * get wrong: the group's price stops when the season does.
-        */}
+       * UI 04.1TGCC / TIM / TPK - the band that says what is on screen.
+       * It reads as a whole sentence because half of it is the part people
+       * get wrong: the group's price stops when the season does.
+       */}
       {group.banner && (
         <div className="mb-5 rounded-xl bg-[#edffd6] p-3.5">
-          <p className="text-[12.5px] font-semibold text-text-primary">
-            {group.banner.title[k]}
-          </p>
-          <p className="mt-0.5 text-[12px] leading-5 text-text-body">
-            {group.banner.body[k]}
-          </p>
+          <p className="text-[12.5px] font-semibold text-text-primary">{group.banner.title[k]}</p>
+          <p className="mt-0.5 text-[12px] leading-5 text-text-body">{group.banner.body[k]}</p>
         </div>
       )}
 
       {/*
-        * UI 04.1 - the panel that decides what the calendar shows. It asks
-        * three separate questions - which rows, which rooms, how the grid
-        * is drawn - so each gets its own icon, its own sentence and its own
-        * column, with a rule between them. Read as one long strip of
-        * checkboxes they blur together; read as three they are obvious.
-        */}
+       * UI 04.1 - the panel that decides what the calendar shows. It asks
+       * three separate questions - which rows, which rooms, how the grid
+       * is drawn - so each gets its own icon, its own sentence and its own
+       * column, with a rule between them. Read as one long strip of
+       * checkboxes they blur together; read as three they are obvious.
+       */}
       <SectionCard className="mb-5" bodyClassName="px-6 py-5">
         {/* The floors are the widest pill each question has to hold:
             204px is "Pickup - last 7 days", and 32fr gives the rows
             question the 378px its first line needs to break where
             the frame breaks it. */}
         <div className="grid gap-x-6 gap-y-5 lg:grid-cols-[minmax(240px,32fr)_1px_minmax(0,51fr)_1px_minmax(204px,17fr)]">
-          <PanelSection
-            icon={PanelsTopLeft}
-            title={t.showRows}
-            hint={t.showRowsHint}
-          >
+          <PanelSection icon={PanelsTopLeft} title={t.showRows} hint={t.showRowsHint}>
             {/* Sized to their labels: these five are not a column of equals. */}
             <div className="flex flex-wrap gap-x-2.5 gap-y-3">
               {(
@@ -635,16 +550,10 @@ function RateCalendarPage() {
                   ["rate", t.rowRates],
                   /* UI 04.1S / 04.1Q - both rows stay, named for what they
                      cannot do on a contract that holds no rooms. */
-                  [
-                    "inventory",
-                    holdsNothing ? t.rowInventoryUnused : t.rowInventory,
-                  ],
+                  ["inventory", holdsNothing ? t.rowInventoryUnused : t.rowInventory],
                   ["status", t.rowStatus],
                   ["restrictions", t.rowRestrictions],
-                  [
-                    "release",
-                    holdsNothing ? t.rowReleaseUnused : t.rowRelease,
-                  ],
+                  ["release", holdsNothing ? t.rowReleaseUnused : t.rowRelease],
                 ] as Array<[GridRowKind, string]>
               ).map(([key, label]) => (
                 <CheckRow
@@ -659,33 +568,26 @@ function RateCalendarPage() {
 
           <PanelRule />
 
-          <PanelSection
-            icon={Bed}
-            title={t.showRooms}
-            hint={t.showRoomsHint}
-            stacked
-          >
+          <PanelSection icon={Bed} title={t.showRooms} hint={t.showRoomsHint} stacked>
             {/*
-              * Nine rooms and an All, in a grid so the names line up in
-              * columns instead of ragging after the longest one.
-              *
-              * How many columns is decided by the longest name, not by a
-              * breakpoint: "Deluxe Room - Partial Haram View" needs 244px
-              * of pill, so the track floor is 244px and the column fits as
-              * many as it can hold - three where the frame draws three, two
-              * at 1440, one when the panel is a stack on a phone. Sized off
-              * a breakpoint instead, the same name was cut in half at three
-              * different widths, and a room name you cannot read is worse
-              * than a panel one row taller. Logged in roadmap.md.
-              */}
+             * Nine rooms and an All, in a grid so the names line up in
+             * columns instead of ragging after the longest one.
+             *
+             * How many columns is decided by the longest name, not by a
+             * breakpoint: "Deluxe Room - Partial Haram View" needs 244px
+             * of pill, so the track floor is 244px and the column fits as
+             * many as it can hold - three where the frame draws three, two
+             * at 1440, one when the panel is a stack on a phone. Sized off
+             * a breakpoint instead, the same name was cut in half at three
+             * different widths, and a room name you cannot read is worse
+             * than a panel one row taller. Logged in roadmap.md.
+             */}
             <div className="grid grid-cols-[repeat(auto-fill,minmax(244px,1fr))] gap-x-2 gap-y-3">
               <CheckRow
                 checked={visibleRooms.length === allRows.length}
                 onChange={() =>
                   setVisibleRooms(
-                    visibleRooms.length === allRows.length
-                      ? []
-                      : allRows.map((row) => row.name)
+                    visibleRooms.length === allRows.length ? [] : allRows.map((row) => row.name),
                   )
                 }
                 label={fill(t.allRooms, { count: allRows.length })}
@@ -698,7 +600,7 @@ function RateCalendarPage() {
                     setVisibleRooms((prev) =>
                       prev.includes(row.name)
                         ? prev.filter((name) => name !== row.name)
-                        : [...prev, row.name]
+                        : [...prev, row.name],
                     )
                   }
                   label={ar ? row.nameAr : row.name}
@@ -713,50 +615,46 @@ function RateCalendarPage() {
             {/* One under another, each the full width of the column. */}
             <div className="grid gap-3">
               <CheckRow checked={compact} onChange={() => setCompact(!compact)} label={t.compact} />
-              <CheckRow checked={hidePast} onChange={() => setHidePast(!hidePast)} label={t.hidePast} />
+              <CheckRow
+                checked={hidePast}
+                onChange={() => setHidePast(!hidePast)}
+                label={t.hidePast}
+              />
               <CheckRow checked={pickup} onChange={() => setPickup(!pickup)} label={t.pickup} />
-              <CheckRow checked={selectCells} onChange={() => setSelectCells(!selectCells)} label={t.selectCells} />
+              <CheckRow
+                checked={selectCells}
+                onChange={() => setSelectCells(!selectCells)}
+                label={t.selectCells}
+              />
             </div>
           </PanelSection>
         </div>
       </SectionCard>
 
       {/*
-        * UI 04.1 - the toolbar, as one card with two rows and a rule
-        * between them: what you can do to the calendar on top, what you
-        * can narrow it to underneath. At the end of each row, past a
-        * divider, sits the one control that changes nothing - Export
-        * above, the colour key below. That divider is the whole idea:
-        * everything before it acts on the grid, everything after it only
-        * looks at it.
-        *
-        * It used to be two bare rows on the canvas, which left the filters
-        * floating between the panel above and the grid below, belonging to
-        * neither.
-        */}
+       * UI 04.1 - the toolbar, as one card with two rows and a rule
+       * between them: what you can do to the calendar on top, what you
+       * can narrow it to underneath. At the end of each row, past a
+       * divider, sits the one control that changes nothing - Export
+       * above, the colour key below. That divider is the whole idea:
+       * everything before it acts on the grid, everything after it only
+       * looks at it.
+       *
+       * It used to be two bare rows on the canvas, which left the filters
+       * floating between the panel above and the grid below, belonging to
+       * neither.
+       */}
       <SectionCard className="mb-5" bodyClassName="px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="dark"
-            className="rounded-full"
-            onClick={() => setOverlay("bulk")}
-          >
+          <Button variant="dark" className="rounded-full" onClick={() => setOverlay("bulk")}>
             <Layers className="h-[18px] w-[18px]" aria-hidden="true" />
             {t.bulkRates}
           </Button>
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => setOverlay("stopSale")}
-          >
+          <Button variant="outline" className="rounded-full" onClick={() => setOverlay("stopSale")}>
             <Ban className="h-[18px] w-[18px]" aria-hidden="true" />
             {t.bulkStatus}
           </Button>
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => setOverlay("release")}
-          >
+          <Button variant="outline" className="rounded-full" onClick={() => setOverlay("release")}>
             <Tag className="h-[18px] w-[18px]" aria-hidden="true" />
             {t.bulkRelease}
           </Button>
@@ -773,15 +671,8 @@ function RateCalendarPage() {
               on a phone it simply follows, rather than taking a line of
               its own with nothing beside it. */}
           <div className="flex items-center gap-3 sm:ms-auto">
-            <span
-              className="hidden h-6 w-px bg-border-subtle sm:block"
-              aria-hidden="true"
-            />
-            <Button
-              variant="outline"
-              className="rounded-full"
-              onClick={() => setOverlay("export")}
-            >
+            <span className="hidden h-6 w-px bg-border-subtle sm:block" aria-hidden="true" />
+            <Button variant="outline" className="rounded-full" onClick={() => setOverlay("export")}>
               <Upload className="h-[18px] w-[18px]" aria-hidden="true" />
               {t.export}
             </Button>
@@ -798,7 +689,11 @@ function RateCalendarPage() {
               ["fewer", t.filterFewer.replace("4", String(threshold)), counts.fewer],
               ["stopSale", t.filterStopSale, counts.stopSale],
               ["onRequest", t.filterOnRequest, counts.onRequest],
-              ["notPublished", t.filterNotPublished, state === "published" ? 0 : counts.notPublished],
+              [
+                "notPublished",
+                t.filterNotPublished,
+                state === "published" ? 0 : counts.notPublished,
+              ],
               /* The guide fixes the filter row at seven. Not priced used to
                  disappear at zero while Stop sale stayed and showed its 0,
                  which made the row change shape for no reason. */
@@ -817,10 +712,7 @@ function RateCalendarPage() {
           ))}
 
           <div className="flex items-center gap-3 sm:ms-auto">
-            <span
-              className="hidden h-6 w-px bg-border-subtle sm:block"
-              aria-hidden="true"
-            />
+            <span className="hidden h-6 w-px bg-border-subtle sm:block" aria-hidden="true" />
             <Button
               variant="ghost"
               className="rounded-full px-3"
@@ -835,10 +727,7 @@ function RateCalendarPage() {
 
       {unpriced.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-status-warning/25 bg-status-warning-bg p-4">
-          <Lightbulb
-            className="h-5 w-5 shrink-0 text-status-warning"
-            aria-hidden="true"
-          />
+          <Lightbulb className="h-5 w-5 shrink-0 text-status-warning" aria-hidden="true" />
           <div className="min-w-0 flex-1 basis-60">
             <p className="text-overline text-status-warning">
               {fill(t.priced, {
@@ -873,14 +762,14 @@ function RateCalendarPage() {
       )}
 
       {grid.counts.fewer > 0 && month.key === "2026-09" && !unpriced.length && (
-      <div className="mb-4 rounded-xl border border-status-info/25 bg-status-info-bg px-4 py-3">
+        <div className="mb-4 rounded-xl border border-status-info/25 bg-status-info-bg px-4 py-3">
           {/*
-            * One row on a wide screen, as the frame draws it. On a phone
-            * the sentence takes the width and the two actions share the
-            * line below. It used to be a single wrapping row, and `flex-1`
-            * on the sentence let it shrink to its narrowest word - at 393
-            * the banner was 499px tall with one letter per line.
-            */}
+           * One row on a wide screen, as the frame draws it. On a phone
+           * the sentence takes the width and the two actions share the
+           * line below. It used to be a single wrapping row, and `flex-1`
+           * on the sentence let it shrink to its narrowest word - at 393
+           * the banner was 499px tall with one letter per line.
+           */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
             <p className="min-w-0 text-[13px] leading-[1.45] text-text-secondary lg:flex-1">
               <span className="text-overline me-2 tracking-[0.02em] text-status-info">
@@ -893,9 +782,7 @@ function RateCalendarPage() {
                 variant="outline"
                 className="flex-1 lg:flex-none"
                 onClick={() =>
-                  setSelected(
-                    rows.flatMap((row) => [`${row.name}|24`, `${row.name}|25`])
-                  )
+                  setSelected(rows.flatMap((row) => [`${row.name}|24`, `${row.name}|25`]))
                 }
               >
                 {t.selectThose}
@@ -916,16 +803,11 @@ function RateCalendarPage() {
       {selected.length > 0 && (
         <div className="mb-3 flex flex-col gap-3 rounded-xl bg-surface-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center">
           <p className="min-w-0 text-[12.5px] font-medium text-text-primary sm:flex-1 sm:basis-60">
-            {fill(
-              pickedRooms.length === 1
-                ? selectionBar.countOneRoom[k]
-                : selectionBar.count[k],
-              {
-                count: ar ? arNum(selected.length) : selected.length,
-                rooms: ar ? arNum(pickedRooms.length) : pickedRooms.length,
-                range: pickedRange,
-              }
-            )}
+            {fill(pickedRooms.length === 1 ? selectionBar.countOneRoom[k] : selectionBar.count[k], {
+              count: ar ? arNum(selected.length) : selected.length,
+              rooms: ar ? arNum(pickedRooms.length) : pickedRooms.length,
+              range: pickedRange,
+            })}
           </p>
           {/* The three things to do with a selection stay together and
               wrap among themselves, rather than each claiming a row. */}
@@ -933,9 +815,7 @@ function RateCalendarPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                setOverlay(pickedRooms.length === 1 ? "night" : "bulk")
-              }
+              onClick={() => setOverlay(pickedRooms.length === 1 ? "night" : "bulk")}
             >
               {selectionBar.setRate[k]}
             </Button>
@@ -969,9 +849,7 @@ function RateCalendarPage() {
         openMeals={openMeals}
         onOpenMeals={(room) =>
           setOpenMeals((prev) =>
-            prev.includes(room)
-              ? prev.filter((name) => name !== room)
-              : [...prev, room]
+            prev.includes(room) ? prev.filter((name) => name !== room) : [...prev, room],
           )
         }
         selected={selected}
@@ -979,7 +857,7 @@ function RateCalendarPage() {
         pickup={pickup}
         onToggle={(key) =>
           setSelected((prev) =>
-            prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+            prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
           )
         }
         onOpenNight={(row, night) => {
@@ -1133,9 +1011,7 @@ function RateCalendarPage() {
         />
       )}
 
-      {overlay === "hotel" && (
-        <HotelPickerOverlay onClose={() => setOverlay(null)} />
-      )}
+      {overlay === "hotel" && <HotelPickerOverlay onClose={() => setOverlay(null)} />}
 
       {overlay === "prices" && (
         <PricesForOverlay
@@ -1173,13 +1049,9 @@ function RateCalendarPage() {
         />
       )}
 
-      {overlay === "review" && (
-        <ReviewPublishDrawer onClose={() => setOverlay(null)} />
-      )}
+      {overlay === "review" && <ReviewPublishDrawer onClose={() => setOverlay(null)} />}
 
-      {overlay === "export" && (
-        <ExportOverlay onClose={() => setOverlay(null)} />
-      )}
+      {overlay === "export" && <ExportOverlay onClose={() => setOverlay(null)} />}
 
       {overlay === "pool" && (
         <PoolBreakdownOverlay
@@ -1209,7 +1081,7 @@ function Chip({
         "rounded-lg border px-3 py-1.5 text-xs transition-colors",
         active
           ? "border-brand-deep bg-primary-subtle font-medium text-text-primary"
-          : "border-border-default text-text-secondary hover:bg-surface-subtle"
+          : "border-border-default text-text-secondary hover:bg-surface-subtle",
       )}
     >
       {children}
@@ -1233,7 +1105,7 @@ function wholeMonth(key: string) {
  * UI 04.1 — From and To. Each opens the same picker on the span the grid
  * is showing, and applying it moves both ends at once.
  */
-function DayField({
+export function DayField({
   label,
   value,
   span,
@@ -1251,49 +1123,83 @@ function DayField({
 
   useEffect(() => {
     if (!open) return;
-    const away = (event: MouseEvent) => {
-      if (!holder.current?.contains(event.target as Node)) setOpen(false);
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!holder.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
     };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
+
+    document.addEventListener("mousedown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
   }, [open]);
 
-  const shown = (() => {
-    const date = dateOf(value);
-    const digits = (input: number) =>
-      lang === "ar"
-        ? String(input).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]!)
-        : String(input);
-    return `${digits(date.getDate())} ${t.monthsShort[date.getMonth()]} ${digits(date.getFullYear())}`;
-  })();
+  const shown = value
+    ? (() => {
+        const date = dateOf(value);
+
+        const digits = (input: number) =>
+          lang === "ar"
+            ? String(input).replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[Number(digit)]!)
+            : String(input);
+
+        return `${digits(date.getDate())} ${
+          t.monthsShort[date.getMonth()]
+        } ${digits(date.getFullYear())}`;
+      })()
+    : lang === "ar"
+      ? "اختر التاريخ"
+      : "Select date";
 
   return (
     <div className="w-full" ref={holder}>
       <span className="mb-2 block text-[13px] font-medium leading-[15px] text-text-primary">
         {label}
       </span>
+
       <div className="relative">
         <button
           type="button"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => setOpen((previous) => !previous)}
           className="flex min-h-11 w-full items-center gap-2 rounded-[10px] border border-border-default bg-surface-default px-4 py-2 text-start transition-colors hover:border-border-strong"
+          aria-expanded={open}
         >
-          <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-sm",
+              value ? "text-text-primary" : "text-text-muted",
+            )}
+          >
             {shown}
           </span>
+
           <ChevronDown
-            className="h-4 w-4 shrink-0 text-text-muted"
+            className={cn(
+              "h-4 w-4 shrink-0 text-text-muted transition-transform",
+              open && "rotate-180",
+            )}
             aria-hidden="true"
           />
         </button>
+
         {open && (
-          <div className="absolute z-50 mt-2 w-[393px] max-w-[calc(100vw-4rem)] start-0">
+          <div className="absolute z-50 mt-2 w-[393px] max-w-[calc(100vw-2rem)] start-0">
             <DatePicker
               className="w-full"
-              value={{ start: span.start, end: span.end }}
+              value={{
+                start: span.start,
+                end: span.end || span.start,
+              }}
               onCancel={() => setOpen(false)}
               onApply={(next) => {
-                onPick({ start: next.start, end: next.end ?? next.start });
+                onPick({
+                  start: next.start,
+                  end: next.end ?? next.start,
+                });
+
                 setOpen(false);
               }}
             />
@@ -1303,7 +1209,6 @@ function DayField({
     </div>
   );
 }
-
 function PickerField({
   label,
   value,
@@ -1315,21 +1220,14 @@ function PickerField({
 }) {
   return (
     <div className="w-full">
-      <span className="mb-2 block text-[13px] font-medium text-text-primary">
-        {label}
-      </span>
+      <span className="mb-2 block text-[13px] font-medium text-text-primary">{label}</span>
       <button
         type="button"
         onClick={onClick}
         className="flex min-h-11 w-full items-center gap-2 rounded-[10px] border border-border-default bg-surface-default px-4 py-2 text-start transition-colors hover:border-border-strong"
       >
-        <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
-          {value}
-        </span>
-        <ChevronDown
-          className="h-4 w-4 shrink-0 text-text-muted"
-          aria-hidden="true"
-        />
+        <span className="min-w-0 flex-1 truncate text-sm text-text-primary">{value}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
       </button>
     </div>
   );
@@ -1360,7 +1258,7 @@ function PanelSection({
     <section
       className={cn(
         "min-w-0",
-        stacked && "border-t border-border-subtle pt-5 lg:border-t-0 lg:pt-0"
+        stacked && "border-t border-border-subtle pt-5 lg:border-t-0 lg:pt-0",
       )}
     >
       <div className="flex items-start gap-3.5">
@@ -1388,9 +1286,7 @@ function PanelSection({
  * sections carry their own rule above them.
  */
 function PanelRule() {
-  return (
-    <span className="hidden w-px bg-border-subtle lg:block" aria-hidden="true" />
-  );
+  return <span className="hidden w-px bg-border-subtle lg:block" aria-hidden="true" />;
 }
 
 /**
@@ -1417,29 +1313,18 @@ function CheckRow({
     <label
       className={cn(
         "flex min-w-0 cursor-pointer select-none items-center gap-2 rounded-lg border bg-surface-default px-2.5 py-2 transition-colors",
-        checked
-          ? "border-border-default"
-          : "border-border-subtle hover:border-border-default"
+        checked ? "border-border-default" : "border-border-subtle hover:border-border-default",
       )}
     >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="peer sr-only"
-      />
+      <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
       <span
         className={cn(
           "flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-border-focus peer-focus-visible:ring-offset-1",
-          checked
-            ? "border-brand-deep bg-brand-deep"
-            : "border-border-default bg-surface-default"
+          checked ? "border-brand-deep bg-brand-deep" : "border-border-default bg-surface-default",
         )}
         aria-hidden="true"
       >
-        {checked && (
-          <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
-        )}
+        {checked && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
       </span>
       <span className="truncate text-xs leading-4 text-text-primary" title={label}>
         {label}
@@ -1489,12 +1374,11 @@ function FilterChip({
   clearLabel: string;
 }) {
   const isAll = tone === "success";
-  const dot =
-    isAll
-      ? "bg-status-success"
-      : tone === "danger"
-        ? "bg-status-danger"
-        : "bg-status-warning";
+  const dot = isAll
+    ? "bg-status-success"
+    : tone === "danger"
+      ? "bg-status-danger"
+      : "bg-status-warning";
   const idle = isAll
     ? "text-text-secondary hover:bg-surface-subtle"
     : tone === "danger"
@@ -1513,7 +1397,7 @@ function FilterChip({
           ? isAll
             ? "bg-status-success-bg text-status-success"
             : "bg-surface-inverse text-text-inverse"
-          : idle
+          : idle,
       )}
     >
       {/* All carries a dot only while it is the filter in force - off, it
@@ -1524,7 +1408,7 @@ function FilterChip({
             "h-2 w-2 shrink-0 rounded-full",
             /* The dot keeps its colour on the dark fill - it is what says
                which filter is on without reading the label. */
-            active ? dot : "bg-current"
+            active ? dot : "bg-current",
           )}
           aria-hidden="true"
         />

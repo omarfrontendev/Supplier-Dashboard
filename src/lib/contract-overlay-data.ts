@@ -162,8 +162,8 @@ export const periodPanel: ListPanel = {
     "العقد المنتهي لا يختفي أبدًا. يخرج من العرض الافتراضي، ويحتفظ بإصداراته، ويظل قابلًا للوصول - فالحجوزات التي باعها تبقى بعده.",
   cancel: "Clear",
   cancelAr: "مسح",
-  confirm: "Apply · 8 contracts",
-  confirmAr: "تطبيق · ٨ عقود",
+  confirm: "Apply",
+  confirmAr: "تطبيق",
 };
 
 /** OV 03.23B — the On Request queue, ordered by the SLA clock. */

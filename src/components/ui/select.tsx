@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { Check, ChevronDown, Loader2, Search, X } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronDown, Loader2, RefreshCw, Search, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
@@ -26,6 +19,28 @@ type Base = {
   error?: string;
   /** Search is on by default; pass false only for very short static lists. */
   searchable?: boolean;
+  /** Called whenever the search input changes (useful for API-backed options). */
+  onSearchChange?: (search: string) => void;
+  /** External loading state for API-backed options supplied through `options`. */
+  loading?: boolean;
+  /** Error message for an API-backed options request. */
+  loadError?: string;
+  /** Optional retry action displayed when `loadError` is present. */
+  onRetry?: () => void;
+  /** Optional action to refresh/reload the options from the source. */
+  onRefresh?: () => void;
+  /** Shows the refresh button in its loading state. */
+  refreshing?: boolean;
+  /** Label shown beside the bottom pagination spinner. */
+  loadingMoreLabel?: string;
+  /** Label for the refresh button. */
+  refreshLabel?: string;
+  /** Treat `options` as already filtered by the server; don't filter them locally. */
+  serverSearch?: boolean;
+  /** Infinite-scroll pagination for externally managed options. */
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
   /**
    * Remote (API) search. Called with the debounced search term — return the
    * matching options. When provided, filtering happens server-side.
@@ -43,7 +58,7 @@ type Base = {
 
 type SingleProps = Base & {
   mode?: "single";
-  value: string;
+  value: string | number | undefined;
   onChange: (value: string) => void;
   options?: SelectOption[];
 };
@@ -81,12 +96,27 @@ export function Select(props: SelectProps) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [remoteOptions, setRemoteOptions] = useState<SelectOption[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | undefined>();
   const options = remote ? remoteOptions : staticOptions;
+  // `loadOptions` keeps the original self-managed remote mode working.
+  // Otherwise, API data can be managed by React Query in the parent.
+  const loading = remote ? remoteLoading : (props.loading ?? false);
+  const loadError = remote ? remoteError : props.loadError;
+  // Keep already loaded options visible while background requests are running.
+  const initialLoading = loading && options.length === 0;
+  const showBottomLoading = !initialLoading && (props.loadingMore || (loading && options.length > 0));
   const [cursor, setCursor] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const loadMoreRequestedRef = useRef(false);
+  const wasOpenRef = useRef(false);
+  const [retryKey, setRetryKey] = useState(0);
   const listId = useId();
+
+  useEffect(() => {
+    if (!props.loadingMore) loadMoreRequestedRef.current = false;
+  }, [props.loadingMore]);
 
   const selected: string[] =
     mode === "single"
@@ -97,13 +127,12 @@ export function Select(props: SelectProps) {
 
   const filtered = useMemo(() => {
     const needle = term.trim().toLowerCase();
-    if (remote || !needle) return options;
+    if (remote || props.serverSearch || !needle) return options;
     return options.filter(
       (option) =>
-        option.label.toLowerCase().includes(needle) ||
-        option.value.toLowerCase().includes(needle)
+        option.label.toLowerCase().includes(needle) || option.value.toLowerCase().includes(needle),
     );
-  }, [options, term, remote]);
+  }, [options, term, remote, props.serverSearch]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, SelectOption[]>();
@@ -120,19 +149,24 @@ export function Select(props: SelectProps) {
     const needle = term.trim();
     if (needle.length < minChars) {
       setRemoteOptions([]);
-      setLoading(false);
+      setRemoteLoading(false);
+      setRemoteError(undefined);
       return;
     }
     let alive = true;
-    setLoading(true);
+    setRemoteLoading(true);
+    setRemoteError(undefined);
     const timer = setTimeout(async () => {
       try {
         const result = await props.loadOptions!(needle);
         if (alive) setRemoteOptions(result);
       } catch {
-        if (alive) setRemoteOptions([]);
+        if (alive) {
+          setRemoteOptions([]);
+          setRemoteError("Unable to load options. Please try again.");
+        }
       } finally {
-        if (alive) setLoading(false);
+        if (alive) setRemoteLoading(false);
       }
     }, 250);
     return () => {
@@ -140,7 +174,7 @@ export function Select(props: SelectProps) {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remote, open, term, minChars]);
+  }, [remote, open, term, minChars, props.loadOptions, retryKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -156,8 +190,10 @@ export function Select(props: SelectProps) {
     if (!open) {
       setTerm("");
       setCursor(0);
+      if (wasOpenRef.current) props.onSearchChange?.("");
     }
-  }, [open, searchable]);
+    wasOpenRef.current = open;
+  }, [open, searchable, props.onSearchChange]);
 
   const commit = (value: string) => {
     if (mode === "single") {
@@ -170,6 +206,7 @@ export function Select(props: SelectProps) {
       : [...selected, value];
     (props.onChange as (value: string[]) => void)(next);
     setTerm("");
+    props.onSearchChange?.("");
   };
 
   const remove = (value: string) => {
@@ -177,9 +214,7 @@ export function Select(props: SelectProps) {
       (props.onChange as (value: string) => void)("");
       return;
     }
-    (props.onChange as (value: string[]) => void)(
-      selected.filter((item) => item !== value)
-    );
+    (props.onChange as (value: string[]) => void)(selected.filter((item) => item !== value));
   };
 
   const clearAll = () => {
@@ -196,14 +231,13 @@ export function Select(props: SelectProps) {
     mode === "tags" &&
     term.trim().length > 0 &&
     !selected.includes(term.trim()) &&
-    !filtered.some(
-      (option) => option.label.toLowerCase() === term.trim().toLowerCase()
-    );
+    !filtered.some((option) => option.label.toLowerCase() === term.trim().toLowerCase());
 
   const addTag = () => {
     if (!canAddTag) return;
     (props.onChange as (value: string[]) => void)([...selected, term.trim()]);
     setTerm("");
+    props.onSearchChange?.("");
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -243,11 +277,7 @@ export function Select(props: SelectProps) {
 
   const placeholder =
     props.placeholder ??
-    (mode === "tags"
-      ? t.tagsPlaceholder
-      : mode === "multi"
-        ? t.multiPlaceholder
-        : t.placeholder);
+    (mode === "tags" ? t.tagsPlaceholder : mode === "multi" ? t.multiPlaceholder : t.placeholder);
 
   const showTags = mode !== "single" && selected.length > 0;
   const maxTags = "maxTags" in props ? props.maxTags : undefined;
@@ -284,7 +314,7 @@ export function Select(props: SelectProps) {
               : open
                 ? "border-border-focus ring-4 ring-ring/20"
                 : "border-border-default hover:border-border-strong",
-            props.disabled && "cursor-not-allowed bg-surface-subtle opacity-60"
+            props.disabled && "cursor-not-allowed bg-surface-subtle opacity-60",
           )}
         >
           <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -321,9 +351,7 @@ export function Select(props: SelectProps) {
                 {labelFor(selected[0] ?? "")}
               </span>
             ) : (
-              <span className="truncate text-sm text-text-muted">
-                {placeholder}
-              </span>
+              <span className="truncate text-sm text-text-muted">{placeholder}</span>
             )}
           </span>
 
@@ -344,7 +372,7 @@ export function Select(props: SelectProps) {
           <ChevronDown
             className={cn(
               "h-4 w-4 shrink-0 text-text-muted transition-transform",
-              open && "rotate-180"
+              open && "rotate-180",
             )}
             aria-hidden="true"
           />
@@ -366,8 +394,11 @@ export function Select(props: SelectProps) {
                   ref={searchRef}
                   value={term}
                   onChange={(event) => {
-                    setTerm(event.target.value);
+                    const search = event.target.value;
+
+                    setTerm(search);
                     setCursor(0);
+                    props.onSearchChange?.(search);
                   }}
                   onKeyDown={onKeyDown}
                   placeholder={mode === "tags" ? t.tagsPlaceholder : t.search}
@@ -376,8 +407,47 @@ export function Select(props: SelectProps) {
               </div>
             )}
 
-            <ul id={listId} role="listbox" className="max-h-64 overflow-y-auto py-1">
-              {loading && (
+            {props.onRefresh && (
+              <div className="flex justify-end border-b border-border-subtle px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => props.onRefresh?.()}
+                  disabled={props.refreshing || props.disabled}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-text-link transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", props.refreshing && "animate-spin")}
+                    aria-hidden="true"
+                  />
+                  <span>{props.refreshing ? "Updating…" : (props.refreshLabel ?? "Refresh data")}</span>
+                </button>
+              </div>
+            )}
+
+            <ul
+              id={listId}
+              role="listbox"
+              onScroll={(event) => {
+                const element = event.currentTarget;
+
+                const reachedBottom =
+                  element.scrollTop + element.clientHeight >= element.scrollHeight - 20;
+
+                if (
+                  reachedBottom &&
+                  props.hasMore &&
+                  !props.loadingMore &&
+                  !loading &&
+                  !loadError &&
+                  !loadMoreRequestedRef.current
+                ) {
+                  loadMoreRequestedRef.current = true;
+                  props.onLoadMore?.();
+                }
+              }}
+              className="max-h-64 overflow-y-auto py-1"
+            >
+              {initialLoading && (
                 <li className="space-y-2 px-3 py-3" aria-live="polite">
                   {[0, 1, 2, 3].map((row) => (
                     <Skeleton key={row} className="h-4 w-full" />
@@ -385,64 +455,92 @@ export function Select(props: SelectProps) {
                 </li>
               )}
 
-              {!loading && remote && term.trim().length < minChars && (
+              {!initialLoading && !loadError && remote && term.trim().length < minChars && (
                 <li className="px-3 py-6 text-center text-sm text-text-muted">
                   {fill(t.typeToSearch, { count: minChars })}
                 </li>
               )}
 
-              {!loading && grouped.map(([group, items]) => (
-                <li key={group || "_"}>
-                  {group && (
-                    <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.44px] text-text-muted">
-                      {group}
-                    </p>
+              {!initialLoading && loadError && options.length === 0 && (
+                <li className="px-3 py-6 text-center" role="status">
+                  <p className="text-sm text-status-danger">{loadError}</p>
+                  {(props.onRetry || remote) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (props.onRetry) props.onRetry();
+                        else setRetryKey((current) => current + 1);
+                      }}
+                      className="mt-2 text-sm font-medium text-text-link hover:underline"
+                    >
+                      Retry
+                    </button>
                   )}
-                  <ul>
-                    {items.map((option) => {
-                      const index = filtered.indexOf(option);
-                      const active = selected.includes(option.value);
-                      return (
-                        <li key={option.value}>
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={active}
-                            disabled={option.disabled}
-                            onMouseEnter={() => setCursor(index)}
-                            onClick={() => !option.disabled && commit(option.value)}
-                            className={cn(
-                              "flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm transition-colors",
-                              index === cursor
-                                ? "bg-surface-subtle"
-                                : "bg-transparent",
-                              active
-                                ? "font-medium text-text-primary"
-                                : "text-text-secondary",
-                              option.disabled && "cursor-not-allowed opacity-50"
-                            )}
-                          >
-                            <span className="min-w-0 flex-1 truncate">
-                              {option.label}
-                              {option.hint && (
-                                <span className="ms-2 text-xs text-text-muted">
-                                  {option.hint}
-                                </span>
-                              )}
-                            </span>
-                            {active && (
-                              <Check
-                                className="h-4 w-4 shrink-0 text-brand-deep"
-                                aria-hidden="true"
-                              />
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
                 </li>
-              ))}
+              )}
+
+              {!initialLoading &&
+                grouped.map(([group, items]) => (
+                  <li key={group || "_"}>
+                    {group && (
+                      <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.44px] text-text-muted">
+                        {group}
+                      </p>
+                    )}
+                    <ul>
+                      {items.map((option) => {
+                        const index = filtered.indexOf(option);
+                        const active = selected.includes(option.value);
+                        return (
+                          <li key={option.value}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              disabled={option.disabled}
+                              onMouseEnter={() => setCursor(index)}
+                              onClick={() => !option.disabled && commit(option.value)}
+                              className={cn(
+                                "flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm transition-colors",
+                                index === cursor ? "bg-surface-subtle" : "bg-transparent",
+                                active ? "font-medium text-text-primary" : "text-text-secondary",
+                                option.disabled && "cursor-not-allowed opacity-50",
+                              )}
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {option.label}
+                                {option.hint && (
+                                  <span className="ms-2 text-xs text-text-muted">
+                                    {option.hint}
+                                  </span>
+                                )}
+                              </span>
+                              {active && (
+                                <Check
+                                  className="h-4 w-4 shrink-0 text-brand-deep"
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </li>
+                ))}
+
+              {showBottomLoading && (
+                <li className="flex items-center justify-center gap-2 border-t border-border-subtle px-3 py-3 text-sm text-text-muted" aria-live="polite">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                  <span>{props.loadingMoreLabel ?? "Loading more…"}</span>
+                </li>
+              )}
+
+              {!loading && !loadError && props.hasMore && !props.loadingMore && filtered.length > 0 && (
+                <li className="px-3 py-2 text-center text-xs text-text-muted">
+                  {"Scroll to load more"}
+                </li>
+              )}
 
               {canAddTag && (
                 <li>
@@ -456,12 +554,29 @@ export function Select(props: SelectProps) {
                 </li>
               )}
 
-              {!loading &&
+              {!initialLoading &&
+                !loadError &&
                 filtered.length === 0 &&
                 !canAddTag &&
                 !(remote && term.trim().length < minChars) && (
-                <li className="px-3 py-6 text-center text-sm text-text-muted">
-                  {t.noResults}
+                  <li className="px-3 py-6 text-center text-sm text-text-muted">{t.noResults}</li>
+                )}
+
+              {!initialLoading && loadError && options.length > 0 && (
+                <li className="border-t border-border-subtle px-3 py-3 text-center" role="status">
+                  <p className="text-xs text-status-danger">{loadError}</p>
+                  {(props.onRetry || remote) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (props.onRetry) props.onRetry();
+                        else setRetryKey((current) => current + 1);
+                      }}
+                      className="mt-1 text-xs font-medium text-text-link hover:underline"
+                    >
+                      Retry
+                    </button>
+                  )}
                 </li>
               )}
             </ul>
@@ -470,12 +585,7 @@ export function Select(props: SelectProps) {
       </div>
 
       {(props.error || props.hint) && (
-        <p
-          className={cn(
-            "mt-1.5 text-xs",
-            props.error ? "text-status-danger" : "text-text-muted"
-          )}
-        >
+        <p className={cn("mt-1.5 text-xs", props.error ? "text-status-danger" : "text-text-muted")}>
           {props.error || props.hint}
         </p>
       )}
