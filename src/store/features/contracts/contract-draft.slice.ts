@@ -4,6 +4,7 @@ import type {
   CancellationTier,
   ChildRule,
   ChildRuleKey,
+  ChildRules,
   MealBasis,
   MealPlan,
   ContractBasics,
@@ -72,12 +73,21 @@ export const contractDraftSlice = createSlice({
 
     loadContract: (
       _state,
-      action: PayloadAction<{ basics: Partial<ContractBasics>; pricingModel: PricingModel }>,
+      action: PayloadAction<{
+        basics: Partial<ContractBasics>;
+        pricingModel: PricingModel;
+        children?: ChildRules;
+      }>,
     ) => ({
       ...initialState,
       basics: { ...initialState.basics, ...action.payload.basics },
       pricingModel: action.payload.pricingModel,
+      children: action.payload.children ?? initialState.children,
     }),
+
+    replaceChildren: (state, action: PayloadAction<ChildRules>) => {
+      state.children = action.payload;
+    },
 
     updateBasics: (state, action: PayloadAction<Partial<ContractBasics>>) => {
       const next = { ...state.basics, ...action.payload };
@@ -271,6 +281,7 @@ export const {
   setFixedPrice,
   toggleChildRule,
   setChildRule,
+  replaceChildren,
   toggleMeal,
   setMealPrice,
   setMealBasis,

@@ -613,6 +613,7 @@ export const contractEn = {
         colAgeTo: "Age to",
         colPrice: "Price per night",
         free: "Free",
+        saveNeedsAll: "Child pricing is saved with the draft once all three rules are ticked and filled in.",
         rules: {
           sharing_parents: "Sharing parents' bed",
           shared_bed: "Shared bed",
@@ -1351,6 +1352,7 @@ export const contractAr: typeof contractEn = {
         colAgeTo: "العمر إلى",
         colPrice: "السعر لليلة",
         free: "مجانًا",
+        saveNeedsAll: "تُحفظ أسعار الأطفال مع المسودة عند تحديد القواعد الثلاث وتعبئتها.",
         rules: {
           sharing_parents: "سرير الوالدين",
           shared_bed: "سرير مشترك",

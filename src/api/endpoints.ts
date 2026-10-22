@@ -74,6 +74,7 @@ const supplierHotelContracts = {
   create: "/hotel-contracts",
   hotels: "/hotel-contracts/hotels",
   byId: (id: number) => `/hotel-contracts/${id}`,
+  childPricing: (id: number) => `/hotel-contracts/${id}/child-pricing`,
 };
 
 export const endpoints = {

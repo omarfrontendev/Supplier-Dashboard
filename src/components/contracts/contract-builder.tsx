@@ -11,18 +11,25 @@ import {
 import { PageShell } from "@/components/layout/page-shell";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
 import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
+import { useSaveContractChildPricing } from "@/api/modules/hotel-contract/useSaveContractChildPricing";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   basicsReady,
+  childPricingChanged,
+  childPricingComplete,
+  childrenFromContract,
   contractDifferences,
   draftFromContract,
   hasRoomPricing,
   mergeLatestBasics,
   sameSavedBasics,
+  sameSavedDraft,
+  toChildPricing,
   toCreateContractBody,
   toUpdateContractBody,
 } from "@/store/features/contracts/contract-api";
+import type { SupplierHotelContract } from "@/api/modules/hotel-contract/types";
 import {
   SeasonOverlapOverlay,
   UnsavedOverlay,
@@ -40,12 +47,14 @@ import {
   useContractDraft,
 } from "@/components/contracts/contract-form/shared";
 import {
+  childIssues,
   validateContract,
   type ContractSectionKey,
 } from "@/components/contracts/contract-form/schema";
 import { readableDay } from "@/components/ui/date-field";
 import {
   loadContract,
+  replaceChildren,
   resetDraft,
   updateBasics,
   saveCancellationPolicy,
@@ -117,6 +126,8 @@ export function ContractBuilder({
   const remote = useHotelContract(savedId);
   const saved = remote.data ?? null;
   const saveContract = useSaveHotelContract();
+  const saveChildPricing = useSaveContractChildPricing();
+  const savingDraft = saveContract.isPending || saveChildPricing.isPending;
   const loadedId = useRef<number | null>(null);
   useEffect(() => {
     if (savedId !== null) return;
@@ -242,49 +253,67 @@ export function ContractBuilder({
   }
 
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!basicsReady(draft)) {
       notify.error(f.saveNeedsBasics);
       jumpTo("basics");
       return;
     }
-    if (saved) {
-      const body = toUpdateContractBody(draft, saved);
-      if (!body) {
+    const withChildren = childPricingComplete(draft);
+    const childErrors = withChildren ? childIssues(draft.children, f.v) : [];
+    if (childErrors.length > 0) {
+      notify.error(childErrors[0]!);
+      jumpTo("children");
+      return;
+    }
+    let contract: SupplierHotelContract | null = saved;
+    let createdId: number | null = null;
+    try {
+      if (!contract) {
+        contract = await saveContract.mutateAsync({ id: null, body: toCreateContractBody(draft) });
+        createdId = contract.id;
+      } else {
+        const body = toUpdateContractBody(draft, contract);
+        if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
+      }
+      if (withChildren && childPricingChanged(draft, contract)) {
+        contract = await saveChildPricing.mutateAsync({
+          id: contract.id,
+          body: { expectedVersion: contract.version, childPricing: toChildPricing(draft) },
+        });
+      }
+      if (contract === saved) {
         notify.success(f.noChanges);
         return;
       }
-      saveContract.mutate(
-        { id: saved.id, body },
-        { onSuccess: () => notify.success(f.draftUpdated), onError: onSaveError },
-      );
-      return;
+      notify.success(createdId ? f.draftCreated : f.draftUpdated);
+    } catch (error) {
+      onSaveError(error as Error, contract);
+    } finally {
+      if (createdId !== null) {
+        loadedId.current = createdId;
+        navigate({
+          to: "/rate-contracts/$contractId/edit",
+          params: { contractId: String(createdId) },
+          replace: true,
+        });
+      }
     }
-    saveContract.mutate(
-      { id: null, body: toCreateContractBody(draft) },
-      {
-        onSuccess: (contract) => {
-          notify.success(f.draftCreated);
-          loadedId.current = contract.id;
-          navigate({
-            to: "/rate-contracts/$contractId/edit",
-            params: { contractId: String(contract.id) },
-            replace: true,
-          });
-        },
-        onError: onSaveError,
-      },
-    );
   }
 
-  function onSaveError(error: Error) {
+  function onSaveError(error: Error, base: SupplierHotelContract | null = saved) {
     const status = isAxiosError(error) ? error.response?.status : undefined;
-    if (status === 409 && saved) {
-      const before = saved;
+    if (status === 409 && base) {
+      const before = base;
       const editing = draft;
       void remote.refetch().then(({ data: latest }) => {
         const fields = latest ? contractDifferences(before, latest) : [];
-        if (latest) dispatch(updateBasics(mergeLatestBasics(editing, before, latest)));
+        if (latest) {
+          dispatch(updateBasics(mergeLatestBasics(editing, before, latest)));
+          if (latest.childPricing && !childPricingChanged(editing, before)) {
+            dispatch(replaceChildren(childrenFromContract(latest.childPricing)));
+          }
+        }
         notify.error(
           fields.length > 0
             ? fill(f.saveStale, {
@@ -297,7 +326,7 @@ export function ContractBuilder({
       });
       return;
     }
-    if (status === 404 && saved) {
+    if (status === 404 && base) {
       notify.error(f.unavailable);
       return;
     }
@@ -318,7 +347,7 @@ export function ContractBuilder({
       ? f.loadFailed
       : !saved
         ? t.draftEmpty
-        : sameSavedBasics(draft, saved)
+        : sameSavedDraft(draft, saved)
           ? fill(t.draftSaved, { time: savedAt })
           : t.draftUnsaved;
 
@@ -387,9 +416,9 @@ export function ContractBuilder({
           <span className="text-xs text-text-muted">{draftStatus}</span>
           <Button
             variant="outline"
-            loading={saveContract.isPending}
+            loading={savingDraft}
             disabled={remote.isLoading || remote.isError}
-            onClick={saveDraft}
+            onClick={() => void saveDraft()}
           >
             <Save className="h-4 w-4" aria-hidden="true" />
             {t.saveDraft}

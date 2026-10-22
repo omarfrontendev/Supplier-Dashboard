@@ -130,3 +130,8 @@ export type UpdateHotelContractBody = Partial<
 > & {
   expectedVersion: number;
 };
+
+export interface ReplaceChildPricingBody {
+  expectedVersion: number;
+  childPricing: ContractChildPricing;
+}

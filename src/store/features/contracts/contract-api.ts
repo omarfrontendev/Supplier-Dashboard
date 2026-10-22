@@ -1,11 +1,19 @@
 import type {
   BookingType as ApiBookingType,
+  ContractChildPricing,
   CreateHotelContractBody,
   PricingModel as ApiPricingModel,
   SupplierHotelContract,
   UpdateHotelContractBody,
 } from "@/api/modules/hotel-contract/types";
-import type { BookingType, ContractDraftState, PricingModel } from "./types";
+import { toAmount } from "./contract-payload";
+import {
+  CHILD_RULES,
+  type BookingType,
+  type ChildRules,
+  type ContractDraftState,
+  type PricingModel,
+} from "./types";
 
 const bookingToApi: Record<BookingType, ApiBookingType> = {
   allotment: "allotment_block",
@@ -85,6 +93,7 @@ export function draftFromContract(contract: SupplierHotelContract) {
     pricingModel: (contract.pricingModel === "fixed_per_room"
       ? "fixed_price"
       : "base_supplements") as PricingModel,
+    ...(contract.childPricing ? { children: childrenFromContract(contract.childPricing) } : {}),
   };
 }
 
@@ -109,3 +118,49 @@ export function mergeLatestBasics(
     {},
   );
 }
+
+export const childPricingComplete = ({ children }: ContractDraftState) =>
+  CHILD_RULES.every((key) => children[key].enabled);
+
+export function toChildPricing({ children }: ContractDraftState): ContractChildPricing {
+  const category = (key: (typeof CHILD_RULES)[number]) => ({
+    from: Number(children[key].ageFrom),
+    to: Number(children[key].ageTo),
+    price: toAmount(children[key].price) ?? 0,
+  });
+  return {
+    sharing_parents: category("sharing_parents"),
+    shared_bed: category("shared_bed"),
+    extra_bed: category("extra_bed"),
+  };
+}
+
+export function childrenFromContract(pricing: ContractChildPricing): ChildRules {
+  const rule = (key: (typeof CHILD_RULES)[number]) => ({
+    enabled: true,
+    ageFrom: String(pricing[key].from),
+    ageTo: String(pricing[key].to),
+    price: String(pricing[key].price),
+  });
+  return {
+    sharing_parents: rule("sharing_parents"),
+    shared_bed: rule("shared_bed"),
+    extra_bed: rule("extra_bed"),
+  };
+}
+
+export function childPricingChanged(draft: ContractDraftState, contract: SupplierHotelContract) {
+  if (!childPricingComplete(draft)) return false;
+  const saved = contract.childPricing;
+  if (!saved) return true;
+  const next = toChildPricing(draft);
+  return CHILD_RULES.some(
+    (key) =>
+      next[key].from !== saved[key].from ||
+      next[key].to !== saved[key].to ||
+      next[key].price !== Number(saved[key].price),
+  );
+}
+
+export const sameSavedDraft = (draft: ContractDraftState, contract: SupplierHotelContract) =>
+  sameSavedBasics(draft, contract) && !childPricingChanged(draft, contract);
