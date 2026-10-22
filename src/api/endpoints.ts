@@ -71,7 +71,9 @@ const notifications = {
 
 const supplierHotelContracts = {
   list: "/hotel-contracts",
+  create: "/hotel-contracts",
   hotels: "/hotel-contracts/hotels",
+  byId: (id: number) => `/hotel-contracts/${id}`,
 };
 
 export const endpoints = {

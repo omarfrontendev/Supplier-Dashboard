@@ -10,6 +10,8 @@ export type SlaExpiryAction = "auto_reject" | "escalate";
 
 export type ContractCurrency = "SAR" | "USD" | "EUR";
 
+export const CONTRACT_CURRENCIES: ContractCurrency[] = ["SAR", "USD", "EUR"];
+
 export type Weekday = "sat" | "sun" | "mon" | "tue" | "wed" | "thu" | "fri";
 
 export const WEEKDAYS: Weekday[] = ["sat", "sun", "mon", "tue", "wed", "thu", "fri"];
@@ -57,7 +59,7 @@ export interface ContractBasics {
   name: string;
   startDate: string;
   endDate: string;
-  currency: ContractCurrency | null;
+  currency: string | null;
   weekendDays: Weekday[];
   bookingType: BookingType;
   slaMinutes: string;

@@ -108,3 +108,25 @@ export interface GetHotelContractsParams {
   pricingModel?: string;
   status?: ContractStatus;
 }
+
+export interface SupplierHotelContractResponse {
+  status: "success";
+  message: string;
+  data: SupplierHotelContract;
+}
+
+export interface CreateHotelContractBody {
+  hotelId: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  bookingType: BookingType;
+  pricingModel: PricingModel;
+}
+
+export type UpdateHotelContractBody = Partial<
+  Omit<CreateHotelContractBody, "hotelId" | "pricingModel">
+> & {
+  expectedVersion: number;
+};

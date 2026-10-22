@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
 import { useNavigate } from "@tanstack/react-router";
-import { useSelector } from "react-redux";
 import {
   Check,
   ChevronRight,
@@ -9,6 +9,20 @@ import {
   Save,
 } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
+import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
+import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
+import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
+import { getApiErrorMessage } from "@/lib/api-error";
+import {
+  basicsReady,
+  contractDifferences,
+  draftFromContract,
+  hasRoomPricing,
+  mergeLatestBasics,
+  sameSavedBasics,
+  toCreateContractBody,
+  toUpdateContractBody,
+} from "@/store/features/contracts/contract-api";
 import {
   SeasonOverlapOverlay,
   UnsavedOverlay,
@@ -31,12 +45,13 @@ import {
 } from "@/components/contracts/contract-form/schema";
 import { readableDay } from "@/components/ui/date-field";
 import {
+  loadContract,
   resetDraft,
+  updateBasics,
   saveCancellationPolicy,
   saveReleasePolicy,
   setPoliciesEnabled,
 } from "@/store/features/contracts/contract-draft.slice";
-import type { RootState } from "@/store";
 import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
 import {
   CancellationDrawer,
@@ -98,10 +113,23 @@ export function ContractBuilder({
   const draft = useContractDraft();
   const { basics } = draft;
   const sourceName = source?.name;
+  const savedId = mode === "edit" && contractId && /^\d+$/.test(contractId) ? Number(contractId) : null;
+  const remote = useHotelContract(savedId);
+  const saved = remote.data ?? null;
+  const saveContract = useSaveHotelContract();
+  const loadedId = useRef<number | null>(null);
   useEffect(() => {
+    if (savedId !== null) return;
+    loadedId.current = null;
     dispatch(resetDraft(sourceName ? { name: sourceName } : undefined));
-  }, [dispatch, sourceName]);
-  const linkedHotels = useSelector((state: RootState) => state.hotels.hotels);
+  }, [dispatch, sourceName, savedId]);
+  useEffect(() => {
+    if (!saved || loadedId.current === saved.id) return;
+    loadedId.current = saved.id;
+    if (draft.basics.hotelId === saved.hotelId && sameSavedBasics(draft, saved)) return;
+    dispatch(loadContract(draftFromContract(saved)));
+  }, [dispatch, saved, draft]);
+  const contractHotels = useContractHotels({ page: 1, limit: 100 });
   const [picker, setPicker] = useState<"unsaved" | "overlap" | null>(null);
   const [inventory, setInventory] = useState<Inventory>("shared");
   const [stock, setStock] = useState("50");
@@ -189,12 +217,12 @@ export function ContractBuilder({
   const seasons = rateSeasons.filter((season) => !season.base);
   const seasonNights = seasons.reduce((sum, season) => sum + season.nights, 0);
 
-  const hotel = linkedHotels.find((item) => item.hotelId === basics.hotelId)?.hotel;
+  const hotel = contractHotels.data?.hotels.find((item) => item.id === basics.hotelId);
   const hotelName = hotel
-    ? lang === "ar"
-      ? hotel.nameAr || hotel.nameEn
-      : hotel.nameEn
-    : "";
+    ? (lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn || hotel.nameAr) ?? ""
+    : basics.hotelId
+      ? `#${basics.hotelId}`
+      : "";
 
   function openReview() {
     const issues = validateContract(draft, f.v);
@@ -213,6 +241,86 @@ export function ContractBuilder({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+
+  function saveDraft() {
+    if (!basicsReady(draft)) {
+      notify.error(f.saveNeedsBasics);
+      jumpTo("basics");
+      return;
+    }
+    if (saved) {
+      const body = toUpdateContractBody(draft, saved);
+      if (!body) {
+        notify.success(f.noChanges);
+        return;
+      }
+      saveContract.mutate(
+        { id: saved.id, body },
+        { onSuccess: () => notify.success(f.draftUpdated), onError: onSaveError },
+      );
+      return;
+    }
+    saveContract.mutate(
+      { id: null, body: toCreateContractBody(draft) },
+      {
+        onSuccess: (contract) => {
+          notify.success(f.draftCreated);
+          loadedId.current = contract.id;
+          navigate({
+            to: "/rate-contracts/$contractId/edit",
+            params: { contractId: String(contract.id) },
+            replace: true,
+          });
+        },
+        onError: onSaveError,
+      },
+    );
+  }
+
+  function onSaveError(error: Error) {
+    const status = isAxiosError(error) ? error.response?.status : undefined;
+    if (status === 409 && saved) {
+      const before = saved;
+      const editing = draft;
+      void remote.refetch().then(({ data: latest }) => {
+        const fields = latest ? contractDifferences(before, latest) : [];
+        if (latest) dispatch(updateBasics(mergeLatestBasics(editing, before, latest)));
+        notify.error(
+          fields.length > 0
+            ? fill(f.saveStale, {
+                fields: fields
+                  .map((field) => f.changedFields[field])
+                  .join(lang === "ar" ? "، " : ", "),
+              })
+            : f.saveStaleNone,
+        );
+      });
+      return;
+    }
+    if (status === 404 && saved) {
+      notify.error(f.unavailable);
+      return;
+    }
+    notify.error(getApiErrorMessage(error));
+  }
+
+  const savedAt = saved
+    ? new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(saved.updatedAt))
+    : "";
+  const draftStatus = remote.isLoading
+    ? t.draftLoading
+    : remote.isError
+      ? f.loadFailed
+      : !saved
+        ? t.draftEmpty
+        : sameSavedBasics(draft, saved)
+          ? fill(t.draftSaved, { time: savedAt })
+          : t.draftUnsaved;
 
   function activate() {
     setSaving(true);
@@ -276,10 +384,13 @@ export function ContractBuilder({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs text-text-muted">
-            {basicsDone ? t.draftSaved : t.draftEmpty}
-          </span>
-          <Button variant="outline">
+          <span className="text-xs text-text-muted">{draftStatus}</span>
+          <Button
+            variant="outline"
+            loading={saveContract.isPending}
+            disabled={remote.isLoading || remote.isError}
+            onClick={saveDraft}
+          >
             <Save className="h-4 w-4" aria-hidden="true" />
             {t.saveDraft}
           </Button>
@@ -406,7 +517,10 @@ export function ContractBuilder({
             body={t.basicsBody}
             done={sectionDone("basics")}
           >
-            <BasicsFields />
+            <BasicsFields
+              locked={saved !== null}
+              currencyLocked={saved !== null && hasRoomPricing(saved)}
+            />
             {!basicsDone && (
               <div className="mt-4 flex gap-2 rounded-xl border border-border-subtle bg-surface-subtle p-3.5">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
@@ -431,7 +545,7 @@ export function ContractBuilder({
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <PricingFields />
+            <PricingFields modelLocked={saved !== null} />
           </Section>
 
           {/* 3 — Rooms */}

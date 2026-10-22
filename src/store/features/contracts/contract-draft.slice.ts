@@ -70,6 +70,15 @@ export const contractDraftSlice = createSlice({
       basics: { ...initialState.basics, ...action.payload },
     }),
 
+    loadContract: (
+      _state,
+      action: PayloadAction<{ basics: Partial<ContractBasics>; pricingModel: PricingModel }>,
+    ) => ({
+      ...initialState,
+      basics: { ...initialState.basics, ...action.payload.basics },
+      pricingModel: action.payload.pricingModel,
+    }),
+
     updateBasics: (state, action: PayloadAction<Partial<ContractBasics>>) => {
       const next = { ...state.basics, ...action.payload };
       if (next.hotelId !== state.basics.hotelId) {
@@ -249,6 +258,7 @@ export const contractDraftSlice = createSlice({
 
 export const {
   resetDraft,
+  loadContract,
   updateBasics,
   setPricingModel,
   setWeekPricing,
