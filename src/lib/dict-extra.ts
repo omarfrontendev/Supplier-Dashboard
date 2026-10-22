@@ -121,8 +121,8 @@ export const extraEn = {
     complete: "Complete",
   },
   addHotel: {
-    checkInTime: "Check-in Time",
-    checkOutTime: "Check-out Time",
+    checkInTime: "Check-in Time *",
+    checkOutTime: "Check-out Time *",
     policies: "Policies",
     policiesEn: "Policies (English)",
     policiesAr: "Policies (Arabic)",
@@ -509,8 +509,8 @@ export const extraAr: typeof extraEn = {
     complete: "مكتمل",
   },
   addHotel: {
-    checkInTime: "وقت تسجيل الوصول",
-    checkOutTime: "وقت تسجيل المغادرة",
+    checkInTime: "وقت تسجيل الوصول *",
+    checkOutTime: "وقت تسجيل المغادرة *",
     policies: "السياسات",
     policiesEn: "السياسات (بالإنجليزية)",
     policiesAr: "السياسات (بالعربية)",

@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useReducer, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   BedDouble,
   CalendarClock,
   ChevronDown,
+  CircleAlert,
   FileText,
   MoreHorizontal,
   Plus,
+  RefreshCw,
   Search,
   ShieldAlert,
 } from "lucide-react";
@@ -33,17 +35,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { hotels, type SupplyContract } from "@/lib/demo-data";
+import { hotels } from "@/lib/demo-data";
 import { fill, useLanguage } from "@/lib/i18n";
 import { usePortal } from "@/lib/portal-store";
 import { ConfirmOverlay, FilterMenu, FilterPanel } from "@/components/contracts/contract-overlays";
 import {
-  attentionPanel,
   deleteDraftPanel,
   periodPanel,
   resumePanel,
   stopSellPanel,
 } from "@/lib/contract-overlay-data";
+import { useHotelContracts } from "@/api/modules/hotel-contract/useHotelContracts";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
+import { useDebounce } from "./my-hotels";
+import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
+import { RowsSkeleton } from "@/components/ui/skeletons";
+import { BookingType, PricingModel, SupplyContract } from "@/api/modules/hotel-contract/types";
+import { ContractStatus } from "@/store/features/contracts/types";
 
 export const Route = createFileRoute("/rate-contracts/")({
   head: () => ({
@@ -69,6 +77,17 @@ type Action = "pause" | "resume" | "delete" | "terminate" | "stopSell" | null;
 
 const copy = {
   en: {
+    draft: "Draft",
+    scheduled: "Scheduled",
+    activated: "Active",
+    paused: "Paused",
+    expired: "Expired",
+    terminated: "Terminated",
+    allotmentBlock: "Allotment Block",
+    basePlusSupplements: "Base Plus Supplements",
+    fixedPerRoom: "Fixed Per Room",
+    retry: "Retry",
+    errorTitle: "Something went wrong",
     overline: "PROPERTY · HOTEL SUPPLY CONTRACTS",
     title: "Hotel supply contracts",
     subtitle:
@@ -159,6 +178,17 @@ const copy = {
     apply: "Confirm",
   },
   ar: {
+    draft: "مسودة",
+    scheduled: "مجدول",
+    activated: "نشط",
+    paused: "متوقف مؤقتًا",
+    expired: "منتهي الصلاحية",
+    terminated: "منهي",
+    allotmentBlock: "حجز بحصة محددة",
+    basePlusSupplements: "سعر أساسي مع إضافات",
+    fixedPerRoom: "سعر ثابت للغرفة",
+    retry: "إعادة المحاولة",
+    errorTitle: "حدث خطأ ما",
     overline: "المنشأة · عقود توريد الفنادق",
     title: "عقود توريد الفنادق",
     subtitle: "عقد واحد لكل فندق وفترة. يدير المورّد العقود وتصبح مباشرة فور نشرها.",
@@ -247,12 +277,109 @@ const copy = {
   },
 };
 
+const PAGE_SIZE = 10;
+
+interface FiltersState {
+  page: number;
+  search: string;
+  hotelId: number | undefined;
+  pricingModel: string | undefined;
+  status: string;
+}
+
+type FiltersAction =
+  | { type: "SET_SEARCH"; payload: string }
+  | { type: "SET_HOTEL"; payload: number | undefined }
+  | { type: "SET_PRICING_MODEL"; payload: string | undefined }
+  | { type: "SET_PAGE"; payload: number }
+  | { type: "SET_STATUS"; payload: string };
+
+const initialState: FiltersState = {
+  page: 1,
+  search: "",
+  hotelId: undefined,
+  pricingModel: undefined,
+  status: "",
+};
+
+function filtersReducer(state: FiltersState, action: FiltersAction): FiltersState {
+  switch (action.type) {
+    case "SET_SEARCH":
+      return {
+        ...state,
+        search: action.payload,
+        page: 1,
+      };
+
+    case "SET_HOTEL":
+      return {
+        ...state,
+        hotelId: action.payload,
+        page: 1,
+      };
+
+    case "SET_PRICING_MODEL":
+      return {
+        ...state,
+        pricingModel: action.payload,
+        page: 1,
+      };
+
+    case "SET_PAGE":
+      return {
+        ...state,
+        page: action.payload,
+      };
+
+    case "SET_STATUS":
+      return {
+        ...state,
+        status: action.payload,
+      };
+
+    default:
+      return state;
+  }
+}
+
 function RateContractsPage() {
   const { lang } = useLanguage();
   const t = copy[lang];
   /* A count reads in the digits of the language around it. */
   const num = (value: number) => value.toLocaleString(lang === "ar" ? "ar-EG" : "en-US");
   const { contracts, setContractState, deleteContract } = usePortal();
+
+  // ====================================== //
+  // ====================================== //
+  // ====================================== //
+  // ====================================== //
+  // ====================================== //
+  // ====================================== //
+
+  const [filters, dispatch] = useReducer(filtersReducer, initialState);
+  const debouncedSearch = useDebounce(filters.search, 500);
+
+  const hotelContractsParams = {
+    page: filters.page,
+    limit: PAGE_SIZE,
+    search: debouncedSearch,
+    status: filters.status,
+    ...(filters.hotelId !== undefined && { hotelId: filters.hotelId }),
+    ...(filters.pricingModel !== undefined && { pricingModel: filters.pricingModel }),
+  };
+
+  const { data, isPending, isError, refetch, error } = useHotelContracts(hotelContractsParams);
+
+  const filtered = data?.contracts;
+  const meta = data?.meta;
+
+  const { data: hotelsData, isPending: isHotelsLoading } = useContractHotels({
+    page: 1,
+    limit: 100,
+  });
+
+  const hotels = hotelsData?.hotels ?? [];
+
   const [query, setQuery] = useState("");
   const [hotel, setHotel] = useState("");
   const [status, setStatus] = useState("");
@@ -261,34 +388,34 @@ function RateContractsPage() {
   const [pending, setPending] = useState<{ contract: SupplyContract; action: Action } | null>(null);
   /* OV 03.0G / 03.0L — the two panels the list opens over itself. */
   const [panel, setPanel] = useState<"attention" | "period" | null>(null);
-  const filtered = useMemo(
-    () =>
-      contracts.filter((item) => {
-        const h = hotels.find((x) => x.id === item.hotelId);
-        const hay = `${item.name} ${item.nameAr} ${h?.nameEn} ${h?.nameAr}`.toLowerCase();
-        return (
-          (!query || hay.includes(query.toLowerCase())) &&
-          (!hotel || item.hotelId === hotel) &&
-          (!status || item.state === status) &&
-          (!period || item.period === period) &&
-          (!attention || Boolean(item.attention))
-        );
-      }),
-    [contracts, query, hotel, status, period, attention],
-  );
+  // const filtered = useMemo(
+  //   () =>
+  //     contracts.filter((item) => {
+  //       const h = hotels.find((x) => x.id === item.hotelId);
+  //       const hay = `${item.name} ${item.nameAr} ${h?.nameEn} ${h?.nameAr}`.toLowerCase();
+  //       return (
+  //         (!query || hay.includes(query.toLowerCase())) &&
+  //         (!hotel || item.hotelId === hotel) &&
+  //         (!status || item.status === status) &&
+  //         (!period || item.period === period) &&
+  //         (!attention || Boolean(item.attention))
+  //       );
+  //     }),
+  //   [contracts, query, hotel, status, period, attention],
+  // );
   // Figma counts a scheduled contract as active — both rows offer "Open".
   // UI 03.0 draws these four numbers for the whole account, not for the rows below.
   const stats = { active: 3, hotels: 3, rooms: 24, attention: 2, issues: 4, alerts: 2 };
-  const activeContracts = contracts.filter(
-    (item) => item.state === "active" || item.state === "scheduled",
-  );
-  const activeHotels = new Set(activeContracts.map((item) => item.hotelId)).size;
-  const activeRooms = activeContracts.reduce((sum, item) => sum + item.allotment, 0);
-  const attentionCount = contracts.filter((item) => Boolean(item.attention)).length;
-  const issueCount = contracts.reduce((sum, item) => sum + (item.attention ? 2 : 0), 0);
-  const stockAlerts = contracts.filter(
-    (item) => item.state === "active" && item.allotment > 0 && item.allotment <= 8,
-  ).length;
+  // const activeContracts = contracts.filter(
+  //   (item) => item.status === "active" || item.status === "scheduled",
+  // );
+  // const activeHotels = new Set(activeContracts.map((item) => item.hotelId)).size;
+  // const activeRooms = activeContracts.reduce((sum, item) => sum + item.allotment, 0);
+  // const attentionCount = contracts.filter((item) => Boolean(item.attention)).length;
+  // const issueCount = contracts.reduce((sum, item) => sum + (item.attention ? 2 : 0), 0);
+  // const stockAlerts = contracts.filter(
+  //   (item) => item.status === "active" && item.allotment > 0 && item.allotment <= 8,
+  // ).length;
   const act = () => {
     if (!pending?.action) return;
     if (pending.action === "delete") deleteContract(pending.contract.id);
@@ -303,6 +430,7 @@ function RateContractsPage() {
       );
     setPending(null);
   };
+
   return (
     <PageShell>
       <PageHeader
@@ -356,8 +484,13 @@ function RateContractsPage() {
               <Input
                 aria-label={t.search}
                 placeholder={t.search}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                value={filters.search}
+                onChange={(e) =>
+                  dispatch({
+                    type: "SET_SEARCH",
+                    payload: e.target.value,
+                  })
+                }
                 className="[&_input]:h-10 [&_input]:ps-10"
               />
             </div>
@@ -365,23 +498,36 @@ function RateContractsPage() {
           <FilterField label={t.hotelLabel}>
             <Select
               size="sm"
-              value={hotel}
-              onChange={setHotel}
+              value={filters.hotelId != null ? String(filters.hotelId) : ""}
+              onChange={(value) =>
+                dispatch({
+                  type: "SET_HOTEL",
+                  payload: value ? Number(value) : undefined,
+                })
+              }
               placeholder={t.allHotels}
               clearable
-              options={hotels
-                .filter((h) => contracts.some((c) => c.hotelId === h.id))
-                .map((h) => ({
-                  value: h.id,
-                  label: lang === "ar" ? h.nameAr : h.nameEn,
-                  hint: fill(t.contractCount, {
-                    count: contracts.filter((c) => c.hotelId === h.id).length,
-                  }),
-                }))}
+              options={hotels.map((hotel) => ({
+                value: String(hotel.id),
+                label: lang === "ar" ? hotel.nameAr : hotel.nameEn,
+                hint: fill(t.contractCount, {
+                  count: contracts.filter((contract) => contract.hotelId === hotel.id).length,
+                }),
+              }))}
             />
           </FilterField>
           <FilterField label={t.statusLabel}>
-            <StatusFilter value={status} onChange={setStatus} lang={lang} t={t} />
+            <StatusFilter
+              value={filters.status}
+              onChange={(e) => {
+                dispatch({
+                  type: "SET_STATUS",
+                  payload: e,
+                });
+              }}
+              lang={lang}
+              t={t}
+            />
           </FilterField>
           <FilterField label={t.periodLabel}>
             <button
@@ -393,7 +539,7 @@ function RateContractsPage() {
               <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
             </button>
           </FilterField>
-          <FilterField label={t.needAttention}>
+          {/* <FilterField label={t.needAttention}>
             <div className="flex items-center gap-2">
               <FilterMenu
                 panel={attentionPanel}
@@ -420,11 +566,11 @@ function RateContractsPage() {
                 </button>
               )}
             </div>
-          </FilterField>
+          </FilterField> */}
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[1260px]">
-            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.9fr_.6fr_110px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted">
+            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.9fr_.6fr_110px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
               <span>{t.contract}</span>
               <span>{t.period}</span>
               <span>{t.allotment}</span>
@@ -434,7 +580,7 @@ function RateContractsPage() {
               <span>{t.status}</span>
               <span>{t.actions}</span>
             </div>
-            {filtered.map((item) => (
+            {filtered?.map((item) => (
               <ContractRow
                 key={item.id}
                 item={item}
@@ -443,13 +589,50 @@ function RateContractsPage() {
                 ask={(action) => setPending({ contract: item, action })}
               />
             ))}
+            <ReusablePagination
+              page={filters.page}
+              totalPages={meta?.totalPages ?? 1}
+              onPageChange={(newPage) =>
+                dispatch({
+                  type: "SET_PAGE",
+                  payload: newPage,
+                })
+              }
+              isLoading={isPending}
+              lang={lang}
+              showBorder
+            />
           </div>
         </div>
-        {!filtered.length && (
+        {isPending ? (
+          <div className="border-t border-border-subtle p-4">
+            <RowsSkeleton />
+          </div>
+        ) : isError ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+              <CircleAlert className="h-7 w-7 text-destructive" />
+            </div>
+
+            <h3 className="text-base font-semibold text-foreground">{t.errorTitle}</h3>
+
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{error.message}</p>
+
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-4 inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t.retry}
+            </button>
+          </div>
+        ) : !filtered?.length ? (
           <div className="p-12 text-center">
             <p className="text-base font-semibold text-text-primary">
               {contracts.length ? t.filterEmptyTitle : t.emptyTitle}
             </p>
+
             <p className="mx-auto mt-2 max-w-lg text-sm text-text-secondary">
               {contracts.length
                 ? [
@@ -462,21 +645,27 @@ function RateContractsPage() {
                     .join(" · ")
                 : t.emptyBody}
             </p>
+
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               {contracts.length ? (
                 <>
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setQuery("");
-                      setHotel("");
-                      setStatus("");
-                      setPeriod("");
-                      setAttention("");
+                      dispatch({
+                        type: "SET_HOTEL",
+                        payload: undefined,
+                      });
+                      dispatch({
+                        type: "SET_SEARCH",
+                        payload: "",
+                      });
+                      // Clear the remaining filters here if needed.
                     }}
                   >
                     {t.clearAll}
                   </Button>
+
                   {hotel && (
                     <Link to="/rate-contracts/new" search={{ source: undefined }}>
                       <Button>
@@ -492,6 +681,7 @@ function RateContractsPage() {
                   <Link to="/rate-contracts/new" search={{ source: undefined }}>
                     <Button>{t.create}</Button>
                   </Link>
+
                   <Link to="/my-hotels">
                     <Button variant="outline">{t.emptyHotels}</Button>
                   </Link>
@@ -499,15 +689,19 @@ function RateContractsPage() {
               )}
             </div>
           </div>
+        ) : (
+          <></>
+          // Keep your existing contracts table/list here.
+          // <ContractsList contracts={filtered} />
         )}
       </section>
-      {Boolean(filtered.length) && (
+      {Boolean(filtered?.length) && (
         <p className="mt-3 text-xs text-text-muted">
-          {fill(t.showing, { shown: filtered.length, total: contracts.length })}
+          {fill(t.showing, { shown: filtered?.length, total: contracts.length })}
         </p>
       )}
       <p className="mt-4 text-xs leading-5 text-text-muted">
-        {filtered.length
+        {filtered?.length
           ? t.listFooter
           : lang === "ar"
             ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول يتيحان التشغيل والتعديل؛ المسودة للمتابعة أو الحذف؛ المنتهي للعرض أو النسخ فقط."
@@ -550,6 +744,48 @@ function RateContractsPage() {
   );
 }
 
+function bookingTypeLabel(bookingType: BookingType, t: typeof copy.en) {
+  switch (bookingType) {
+    case "allotment_block":
+      return t.allotmentBlock;
+
+    case "on_request":
+      return t.request;
+  }
+}
+
+function pricingModelLabel(pricingModel: PricingModel, t: typeof copy.en) {
+  switch (pricingModel) {
+    case "base_plus_supplements":
+      return t.basePlusSupplements;
+
+    case "fixed_per_room":
+      return t.fixedPerRoom;
+  }
+}
+
+function contractStatusLabel(status: ContractStatus, t: typeof copy.en) {
+  switch (status) {
+    case "draft":
+      return t.draft;
+
+    case "scheduled":
+      return t.scheduled;
+
+    case "active":
+      return t.active;
+
+    case "paused":
+      return t.paused;
+
+    case "expired":
+      return t.expired;
+
+    case "terminated":
+      return t.terminated;
+  }
+}
+
 function ContractRow({
   item,
   lang,
@@ -561,40 +797,48 @@ function ContractRow({
   t: typeof copy.en;
   ask: (a: Action) => void;
 }) {
+  const formatDate = (date: string, lang: "en" | "ar") =>
+    new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(date));
+
+  const contractPeriod = `${formatDate(item.startDate, lang)} – ${formatDate(item.endDate, lang)}`;
+
+  const statusLabel = contractStatusLabel(item.status, t);
+
   const hotel = hotels.find((h) => h.id === item.hotelId);
-  const label = stateLabel(item.state, lang);
+  const label = stateLabel(item.status, lang);
   const tone =
-    item.state === "active"
+    item.status === "active"
       ? "success"
-      : item.state === "scheduled"
+      : item.status === "scheduled"
         ? "info"
-        : item.state === "paused" || item.state === "attention"
+        : item.status === "paused" || item.status === "attention"
           ? "warning"
-          : item.state === "terminated"
+          : item.status === "terminated"
             ? "danger"
             : "neutral";
   return (
-    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.9fr_.6fr_110px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs">
+    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.9fr_.6fr_110px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
       <div className="min-w-0">
-        <Link
-          to="/rate-contracts/$contractId"
-          params={{ contractId: item.id }}
-          className="truncate text-sm font-semibold text-text-primary hover:text-brand-mid"
+        <span
+          // to="/rate-contracts/$contractId"
+          // params={{ contractId: item.id }}
+          className="truncate w-full  block text-sm font-semibold text-text-primary hover:text-brand-mid"
         >
-          {lang === "ar" ? item.nameAr : item.name}
-        </Link>
+          {item.name}
+        </span>
       </div>
-      <span className="text-text-secondary">{lang === "ar" ? item.datesAr : item.dates}</span>
+      <span className="text-text-secondary">{contractPeriod}</span>
       <span className="font-data text-sm font-semibold text-text-primary">
-        {item.allotment
-          ? fill(t.perNight, {
-              count: item.allotment,
-              types: item.roomTypes === 1 ? t.oneType : fill(t.types, { count: item.roomTypes }),
-            })
-          : t.noAllotment}
+        {bookingTypeLabel(item.bookingType, t)}
       </span>
-      <span>{item.model === "instant" ? t.instant : t.request}</span>
-      <span>
+      {/* <span>{item.model === "instant" ? t.instant : t.request}</span> */}
+      <span>{pricingModelLabel(item.pricingModel, t)}</span>
+      {/* <span>
         {item.soldOut === "stop"
           ? t.stop
           : item.soldOut === "onRequest"
@@ -602,14 +846,16 @@ function ContractRow({
             : item.soldOut === "notSet"
               ? t.notSet
               : fill(t.overbooking, { count: item.overbooking ?? 2 })}
-      </span>
-      <span>
+      </span> */}
+      <span className="text-text-muted">—</span>
+      {/* <span>
         {item.releaseDays === null ? t.none : fill(t.daysBefore, { count: item.releaseDays })}
-      </span>
-      <StatusPill
-        tone={item.state === "terminated" || item.state === "expired" ? "neutral" : "success"}
-      >
-        {t.available}
+      </span> */}
+      <span className="text-text-muted">—</span>
+
+      <StatusPill tone={tone}>
+        {/* {t.available} */}
+        {statusLabel}
       </StatusPill>
       <div className="flex items-center justify-end gap-1">
         <Link to="/rate-contracts/$contractId" params={{ contractId: item.id }}>
@@ -633,7 +879,7 @@ function ContractRow({
               </p>
             </div>
             <div className="p-1">
-              {item.state === "draft" ? (
+              {item.status === "draft" ? (
                 <>
                   <ActionItem
                     to="/rate-contracts/$contractId/edit"
@@ -650,7 +896,7 @@ function ContractRow({
                     onSelect={() => ask("delete")}
                   />
                 </>
-              ) : item.state === "expired" ? (
+              ) : item.status === "expired" ? (
                 <>
                   <ActionItem
                     to="/rate-contracts/$contractId"
@@ -667,7 +913,7 @@ function ContractRow({
                   />
                   <ActionItem title={t.activity} hint={t.activityHint} />
                 </>
-              ) : item.state === "terminated" ? (
+              ) : item.status === "terminated" ? (
                 <>
                   <ActionItem
                     to="/rate-contracts/$contractId"
@@ -677,7 +923,7 @@ function ContractRow({
                   />
                   <ActionItem title={t.activity} hint={t.activityHint} />
                 </>
-              ) : item.state === "paused" ? (
+              ) : item.status === "paused" ? (
                 <>
                   <ActionItem
                     to="/rate-contracts/$contractId"
@@ -935,13 +1181,13 @@ function FilterField({ label, children }: { label: string; children: React.React
 
 /** UI 03.0 — the row's primary action follows the contract's state. */
 function rowAction(item: SupplyContract, t: typeof copy.en) {
-  return item.state === "draft"
+  return item.status === "draft"
     ? t.continue
-    : item.state === "paused"
+    : item.status === "paused"
       ? t.resume
-      : item.state === "expired"
+      : item.status === "expired"
         ? t.copyPeriod
-        : item.state === "terminated"
+        : item.status === "terminated"
           ? t.view
           : t.open;
 }

@@ -10,6 +10,8 @@ const en = {
     emptyDescription: "You're all caught up! New notifications will appear here.",
   },
   common: {
+    invalidPhone: "Please enter a valid phone number",
+    invalidUrl: "Please enter a valid URL",
     invalidTime: "Please enter a valid time.",
     checkOutMustBeAfterCheckIn: "Check-out time must be after check-in time.",
     deleteTitle: "Delete Role",
@@ -855,6 +857,8 @@ const ar: typeof en = {
     emptyDescription: "أنت على اطلاع بكل جديد! ستظهر الإشعارات الجديدة هنا.",
   },
   common: {
+    invalidPhone: "من فضلك أدخل رقم صحيحًا",
+    invalidUrl: "من فضلك أدخل رابطًا صحيحًا",
     invalidTime: "يرجى إدخال وقت صحيح.",
     checkOutMustBeAfterCheckIn: "يجب أن يكون وقت تسجيل المغادرة بعد وقت تسجيل الوصول.",
     delete: "حذف",

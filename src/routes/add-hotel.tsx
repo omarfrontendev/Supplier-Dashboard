@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, get, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { hotelSchema } from "@/components/hotels/add-missing-hotel/HotelSchema";
 import PropertyMapPicker from "@/components/maps/PropertyMapPicker";
@@ -152,6 +152,29 @@ function AddHotelPage() {
     resolver: zodResolver(hotelSchema()),
     defaultValues: {
       starRating: 5,
+      // starRating: 4,
+      // nameEn: "Hotel",
+      // nameAr: "فندق",
+      // checkInTime: "10:10",
+      // checkOutTime: "14:23",
+      // descriptionEn: "descs",
+      // descriptionAr: "وصف",
+      // policies: {
+      //   en: "policie",
+      //   ar: "سياسات",
+      // },
+      // contact: {
+      //   phone: "01210196313",
+      //   email: "omar@gmail.com",
+      //   website: "http://localhost:8080/add-hote",
+      // },
+      // area: "areas",
+      // addressEn: "adress",
+      // addressAr: "عنوان",
+      // countryCode: "SA",
+      // city: "Makkah",
+      // latitude: 21.417550976598257,
+      // longitude: 39.82740593084435,
     },
     mode: "all",
   });
@@ -162,6 +185,11 @@ function AddHotelPage() {
   const requiredFields = [
     "nameEn",
     "nameAr",
+    "checkInTime",
+    "checkOutTime",
+    "area",
+    "descriptionEn",
+    "descriptionAr",
     "starRating",
     "addressEn",
     "addressAr",
@@ -169,14 +197,19 @@ function AddHotelPage() {
     "longitude",
     "city",
     "countryCode",
+    "contact.email",
+    "contact.phone",
+    "contact.website",
+    "policies.en",
+    "policies.ar",
   ] as const;
 
-  const optionalFields = ["descriptionEn", "descriptionAr", "area"] as const;
+  const optionalFields = [] as const;
 
   const requiredLeft =
     requiredFields.filter((field) => {
       const value = hookForm.watch(field);
-      const hasError = !!hookForm.formState.errors[field];
+      const hasError = !!get(hookForm.formState.errors, field);
 
       const isEmpty = value === "" || value === null || value === undefined;
 
@@ -184,7 +217,7 @@ function AddHotelPage() {
     }).length +
     optionalFields.filter((field) => {
       const value = hookForm.watch(field);
-      const hasError = !!hookForm.formState.errors[field];
+      const hasError = !!get(hookForm.formState.errors, field);
 
       const isEmpty = value === "" || value === null || value === undefined;
 
@@ -195,8 +228,6 @@ function AddHotelPage() {
   const duplicatesFound = form.name.trim().length > 2;
 
   const steps = [a.stepDetails, a.stepMedia, a.stepReview];
-
-  const pinned = form.map.trim() !== "";
 
   // ================================================ ///
   // ================================================ ///
@@ -314,11 +345,11 @@ function AddHotelPage() {
     }
   });
 
-  const checkInTime = hookForm.watch("checkInTime");
+  // const checkInTime = hookForm.watch("checkInTime");
 
-  useEffect(() => {
-    void hookForm.trigger("checkOutTime");
-  }, [checkInTime, hookForm.trigger]);
+  // useEffect(() => {
+  //   void hookForm.trigger("checkOutTime");
+  // }, [checkInTime, hookForm.trigger]);
 
   return (
     <PageShell>
@@ -517,7 +548,7 @@ function AddHotelPage() {
           <SectionCard overline={a.contact} title={a.contactInformation}>
             <div className="grid gap-4 md:grid-cols-2">
               <Input
-                label={a.phone}
+                label={`${a.phone} *`}
                 placeholder={a.phonePlaceholder}
                 type="tel"
                 {...hookForm.register("contact.phone")}
@@ -525,7 +556,7 @@ function AddHotelPage() {
               />
 
               <Input
-                label={a.email}
+                label={`${a.email} *`}
                 placeholder={a.emailPlaceholder}
                 type="email"
                 {...hookForm.register("contact.email")}
@@ -533,7 +564,7 @@ function AddHotelPage() {
               />
 
               <Input
-                label={a.website}
+                label={`${a.website} *`}
                 placeholder={a.websitePlaceholder}
                 type="url"
                 {...hookForm.register("contact.website")}
@@ -981,7 +1012,7 @@ function AddHotelPage() {
 
       {step === 2 && (
         <div className="space-y-6">
-          <SectionCard
+          {/* <SectionCard
             overline={a.reviewStep1}
             title={`${formValues?.nameEn} · ${formValues?.nameAr}`}
             right={
@@ -1018,6 +1049,55 @@ function AddHotelPage() {
                   <dt className="text-sm text-text-secondary sm:w-48 sm:shrink-0">{label}</dt>
 
                   <dd className={cn("min-w-0 flex-1 text-sm text-text-primary")}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </SectionCard> */}
+          <SectionCard
+            overline={a.reviewStep1}
+            title={`${formValues?.nameEn || "—"} · ${formValues?.nameAr || "—"}`}
+            right={
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(0)}>
+                {a.edit}
+              </Button>
+            }
+          >
+            <dl>
+              {[
+                [
+                  a.fieldStars,
+                  `${fill(c.library.stars, {
+                    count: Number(formValues?.starRating || 0),
+                  })} · ${a.starsSource}`,
+                ],
+                [a.checkInTime, formValues?.checkInTime || "—"],
+                [a.checkOutTime, formValues?.checkOutTime || "—"],
+                [
+                  a.fieldCountry,
+                  `${formValues?.countryCode || "—"} · ${formValues?.city || "—"}${
+                    formValues?.area ? ` · ${formValues.area}` : ""
+                  }`,
+                ],
+                [
+                  a.fieldAddress,
+                  `${formValues?.addressEn || "—"} · ${formValues?.addressAr || "—"}`,
+                ],
+                [a.fieldMap, `${formValues?.latitude ?? "—"}, ${formValues?.longitude ?? "—"}`],
+                [a.descEn, formValues?.descriptionEn || "—"],
+                [a.descAr, formValues?.descriptionAr || "—"],
+                [a.phone, formValues?.contact?.phone || "—"],
+                [a.email, formValues?.contact?.email || "—"],
+                [a.website, formValues?.contact?.website || "—"],
+                [a.policiesEn, formValues?.policies?.en || "—"],
+                [a.policiesAr, formValues?.policies?.ar || "—"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex flex-col gap-1 border-b border-border-subtle py-3 last:border-b-0 sm:flex-row sm:gap-3"
+                >
+                  <dt className="text-sm text-text-secondary sm:w-48 sm:shrink-0">{label}</dt>
+
+                  <dd className="min-w-0 flex-1 break-words text-sm text-text-primary">{value}</dd>
                 </div>
               ))}
             </dl>
