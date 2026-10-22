@@ -69,6 +69,11 @@ const notifications = {
   readNotification: (id: number | string) => `/notifications/${id}/read`,
 };
 
+const supplierHotelContracts = {
+  list: "/hotel-contracts",
+  hotels: "/hotel-contracts/hotels",
+};
+
 export const endpoints = {
   auth,
   team,
@@ -79,4 +84,5 @@ export const endpoints = {
   suppliers,
   amenities,
   notifications,
+  supplierHotelContracts,
 };

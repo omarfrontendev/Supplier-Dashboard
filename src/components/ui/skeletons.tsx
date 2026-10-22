@@ -36,8 +36,8 @@ export function RowsSkeleton({ rows = 5 }: { rows?: number }) {
           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-3.5"
         >
           <div className="min-w-0 space-y-2">
-            <Skeleton className="h-3.5 w-1/3" />
-            <Skeleton className="h-3 w-1/4" />
+            <Skeleton className="h-3.5 w-full" />
+            {/* <Skeleton className="h-3 w-full" /> */}
           </div>
           <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
         </div>
