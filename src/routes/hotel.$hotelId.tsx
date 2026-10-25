@@ -7,6 +7,7 @@ import {
   Bed,
   Building2,
   Check,
+  Eye,
   Hash,
   Info,
   ListChecks,
@@ -37,6 +38,7 @@ import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
 import { badgeTone } from "@/components/hotels/hotel-card";
 import { formatTime } from "@/lib/format-time";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
+import { RoomDetailsDrawer } from "@/components/hotels/room-details-drawer";
 
 export const Route = createFileRoute("/hotel/$hotelId")({
   head: () => ({
@@ -146,6 +148,7 @@ const COLS = {
   size: "w-[90px] shrink-0",
   view: "w-[110px] shrink-0",
   status: "w-[170px] shrink-0",
+  action: "ms-auto flex shrink-0 justify-end",
 } as const;
 
 /* ---------- page ---------- */
@@ -160,6 +163,7 @@ function HotelProfilePage() {
   const { newRooms } = usePortal();
   const p = c.hotelProfile;
   const [roomOpen, setRoomOpen] = useState(false);
+  const [roomDetailsId, setRoomDetailsId] = useState<number | null>(null);
   const ar = lang === "ar";
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
 
@@ -370,7 +374,7 @@ function HotelProfilePage() {
           />
 
           <div className="overflow-x-auto">
-            <div className="min-w-[1220px]">
+            <div className="min-w-[1260px]">
               <div className="flex items-center gap-3 pb-2.5 pt-1 text-[10px] font-medium uppercase leading-[1.45] tracking-[0.08em] text-text-muted">
                 <p className={COLS.room}>{p.table.room}</p>
                 <p className={COLS.occupancy}>{p.table.occupancy}</p>
@@ -380,6 +384,7 @@ function HotelProfilePage() {
                 <p className={COLS.size}>{p.table.size}</p>
                 <p className={COLS.view}>{p.table.view}</p>
                 <p className={COLS.status}>{p.table.status}</p>
+                <p className={COLS.action} aria-hidden="true" />
               </div>
               {roomsLoading ? (
                 <div className="flex flex-col items-center justify-center border-t border-border-subtle px-4 py-10">
@@ -416,6 +421,20 @@ function HotelProfilePage() {
                       <p className={COLS.status}>
                         <Badge tone="success">{lang === "ar" ? "رسمية" : "Official"}</Badge>
                       </p>
+
+                      <div className={COLS.action}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={fill(c.roomDetails.open, {
+                            room: ar ? room.nameAr : room.nameEn,
+                          })}
+                          onClick={() => setRoomDetailsId(room.id)}
+                        >
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                          {c.roomDetails.viewDetails}
+                        </Button>
+                      </div>
                     </div>
                   ))}
 
@@ -470,6 +489,14 @@ function HotelProfilePage() {
         </p>
       </div>
 
+      {roomDetailsId !== null && (
+        <RoomDetailsDrawer
+          hotelId={Number(hotelId)}
+          hotelName={hotelName ?? ""}
+          roomId={roomDetailsId}
+          onClose={() => setRoomDetailsId(null)}
+        />
+      )}
       {roomOpen && (
         <AddRoomDrawer
           hotelId={hotel?.hotel?.id}
