@@ -1,10 +1,14 @@
 import { useDispatch, useSelector } from "react-redux";
 import { Check } from "lucide-react";
 
-import type { LinkedHotelRoom } from "@/api/modules/hotels/useLinkedHotelRooms";
+import {
+  useLinkedHotelRooms,
+  type LinkedHotelRoom,
+} from "@/api/modules/hotels/useLinkedHotelRooms";
 import { Input, type InputProps } from "@/components/ui/input";
 import type { Dict } from "@/lib/dict";
 import { isAmountInput } from "@/store/features/contracts/contract-payload";
+import { CHILD_MAX_AGE } from "@/store/features/contracts/types";
 import { cn } from "@/lib/utils";
 import type { AppDispatch, RootState } from "@/store";
 
@@ -77,4 +81,12 @@ export function RoomTick({
       {on && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
     </button>
   );
+}
+
+export function useChildAgeLimit(hotelId: number | null) {
+  const { rooms } = useLinkedHotelRooms(hotelId);
+  const ages = rooms
+    .map((room) => room.maxChildAge)
+    .filter((age): age is number => typeof age === "number" && age > 0);
+  return ages.length > 0 ? Math.min(CHILD_MAX_AGE, Math.max(...ages)) : CHILD_MAX_AGE;
 }

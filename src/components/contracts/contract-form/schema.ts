@@ -31,13 +31,15 @@ type Messages = Dict["builder"]["form"]["v"];
 
 const filled = (value: string) => toAmount(value) !== null;
 
-const validAge = (value: string) => {
+const validAge = (value: string, max: number) => {
   const age = toAmount(value);
-  return age !== null && Number.isInteger(age) && age >= 0 && age <= CHILD_MAX_AGE;
+  return age !== null && Number.isInteger(age) && age >= 0 && age <= max;
 };
 
-const agesValid = (rule: ChildRule) =>
-  validAge(rule.ageFrom) && validAge(rule.ageTo) && Number(rule.ageFrom) <= Number(rule.ageTo);
+const agesValid = (rule: ChildRule, max: number) =>
+  validAge(rule.ageFrom, max) &&
+  validAge(rule.ageTo, max) &&
+  Number(rule.ageFrom) <= Number(rule.ageTo);
 
 const rangesOverlap = (a: ChildRule, b: ChildRule) =>
   Number(a.ageFrom) <= Number(b.ageTo) && Number(b.ageFrom) <= Number(a.ageTo);
@@ -96,23 +98,27 @@ export function restrictionIssues(
   return issues;
 }
 
-export function childIssues(children: ChildRules, m: Messages): string[] {
+export function childIssues(
+  children: ChildRules,
+  m: Messages,
+  maxAge: number = CHILD_MAX_AGE,
+): string[] {
   const issues: string[] = [];
-  if (CHILD_RULES.some((key) => !agesValid(children[key]))) {
-    issues.push(fill(m.childAges, { max: CHILD_MAX_AGE }));
+  if (CHILD_RULES.some((key) => !agesValid(children[key], maxAge))) {
+    issues.push(fill(m.childAges, { max: maxAge }));
   }
   if (CHILD_RULES.some((key) => key !== "sharing_parents" && !filled(children[key].price))) {
     issues.push(m.childPrice);
   }
   const sharing = children.sharing_parents;
   const shared = children.shared_bed;
-  if (agesValid(sharing) && agesValid(shared) && rangesOverlap(sharing, shared)) {
+  if (agesValid(sharing, maxAge) && agesValid(shared, maxAge) && rangesOverlap(sharing, shared)) {
     issues.push(m.childOverlap);
   }
   return issues;
 }
 
-export const contractFinalSchema = (m: Messages) =>
+export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX_AGE) =>
   z.custom<ContractDraftState>().superRefine((draft, ctx) => {
     const issue = (section: ContractSectionKey, message: string) =>
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [section], message });
@@ -174,7 +180,7 @@ export const contractFinalSchema = (m: Messages) =>
       }
     }
 
-    childIssues(draft.children, m).forEach((message) => issue("children", message));
+    childIssues(draft.children, m, childMaxAge).forEach((message) => issue("children", message));
 
     if (draft.restrictions.enabled) {
       if (draft.restrictions.rules.length === 0) {
@@ -199,8 +205,12 @@ export const contractFinalSchema = (m: Messages) =>
     }
   });
 
-export function validateContract(draft: ContractDraftState, m: Messages): ContractIssue[] {
-  const result = contractFinalSchema(m).safeParse(draft);
+export function validateContract(
+  draft: ContractDraftState,
+  m: Messages,
+  childMaxAge: number = CHILD_MAX_AGE,
+): ContractIssue[] {
+  const result = contractFinalSchema(m, childMaxAge).safeParse(draft);
   if (result.success) return [];
   return result.error.issues.map((issue) => ({
     section: issue.path[0] as ContractSectionKey,

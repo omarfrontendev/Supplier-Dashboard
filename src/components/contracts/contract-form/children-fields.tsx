@@ -1,10 +1,10 @@
 import { Table } from "@/components/contracts/contract-parts";
 import { Input } from "@/components/ui/input";
-import { useLanguage } from "@/lib/i18n";
+import { fill, useLanguage } from "@/lib/i18n";
 import { setChildRule } from "@/store/features/contracts/contract-draft.slice";
-import { CHILD_RULES, type ChildRuleKey } from "@/store/features/contracts/types";
+import { CHILD_MAX_AGE, CHILD_RULES, type ChildRuleKey } from "@/store/features/contracts/types";
 import { childIssues } from "./schema";
-import { AmountInput, useAppDispatch, useContractDraft } from "./shared";
+import { AmountInput, useAppDispatch, useChildAgeLimit, useContractDraft } from "./shared";
 
 export function ChildrenFields() {
   const { c } = useLanguage();
@@ -13,7 +13,8 @@ export function ChildrenFields() {
   const dispatch = useAppDispatch();
   const { basics, children } = useContractDraft();
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
-  const issues = childIssues(children, f.v);
+  const maxAge = useChildAgeLimit(basics.hotelId);
+  const issues = childIssues(children, f.v, maxAge);
 
   const ageInput = (key: ChildRuleKey, field: "ageFrom" | "ageTo", label: string) => (
     <Input
@@ -59,7 +60,10 @@ export function ChildrenFields() {
           ];
         })}
       />
-      <p className="mt-3 text-xs leading-relaxed text-text-muted">{t.requiredNote}</p>
+      <p className="mt-3 text-xs leading-relaxed text-text-muted">
+        {t.requiredNote}
+        {maxAge < CHILD_MAX_AGE && ` ${fill(t.ageLimit, { max: maxAge })}`}
+      </p>
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1">
           {issues.map((message) => (

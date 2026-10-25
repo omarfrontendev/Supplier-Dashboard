@@ -624,6 +624,7 @@ export const contractEn = {
         colPrice: "Price per night",
         free: "Free",
         requiredNote: "All three rules are required for every contract. Enter 0 for a category you give free.",
+        ageLimit: "Rooms at this hotel take children up to {max} years.",
         rules: {
           sharing_parents: "Sharing parents' bed",
           shared_bed: "Shared bed",
@@ -1373,6 +1374,7 @@ export const contractAr: typeof contractEn = {
         colPrice: "السعر لليلة",
         free: "مجانًا",
         requiredNote: "القواعد الثلاث مطلوبة في كل عقد. أدخل 0 للفئة التي تقدّمها مجانًا.",
+        ageLimit: "غرف هذا الفندق تقبل الأطفال حتى عمر {max} سنة.",
         rules: {
           sharing_parents: "سرير الوالدين",
           shared_bed: "سرير مشترك",

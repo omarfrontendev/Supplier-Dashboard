@@ -41,6 +41,7 @@ import { PricingFields } from "@/components/contracts/contract-form/pricing-fiel
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import {
   useAppDispatch,
+  useChildAgeLimit,
   useContractDraft,
 } from "@/components/contracts/contract-form/shared";
 import {
@@ -124,6 +125,7 @@ export function ContractBuilder({
   const saved = remote.data ?? null;
   const saveContract = useSaveHotelContract();
   const savingDraft = saveContract.isPending;
+  const childMaxAge = useChildAgeLimit(basics.hotelId);
   const loadedId = useRef<number | null>(null);
   useEffect(() => {
     if (savedId !== null) return;
@@ -233,7 +235,7 @@ export function ContractBuilder({
       : "";
 
   function openReview() {
-    const issues = validateContract(draft, f.v);
+    const issues = validateContract(draft, f.v, childMaxAge);
     if (issues.length > 0) {
       notify.error(
         fill(f.reviewBlocked, { count: issues.length, first: issues[0]!.message })
@@ -256,7 +258,7 @@ export function ContractBuilder({
       jumpTo("basics");
       return false;
     }
-    const childErrors = childIssues(draft.children, f.v);
+    const childErrors = childIssues(draft.children, f.v, childMaxAge);
     if (childErrors.length > 0) {
       notify.error(childErrors[0]!);
       jumpTo("children");
