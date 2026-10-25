@@ -172,11 +172,13 @@ export function TermOverlay({
     ? Math.round((dateOf(end).getTime() - dateOf(start).getTime()) / 86_400_000)
     : 0;
 
-  const pickStart = (next: string) => {
-    setValue("start", next, { shouldValidate: true });
-    if (end && end <= next) setValue("end", "", { shouldValidate: isSubmitted });
-  };
   const pickEnd = (next: string) => setValue("end", next, { shouldValidate: true });
+  const pickRange = (range: { start: string; end: string }) => {
+    setValue("start", range.start, { shouldValidate: true });
+    setValue("end", range.end > range.start ? range.end : "", {
+      shouldValidate: isSubmitted || range.end > range.start,
+    });
+  };
 
   const usePreset = (preset: (typeof p.presets)[number]) => {
     if (preset.months) {
@@ -220,10 +222,12 @@ export function TermOverlay({
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <DateField
+            mode="range"
+            showStart
             label={ar ? p.startLabelAr : p.startLabel}
-            value={start}
+            value={{ start, end: end || null }}
             placeholder={ar ? p.startPhAr : p.startPh}
-            onChange={pickStart}
+            onChange={pickRange}
             invalid={Boolean(errors.start)}
           />
           {errors.start && (

@@ -47,6 +47,8 @@ type DayProps = Common & {
 
 type RangeProps = Common & {
   mode: "range";
+  /** Shows only the first night in the field while the panel picks both ends. */
+  showStart?: boolean | undefined;
   value: DayRange;
   onChange: (value: { start: DayKey; end: DayKey }) => void;
 };
@@ -71,20 +73,22 @@ export function DateField(props: DayProps | RangeProps) {
     return () => document.removeEventListener("mousedown", away);
   }, [open]);
 
-  const shown =
-    mode === "range"
-      ? `${readableDay((props.value as DayRange).start, lang)} – ${readableDay(
-          (props.value as DayRange).end ?? (props.value as DayRange).start,
-          lang
-        )}`
-      : props.value
+  const range = mode === "range" ? (props.value as DayRange) : null;
+  const shown = range
+    ? !range.start
+      ? ""
+      : (props as RangeProps).showStart
+        ? readableDay(range.start, lang)
+        : `${readableDay(range.start, lang)} – ${readableDay(range.end ?? range.start, lang)}`
+    : props.value
         ? readableDay(props.value as DayKey, lang)
         : "";
 
-  const seed: DayRange | undefined =
-    mode === "range"
-      ? (props.value as DayRange)
-      : props.value
+  const seed: DayRange | undefined = range
+    ? range.start
+      ? range
+      : undefined
+    : props.value
         ? { start: props.value as DayKey, end: null }
         : undefined;
 
