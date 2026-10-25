@@ -2,17 +2,14 @@ import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Lock } from "lucide-react";
 
+import type { ContractHotel } from "@/api/modules/hotel-contract/contrac-tHotels/types";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
+import { HotelPicker } from "./hotel-picker";
 import { PickerOverlay, TermOverlay, WeekendOverlay } from "@/components/contracts/create-overlays";
 import { readableDay } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
-import {
-  currencyPanel,
-  hotelPickerPanel,
-  weekendPanel,
-  type PickerPanel,
-} from "@/lib/contract-overlay-data";
+import { currencyPanel, weekendPanel } from "@/lib/contract-overlay-data";
 import { updateBasics } from "@/store/features/contracts/contract-draft.slice";
 import {
   CONTRACT_CURRENCIES,
@@ -79,23 +76,14 @@ export function BasicsFields({
   const { data, isLoading: loading } = useContractHotels({ page: 1, limit: 100 });
   const [picker, setPicker] = useState<"hotel" | "term" | "currency" | "weekend" | null>(null);
 
+  const [pickedHotel, setPickedHotel] = useState<ContractHotel | null>(null);
   const linked = useMemo(() => data?.hotels ?? [], [data]);
-  const hotel = linked.find((item) => item.id === basics.hotelId);
+  const hotel =
+    linked.find((item) => item.id === basics.hotelId) ??
+    (pickedHotel?.id === basics.hotelId ? pickedHotel : undefined);
   const hotelName = (h: { nameEn: string | null; nameAr: string | null }) =>
     (lang === "ar" ? h.nameAr || h.nameEn : h.nameEn || h.nameAr) ?? "";
 
-  const hotelPanel = useMemo<PickerPanel>(() => {
-    const { note: _note, noteAr: _noteAr, ...panel } = hotelPickerPanel;
-    return {
-      ...panel,
-      options: linked.map((item) => ({
-        label: item.nameEn || item.nameAr || `#${item.id}`,
-        labelAr: item.nameAr || item.nameEn || `#${item.id}`,
-        hint: `${item.city ?? "-"} · ${item.starRating ?? "-"}★`,
-        hintAr: `${item.city ?? "-"} · ${item.starRating ?? "-"}★`,
-      })),
-    };
-  }, [linked]);
 
   const term =
     basics.startDate && basics.endDate
@@ -164,13 +152,12 @@ export function BasicsFields({
       )}
 
       {picker === "hotel" && (
-        <PickerOverlay
-          panel={hotelPanel}
-          icon="hotel"
+        <HotelPicker
+          selectedId={basics.hotelId}
           onClose={() => setPicker(null)}
-          onConfirm={(index) => {
-            const picked = linked[index];
-            if (picked) dispatch(updateBasics({ hotelId: picked.id }));
+          onConfirm={(picked) => {
+            setPickedHotel(picked);
+            dispatch(updateBasics({ hotelId: picked.id }));
             setPicker(null);
           }}
         />

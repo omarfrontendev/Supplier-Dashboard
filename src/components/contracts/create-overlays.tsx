@@ -18,7 +18,7 @@ import {
 } from "@/lib/contract-overlay-data";
 
 /** The radio row OV 03.1P and OV 03.1R both use. */
-function OptionRow({
+export function OptionRow({
   label,
   hint,
   on,
