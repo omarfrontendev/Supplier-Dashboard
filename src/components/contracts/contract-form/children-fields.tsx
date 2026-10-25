@@ -68,6 +68,9 @@ export function ChildrenFields() {
           ];
         })}
       />
+      {!CHILD_RULES.every((key) => children[key].enabled) && (
+        <p className="mt-3 text-xs leading-relaxed text-text-muted">{t.saveNeedsAll}</p>
+      )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1">
           {issues.map((message) => (

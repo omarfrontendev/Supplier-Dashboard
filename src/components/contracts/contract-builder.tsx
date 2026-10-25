@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
 import { useNavigate } from "@tanstack/react-router";
-import { useSelector } from "react-redux";
 import {
   Check,
   ChevronRight,
@@ -8,7 +8,28 @@ import {
   Plus,
   Save,
 } from "lucide-react";
-import { PageShell, StatusPill } from "@/components/layout/page-shell";
+import { PageShell } from "@/components/layout/page-shell";
+import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
+import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
+import { useSaveContractChildPricing } from "@/api/modules/hotel-contract/useSaveContractChildPricing";
+import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
+import { getApiErrorMessage } from "@/lib/api-error";
+import {
+  basicsReady,
+  childPricingChanged,
+  childPricingComplete,
+  childrenFromContract,
+  contractDifferences,
+  draftFromContract,
+  hasRoomPricing,
+  mergeLatestBasics,
+  sameSavedBasics,
+  sameSavedDraft,
+  toChildPricing,
+  toCreateContractBody,
+  toUpdateContractBody,
+} from "@/store/features/contracts/contract-api";
+import type { SupplierHotelContract } from "@/api/modules/hotel-contract/types";
 import {
   SeasonOverlapOverlay,
   UnsavedOverlay,
@@ -17,6 +38,8 @@ import { BasicsFields } from "@/components/contracts/contract-form/basics-fields
 import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
 import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
 import { MealsFields } from "@/components/contracts/contract-form/meals-fields";
+import { PoliciesSummary } from "@/components/contracts/contract-form/policies-summary";
+import { RestrictionsFields } from "@/components/contracts/contract-form/restrictions-fields";
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import {
@@ -24,12 +47,20 @@ import {
   useContractDraft,
 } from "@/components/contracts/contract-form/shared";
 import {
+  childIssues,
   validateContract,
   type ContractSectionKey,
 } from "@/components/contracts/contract-form/schema";
 import { readableDay } from "@/components/ui/date-field";
-import { resetDraft } from "@/store/features/contracts/contract-draft.slice";
-import type { RootState } from "@/store";
+import {
+  loadContract,
+  replaceChildren,
+  resetDraft,
+  updateBasics,
+  saveCancellationPolicy,
+  saveReleasePolicy,
+  setPoliciesEnabled,
+} from "@/store/features/contracts/contract-draft.slice";
 import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
 import {
   CancellationDrawer,
@@ -49,15 +80,7 @@ import {
   seasonDetails,
   type SeasonDetail,
 } from "@/lib/season-detail-data";
-import {
-  DeleteRestrictionOverlay,
-  RestrictionDrawer,
-} from "@/components/contracts/restriction-overlays";
 import { ChoiceRow, Section, Table } from "@/components/contracts/contract-parts";
-import {
-  RestrictionDayDialog,
-  type RestrictionScope,
-} from "@/components/contracts/restriction-day-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -66,7 +89,6 @@ import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
 import {
   MONTHS,
-  contractRestrictions,
   inventoryCaps,
   perRoomStock,
   rateSeasons,
@@ -100,18 +122,30 @@ export function ContractBuilder({
   const draft = useContractDraft();
   const { basics } = draft;
   const sourceName = source?.name;
+  const savedId = mode === "edit" && contractId && /^\d+$/.test(contractId) ? Number(contractId) : null;
+  const remote = useHotelContract(savedId);
+  const saved = remote.data ?? null;
+  const saveContract = useSaveHotelContract();
+  const saveChildPricing = useSaveContractChildPricing();
+  const savingDraft = saveContract.isPending || saveChildPricing.isPending;
+  const loadedId = useRef<number | null>(null);
   useEffect(() => {
+    if (savedId !== null) return;
+    loadedId.current = null;
     dispatch(resetDraft(sourceName ? { name: sourceName } : undefined));
-  }, [dispatch, sourceName]);
-  const linkedHotels = useSelector((state: RootState) => state.hotels.hotels);
+  }, [dispatch, sourceName, savedId]);
+  useEffect(() => {
+    if (!saved || loadedId.current === saved.id) return;
+    loadedId.current = saved.id;
+    if (draft.basics.hotelId === saved.hotelId && sameSavedBasics(draft, saved)) return;
+    dispatch(loadContract(draftFromContract(saved)));
+  }, [dispatch, saved, draft]);
+  const contractHotels = useContractHotels({ page: 1, limit: 100 });
   const [picker, setPicker] = useState<"unsaved" | "overlap" | null>(null);
   const [inventory, setInventory] = useState<Inventory>("shared");
   const [stock, setStock] = useState("50");
   const [soldOut, setSoldOut] = useState<SoldOut>("overbooking");
   const [overLimit, setOverLimit] = useState("2");
-  const [hasRestrictions, setHasRestrictions] = useState(true);
-  const [hasPolicies, setHasPolicies] = useState(true);
-  const [dayScope, setDayScope] = useState<RestrictionScope | null>(null);
   const [saving, setSaving] = useState(false);
   /* OV 03.2 — the drawer that shows every section before it goes live. */
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -124,10 +158,10 @@ export function ContractBuilder({
     seasonDetails.find((x) => x.name.en === name) ?? null;
   /* OV 03.12 — Edit season opens the season editor itself. */
   const [seasonEditor, setSeasonEditor] = useState<SeasonDetail | null>(null);
-  /* OV 03.RS / RSE / RSD — the restriction drawer and its delete. */
-  const [ruleDrawer, setRuleDrawer] = useState<"add" | "edit" | "delete" | null>(null);
 
   const onRequest = basics.bookingType === "on_request";
+  const hasPolicies = draft.policies.enabled;
+  const hasRestrictions = draft.restrictions.enabled;
   const fixed = draft.pricingModel === "fixed_price";
   const f = t.form;
   const term =
@@ -194,12 +228,12 @@ export function ContractBuilder({
   const seasons = rateSeasons.filter((season) => !season.base);
   const seasonNights = seasons.reduce((sum, season) => sum + season.nights, 0);
 
-  const hotel = linkedHotels.find((item) => item.hotelId === basics.hotelId)?.hotel;
+  const hotel = contractHotels.data?.hotels.find((item) => item.id === basics.hotelId);
   const hotelName = hotel
-    ? lang === "ar"
-      ? hotel.nameAr || hotel.nameEn
-      : hotel.nameEn
-    : "";
+    ? (lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn || hotel.nameAr) ?? ""
+    : basics.hotelId
+      ? `#${basics.hotelId}`
+      : "";
 
   function openReview() {
     const issues = validateContract(draft, f.v);
@@ -218,6 +252,104 @@ export function ContractBuilder({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+
+  async function saveDraft() {
+    if (!basicsReady(draft)) {
+      notify.error(f.saveNeedsBasics);
+      jumpTo("basics");
+      return;
+    }
+    const withChildren = childPricingComplete(draft);
+    const childErrors = withChildren ? childIssues(draft.children, f.v) : [];
+    if (childErrors.length > 0) {
+      notify.error(childErrors[0]!);
+      jumpTo("children");
+      return;
+    }
+    let contract: SupplierHotelContract | null = saved;
+    let createdId: number | null = null;
+    try {
+      if (!contract) {
+        contract = await saveContract.mutateAsync({ id: null, body: toCreateContractBody(draft) });
+        createdId = contract.id;
+      } else {
+        const body = toUpdateContractBody(draft, contract);
+        if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
+      }
+      if (withChildren && childPricingChanged(draft, contract)) {
+        contract = await saveChildPricing.mutateAsync({
+          id: contract.id,
+          body: { expectedVersion: contract.version, childPricing: toChildPricing(draft) },
+        });
+      }
+      if (contract === saved) {
+        notify.success(f.noChanges);
+        return;
+      }
+      notify.success(createdId ? f.draftCreated : f.draftUpdated);
+    } catch (error) {
+      onSaveError(error as Error, contract);
+    } finally {
+      if (createdId !== null) {
+        loadedId.current = createdId;
+        navigate({
+          to: "/rate-contracts/$contractId/edit",
+          params: { contractId: String(createdId) },
+          replace: true,
+        });
+      }
+    }
+  }
+
+  function onSaveError(error: Error, base: SupplierHotelContract | null = saved) {
+    const status = isAxiosError(error) ? error.response?.status : undefined;
+    if (status === 409 && base) {
+      const before = base;
+      const editing = draft;
+      void remote.refetch().then(({ data: latest }) => {
+        const fields = latest ? contractDifferences(before, latest) : [];
+        if (latest) {
+          dispatch(updateBasics(mergeLatestBasics(editing, before, latest)));
+          if (latest.childPricing && !childPricingChanged(editing, before)) {
+            dispatch(replaceChildren(childrenFromContract(latest.childPricing)));
+          }
+        }
+        notify.error(
+          fields.length > 0
+            ? fill(f.saveStale, {
+                fields: fields
+                  .map((field) => f.changedFields[field])
+                  .join(lang === "ar" ? "، " : ", "),
+              })
+            : f.saveStaleNone,
+        );
+      });
+      return;
+    }
+    if (status === 404 && base) {
+      notify.error(f.unavailable);
+      return;
+    }
+    notify.error(getApiErrorMessage(error));
+  }
+
+  const savedAt = saved
+    ? new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(saved.updatedAt))
+    : "";
+  const draftStatus = remote.isLoading
+    ? t.draftLoading
+    : remote.isError
+      ? f.loadFailed
+      : !saved
+        ? t.draftEmpty
+        : sameSavedDraft(draft, saved)
+          ? fill(t.draftSaved, { time: savedAt })
+          : t.draftUnsaved;
 
   function activate() {
     setSaving(true);
@@ -281,10 +413,13 @@ export function ContractBuilder({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs text-text-muted">
-            {basicsDone ? t.draftSaved : t.draftEmpty}
-          </span>
-          <Button variant="outline">
+          <span className="text-xs text-text-muted">{draftStatus}</span>
+          <Button
+            variant="outline"
+            loading={savingDraft}
+            disabled={remote.isLoading || remote.isError}
+            onClick={() => void saveDraft()}
+          >
             <Save className="h-4 w-4" aria-hidden="true" />
             {t.saveDraft}
           </Button>
@@ -411,7 +546,10 @@ export function ContractBuilder({
             body={t.basicsBody}
             done={sectionDone("basics")}
           >
-            <BasicsFields />
+            <BasicsFields
+              locked={saved !== null}
+              currencyLocked={saved !== null && hasRoomPricing(saved)}
+            />
             {!basicsDone && (
               <div className="mt-4 flex gap-2 rounded-xl border border-border-subtle bg-surface-subtle p-3.5">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
@@ -436,7 +574,7 @@ export function ContractBuilder({
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <PricingFields />
+            <PricingFields modelLocked={saved !== null} />
           </Section>
 
           {/* 3 — Rooms */}
@@ -740,126 +878,8 @@ export function ContractBuilder({
             body={t.restrictionsBody}
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
-            right={
-              hasRestrictions ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRuleDrawer("add")}
-                >
-                  {t.addRestriction}
-                </Button>
-              ) : undefined
-            }
           >
-            <ChoiceRow
-              value={hasRestrictions ? "add" : "none"}
-              onChange={(next) => setHasRestrictions(next === "add")}
-              options={[
-                { value: "add", label: t.addToContract },
-                { value: "none", label: t.noneOnContract },
-              ]}
-            />
-            {!hasRestrictions && (
-              <p className="mt-3 text-xs leading-relaxed text-text-muted">
-                {t.restrictionsNone}
-              </p>
-            )}
-            {hasRestrictions && (
-              <>
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[820px] border-collapse text-sm">
-                    <thead>
-                      <tr className="text-overline text-text-muted">
-                        {[t.colApplies, t.colDates, t.colMinNights, t.colChecks, t.colStatus].map(
-                          (cell) => (
-                            <th key={cell} className="py-2 text-start font-semibold">
-                              {cell}
-                            </th>
-                          )
-                        )}
-                        <th className="py-2 text-end font-semibold" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contractRestrictions.map((rule) => (
-                        <tr
-                          key={`${rule.scope}-${rule.dates}`}
-                          className="border-t border-border-subtle align-top"
-                        >
-                          <td className="py-3 pe-3">
-                            <p className="text-text-primary">
-                              {lang === "ar" ? rule.scopeAr : rule.scope}
-                            </p>
-                            <p className="mt-0.5 text-xs text-text-muted">
-                              {lang === "ar" ? rule.updatedAr : rule.updated}
-                            </p>
-                          </td>
-                          <td className="py-3 pe-3 text-text-secondary">
-                            <p>{lang === "ar" ? rule.datesAr : rule.dates}</p>
-                            {(lang === "ar" ? rule.overlapAr : rule.overlap) && (
-                              <p className="mt-0.5 text-xs text-status-warning">
-                                {lang === "ar" ? rule.overlapAr : rule.overlap}
-                              </p>
-                            )}
-                          </td>
-                          <td className="py-3 pe-3 text-text-secondary">
-                            {lang === "ar" ? rule.minNightsAr : rule.minNights}
-                          </td>
-                          <td className="py-3 pe-3 text-text-secondary">
-                            {lang === "ar" ? rule.checksAr : rule.checks}
-                          </td>
-                          <td className="py-3 pe-3">
-                            <StatusPill tone={rule.active ? "success" : "neutral"}>
-                              {rule.active ? t.active : t.inactive}
-                            </StatusPill>
-                          </td>
-                          <td className="py-3 text-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRuleDrawer("edit")}
-                            >
-                              {t.edit}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setDayScope({
-                                  kind: "weekday",
-                                  label:
-                                    lang === "ar"
-                                      ? "كل جمعة · ١٨ فبراير - ٩ مارس"
-                                      : "Every Friday · 18 Feb - 09 Mar",
-                                  meta:
-                                    lang === "ar"
-                                      ? "٣ جُمَع في هذا النطاق"
-                                      : "3 Fridays in this range",
-                                })
-                              }
-                            >
-                              {t.colChecks}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-status-danger"
-                              onClick={() => setRuleDrawer("delete")}
-                            >
-                              {t.delete}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                  {t.restrictionsNote}
-                </p>
-              </>
-            )}
+            <RestrictionsFields />
           </Section>
 
           {/* 9 — Policies */}
@@ -872,7 +892,7 @@ export function ContractBuilder({
           >
             <ChoiceRow
               value={hasPolicies ? "add" : "none"}
-              onChange={(next) => setHasPolicies(next === "add")}
+              onChange={(next) => dispatch(setPoliciesEnabled(next === "add"))}
               options={[
                 { value: "add", label: t.addToContract },
                 { value: "none", label: t.noneOnContract },
@@ -890,28 +910,10 @@ export function ContractBuilder({
             )}
             {hasPolicies && (
               <>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border-subtle p-4">
-                    <p className="text-overline text-text-muted">
-                      {t.cancellation}
-                    </p>
-                    <p className="mt-1.5 text-sm font-medium text-text-primary">
-                      {t.cancellationValue}
-                    </p>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {t.cancellationTiers}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border-subtle p-4">
-                    <p className="text-overline text-text-muted">{t.release}</p>
-                    <p className="mt-1.5 text-sm font-medium text-text-primary">
-                      {t.releaseValue}
-                    </p>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {t.releaseHint}
-                    </p>
-                  </div>
-                </div>
+                <PoliciesSummary
+                  onCancellation={() => setPolicy("cancellation")}
+                  onRelease={() => setPolicy("release")}
+                />
 
                 <p className="mt-5 text-overline text-text-muted">
                   {t.seasonPolicyOverline}
@@ -970,22 +972,6 @@ export function ContractBuilder({
                   </table>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPolicy("cancellation")}
-                  >
-                    {t.editCancellation}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPolicy("release")}
-                  >
-                    {t.editRelease}
-                  </Button>
-                </div>
               </>
             )}
           </Section>
@@ -1031,23 +1017,6 @@ export function ContractBuilder({
         </div>
       </div>
 
-      {ruleDrawer === "add" && (
-        <RestrictionDrawer onClose={() => setRuleDrawer(null)} />
-      )}
-      {ruleDrawer === "edit" && (
-        <RestrictionDrawer
-          mode="edit"
-          onClose={() => setRuleDrawer(null)}
-          onDelete={() => setRuleDrawer("delete")}
-        />
-      )}
-      {ruleDrawer === "delete" && (
-        <DeleteRestrictionOverlay
-          onClose={() => setRuleDrawer(null)}
-          onConfirm={() => setRuleDrawer(null)}
-        />
-      )}
-
       {seasonDetail && (
         <SeasonDetailPanel
           season={seasonDetail}
@@ -1074,9 +1043,19 @@ export function ContractBuilder({
         />
       )}
       {policy === "cancellation" && (
-        <CancellationDrawer onClose={() => setPolicy(null)} />
+        <CancellationDrawer
+          initial={draft.policies.cancellation}
+          onSave={(tiers) => dispatch(saveCancellationPolicy(tiers))}
+          onClose={() => setPolicy(null)}
+        />
       )}
-      {policy === "release" && <ReleaseDrawer onClose={() => setPolicy(null)} />}
+      {policy === "release" && (
+        <ReleaseDrawer
+          initial={draft.policies.release}
+          onSave={(release) => dispatch(saveReleasePolicy(release))}
+          onClose={() => setPolicy(null)}
+        />
+      )}
 
       {reviewOpen && (
         <ActivateDrawer
@@ -1103,13 +1082,6 @@ export function ContractBuilder({
         />
       )}
 
-      {dayScope && (
-        <RestrictionDayDialog
-          scope={dayScope}
-          checkIn={dayScope.kind === "weekday" ? false : true}
-          onClose={() => setDayScope(null)}
-        />
-      )}
     </PageShell>
   );
 }

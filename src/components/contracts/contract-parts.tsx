@@ -141,10 +141,12 @@ export function ChoiceRow({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
 }) {
   return (
     <div className="mt-2 flex flex-wrap gap-2">
@@ -153,8 +155,9 @@ export function ChoiceRow({
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
+          disabled={disabled}
           className={cn(
-            "rounded-lg border px-3.5 py-2 text-sm transition-colors",
+            "rounded-lg border px-3.5 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
             value === option.value
               ? "border-brand-deep bg-primary-subtle font-medium text-text-primary"
               : "border-border-default text-text-secondary hover:bg-surface-subtle"

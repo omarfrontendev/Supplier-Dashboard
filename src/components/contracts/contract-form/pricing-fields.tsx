@@ -16,7 +16,7 @@ import {
 import type { PricingModel, WeekPricing } from "@/store/features/contracts/types";
 import { AmountInput, roomLabel, useAppDispatch, useContractDraft } from "./shared";
 
-export function PricingFields() {
+export function PricingFields({ modelLocked = false }: { modelLocked?: boolean }) {
   const { c, lang } = useLanguage();
   const t = c.builder;
   const f = t.form;
@@ -57,8 +57,11 @@ export function PricingFields() {
           { value: "base_supplements", label: t.modelSupplements },
           { value: "fixed_price", label: t.modelFixed },
         ]}
+        disabled={modelLocked}
       />
-      <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.modelHint}</p>
+      <p className="mt-2 text-xs leading-relaxed text-text-muted">
+        {modelLocked ? f.modelLocked : t.modelHint}
+      </p>
       <p className="mt-3 text-[13px] font-medium text-brand-deep">{t.vatIncluded}</p>
 
       <p className="mt-5 text-sm font-medium text-text-primary">{f.weekTitle}</p>

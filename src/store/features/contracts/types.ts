@@ -10,6 +10,8 @@ export type SlaExpiryAction = "auto_reject" | "escalate";
 
 export type ContractCurrency = "SAR" | "USD" | "EUR";
 
+export const CONTRACT_CURRENCIES: ContractCurrency[] = ["SAR", "USD", "EUR"];
+
 export type Weekday = "sat" | "sun" | "mon" | "tue" | "wed" | "thu" | "fri";
 
 export const WEEKDAYS: Weekday[] = ["sat", "sun", "mon", "tue", "wed", "thu", "fri"];
@@ -57,7 +59,7 @@ export interface ContractBasics {
   name: string;
   startDate: string;
   endDate: string;
-  currency: ContractCurrency | null;
+  currency: string | null;
   weekendDays: Weekday[];
   bookingType: BookingType;
   slaMinutes: string;
@@ -94,6 +96,52 @@ export interface MealRule {
 
 export type MealRules = Record<MealPlan, MealRule>;
 
+export type CancellationCharge = "free" | "nights" | "percent" | "fixed";
+
+export interface CancellationTier {
+  days: string;
+  charge: CancellationCharge | "";
+  value: string;
+}
+
+export const MAX_CANCELLATION_TIERS = 4;
+
+export type ReleasePeriod = "same_day" | "days";
+
+export type AfterRelease = "stop_sale" | "on_request";
+
+export interface ReleasePolicy {
+  period: ReleasePeriod;
+  days: string;
+  time: string;
+  afterRelease: AfterRelease;
+}
+
+export type RestrictionAppliesOn = "every_day" | "weekend_only";
+
+export interface RestrictionRule {
+  id: string;
+  roomId: number | null;
+  startDate: string;
+  endDate: string;
+  minNights: string;
+  appliesOn: RestrictionAppliesOn;
+  closedCheckIn: string[];
+  closedCheckOut: string[];
+  active: boolean;
+}
+
+export interface ContractRestrictions {
+  enabled: boolean;
+  rules: RestrictionRule[];
+}
+
+export interface ContractPolicies {
+  enabled: boolean;
+  cancellation: CancellationTier[] | null;
+  release: ReleasePolicy | null;
+}
+
 export type ChildRuleKey = "sharing_parents" | "shared_bed" | "extra_bed";
 
 export const CHILD_RULES: ChildRuleKey[] = ["sharing_parents", "shared_bed", "extra_bed"];
@@ -117,4 +165,6 @@ export interface ContractDraftState {
   fixedRooms: FixedPriceRoom[];
   children: ChildRules;
   meals: MealRules;
+  policies: ContractPolicies;
+  restrictions: ContractRestrictions;
 }

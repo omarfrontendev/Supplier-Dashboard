@@ -6,15 +6,20 @@ import { toAmount } from "@/store/features/contracts/contract-payload";
 import {
   CHILD_MAX_AGE,
   CHILD_RULES,
+  MAX_CANCELLATION_TIERS,
   MEAL_PLANS,
   SLA_MAX_MINUTES,
   SLA_MIN_MINUTES,
+  type CancellationTier,
   type ChildRule,
   type ChildRules,
   type ContractDraftState,
+  type ReleasePolicy,
+  type RestrictionRule,
 } from "@/store/features/contracts/types";
 
-export type ContractSectionKey = "basics" | "pricing" | "rooms" | "children" | "meals" | "booking";
+export type ContractSectionKey =
+  "basics" | "pricing" | "rooms" | "children" | "meals" | "restrictions" | "policies" | "booking";
 
 export interface ContractIssue {
   section: ContractSectionKey;
@@ -35,6 +40,60 @@ const agesValid = (rule: ChildRule) =>
 
 const rangesOverlap = (a: ChildRule, b: ChildRule) =>
   Number(a.ageFrom) <= Number(b.ageTo) && Number(b.ageFrom) <= Number(a.ageTo);
+
+const wholeNumber = (value: string, min: number, max: number) => {
+  const amount = toAmount(value);
+  return amount !== null && Number.isInteger(amount) && amount >= min && amount <= max;
+};
+
+export function cancellationIssues(tiers: CancellationTier[], m: Messages): string[] {
+  const issues: string[] = [];
+  if (tiers.length === 0) issues.push(m.tiersEmpty);
+  if (tiers.length > MAX_CANCELLATION_TIERS) {
+    issues.push(fill(m.tiersMax, { max: MAX_CANCELLATION_TIERS }));
+  }
+  if (tiers.some((tier) => !wholeNumber(tier.days, 0, 365))) issues.push(m.tiersDays);
+  if (tiers.some((tier) => !tier.charge)) issues.push(m.tiersCharge);
+  const badValue = tiers.some((tier) => {
+    if (tier.charge === "nights") return !wholeNumber(tier.value, 1, 30);
+    if (tier.charge === "percent") return !wholeNumber(tier.value, 1, 100);
+    if (tier.charge === "fixed") return (toAmount(tier.value) ?? 0) <= 0;
+    return false;
+  });
+  if (badValue) issues.push(m.tiersValue);
+  const days = tiers.map((tier) => toAmount(tier.days));
+  if (days.every((day) => day !== null) && days.some((day, i) => i > 0 && day! >= days[i - 1]!)) {
+    issues.push(m.tiersOrder);
+  }
+  return issues;
+}
+
+export function releaseIssues(release: ReleasePolicy, m: Messages): string[] {
+  const issues: string[] = [];
+  if (release.period === "days" && !wholeNumber(release.days, 1, 365)) {
+    issues.push(m.releaseDays);
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(release.time)) issues.push(m.releaseTime);
+  return issues;
+}
+
+export function restrictionIssues(
+  rule: RestrictionRule,
+  term: { startDate: string; endDate: string },
+  m: Messages,
+): string[] {
+  const issues: string[] = [];
+  if (!rule.startDate || !rule.endDate) {
+    issues.push(m.restrictionDates);
+  } else if (
+    (term.startDate && rule.startDate < term.startDate) ||
+    (term.endDate && rule.endDate > term.endDate)
+  ) {
+    issues.push(m.restrictionOutside);
+  }
+  if (!wholeNumber(rule.minNights, 1, 99)) issues.push(m.restrictionMinNights);
+  return issues;
+}
 
 export function childIssues(children: ChildRules, m: Messages): string[] {
   const issues: string[] = [];
@@ -119,6 +178,28 @@ export const contractFinalSchema = (m: Messages) =>
     }
 
     childIssues(draft.children, m).forEach((message) => issue("children", message));
+
+    if (draft.restrictions.enabled) {
+      if (draft.restrictions.rules.length === 0) {
+        issue("restrictions", m.restrictionsEmpty);
+      }
+      draft.restrictions.rules.forEach((rule) =>
+        restrictionIssues(rule, basics, m).forEach((message) => issue("restrictions", message)),
+      );
+    }
+
+    if (draft.policies.enabled) {
+      const { cancellation, release } = draft.policies;
+      if (!cancellation) {
+        issue("policies", m.cancellationRequired);
+      } else {
+        cancellationIssues(cancellation, m).forEach((message) => issue("policies", message));
+      }
+      if (!release && basics.bookingType === "allotment") {
+        issue("policies", m.releaseRequired);
+      }
+      if (release) releaseIssues(release, m).forEach((message) => issue("policies", message));
+    }
   });
 
 export function validateContract(draft: ContractDraftState, m: Messages): ContractIssue[] {

@@ -1,14 +1,18 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import type {
+  CancellationTier,
   ChildRule,
   ChildRuleKey,
+  ChildRules,
   MealBasis,
   MealPlan,
   ContractBasics,
   ContractDraftState,
   FixedPriceRoom,
   PricingModel,
+  ReleasePolicy,
+  RestrictionRule,
   WeekPricing,
 } from "./types";
 
@@ -49,6 +53,8 @@ const initialState: ContractDraftState = {
     extra_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
   },
   meals: emptyMeals(),
+  policies: { enabled: true, cancellation: null, release: null },
+  restrictions: { enabled: true, rules: [] },
 };
 
 export const sameFixedOffer = (
@@ -65,11 +71,32 @@ export const contractDraftSlice = createSlice({
       basics: { ...initialState.basics, ...action.payload },
     }),
 
+    loadContract: (
+      _state,
+      action: PayloadAction<{
+        basics: Partial<ContractBasics>;
+        pricingModel: PricingModel;
+        children?: ChildRules;
+      }>,
+    ) => ({
+      ...initialState,
+      basics: { ...initialState.basics, ...action.payload.basics },
+      pricingModel: action.payload.pricingModel,
+      children: action.payload.children ?? initialState.children,
+    }),
+
+    replaceChildren: (state, action: PayloadAction<ChildRules>) => {
+      state.children = action.payload;
+    },
+
     updateBasics: (state, action: PayloadAction<Partial<ContractBasics>>) => {
       const next = { ...state.basics, ...action.payload };
       if (next.hotelId !== state.basics.hotelId) {
         state.baseSupplements = emptyBaseSupplements();
         state.fixedRooms = [];
+        state.restrictions.rules.forEach((rule) => {
+          rule.roomId = null;
+        });
       }
       if (next.bookingType === "allotment") {
         next.slaMinutes = "";
@@ -182,6 +209,45 @@ export const contractDraftSlice = createSlice({
       state.children[key][field] = value;
     },
 
+    setRestrictionsEnabled: (state, action: PayloadAction<boolean>) => {
+      state.restrictions.enabled = action.payload;
+      if (!action.payload) state.restrictions.rules = [];
+    },
+
+    saveRestriction: (state, action: PayloadAction<RestrictionRule>) => {
+      const index = state.restrictions.rules.findIndex((rule) => rule.id === action.payload.id);
+      if (index >= 0) {
+        state.restrictions.rules[index] = action.payload;
+      } else {
+        state.restrictions.rules.push(action.payload);
+      }
+    },
+
+    removeRestriction: (state, action: PayloadAction<string>) => {
+      state.restrictions.rules = state.restrictions.rules.filter(
+        (rule) => rule.id !== action.payload,
+      );
+    },
+
+    setPoliciesEnabled: (state, action: PayloadAction<boolean>) => {
+      state.policies.enabled = action.payload;
+      if (!action.payload) {
+        state.policies.cancellation = null;
+        state.policies.release = null;
+      }
+    },
+
+    saveCancellationPolicy: (state, action: PayloadAction<CancellationTier[]>) => {
+      state.policies.cancellation = action.payload;
+    },
+
+    saveReleasePolicy: (state, action: PayloadAction<ReleasePolicy>) => {
+      state.policies.release = {
+        ...action.payload,
+        days: action.payload.period === "same_day" ? "" : action.payload.days,
+      };
+    },
+
     toggleMeal: (state, action: PayloadAction<MealPlan>) => {
       if (action.payload === "room_only") return;
       const meal = state.meals[action.payload];
@@ -202,6 +268,7 @@ export const contractDraftSlice = createSlice({
 
 export const {
   resetDraft,
+  loadContract,
   updateBasics,
   setPricingModel,
   setWeekPricing,
@@ -214,9 +281,16 @@ export const {
   setFixedPrice,
   toggleChildRule,
   setChildRule,
+  replaceChildren,
   toggleMeal,
   setMealPrice,
   setMealBasis,
+  setRestrictionsEnabled,
+  saveRestriction,
+  removeRestriction,
+  setPoliciesEnabled,
+  saveCancellationPolicy,
+  saveReleasePolicy,
 } = contractDraftSlice.actions;
 
 export default contractDraftSlice.reducer;

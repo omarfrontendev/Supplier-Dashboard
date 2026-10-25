@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -189,6 +189,9 @@ function ContractDetailPage() {
   const contract = contracts.find((item) => item.id === contractId);
   /* OV 03.12B - the contract's pricing model, which its seasons follow. */
   const fixedPrice = contract?.pricing === "fixed";
+  if (!contract && /^\d+$/.test(contractId)) {
+    return <Navigate to="/rate-contracts/$contractId/edit" params={{ contractId }} replace />;
+  }
   if (!contract) throw notFound();
 
   const t = c.detail;
