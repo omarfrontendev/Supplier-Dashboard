@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { AlertTriangle, Building2, CalendarDays, Coins, Info, Save } from "lucide-react";
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { DateField, arabicDigits } from "@/components/ui/date-field";
-import { dateOf } from "@/components/ui/date-picker";
+import { dateOf, keyOf } from "@/components/ui/date-picker";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
@@ -138,36 +141,55 @@ export function TermOverlay({
   onClose: () => void;
   onConfirm: (start: string, end: string) => void;
 }) {
-  const { lang } = useLanguage();
+  const { c, lang } = useLanguage();
   const ar = lang === "ar";
   const p = termPanel;
-  /* The dates are the supplier's to set, so they are held, not printed. */
-  const [start, setStart] = useState(initialStart || "2026-09-01");
-  const [end, setEnd] = useState(
-    initialEnd || (state === "error" ? "2026-08-15" : "2027-08-31")
-  );
-  const bad = state === "error" || end < start;
-  const nights =
-    Math.round(
-      (dateOf(end).getTime() - dateOf(start).getTime()) / 86_400_000
-    ) + 1;
+  const v = c.builder.form.v;
+  const schema = z
+    .object({
+      start: z.string().min(1, v.startDate),
+      end: z.string().min(1, v.endDate),
+    })
+    .refine((term) => !term.start || !term.end || term.end > term.start, {
+      path: ["end"],
+      message: v.endAfterStart,
+    });
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitted },
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    mode: "onChange",
+    defaultValues: { start: initialStart ?? "", end: initialEnd ?? "" },
+  });
+  const start = watch("start");
+  const end = watch("end");
+  const endMin = start ? shiftDay(start, 1) : undefined;
+  const valid = Boolean(start && end && end > start);
+  const nights = valid
+    ? Math.round((dateOf(end).getTime() - dateOf(start).getTime()) / 86_400_000)
+    : 0;
+
+  const pickStart = (next: string) => {
+    setValue("start", next, { shouldValidate: true });
+    if (end && end <= next) setValue("end", "", { shouldValidate: isSubmitted });
+  };
+  const pickEnd = (next: string) => setValue("end", next, { shouldValidate: true });
 
   const usePreset = (preset: (typeof p.presets)[number]) => {
     if (preset.months) {
-      const from = dateOf(start);
-      const to = new Date(
-        from.getFullYear(),
-        from.getMonth() + preset.months,
-        from.getDate() - 1
-      );
-      setEnd(
-        `${to.getFullYear()}-${String(to.getMonth() + 1).padStart(2, "0")}-${String(to.getDate()).padStart(2, "0")}`
-      );
+      const from = start || keyOf(new Date());
+      const base = dateOf(from);
+      const to = new Date(base.getFullYear(), base.getMonth() + preset.months, base.getDate() - 1);
+      setValue("start", from, { shouldValidate: true });
+      setValue("end", keyOf(to), { shouldValidate: true });
       return;
     }
     if (preset.start && preset.end) {
-      setStart(preset.start);
-      setEnd(preset.end);
+      setValue("start", preset.start, { shouldValidate: true });
+      setValue("end", preset.end, { shouldValidate: true });
     }
   };
 
@@ -183,7 +205,7 @@ export function TermOverlay({
           <Button variant="outline" onClick={onClose}>
             {ar ? p.cancelAr : p.cancel}
           </Button>
-          <Button disabled={bad} onClick={() => onConfirm(start, end)}>
+          <Button onClick={handleSubmit((term) => onConfirm(term.start, term.end))}>
             {state === "overlap"
               ? ar
                 ? p.confirmOverlapAr
@@ -196,22 +218,36 @@ export function TermOverlay({
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <DateField
-          label={ar ? p.startLabelAr : p.startLabel}
-          value={start}
-          onChange={setStart}
-        />
+        <div>
+          <DateField
+            label={ar ? p.startLabelAr : p.startLabel}
+            value={start}
+            placeholder={ar ? p.startPhAr : p.startPh}
+            onChange={pickStart}
+            invalid={Boolean(errors.start)}
+          />
+          {errors.start && (
+            <p className="mt-1 text-[11.5px] text-status-danger">{errors.start.message}</p>
+          )}
+        </div>
         <div>
           <DateField
             label={ar ? p.endLabelAr : p.endLabel}
             value={end}
-            onChange={setEnd}
-            invalid={bad}
+            placeholder={ar ? p.endPhAr : p.endPh}
+            min={endMin}
+            disabled={!start}
+            onChange={pickEnd}
+            invalid={Boolean(errors.end)}
           />
-          {bad && (
-            <p className="mt-1 text-[11.5px] text-status-danger">
-              {ar ? p.errorAr : p.error}
-            </p>
+          {errors.end ? (
+            <p className="mt-1 text-[11.5px] text-status-danger">{errors.end.message}</p>
+          ) : (
+            !start && (
+              <p className="mt-1 text-[11.5px] text-text-muted">
+                {ar ? p.endNeedsStartAr : p.endNeedsStart}
+              </p>
+            )
           )}
         </div>
       </div>
@@ -240,18 +276,22 @@ export function TermOverlay({
         </div>
       )}
 
-      <p className="text-[11.5px] leading-4 text-text-muted">
-        {bad
-          ? ar
-            ? p.errorNoteAr
-            : p.errorNote
-          : (ar ? p.noteAr : p.note).replace(
-              "{nights}",
-              ar ? arabicDigits(nights, true) : String(nights)
-            )}
-      </p>
+      {valid && (
+        <p className="text-[11.5px] leading-4 text-text-muted">
+          {(ar ? p.noteAr : p.note).replace(
+            "{nights}",
+            ar ? arabicDigits(nights, true) : String(nights)
+          )}
+        </p>
+      )}
     </IconModal>
   );
+}
+
+function shiftDay(key: string, days: number) {
+  const date = dateOf(key);
+  date.setDate(date.getDate() + days);
+  return keyOf(date);
 }
 
 /** OV 03.1S — the two nights that carry the weekend price. */

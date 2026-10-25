@@ -32,6 +32,8 @@ type Common = {
   min?: DayKey | undefined;
   max?: DayKey | undefined;
   invalid?: boolean | undefined;
+  placeholder?: string | undefined;
+  disabled?: boolean | undefined;
   className?: string | undefined;
   /** Keeps the panel inside the viewport on a phone. */
   panelClassName?: string | undefined;
@@ -75,12 +77,16 @@ export function DateField(props: DayProps | RangeProps) {
           (props.value as DayRange).end ?? (props.value as DayRange).start,
           lang
         )}`
-      : readableDay(props.value as DayKey, lang);
+      : props.value
+        ? readableDay(props.value as DayKey, lang)
+        : "";
 
-  const seed: DayRange =
+  const seed: DayRange | undefined =
     mode === "range"
       ? (props.value as DayRange)
-      : { start: props.value as DayKey, end: null };
+      : props.value
+        ? { start: props.value as DayKey, end: null }
+        : undefined;
 
   return (
     <div className={cn("w-full", props.className)} ref={holder}>
@@ -93,15 +99,22 @@ export function DateField(props: DayProps | RangeProps) {
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
+          disabled={props.disabled}
+          aria-invalid={props.invalid || undefined}
           className={cn(
-            "flex min-h-11 w-full items-center gap-2 rounded-[10px] border bg-surface-default px-4 py-2 text-start transition-colors",
+            "flex min-h-11 w-full items-center gap-2 rounded-[10px] border bg-surface-default px-4 py-2 text-start transition-colors disabled:cursor-not-allowed disabled:bg-surface-subtle",
             props.invalid
               ? "border-status-danger"
               : "border-border-default hover:border-border-strong"
           )}
         >
-          <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
-            {shown}
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-sm",
+              shown ? "text-text-primary" : "text-text-muted"
+            )}
+          >
+            {shown || props.placeholder}
           </span>
           <ChevronDown
             className="h-4 w-4 shrink-0 text-text-muted"
@@ -118,7 +131,7 @@ export function DateField(props: DayProps | RangeProps) {
           >
             <DatePicker
               className="w-full"
-              value={seed}
+              {...(seed ? { value: seed } : {})}
               single={mode === "day"}
               {...(props.min ? { min: props.min } : {})}
               {...(props.max ? { max: props.max } : {})}
