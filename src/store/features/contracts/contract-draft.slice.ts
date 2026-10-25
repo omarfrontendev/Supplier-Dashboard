@@ -48,9 +48,9 @@ const initialState: ContractDraftState = {
   baseSupplements: emptyBaseSupplements(),
   fixedRooms: [],
   children: {
-    sharing_parents: { enabled: false, ageFrom: "0", ageTo: "5", price: "0" },
-    shared_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
-    extra_bed: { enabled: false, ageFrom: "6", ageTo: "11", price: "" },
+    sharing_parents: { ageFrom: "0", ageTo: "5", price: "0" },
+    shared_bed: { ageFrom: "6", ageTo: "11", price: "" },
+    extra_bed: { ageFrom: "6", ageTo: "11", price: "" },
   },
   meals: emptyMeals(),
   policies: { enabled: true, cancellation: null, release: null },
@@ -191,16 +191,11 @@ export const contractDraftSlice = createSlice({
       }
     },
 
-    toggleChildRule: (state, action: PayloadAction<ChildRuleKey>) => {
-      const rule = state.children[action.payload];
-      rule.enabled = !rule.enabled;
-    },
-
     setChildRule: (
       state,
       action: PayloadAction<{
         key: ChildRuleKey;
-        field: keyof Omit<ChildRule, "enabled">;
+        field: keyof ChildRule;
         value: string;
       }>,
     ) => {
@@ -279,7 +274,6 @@ export const {
   addFixedRoom,
   removeFixedRoom,
   setFixedPrice,
-  toggleChildRule,
   setChildRule,
   replaceChildren,
   toggleMeal,

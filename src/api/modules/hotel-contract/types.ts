@@ -131,6 +131,7 @@ export interface CreateHotelContractBody {
   currency: string;
   bookingType: BookingType;
   pricingModel: PricingModel;
+  childPricing: ContractChildPricing;
 }
 
 export type UpdateHotelContractBody = Partial<
@@ -138,8 +139,3 @@ export type UpdateHotelContractBody = Partial<
 > & {
   expectedVersion: number;
 };
-
-export interface ReplaceChildPricingBody {
-  expectedVersion: number;
-  childPricing: ContractChildPricing;
-}

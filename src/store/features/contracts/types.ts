@@ -151,7 +151,6 @@ export const CHILD_RULES: ChildRuleKey[] = ["sharing_parents", "shared_bed", "ex
 export const CHILD_MAX_AGE = 17;
 
 export interface ChildRule {
-  enabled: boolean;
   ageFrom: string;
   ageTo: string;
   price: string;

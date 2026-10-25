@@ -11,13 +11,11 @@ import {
 import { PageShell } from "@/components/layout/page-shell";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
 import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
-import { useSaveContractChildPricing } from "@/api/modules/hotel-contract/useSaveContractChildPricing";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorList } from "@/lib/api-error";
 import {
   basicsReady,
   childPricingChanged,
-  childPricingComplete,
   childrenFromContract,
   contractDifferences,
   draftFromContract,
@@ -25,7 +23,6 @@ import {
   mergeLatestBasics,
   sameSavedBasics,
   sameSavedDraft,
-  toChildPricing,
   toCreateContractBody,
   toUpdateContractBody,
 } from "@/store/features/contracts/contract-api";
@@ -126,8 +123,7 @@ export function ContractBuilder({
   const remote = useHotelContract(savedId);
   const saved = remote.data ?? null;
   const saveContract = useSaveHotelContract();
-  const saveChildPricing = useSaveContractChildPricing();
-  const savingDraft = saveContract.isPending || saveChildPricing.isPending;
+  const savingDraft = saveContract.isPending;
   const loadedId = useRef<number | null>(null);
   useEffect(() => {
     if (savedId !== null) return;
@@ -260,8 +256,7 @@ export function ContractBuilder({
       jumpTo("basics");
       return false;
     }
-    const withChildren = childPricingComplete(draft);
-    const childErrors = withChildren ? childIssues(draft.children, f.v) : [];
+    const childErrors = childIssues(draft.children, f.v);
     if (childErrors.length > 0) {
       notify.error(childErrors[0]!);
       jumpTo("children");
@@ -276,12 +271,6 @@ export function ContractBuilder({
       } else {
         const body = toUpdateContractBody(draft, contract);
         if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
-      }
-      if (withChildren && childPricingChanged(draft, contract)) {
-        contract = await saveChildPricing.mutateAsync({
-          id: contract.id,
-          body: { expectedVersion: contract.version, childPricing: toChildPricing(draft) },
-        });
       }
       if (contract === saved) {
         notify.success(f.noChanges);

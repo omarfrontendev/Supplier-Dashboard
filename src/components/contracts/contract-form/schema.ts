@@ -98,22 +98,15 @@ export function restrictionIssues(
 
 export function childIssues(children: ChildRules, m: Messages): string[] {
   const issues: string[] = [];
-  const enabled = CHILD_RULES.filter((key) => children[key].enabled);
-  if (enabled.some((key) => !agesValid(children[key]))) {
+  if (CHILD_RULES.some((key) => !agesValid(children[key]))) {
     issues.push(fill(m.childAges, { max: CHILD_MAX_AGE }));
   }
-  if (enabled.some((key) => key !== "sharing_parents" && !filled(children[key].price))) {
+  if (CHILD_RULES.some((key) => key !== "sharing_parents" && !filled(children[key].price))) {
     issues.push(m.childPrice);
   }
   const sharing = children.sharing_parents;
   const shared = children.shared_bed;
-  if (
-    sharing.enabled &&
-    shared.enabled &&
-    agesValid(sharing) &&
-    agesValid(shared) &&
-    rangesOverlap(sharing, shared)
-  ) {
+  if (agesValid(sharing) && agesValid(shared) && rangesOverlap(sharing, shared)) {
     issues.push(m.childOverlap);
   }
   return issues;

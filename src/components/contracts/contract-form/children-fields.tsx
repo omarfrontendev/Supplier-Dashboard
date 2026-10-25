@@ -1,10 +1,10 @@
 import { Table } from "@/components/contracts/contract-parts";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
-import { setChildRule, toggleChildRule } from "@/store/features/contracts/contract-draft.slice";
+import { setChildRule } from "@/store/features/contracts/contract-draft.slice";
 import { CHILD_RULES, type ChildRuleKey } from "@/store/features/contracts/types";
 import { childIssues } from "./schema";
-import { AmountInput, RoomTick, useAppDispatch, useContractDraft } from "./shared";
+import { AmountInput, useAppDispatch, useContractDraft } from "./shared";
 
 export function ChildrenFields() {
   const { c } = useLanguage();
@@ -21,7 +21,6 @@ export function ChildrenFields() {
       aria-label={`${t.rules[key]} · ${label}`}
       inputMode="numeric"
       className="max-w-[96px]"
-      disabled={!children[key].enabled}
       value={children[key][field]}
       onChange={(event) => {
         const value = event.target.value;
@@ -33,17 +32,10 @@ export function ChildrenFields() {
   return (
     <>
       <Table
-        head={["", t.colRule, t.colAgeFrom, t.colAgeTo, t.colPrice]}
+        head={[t.colRule, t.colAgeFrom, t.colAgeTo, t.colPrice]}
         rows={CHILD_RULES.map((key) => {
           const rule = children[key];
           return [
-            <RoomTick
-              key="tick"
-              on={rule.enabled}
-              locked={false}
-              label={t.rules[key]}
-              onToggle={() => dispatch(toggleChildRule(key))}
-            />,
             <div key="label">
               <p className="text-sm font-medium text-text-primary">{t.rules[key]}</p>
               <p className="mt-0.5 text-xs text-text-muted">{t.hints[key]}</p>
@@ -60,7 +52,6 @@ export function ChildrenFields() {
                 aria-label={`${t.rules[key]} · ${t.colPrice}`}
                 {...currencySuffix}
                 className="max-w-[160px]"
-                disabled={!rule.enabled}
                 value={rule.price}
                 onValue={(value) => dispatch(setChildRule({ key, field: "price", value }))}
               />
@@ -68,9 +59,7 @@ export function ChildrenFields() {
           ];
         })}
       />
-      {!CHILD_RULES.every((key) => children[key].enabled) && (
-        <p className="mt-3 text-xs leading-relaxed text-text-muted">{t.saveNeedsAll}</p>
-      )}
+      <p className="mt-3 text-xs leading-relaxed text-text-muted">{t.requiredNote}</p>
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1">
           {issues.map((message) => (

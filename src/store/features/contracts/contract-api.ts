@@ -32,7 +32,7 @@ export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.name.trim().length <= CONTRACT_NAME_MAX &&
   basics.startDate !== "" &&
   basics.endDate !== "" &&
-  basics.endDate >= basics.startDate &&
+  basics.endDate > basics.startDate &&
   basics.currency !== null;
 
 export function toCreateContractBody(draft: ContractDraftState): CreateHotelContractBody {
@@ -45,6 +45,7 @@ export function toCreateContractBody(draft: ContractDraftState): CreateHotelCont
     currency: basics.currency!,
     bookingType: bookingToApi[basics.bookingType],
     pricingModel: pricingToApi[draft.pricingModel],
+    childPricing: toChildPricing(draft),
   };
 }
 
@@ -66,10 +67,14 @@ export function toUpdateContractBody(
 ): UpdateHotelContractBody | null {
   const next = toCreateContractBody(draft);
   const fields = changedContractFields(draft, contract);
-  if (fields.length === 0) return null;
+  const children = childPricingChanged(draft, contract);
+  if (fields.length === 0 && !children) return null;
   return fields.reduce<UpdateHotelContractBody>(
     (body, field) => ({ ...body, [field]: next[field] }),
-    { expectedVersion: contract.version },
+    {
+      expectedVersion: contract.version,
+      ...(children ? { childPricing: next.childPricing } : {}),
+    },
   );
 }
 
@@ -121,9 +126,6 @@ export function mergeLatestBasics(
   );
 }
 
-export const childPricingComplete = ({ children }: ContractDraftState) =>
-  CHILD_RULES.every((key) => children[key].enabled);
-
 export function toChildPricing({ children }: ContractDraftState): ContractChildPricing {
   const category = (key: (typeof CHILD_RULES)[number]) => ({
     from: Number(children[key].ageFrom),
@@ -139,7 +141,6 @@ export function toChildPricing({ children }: ContractDraftState): ContractChildP
 
 export function childrenFromContract(pricing: ContractChildPricing): ChildRules {
   const rule = (key: (typeof CHILD_RULES)[number]) => ({
-    enabled: true,
     ageFrom: String(pricing[key].from),
     ageTo: String(pricing[key].to),
     price: String(pricing[key].price),
@@ -152,7 +153,6 @@ export function childrenFromContract(pricing: ContractChildPricing): ChildRules 
 }
 
 export function childPricingChanged(draft: ContractDraftState, contract: SupplierHotelContract) {
-  if (!childPricingComplete(draft)) return false;
   const saved = contract.childPricing;
   if (!saved) return true;
   const next = toChildPricing(draft);

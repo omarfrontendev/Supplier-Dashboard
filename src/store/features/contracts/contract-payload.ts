@@ -110,13 +110,11 @@ export function buildContractPayload(draft: ContractDraftState) {
         const rule = draft.children[key];
         return [
           key,
-          rule.enabled
-            ? {
-                from: toAmount(rule.ageFrom),
-                to: toAmount(rule.ageTo),
-                price: key === "sharing_parents" ? 0 : toAmount(rule.price),
-              }
-            : null,
+          {
+            from: toAmount(rule.ageFrom),
+            to: toAmount(rule.ageTo),
+            price: key === "sharing_parents" ? 0 : toAmount(rule.price),
+          },
         ];
       }),
     ) as Record<
