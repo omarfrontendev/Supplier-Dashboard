@@ -51,6 +51,8 @@ export const ROOM_VIEWS: RoomView[] = [
   "no_view",
 ];
 
+export const CONTRACT_NAME_MAX = 200;
+
 export const SLA_MIN_MINUTES = 10;
 export const SLA_MAX_MINUTES = 120;
 

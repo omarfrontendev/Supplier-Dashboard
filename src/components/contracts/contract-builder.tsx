@@ -13,7 +13,7 @@ import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/
 import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
 import { useSaveContractChildPricing } from "@/api/modules/hotel-contract/useSaveContractChildPricing";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
-import { getApiErrorMessage } from "@/lib/api-error";
+import { getApiErrorList } from "@/lib/api-error";
 import {
   basicsReady,
   childPricingChanged,
@@ -330,7 +330,11 @@ export function ContractBuilder({
       notify.error(f.unavailable);
       return;
     }
-    notify.error(getApiErrorMessage(error));
+    notify.error(
+      fill(f.saveFailedList, {
+        errors: getApiErrorList(error).join(lang === "ar" ? "، " : " · "),
+      }),
+    );
   }
 
   const savedAt = saved
@@ -406,7 +410,7 @@ export function ContractBuilder({
             {mode === "edit" ? t.overlineEdit : t.overline}
           </p>
           <h1 className="mt-1 text-[28px] font-semibold text-text-primary">
-            {t.title}
+            {saved ? basics.name.trim() || t.titleEdit : mode === "edit" ? t.titleEdit : t.title}
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">
             {t.subtitle}

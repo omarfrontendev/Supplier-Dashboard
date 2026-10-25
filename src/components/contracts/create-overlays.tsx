@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DateField, arabicDigits } from "@/components/ui/date-field";
 import { dateOf, keyOf } from "@/components/ui/date-picker";
 import { useLanguage } from "@/lib/i18n";
+import { WEEKDAYS, type Weekday } from "@/store/features/contracts/types";
 import { cn } from "@/lib/utils";
 import {
   currencyPanel,
@@ -130,12 +131,14 @@ export function PickerOverlay({
 /** OV 03.1Q / Q2 / Q3 — the term, the bad end date, and the overlap. */
 export function TermOverlay({
   state = "ok",
+  weekendDays = [],
   initialStart,
   initialEnd,
   onClose,
   onConfirm,
 }: {
   state?: "ok" | "error" | "overlap";
+  weekendDays?: Weekday[];
   initialStart?: string;
   initialEnd?: string;
   onClose: () => void;
@@ -145,6 +148,10 @@ export function TermOverlay({
   const ar = lang === "ar";
   const p = termPanel;
   const v = c.builder.form.v;
+  const weekendNumbers = weekendDays.map((day) => WEEKDAY_NUMBER[day]);
+  const weekendLabel = WEEKDAYS.filter((day) => weekendDays.includes(day))
+    .map((day) => c.builder.form.days[day])
+    .join(ar ? " و" : " · ");
   const schema = z
     .object({
       start: z.string().min(1, v.startDate),
@@ -224,6 +231,7 @@ export function TermOverlay({
           <DateField
             mode="range"
             showStart
+            weekend={weekendNumbers}
             label={ar ? p.startLabelAr : p.startLabel}
             value={{ start, end: end || null }}
             placeholder={ar ? p.startPhAr : p.startPh}
@@ -241,6 +249,7 @@ export function TermOverlay({
             placeholder={ar ? p.endPhAr : p.endPh}
             min={endMin}
             disabled={!start}
+            weekend={weekendNumbers}
             onChange={pickEnd}
             invalid={Boolean(errors.end)}
           />
@@ -282,15 +291,24 @@ export function TermOverlay({
 
       {valid && (
         <p className="text-[11.5px] leading-4 text-text-muted">
-          {(ar ? p.noteAr : p.note).replace(
-            "{nights}",
-            ar ? arabicDigits(nights, true) : String(nights)
-          )}
+          {(weekendLabel ? (ar ? p.noteAr : p.note) : ar ? p.noteNoWeekendAr : p.noteNoWeekend)
+            .replace("{nights}", ar ? arabicDigits(nights, true) : String(nights))
+            .replace("{weekend}", weekendLabel)}
         </p>
       )}
     </IconModal>
   );
 }
+
+const WEEKDAY_NUMBER: Record<Weekday, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
 
 function shiftDay(key: string, days: number) {
   const date = dateOf(key);

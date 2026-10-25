@@ -19,3 +19,18 @@ export const getApiErrorMessage = (
 
   return message || fallback;
 };
+
+type ApiErrorList = {
+  response?: {
+    data?: {
+      message?: string | string[];
+      data?: { errors?: string[] } | null;
+    };
+  };
+};
+
+export const getApiErrorList = (error: unknown, fallback = "Something went wrong"): string[] => {
+  const errors = (error as ApiErrorList).response?.data?.data?.errors;
+  if (Array.isArray(errors) && errors.length > 0) return errors;
+  return [getApiErrorMessage(error, fallback)];
+};

@@ -8,11 +8,12 @@ import { HotelPicker } from "./hotel-picker";
 import { PickerOverlay, TermOverlay, WeekendOverlay } from "@/components/contracts/create-overlays";
 import { readableDay } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
-import { useLanguage } from "@/lib/i18n";
+import { fill, useLanguage } from "@/lib/i18n";
 import { currencyPanel, weekendPanel } from "@/lib/contract-overlay-data";
 import { updateBasics } from "@/store/features/contracts/contract-draft.slice";
 import {
   CONTRACT_CURRENCIES,
+  CONTRACT_NAME_MAX,
   WEEKDAYS,
   type ContractCurrency,
   type Weekday,
@@ -85,6 +86,13 @@ export function BasicsFields({
     (lang === "ar" ? h.nameAr || h.nameEn : h.nameEn || h.nameAr) ?? "";
 
 
+  const nameError =
+    basics.name !== "" && !basics.name.trim()
+      ? f.v.name
+      : basics.name.trim().length > CONTRACT_NAME_MAX
+        ? fill(f.v.nameTooLong, { max: CONTRACT_NAME_MAX })
+        : "";
+
   const term =
     basics.startDate && basics.endDate
       ? `${readableDay(basics.startDate, lang)} – ${readableDay(basics.endDate, lang)}`
@@ -115,6 +123,9 @@ export function BasicsFields({
           label={t.name}
           placeholder={t.namePh}
           value={basics.name}
+          maxLength={CONTRACT_NAME_MAX}
+          hint={fill(f.nameCount, { count: basics.name.length, max: CONTRACT_NAME_MAX })}
+          {...(nameError ? { error: nameError } : {})}
           onChange={(e) => dispatch(updateBasics({ name: e.target.value }))}
         />
         <FieldButton
@@ -164,6 +175,7 @@ export function BasicsFields({
       )}
       {picker === "term" && (
         <TermOverlay
+          weekendDays={basics.weekendDays}
           initialStart={basics.startDate}
           initialEnd={basics.endDate}
           onClose={() => setPicker(null)}

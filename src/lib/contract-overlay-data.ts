@@ -508,9 +508,11 @@ export const termPanel = {
     start?: string;
     end?: string;
   }>,
-  note: "{nights} nights · Thu · Fri weekends · the term locks after the first confirmed booking (Amend to change).",
+  note: "{nights} nights · {weekend} weekends · the term locks after the first confirmed booking (Amend to change).",
+  noteNoWeekend: "{nights} nights · the term locks after the first confirmed booking (Amend to change).",
   noteAr:
-    "{nights} ليلة · نهاية الأسبوع الخميس والجمعة · وتُقفل المدة بعد أول حجز مؤكد (تُغيَّر بتعديل تعاقدي).",
+    "{nights} ليلة · نهاية الأسبوع {weekend} · وتُقفل المدة بعد أول حجز مؤكد (تُغيَّر بتعديل تعاقدي).",
+  noteNoWeekendAr: "{nights} ليلة · وتُقفل المدة بعد أول حجز مؤكد (تُغيَّر بتعديل تعاقدي).",
   error: "End date must be after the start date.",
   errorAr: "يجب أن يكون تاريخ النهاية بعد تاريخ البداية.",
   startPh: "Pick the start date",

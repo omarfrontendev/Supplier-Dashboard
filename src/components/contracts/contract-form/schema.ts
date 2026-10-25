@@ -6,6 +6,7 @@ import { toAmount } from "@/store/features/contracts/contract-payload";
 import {
   CHILD_MAX_AGE,
   CHILD_RULES,
+  CONTRACT_NAME_MAX,
   MAX_CANCELLATION_TIERS,
   MEAL_PLANS,
   SLA_MAX_MINUTES,
@@ -126,6 +127,9 @@ export const contractFinalSchema = (m: Messages) =>
     const { basics } = draft;
     if (!basics.hotelId) issue("basics", m.hotel);
     if (!basics.name.trim()) issue("basics", m.name);
+    if (basics.name.trim().length > CONTRACT_NAME_MAX) {
+      issue("basics", fill(m.nameTooLong, { max: CONTRACT_NAME_MAX }));
+    }
     if (!basics.startDate) issue("basics", m.startDate);
     if (!basics.endDate) issue("basics", m.endDate);
     if (basics.startDate && basics.endDate && basics.endDate <= basics.startDate) {

@@ -9,6 +9,7 @@ import type {
 import { toAmount } from "./contract-payload";
 import {
   CHILD_RULES,
+  CONTRACT_NAME_MAX,
   type BookingType,
   type ChildRules,
   type ContractDraftState,
@@ -28,6 +29,7 @@ const pricingToApi: Record<PricingModel, ApiPricingModel> = {
 export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.hotelId !== null &&
   basics.name.trim() !== "" &&
+  basics.name.trim().length <= CONTRACT_NAME_MAX &&
   basics.startDate !== "" &&
   basics.endDate !== "" &&
   basics.endDate >= basics.startDate &&

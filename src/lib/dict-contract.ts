@@ -175,6 +175,7 @@ export const contractEn = {
     overline: "CREATE SUPPLY CONTRACT",
     overlineEdit: "EDIT SUPPLY CONTRACT",
     title: "New supply contract",
+    titleEdit: "Edit supply contract",
     subtitle:
       "One page. Base contract rates cover every night of the term; seasons override them for their dates only. Nothing is live until you review & activate.",
     draftEmpty: "Draft not saved yet",
@@ -416,6 +417,8 @@ export const contractEn = {
       hotelLocked: "The hotel can't change once the draft is saved.",
       modelLocked: "The pricing model can't change once the draft is saved.",
       saveNeedsBasics: "Fill the hotel, name, dates and currency to save the draft.",
+      nameCount: "{count} / {max}",
+      saveFailedList: "The draft wasn't saved: {errors}",
       draftCreated: "Draft saved",
       draftUpdated: "Draft updated",
       saveStale: "Someone saved this contract while you were editing ({fields}). Your changes are kept - check them and save again.",
@@ -529,6 +532,7 @@ export const contractEn = {
       v: {
         hotel: "Select the hotel",
         name: "Enter the contract name",
+        nameTooLong: "Keep the contract name to {max} characters",
         startDate: "Enter the start date",
         endDate: "Enter the end date",
         endAfterStart: "End date must be after the start date",
@@ -922,6 +926,7 @@ export const contractAr: typeof contractEn = {
     overline: "إنشاء عقد توريد",
     overlineEdit: "تعديل عقد التوريد",
     title: "عقد توريد جديد",
+    titleEdit: "تعديل عقد التوريد",
     subtitle:
       "صفحة واحدة. أسعار العقد الأساسية تغطي كل ليالي المدة، والمواسم تتجاوزها في تواريخها فقط. لا شيء يعمل حتى تراجع وتفعّل.",
     draftEmpty: "المسودة لم تُحفظ بعد",
@@ -1163,6 +1168,8 @@ export const contractAr: typeof contractEn = {
       hotelLocked: "لا يمكن تغيير الفندق بعد حفظ المسودة.",
       modelLocked: "لا يمكن تغيير نموذج التسعير بعد حفظ المسودة.",
       saveNeedsBasics: "أكمل الفندق والاسم والتواريخ والعملة لحفظ المسودة.",
+      nameCount: "{count} / {max}",
+      saveFailedList: "لم تُحفظ المسودة: {errors}",
       draftCreated: "تم حفظ المسودة",
       draftUpdated: "تم تحديث المسودة",
       saveStale: "حفظ أحدهم هذا العقد أثناء تعديلك ({fields}). تعديلاتك محفوظة في الصفحة - راجعها واحفظ مجددًا.",
@@ -1275,6 +1282,7 @@ export const contractAr: typeof contractEn = {
       v: {
         hotel: "اختر الفندق",
         name: "اكتب اسم العقد",
+        nameTooLong: "اجعل اسم العقد {max} حرفًا كحد أقصى",
         startDate: "اختر تاريخ البداية",
         endDate: "اختر تاريخ النهاية",
         endAfterStart: "يجب أن يكون تاريخ النهاية بعد تاريخ البداية",
