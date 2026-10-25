@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { useNavigate } from "@tanstack/react-router";
+import { useBlocker, useNavigate } from "@tanstack/react-router";
 import {
   Check,
   ChevronRight,
@@ -141,7 +141,8 @@ export function ContractBuilder({
     dispatch(loadContract(draftFromContract(saved)));
   }, [dispatch, saved, draft]);
   const contractHotels = useContractHotels({ page: 1, limit: 100 });
-  const [picker, setPicker] = useState<"unsaved" | "overlap" | null>(null);
+  const [picker, setPicker] = useState<"overlap" | null>(null);
+  const allowLeave = useRef(false);
   const [inventory, setInventory] = useState<Inventory>("shared");
   const [stock, setStock] = useState("50");
   const [soldOut, setSoldOut] = useState<SoldOut>("overbooking");
@@ -253,18 +254,18 @@ export function ContractBuilder({
   }
 
 
-  async function saveDraft() {
+  async function saveDraft(leaving = false): Promise<boolean> {
     if (!basicsReady(draft)) {
       notify.error(f.saveNeedsBasics);
       jumpTo("basics");
-      return;
+      return false;
     }
     const withChildren = childPricingComplete(draft);
     const childErrors = withChildren ? childIssues(draft.children, f.v) : [];
     if (childErrors.length > 0) {
       notify.error(childErrors[0]!);
       jumpTo("children");
-      return;
+      return false;
     }
     let contract: SupplierHotelContract | null = saved;
     let createdId: number | null = null;
@@ -284,14 +285,17 @@ export function ContractBuilder({
       }
       if (contract === saved) {
         notify.success(f.noChanges);
-        return;
+        return true;
       }
       notify.success(createdId ? f.draftCreated : f.draftUpdated);
+      return true;
     } catch (error) {
       onSaveError(error as Error, contract);
+      return false;
     } finally {
-      if (createdId !== null) {
+      if (createdId !== null && !leaving) {
         loadedId.current = createdId;
+        allowLeave.current = true;
         navigate({
           to: "/rate-contracts/$contractId/edit",
           params: { contractId: String(createdId) },
@@ -355,6 +359,26 @@ export function ContractBuilder({
           ? fill(t.draftSaved, { time: savedAt })
           : t.draftUnsaved;
 
+  const hasUnsaved =
+    !remote.isLoading &&
+    (saved
+      ? !sameSavedDraft(draft, saved)
+      : Boolean(basics.hotelId || basics.name.trim() || basics.startDate || basics.currency));
+  const leaveBlocker = useBlocker({
+    shouldBlockFn: () => !allowLeave.current && hasUnsaved,
+    enableBeforeUnload: () => !allowLeave.current && hasUnsaved,
+    withResolver: true,
+  });
+
+  async function saveAndLeave() {
+    if (await saveDraft(true)) {
+      allowLeave.current = true;
+      leaveBlocker.proceed?.();
+    } else {
+      leaveBlocker.reset?.();
+    }
+  }
+
   function activate() {
     setSaving(true);
     void (async () => {
@@ -386,6 +410,7 @@ export function ContractBuilder({
       });
       notify.success(t.activated);
       setSaving(false);
+      allowLeave.current = true;
       navigate({ to: "/rate-contracts" });
     })();
   }
@@ -394,7 +419,7 @@ export function ContractBuilder({
     <PageShell>
       <button
         type="button"
-        onClick={() => setPicker("unsaved")}
+        onClick={() => navigate({ to: "/rate-contracts" })}
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
       >
         <ChevronRight
@@ -1072,11 +1097,14 @@ export function ContractBuilder({
         />
       )}
 
-      {picker === "unsaved" && (
+      {leaveBlocker.status === "blocked" && (
         <UnsavedOverlay
-          onClose={() => setPicker(null)}
-          onDiscard={() => navigate({ to: "/rate-contracts" })}
-          onSave={() => navigate({ to: "/rate-contracts" })}
+          onClose={() => leaveBlocker.reset()}
+          onDiscard={() => {
+            allowLeave.current = true;
+            leaveBlocker.proceed();
+          }}
+          onSave={() => void saveAndLeave()}
         />
       )}
       {picker === "overlap" && (
