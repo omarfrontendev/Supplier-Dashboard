@@ -9,8 +9,10 @@ import {
   CONTRACT_NAME_MAX,
   MAX_CANCELLATION_TIERS,
   MEAL_PLANS,
+  RESTRICTION_MAX_NIGHTS,
   SLA_MAX_MINUTES,
   SLA_MIN_MINUTES,
+  WEEKDAYS,
   type CancellationTier,
   type ChildRule,
   type ChildRules,
@@ -80,10 +82,14 @@ export function releaseIssues(release: ReleasePolicy, m: Messages): string[] {
   return issues;
 }
 
+const sameDays = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((day) => b.includes(day));
+
 export function restrictionIssues(
   rule: RestrictionRule,
   term: { startDate: string; endDate: string },
   m: Messages,
+  formatDay: (day: string) => string = (day) => day,
 ): string[] {
   const issues: string[] = [];
   if (!rule.startDate || !rule.endDate) {
@@ -92,10 +98,83 @@ export function restrictionIssues(
     (term.startDate && rule.startDate < term.startDate) ||
     (term.endDate && rule.endDate > term.endDate)
   ) {
-    issues.push(m.restrictionOutside);
+    issues.push(
+      fill(m.restrictionOutside, {
+        dates: `${formatDay(rule.startDate)} - ${formatDay(rule.endDate)}`,
+        start: formatDay(term.startDate),
+        end: formatDay(term.endDate),
+      }),
+    );
   }
-  if (!wholeNumber(rule.minNights, 1, 99)) issues.push(m.restrictionMinNights);
+  if (!wholeNumber(rule.minNights, 1, RESTRICTION_MAX_NIGHTS)) {
+    issues.push(fill(m.restrictionMinNights, { max: RESTRICTION_MAX_NIGHTS }));
+  } else if (
+    Number(rule.minNights) === 1 &&
+    rule.closedCheckIn.length === 0 &&
+    rule.closedCheckOut.length === 0
+  ) {
+    issues.push(m.restrictionNoRule);
+  }
+  if (rule.closedCheckIn.length === WEEKDAYS.length) issues.push(m.restrictionAllInClosed);
+  if (rule.closedCheckOut.length === WEEKDAYS.length) issues.push(m.restrictionAllOutClosed);
   return issues;
+}
+
+const daysCross = (a: RestrictionRule, b: RestrictionRule) =>
+  a.appliesOn === "every_day" || b.appliesOn === "every_day" || a.appliesOn === b.appliesOn;
+
+export function conflictingRestriction(
+  rule: RestrictionRule,
+  others: RestrictionRule[],
+): { rule: RestrictionRule; kind: "duplicate" | "minStay" } | null {
+  if (!rule.active || !rule.startDate || !rule.endDate) return null;
+  for (const other of others) {
+    if (other.id === rule.id || !other.active || other.roomId !== rule.roomId) continue;
+    if (other.startDate > rule.endDate || rule.startDate > other.endDate) continue;
+    if (!daysCross(rule, other)) continue;
+    const identical =
+      other.startDate === rule.startDate &&
+      other.endDate === rule.endDate &&
+      other.appliesOn === rule.appliesOn &&
+      Number(other.minNights) === Number(rule.minNights) &&
+      sameDays(other.closedCheckIn, rule.closedCheckIn) &&
+      sameDays(other.closedCheckOut, rule.closedCheckOut);
+    if (identical) return { rule: other, kind: "duplicate" };
+    const minRule = (value: string) => Number(value) > 1;
+    if (minRule(rule.minNights) && minRule(other.minNights) && Number(rule.minNights) !== Number(other.minNights)) {
+      return { rule: other, kind: "minStay" };
+    }
+  }
+  return null;
+}
+
+export function restrictionConflict(
+  rule: RestrictionRule,
+  others: RestrictionRule[],
+  m: Messages,
+  describe: (rule: RestrictionRule) => string,
+): string | null {
+  const found = conflictingRestriction(rule, others);
+  if (!found) return null;
+  return fill(found.kind === "duplicate" ? m.restrictionDuplicate : m.restrictionMinConflict, {
+    rule: describe(found.rule),
+  });
+}
+
+export function restrictionsIssues(
+  rules: RestrictionRule[],
+  term: { startDate: string; endDate: string },
+  m: Messages,
+  describe: (rule: RestrictionRule) => string,
+  formatDay?: (day: string) => string,
+): string[] {
+  const issues = new Set<string>();
+  rules.forEach((rule, index) => {
+    restrictionIssues(rule, term, m, formatDay).forEach((message) => issues.add(message));
+    const conflict = restrictionConflict(rule, rules.slice(0, index), m, describe);
+    if (conflict) issues.add(conflict);
+  });
+  return [...issues];
 }
 
 export function childIssues(
@@ -186,8 +265,8 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
       if (draft.restrictions.rules.length === 0) {
         issue("restrictions", m.restrictionsEmpty);
       }
-      draft.restrictions.rules.forEach((rule) =>
-        restrictionIssues(rule, basics, m).forEach((message) => issue("restrictions", message)),
+      restrictionsIssues(draft.restrictions.rules, basics, m, (rule) => `${rule.startDate} - ${rule.endDate}`).forEach(
+        (message) => issue("restrictions", message),
       );
     }
 

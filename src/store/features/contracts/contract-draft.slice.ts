@@ -9,6 +9,7 @@ import type {
   MealPlan,
   ContractBasics,
   ContractDraftState,
+  ContractRestrictions,
   FixedPriceRoom,
   PricingModel,
   ReleasePolicy,
@@ -77,13 +78,19 @@ export const contractDraftSlice = createSlice({
         basics: Partial<ContractBasics>;
         pricingModel: PricingModel;
         children?: ChildRules;
+        restrictions?: ContractRestrictions;
       }>,
     ) => ({
       ...initialState,
       basics: { ...initialState.basics, ...action.payload.basics },
       pricingModel: action.payload.pricingModel,
       children: action.payload.children ?? initialState.children,
+      restrictions: action.payload.restrictions ?? initialState.restrictions,
     }),
+
+    replaceRestrictions: (state, action: PayloadAction<ContractRestrictions>) => {
+      state.restrictions = action.payload;
+    },
 
     replaceChildren: (state, action: PayloadAction<ChildRules>) => {
       state.children = action.payload;
@@ -276,6 +283,7 @@ export const {
   setFixedPrice,
   setChildRule,
   replaceChildren,
+  replaceRestrictions,
   toggleMeal,
   setMealPrice,
   setMealBasis,

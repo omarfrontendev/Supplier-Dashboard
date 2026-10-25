@@ -1,107 +1,73 @@
-import { useMemo, useState } from "react";
-import { CalendarDays, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, CalendarDays, Trash2 } from "lucide-react";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { DatePicker, dateOf, keyOf } from "@/components/ui/date-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { readableDay } from "@/components/ui/date-field";
 import {
-  RestrictionDayDialog,
-  type RestrictionScope,
-} from "@/components/contracts/restriction-day-dialog";
-import { restrictionIssues } from "@/components/contracts/contract-form/schema";
+  conflictingRestriction,
+  restrictionConflict,
+  restrictionIssues,
+} from "@/components/contracts/contract-form/schema";
 import { fill, useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { deleteRestrictionDialog, restrictionDrawer } from "@/lib/restriction-overlay-data";
 import {
-  deleteRestrictionDialog,
-  restrictionDrawer,
-  type DayState,
-} from "@/lib/restriction-overlay-data";
-import {
+  WEEKDAY_NUMBER,
   WEEKDAYS,
+  RESTRICTION_MAX_NIGHTS,
   type RestrictionRule,
   type Weekday,
 } from "@/store/features/contracts/types";
 
 const DRAWER_WIDTH = "760px";
 
-/** Whether a day takes check-ins and check-outs, drawn as two chips. */
-const CHIP_OPEN = "bg-chip-open text-chip-open-fg";
-const CHIP_CLOSED = "bg-chip-closed text-chip-closed-fg";
-
-const JS_DAY: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-const MAX_MONTHS = 3;
-
-const columnOf = (key: string) => (dateOf(key).getDay() + 1) % 7;
-const weekdayOf = (key: string) => JS_DAY[dateOf(key).getDay()]!;
-
-function daysBetween(start: string, end: string) {
-  const days: string[] = [];
-  for (let date = dateOf(start); keyOf(date) <= end; date.setDate(date.getDate() + 1)) {
-    days.push(keyOf(date));
-  }
-  return days;
-}
-
-function DayCell({
-  day,
-  state,
-  label,
-  outside,
-  onClick,
-}: {
-  day: number;
-  state: DayState;
-  label: { in: string; out: string };
-  outside: boolean;
-  onClick: () => void;
-}) {
-  const inOpen = state === "open" || state === "noOut";
-  const outOpen = state === "open" || state === "noIn";
-
-  if (outside) {
-    return (
-      <span className="flex h-[52px] flex-col rounded-lg bg-surface-subtle px-2 py-1.5">
-        <span className="text-[11.5px] text-border-strong">{day}</span>
-      </span>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-[52px] flex-col gap-1 rounded-lg border border-border-default bg-surface-default px-2 py-1.5 text-start"
-    >
-      <span className="text-[11.5px] font-medium text-text-primary">{day}</span>
-      <span className="flex gap-1">
-        <span
-          className={cn(
-            "rounded-md px-1.5 text-[10px] leading-[17px]",
-            inOpen ? CHIP_OPEN : CHIP_CLOSED,
-          )}
-        >
-          {label.in}
-        </span>
-        <span
-          className={cn(
-            "rounded-md px-1.5 text-[10px] leading-[17px]",
-            outOpen ? CHIP_OPEN : CHIP_CLOSED,
-          )}
-        >
-          {label.out}
-        </span>
-      </span>
-    </button>
-  );
-}
-
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-[10px] font-medium uppercase tracking-[0.04em] text-text-muted">
       {children}
     </p>
+  );
+}
+
+function DayChips({
+  label,
+  closed,
+  onToggle,
+}: {
+  label: string;
+  closed: Weekday[];
+  onToggle: (day: Weekday) => void;
+}) {
+  const { c } = useLanguage();
+  const days = c.builder.form.days;
+  return (
+    <div className="mt-3">
+      <p className="text-[12.5px] font-medium text-text-primary">{label}</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label={label}>
+        {WEEKDAYS.map((day) => {
+          const on = closed.includes(day);
+          return (
+            <button
+              key={day}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onToggle(day)}
+              className={cn(
+                "min-w-[52px] rounded-lg border px-3 py-1.5 text-[12.5px] transition-colors",
+                on
+                  ? "border-status-danger/40 bg-status-danger-bg font-medium text-status-danger"
+                  : "border-border-default text-text-body hover:bg-surface-subtle",
+              )}
+            >
+              {days[day]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -116,6 +82,9 @@ export function RestrictionDrawer({
   rooms = [],
   term,
   weekendDays = [],
+  others = [],
+  describe = (rule) => `${rule.startDate} - ${rule.endDate}`,
+  onConflict,
   onSave,
   onClose,
   onDelete,
@@ -125,6 +94,9 @@ export function RestrictionDrawer({
   rooms?: RestrictionRoomOption[];
   term?: { startDate: string; endDate: string };
   weekendDays?: Weekday[];
+  others?: RestrictionRule[];
+  describe?: (rule: RestrictionRule) => string;
+  onConflict?: (id: string) => void;
   onSave?: (rule: RestrictionRule) => void;
   onClose: () => void;
   onDelete?: () => void;
@@ -142,80 +114,58 @@ export function RestrictionDrawer({
   const [minNights, setMinNights] = useState(initial?.minNights ?? "");
   const [weekendOnly, setWeekendOnly] = useState(initial?.appliesOn === "weekend_only");
   const [active, setActive] = useState(initial?.active ?? true);
-  const [closedIn, setClosedIn] = useState<string[]>(initial?.closedCheckIn ?? []);
-  const [closedOut, setClosedOut] = useState<string[]>(initial?.closedCheckOut ?? []);
+  const [closedIn, setClosedIn] = useState<Weekday[]>(initial?.closedCheckIn ?? []);
+  const [closedOut, setClosedOut] = useState<Weekday[]>(initial?.closedCheckOut ?? []);
   const [picking, setPicking] = useState(false);
-  const [scope, setScope] = useState<(RestrictionScope & { keys: string[] }) | null>(null);
   const [issues, setIssues] = useState<string[]>([]);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeSmoothly = () => {
+    setConfirmClose(false);
+    setClosing(true);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.setTimeout(onClose, reduced ? 0 : 200);
+  };
 
   const hasRange = Boolean(startDate && endDate);
-  const minIsZero = minNights === "0";
+  const hasTerm = Boolean(term?.startDate && term.endDate);
   const weekendSet = new Set(weekendDays);
-  const WEEKDAY_SHORT = k === "ar" ? r.weekdaysAr : r.weekdays;
-  const WEEKDAY_LONG = k === "ar" ? r.weekdaysAr : r.weekdaysLong;
+  const toggle = (list: Weekday[], day: Weekday) =>
+    list.includes(day) ? list.filter((item) => item !== day) : [...list, day];
+  const ordered = (list: Weekday[]) => WEEKDAYS.filter((day) => list.includes(day));
 
-  const inRule = (key: string) => !weekendOnly || weekendSet.has(weekdayOf(key));
-  const rangeDays = useMemo(
-    () => (hasRange ? daysBetween(startDate, endDate) : []),
-    [hasRange, startDate, endDate],
+  const draftRule = (): RestrictionRule => ({
+    id: initial?.id ?? "",
+    roomId: roomId === "all" ? null : Number(roomId),
+    startDate,
+    endDate,
+    minNights,
+    appliesOn: weekendOnly ? "weekend_only" : "every_day",
+    closedCheckIn: ordered(closedIn),
+    closedCheckOut: ordered(closedOut),
+    active,
+  });
+  const snapshot = (rule: RestrictionRule) =>
+    JSON.stringify({ ...rule, id: "" });
+  const [startSnapshot] = useState(() =>
+    snapshot(
+      initial ?? {
+        id: "",
+        roomId: null,
+        startDate: "",
+        endDate: "",
+        minNights: "",
+        appliesOn: "every_day",
+        closedCheckIn: [],
+        closedCheckOut: [],
+        active: true,
+      },
+    ),
   );
-  const months = useMemo(() => {
-    const list: Array<{ year: number; month: number }> = [];
-    rangeDays.forEach((key) => {
-      const date = dateOf(key);
-      const last = list[list.length - 1];
-      if (!last || last.year !== date.getFullYear() || last.month !== date.getMonth()) {
-        list.push({ year: date.getFullYear(), month: date.getMonth() });
-      }
-    });
-    return list;
-  }, [rangeDays]);
-
-  const stateOf = (key: string): DayState => {
-    const noIn = closedIn.includes(key);
-    const noOut = closedOut.includes(key);
-    return noIn && noOut ? "closed" : noIn ? "noIn" : noOut ? "noOut" : "open";
-  };
-
-  const applyTo = (keys: string[], next: { checkIn: boolean; checkOut: boolean }) => {
-    setClosedIn((prev) => {
-      const rest = prev.filter((key) => !keys.includes(key));
-      return next.checkIn ? rest : [...rest, ...keys].sort();
-    });
-    setClosedOut((prev) => {
-      const rest = prev.filter((key) => !keys.includes(key));
-      return next.checkOut ? rest : [...rest, ...keys].sort();
-    });
-  };
-
-  const dayKeysFor = (column: number) =>
-    rangeDays.filter((key) => columnOf(key) === column && inRule(key));
-
-  const openDay = (key: string) => {
-    const column = columnOf(key);
-    setScope({
-      kind: "day",
-      label: `${WEEKDAY_LONG[column]} ${readableDay(key, lang)}`,
-      meta: minNights ? fill(t.minNights, { count: minNights }) : "",
-      weekday: WEEKDAY_LONG[column] ?? "",
-      keys: [key],
-    });
-  };
-
-  const openWeekday = (column: number) => {
-    const keys = dayKeysFor(column);
-    if (keys.length === 0) return;
-    setScope({
-      kind: "weekday",
-      label: `${WEEKDAY_LONG[column]} · ${readableDay(startDate, lang)} – ${readableDay(endDate, lang)}`,
-      meta: `${keys.length} × ${WEEKDAY_LONG[column]}`,
-      keys,
-    });
-  };
+  const dirty = snapshot(draftRule()) !== startSnapshot;
+  const requestClose = () => (dirty ? setConfirmClose(true) : closeSmoothly());
 
   const save = () => {
-    const keep = (keys: string[]) =>
-      keys.filter((key) => key >= startDate && key <= endDate && inRule(key));
     const rule: RestrictionRule = {
       id: initial?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       roomId: roomId === "all" ? null : Number(roomId),
@@ -223,15 +173,26 @@ export function RestrictionDrawer({
       endDate,
       minNights,
       appliesOn: weekendOnly ? "weekend_only" : "every_day",
-      closedCheckIn: keep(closedIn),
-      closedCheckOut: keep(closedOut),
+      closedCheckIn: ordered(closedIn),
+      closedCheckOut: ordered(closedOut),
       active,
     };
-    const found = restrictionIssues(rule, term ?? { startDate: "", endDate: "" }, f.v);
+    const found = restrictionIssues(
+      rule,
+      term ?? { startDate: "", endDate: "" },
+      f.v,
+      (day) => readableDay(day, lang),
+    );
+    const conflict = restrictionConflict(rule, others, f.v, describe);
+    if (conflict) {
+      found.push(conflict);
+      const other = conflictingRestriction(rule, others);
+      if (other) onConflict?.(other.rule.id);
+    }
     setIssues(found);
     if (found.length > 0) return;
     onSave?.(rule);
-    onClose();
+    closeSmoothly();
   };
 
   const weekendLabel =
@@ -246,10 +207,13 @@ export function RestrictionDrawer({
   return (
     <Drawer
       width={DRAWER_WIDTH}
-      overline={r.addTitle[k]}
+      overline={t.overline}
       title={editing ? r.editTitle[k] : r.addTitle[k]}
-      meta={r.addBody[k]}
-      onClose={onClose}
+      meta={t.body}
+      onClose={closeSmoothly}
+      closing={closing}
+      dirty={dirty}
+      onGuard={() => setConfirmClose(true)}
       footer={
         <>
           {editing && onDelete && (
@@ -258,12 +222,10 @@ export function RestrictionDrawer({
               {r.deleteRule[k]}
             </Button>
           )}
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={requestClose}>
             {r.cancel[k]}
           </Button>
-          <Button disabled={minIsZero} onClick={save}>
-            {editing ? r.saveChanges[k] : r.save[k]}
-          </Button>
+          <Button onClick={save}>{editing ? r.saveChanges[k] : r.save[k]}</Button>
         </>
       }
     >
@@ -291,12 +253,25 @@ export function RestrictionDrawer({
             </span>
             <CalendarDays className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
           </button>
+          {hasTerm && (
+            <button
+              type="button"
+              onClick={() => {
+                setStartDate(term!.startDate);
+                setEndDate(term!.endDate);
+                setPicking(false);
+              }}
+              className="mt-1.5 text-xs font-medium text-text-link hover:underline"
+            >
+              {t.wholeContract}
+            </button>
+          )}
           {picking && (
             <div className="absolute start-0 z-50 mt-2 w-[393px] max-w-[calc(100vw-4rem)]">
               <DatePicker
                 className="w-full"
                 {...(hasRange ? { value: { start: startDate, end: endDate } } : {})}
-                weekend={weekendDays.map((day) => JS_DAY.indexOf(day))}
+                weekend={weekendDays.map((day) => WEEKDAY_NUMBER[day])}
                 {...(term?.startDate ? { min: term.startDate } : {})}
                 {...(term?.endDate ? { max: term.endDate } : {})}
                 onCancel={() => setPicking(false)}
@@ -318,33 +293,20 @@ export function RestrictionDrawer({
             placeholder={r.minPlaceholder[k]}
             onChange={(event) => {
               const next = event.target.value;
-              if (/^\d{0,2}$/.test(next)) setMinNights(next);
+              if (/^\d{0,3}$/.test(next) && Number(next || 0) <= RESTRICTION_MAX_NIGHTS) {
+                setMinNights(next);
+              }
             }}
-            className={cn(
-              "mt-1.5 h-[42px] w-full rounded-[10px] border bg-surface-default px-3 text-[13px] font-medium text-text-primary placeholder:font-normal placeholder:text-text-muted focus-visible:outline-none",
-              minIsZero ? "border-status-danger" : "border-border-strong",
-            )}
+            className="mt-1.5 h-[42px] w-full rounded-[10px] border border-border-strong bg-surface-default px-3 text-[13px] font-medium text-text-primary placeholder:font-normal placeholder:text-text-muted focus-visible:outline-none"
           />
         </div>
       </div>
 
-      {minIsZero && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-[11.5px] leading-4 text-status-danger">{r.minError[k]}</p>
-          <button
-            type="button"
-            onClick={() => setMinNights("2")}
-            className="text-xs font-medium text-text-link hover:underline"
-          >
-            {r.minFix[k]}
-          </button>
-        </div>
-      )}
       <p className="mt-2 text-[11px] leading-4 text-text-muted">
-        {term?.startDate && term.endDate
+        {hasTerm
           ? fill(t.termNote, {
-              start: readableDay(term.startDate, lang),
-              end: readableDay(term.endDate, lang),
+              start: readableDay(term!.startDate, lang),
+              end: readableDay(term!.endDate, lang),
             })
           : t.termMissing}
       </p>
@@ -380,82 +342,17 @@ export function RestrictionDrawer({
 
       <div className="mt-5">
         <FieldLabel>{r.daysLabel[k]}</FieldLabel>
-        <p className="mt-1.5 text-[11px] leading-4 text-text-muted">{r.daysHint[k]}</p>
-
-        {!hasRange ? (
-          <p className="mt-3 rounded-[12px] bg-surface-subtle px-3.5 py-6 text-center text-[12px] text-text-muted">
-            {r.emptyCalendar[k]}
-          </p>
-        ) : (
-          <>
-            {months.length > MAX_MONTHS && (
-              <p className="mt-3 text-[11.5px] text-text-muted">{t.tooLong}</p>
-            )}
-            {months.slice(0, MAX_MONTHS).map(({ year, month }) => {
-              const first = new Date(year, month, 1);
-              const total = new Date(year, month + 1, 0).getDate();
-              const lead = (first.getDay() + 1) % 7;
-              return (
-                <div key={`${year}-${month}`} className="mt-3">
-                  <p className="text-[12.5px] font-semibold text-text-primary">
-                    {first.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <div className="mt-2 grid grid-cols-7 gap-1.5">
-                    {WEEKDAY_SHORT.map((day, column) => (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => openWeekday(column)}
-                        className="pb-1 text-center text-[10px] font-medium text-text-muted hover:text-text-primary"
-                      >
-                        {day}
-                        {weekendOnly && weekendSet.has(JS_DAY[(column + 6) % 7]!) && (
-                          <span className="mt-0.5 block text-[8px] font-normal text-brand-deep">
-                            {r.legendWeekend[k]}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    {Array.from({ length: lead }, (_, index) => (
-                      <span key={`lead-${index}`} aria-hidden="true" />
-                    ))}
-                    {Array.from({ length: total }, (_, index) => index + 1).map((day) => {
-                      const key = keyOf(new Date(year, month, day));
-                      return (
-                        <DayCell
-                          key={key}
-                          day={day}
-                          state={stateOf(key)}
-                          label={{ in: r.legendIn[k], out: r.legendOut[k] }}
-                          outside={key < startDate || key > endDate || !inRule(key)}
-                          onClick={() => openDay(key)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-text-muted">
-              <span className="flex items-center gap-1.5">
-                <span className={cn("rounded-md px-1.5 leading-[17px]", CHIP_OPEN)}>
-                  {r.legendIn[k]}
-                </span>
-                {r.legendOpen[k]}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className={cn("rounded-md px-1.5 leading-[17px]", CHIP_CLOSED)}>
-                  {r.legendIn[k]}
-                </span>
-                {r.legendClosed[k]}
-              </span>
-              <span>{r.legendTap[k]}</span>
-            </div>
-          </>
-        )}
+        <p className="mt-1.5 text-[11px] leading-4 text-text-muted">{t.closedHint}</p>
+        <DayChips
+          label={t.closedInLabel}
+          closed={closedIn}
+          onToggle={(day) => setClosedIn((prev) => toggle(prev, day))}
+        />
+        <DayChips
+          label={t.closedOutLabel}
+          closed={closedOut}
+          onToggle={(day) => setClosedOut((prev) => toggle(prev, day))}
+        />
       </div>
 
       <div className="mt-5 border-t border-border-subtle pt-4">
@@ -480,19 +377,24 @@ export function RestrictionDrawer({
         </ul>
       )}
 
-      {scope && (
-        <RestrictionDayDialog
-          scope={scope}
-          checkIn={!scope.keys.every((key) => closedIn.includes(key))}
-          checkOut={!scope.keys.every((key) => closedOut.includes(key))}
-          onClose={() => setScope(null)}
-          onApply={(next) => {
-            const keys =
-              scope.kind === "day" && next.everyWeekday
-                ? dayKeysFor(columnOf(scope.keys[0]!))
-                : scope.keys;
-            applyTo(keys, next);
-          }}
+      {confirmClose && (
+        <IconModal
+          tone="danger"
+          icon={<AlertTriangle className="h-5 w-5" aria-hidden="true" />}
+          overline={t.overline}
+          title={t.discardTitle}
+          body={t.discardBody}
+          onClose={() => setConfirmClose(false)}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setConfirmClose(false)}>
+                {t.keepEditing}
+              </Button>
+              <Button variant="destructive" onClick={closeSmoothly}>
+                {t.discard}
+              </Button>
+            </>
+          }
         />
       )}
     </Drawer>

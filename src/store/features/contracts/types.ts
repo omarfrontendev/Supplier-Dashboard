@@ -53,6 +53,18 @@ export const ROOM_VIEWS: RoomView[] = [
 
 export const CONTRACT_NAME_MAX = 200;
 
+export const RESTRICTION_MAX_NIGHTS = 365;
+
+export const WEEKDAY_NUMBER: Record<Weekday, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
+
 export const SLA_MIN_MINUTES = 10;
 export const SLA_MAX_MINUTES = 120;
 
@@ -128,8 +140,8 @@ export interface RestrictionRule {
   endDate: string;
   minNights: string;
   appliesOn: RestrictionAppliesOn;
-  closedCheckIn: string[];
-  closedCheckOut: string[];
+  closedCheckIn: Weekday[];
+  closedCheckOut: Weekday[];
   active: boolean;
 }
 

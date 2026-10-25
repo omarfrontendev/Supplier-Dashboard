@@ -1,4 +1,10 @@
-import { CHILD_RULES, MEAL_PLANS, type ContractDraftState, type MealRule } from "./types";
+import {
+  CHILD_RULES,
+  MEAL_PLANS,
+  WEEKDAY_NUMBER,
+  type ContractDraftState,
+  type MealRule,
+} from "./types";
 
 export const toAmount = (value: string): number | null => {
   const trimmed = value.trim();
@@ -72,8 +78,8 @@ export function buildContractPayload(draft: ContractDraftState) {
           endDate: rule.endDate,
           minNights: toAmount(rule.minNights),
           appliesOn: rule.appliesOn,
-          restrictedCheckInDates: rule.closedCheckIn,
-          restrictedCheckOutDates: rule.closedCheckOut,
+          restrictedCheckinDays: rule.closedCheckIn.map((day) => WEEKDAY_NUMBER[day]),
+          restrictedCheckoutDays: rule.closedCheckOut.map((day) => WEEKDAY_NUMBER[day]),
           active: rule.active,
         }))
       : null,

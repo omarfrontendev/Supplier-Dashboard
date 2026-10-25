@@ -119,12 +119,12 @@ export const restrictionDrawer = {
 export const deleteRestrictionDialog = {
   title: t("Delete this restriction?", "هل تحذف هذا القيد؟"),
   body: t(
-    "It is removed from the contract straight away.",
-    "يُزال من العقد فورًا."
+    "It is removed from this draft now and from the contract when you save the draft.",
+    "يُزال من هذه المسودة الآن، ومن العقد عند حفظ المسودة."
   ),
   note: t(
-    "New searches and bookings stop following it. Confirmed bookings keep the rules they were booked with. This can’t be undone - to pause a rule instead, edit it and set it to Inactive.",
-    "يتوقف البحث والحجوزات الجديدة عن اتباعه. وتحتفظ الحجوزات المؤكدة بالقواعد التي حُجزت بها. ولا يمكن التراجع - ولإيقاف قاعدة بدل حذفها، حرّرها واجعلها غير فعّالة."
+    "Until you save, leaving without saving keeps it on the contract. To pause a rule instead of deleting it, set it to Inactive.",
+    "قبل الحفظ، إن غادرت دون حفظ يبقى القيد على العقد. ولإيقاف قاعدة بدل حذفها، اجعلها غير فعّالة."
   ),
   cancel: t("Cancel", "إلغاء"),
   confirm: t("Delete", "حذف"),

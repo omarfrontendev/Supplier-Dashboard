@@ -72,6 +72,7 @@ export interface SupplierHotelContract {
 
   weekPricing: unknown | null;
   childPricing: ContractChildPricing | null;
+  restrictions?: ContractRestriction[];
 
   createdBySupplierUserId: number;
   updatedBySupplierUserId: number;
@@ -132,10 +133,30 @@ export interface CreateHotelContractBody {
   bookingType: BookingType;
   pricingModel: PricingModel;
   childPricing: ContractChildPricing;
+  restrictions?: Omit<ContractRestrictionInput, "isActive">[];
 }
 
 export type UpdateHotelContractBody = Partial<
-  Omit<CreateHotelContractBody, "hotelId" | "pricingModel">
+  Omit<CreateHotelContractBody, "hotelId" | "pricingModel" | "restrictions">
 > & {
   expectedVersion: number;
+  restrictions?: ContractRestrictionInput[];
 };
+
+export type RestrictionAppliesOn = "every_day" | "weekend_days";
+
+export interface ContractRestrictionInput {
+  roomId: number | null;
+  appliesFrom: string;
+  appliesTo: string;
+  minNights: number;
+  appliesOn: RestrictionAppliesOn;
+  restrictedCheckinDays: number[];
+  restrictedCheckoutDays: number[];
+  isActive: boolean;
+}
+
+export interface ContractRestriction extends ContractRestrictionInput {
+  id: number;
+  contractId: number;
+}

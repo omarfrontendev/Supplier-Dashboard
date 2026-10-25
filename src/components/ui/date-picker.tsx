@@ -27,7 +27,7 @@ export function dateOf(key: DayKey): Date {
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
 }
 
-function addDays(key: DayKey, days: number): DayKey {
+export function addDays(key: DayKey, days: number): DayKey {
   return keyOf(new Date(dateOf(key).getTime() + days * DAY));
 }
 

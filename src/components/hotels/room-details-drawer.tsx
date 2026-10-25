@@ -4,6 +4,7 @@ import { useHotelRoom } from "@/api/modules/hotels/useHotelRoom";
 import { HotelGalleryImage } from "@/components/hotels/HotelGalleryImage";
 import { Drawer } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
+import { arDigits } from "@/lib/arabic-count";
 import { fill, useLanguage } from "@/lib/i18n";
 import type { RoomView } from "@/store/features/contracts/types";
 
@@ -30,7 +31,9 @@ export function RoomDetailsDrawer({
       ? dash
       : template
         ? fill(template, { count: amount, age: amount, size: amount })
-        : amount.toLocaleString(lang === "ar" ? "ar-EG" : "en-US");
+        : lang === "ar"
+          ? arDigits(amount)
+          : String(amount);
   const viewLabel = room?.view ? (views[room.view as RoomView] ?? room.view) : dash;
   const images = [...(room?.images ?? [])].sort(
     (a, b) => Number(b.isCover) - Number(a.isCover) || a.sortOrder - b.sortOrder,

@@ -101,6 +101,13 @@ export const drawerMotion = (dir: string) =>
     ? "motion-safe:animate-in motion-safe:slide-in-from-left motion-safe:duration-300 motion-safe:ease-out"
     : "motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-300 motion-safe:ease-out";
 
+export const scrimExitMotion =
+  "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:duration-200 fill-mode-forwards";
+export const drawerExitMotion = (dir: string) =>
+  dir === "rtl"
+    ? "motion-safe:animate-out motion-safe:slide-out-to-left motion-safe:duration-200 motion-safe:ease-in fill-mode-forwards"
+    : "motion-safe:animate-out motion-safe:slide-out-to-right motion-safe:duration-200 motion-safe:ease-in fill-mode-forwards";
+
 /** Centered modal, matching the overlay pattern in the Figma MVP screens. */
 export function Modal({
   overline,
@@ -377,6 +384,9 @@ export function Drawer({
   footer,
   width = "520px",
   divider = true,
+  dirty = false,
+  onGuard,
+  closing = false,
 }: {
   overline?: string;
   title: string;
@@ -387,6 +397,9 @@ export function Drawer({
   width?: string;
   /** OV 04.7 draws its head and foot with no rule across them. */
   divider?: boolean;
+  dirty?: boolean | undefined;
+  onGuard?: (() => void) | undefined;
+  closing?: boolean;
 }) {
   const { c, dir } = useLanguage();
 
@@ -394,13 +407,16 @@ export function Drawer({
      rule is overruled: every overlay in the portal now answers Esc and a
      click beside it, because a drawer that traps you where a modal lets
      you out is the kind of difference nobody can learn. */
-  const dismiss = useDismiss({ onClose });
+  const dismiss = useDismiss({ onClose, dirty, onGuard });
 
   return (
     <div
       dir={dir}
       {...dismiss.scrim}
-      className={cn("fixed inset-0 z-50 flex bg-brand-deep/40", scrimMotion)}
+      className={cn(
+        "fixed inset-0 z-50 flex bg-brand-deep/40",
+        closing ? scrimExitMotion : scrimMotion,
+      )}
     >
       <div aria-hidden="true" className="flex-1" />
       <aside
@@ -408,7 +424,7 @@ export function Drawer({
         style={{ width }}
         className={cn(
           "flex h-full max-w-full flex-col bg-surface-default shadow-drawer",
-          drawerMotion(dir),
+          closing ? drawerExitMotion(dir) : drawerMotion(dir),
         )}
       >
         {/* OV 03.16 / 03.17 — the drawer head the frames draw. */}
@@ -431,7 +447,7 @@ export function Drawer({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={dirty && onGuard ? onGuard : onClose}
             aria-label={c.common.close}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-status-neutral-bg text-text-body transition-colors hover:bg-border-subtle"
           >

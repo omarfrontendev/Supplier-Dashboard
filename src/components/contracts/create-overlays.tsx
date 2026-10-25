@@ -6,9 +6,9 @@ import { AlertTriangle, Building2, CalendarDays, Coins, Info, Save } from "lucid
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { DateField, arabicDigits } from "@/components/ui/date-field";
-import { dateOf, keyOf } from "@/components/ui/date-picker";
+import { addDays, dateOf, keyOf } from "@/components/ui/date-picker";
 import { useLanguage } from "@/lib/i18n";
-import { WEEKDAYS, type Weekday } from "@/store/features/contracts/types";
+import { WEEKDAY_NUMBER, WEEKDAYS, type Weekday } from "@/store/features/contracts/types";
 import { cn } from "@/lib/utils";
 import {
   currencyPanel,
@@ -173,7 +173,7 @@ export function TermOverlay({
   });
   const start = watch("start");
   const end = watch("end");
-  const endMin = start ? shiftDay(start, 1) : undefined;
+  const endMin = start ? addDays(start, 1) : undefined;
   const valid = Boolean(start && end && end > start);
   const nights = valid
     ? Math.round((dateOf(end).getTime() - dateOf(start).getTime()) / 86_400_000)
@@ -298,22 +298,6 @@ export function TermOverlay({
       )}
     </IconModal>
   );
-}
-
-const WEEKDAY_NUMBER: Record<Weekday, number> = {
-  sun: 0,
-  mon: 1,
-  tue: 2,
-  wed: 3,
-  thu: 4,
-  fri: 5,
-  sat: 6,
-};
-
-function shiftDay(key: string, days: number) {
-  const date = dateOf(key);
-  date.setDate(date.getDate() + days);
-  return keyOf(date);
 }
 
 /** OV 03.1S — the two nights that carry the weekend price. */

@@ -1,6 +1,8 @@
 import type {
   BookingType as ApiBookingType,
   ContractChildPricing,
+  ContractRestriction,
+  ContractRestrictionInput,
   CreateHotelContractBody,
   PricingModel as ApiPricingModel,
   SupplierHotelContract,
@@ -10,10 +12,13 @@ import { toAmount } from "./contract-payload";
 import {
   CHILD_RULES,
   CONTRACT_NAME_MAX,
+  WEEKDAY_NUMBER,
+  WEEKDAYS,
   type BookingType,
   type ChildRules,
   type ContractDraftState,
   type PricingModel,
+  type RestrictionRule,
 } from "./types";
 
 const bookingToApi: Record<BookingType, ApiBookingType> = {
@@ -46,8 +51,14 @@ export function toCreateContractBody(draft: ContractDraftState): CreateHotelCont
     bookingType: bookingToApi[basics.bookingType],
     pricingModel: pricingToApi[draft.pricingModel],
     childPricing: toChildPricing(draft),
+    ...(draft.restrictions.enabled && draft.restrictions.rules.length > 0
+      ? { restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule) }
+      : {}),
   };
 }
+
+export const hasInactiveRestrictions = ({ restrictions }: ContractDraftState) =>
+  restrictions.enabled && restrictions.rules.some((rule) => !rule.active);
 
 const MUTABLE_FIELDS = ["name", "startDate", "endDate", "currency", "bookingType"] as const;
 
@@ -68,12 +79,14 @@ export function toUpdateContractBody(
   const next = toCreateContractBody(draft);
   const fields = changedContractFields(draft, contract);
   const children = childPricingChanged(draft, contract);
-  if (fields.length === 0 && !children) return null;
+  const restrictions = restrictionsChanged(draft, contract);
+  if (fields.length === 0 && !children && !restrictions) return null;
   return fields.reduce<UpdateHotelContractBody>(
     (body, field) => ({ ...body, [field]: next[field] }),
     {
       expectedVersion: contract.version,
       ...(children ? { childPricing: next.childPricing } : {}),
+      ...(restrictions ? { restrictions: toRestrictions(draft) } : {}),
     },
   );
 }
@@ -101,6 +114,7 @@ export function draftFromContract(contract: SupplierHotelContract) {
       ? "fixed_price"
       : "base_supplements") as PricingModel,
     ...(contract.childPricing ? { children: childrenFromContract(contract.childPricing) } : {}),
+    restrictions: restrictionsFromContract(contract.restrictions ?? []),
   };
 }
 
@@ -165,4 +179,56 @@ export function childPricingChanged(draft: ContractDraftState, contract: Supplie
 }
 
 export const sameSavedDraft = (draft: ContractDraftState, contract: SupplierHotelContract) =>
-  sameSavedBasics(draft, contract) && !childPricingChanged(draft, contract);
+  sameSavedBasics(draft, contract) &&
+  !childPricingChanged(draft, contract) &&
+  !restrictionsChanged(draft, contract);
+
+const toDays = (numbers: number[]) =>
+  WEEKDAYS.filter((day) => numbers.includes(WEEKDAY_NUMBER[day]));
+
+export function toRestrictions({ restrictions }: ContractDraftState): ContractRestrictionInput[] {
+  if (!restrictions.enabled) return [];
+  return restrictions.rules.map((rule) => ({
+    roomId: rule.roomId,
+    appliesFrom: rule.startDate,
+    appliesTo: rule.endDate,
+    minNights: Number(rule.minNights),
+    appliesOn: rule.appliesOn === "weekend_only" ? "weekend_days" : "every_day",
+    restrictedCheckinDays: rule.closedCheckIn.map((day) => WEEKDAY_NUMBER[day]),
+    restrictedCheckoutDays: rule.closedCheckOut.map((day) => WEEKDAY_NUMBER[day]),
+    isActive: rule.active,
+  }));
+}
+
+export function restrictionsFromContract(saved: ContractRestriction[]) {
+  const rules: RestrictionRule[] = saved.map((item) => ({
+    id: `saved-${item.id}`,
+    roomId: item.roomId,
+    startDate: item.appliesFrom.slice(0, 10),
+    endDate: item.appliesTo.slice(0, 10),
+    minNights: String(item.minNights),
+    appliesOn: item.appliesOn === "weekend_days" ? "weekend_only" : "every_day",
+    closedCheckIn: toDays(item.restrictedCheckinDays ?? []),
+    closedCheckOut: toDays(item.restrictedCheckoutDays ?? []),
+    active: item.isActive,
+  }));
+  return { enabled: rules.length > 0, rules };
+}
+
+const restrictionKey = (item: ContractRestrictionInput) =>
+  [
+    item.roomId ?? "all",
+    item.appliesFrom.slice(0, 10),
+    item.appliesTo.slice(0, 10),
+    item.minNights,
+    item.appliesOn,
+    [...item.restrictedCheckinDays].sort().join("."),
+    [...item.restrictedCheckoutDays].sort().join("."),
+    item.isActive,
+  ].join("|");
+
+export function restrictionsChanged(draft: ContractDraftState, contract: SupplierHotelContract) {
+  const next = toRestrictions(draft).map(restrictionKey);
+  const saved = (contract.restrictions ?? []).map(restrictionKey);
+  return next.length !== saved.length || next.some((key, index) => key !== saved[index]);
+}

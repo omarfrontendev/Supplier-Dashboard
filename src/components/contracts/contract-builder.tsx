@@ -16,6 +16,10 @@ import { getApiErrorList } from "@/lib/api-error";
 import {
   basicsReady,
   childPricingChanged,
+  hasInactiveRestrictions,
+  restrictionsChanged,
+  restrictionsFromContract,
+  toRestrictions,
   childrenFromContract,
   contractDifferences,
   draftFromContract,
@@ -46,6 +50,7 @@ import {
 } from "@/components/contracts/contract-form/shared";
 import {
   childIssues,
+  restrictionsIssues,
   validateContract,
   type ContractSectionKey,
 } from "@/components/contracts/contract-form/schema";
@@ -53,6 +58,7 @@ import { readableDay } from "@/components/ui/date-field";
 import {
   loadContract,
   replaceChildren,
+  replaceRestrictions,
   resetDraft,
   updateBasics,
   saveCancellationPolicy,
@@ -264,12 +270,32 @@ export function ContractBuilder({
       jumpTo("children");
       return false;
     }
+    const restrictionErrors = draft.restrictions.enabled
+      ? restrictionsIssues(
+          draft.restrictions.rules,
+          basics,
+          f.v,
+          (rule) => `${readableDay(rule.startDate, lang)} – ${readableDay(rule.endDate, lang)}`,
+          (day) => readableDay(day, lang),
+        )
+      : [];
+    if (restrictionErrors.length > 0) {
+      notify.error(restrictionErrors[0]!);
+      jumpTo("restrictions");
+      return false;
+    }
     let contract: SupplierHotelContract | null = saved;
     let createdId: number | null = null;
     try {
       if (!contract) {
         contract = await saveContract.mutateAsync({ id: null, body: toCreateContractBody(draft) });
         createdId = contract.id;
+        if (hasInactiveRestrictions(draft)) {
+          contract = await saveContract.mutateAsync({
+            id: contract.id,
+            body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
+          });
+        }
       } else {
         const body = toUpdateContractBody(draft, contract);
         if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
@@ -307,6 +333,9 @@ export function ContractBuilder({
           dispatch(updateBasics(mergeLatestBasics(editing, before, latest)));
           if (latest.childPricing && !childPricingChanged(editing, before)) {
             dispatch(replaceChildren(childrenFromContract(latest.childPricing)));
+          }
+          if (!restrictionsChanged(editing, before)) {
+            dispatch(replaceRestrictions(restrictionsFromContract(latest.restrictions ?? [])));
           }
         }
         notify.error(
