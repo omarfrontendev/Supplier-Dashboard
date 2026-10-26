@@ -90,6 +90,7 @@ export function PoliciesSummary({
           >
             {release ? releaseText : p.notSet}
           </p>
+          <p className="mt-1 text-[11.5px] leading-4 text-text-muted">{p.releaseLocalNote}</p>
           <div className="mt-3">
             <Button variant="outline" size="sm" onClick={onRelease}>
               {!release && <Plus className="h-4 w-4" aria-hidden="true" />}

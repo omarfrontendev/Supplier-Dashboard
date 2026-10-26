@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   Check,
   ChevronRight,
   Lock,
   Plus,
   Save,
 } from "lucide-react";
+import { IconModal } from "@/components/layout/overlay";
 import { PageShell } from "@/components/layout/page-shell";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
 import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
@@ -160,6 +162,7 @@ export function ContractBuilder({
   const [reviewOpen, setReviewOpen] = useState(false);
   /* OV 03.16 / 03.17 — the two policy drawers. */
   const [policy, setPolicy] = useState<"cancellation" | "release" | null>(null);
+  const [confirmNoPolicies, setConfirmNoPolicies] = useState(false);
   const [seasonPolicy, setSeasonPolicy] = useState<SeasonPolicy | null>(null);
   /* OV 03.14 - 03.17 — one season, one room, every night it covers. */
   const [seasonDetail, setSeasonDetail] = useState<SeasonDetail | null>(null);
@@ -957,10 +960,16 @@ export function ContractBuilder({
           >
             <ChoiceRow
               value={hasPolicies ? "add" : "none"}
-              onChange={(next) => dispatch(setPoliciesEnabled(next === "add"))}
+              onChange={(next) => {
+                if (next === "none" && (draft.policies.cancellation || draft.policies.release)) {
+                  setConfirmNoPolicies(true);
+                  return;
+                }
+                dispatch(setPoliciesEnabled(next === "add"));
+              }}
               options={[
                 { value: "add", label: t.addToContract },
-                { value: "none", label: t.noneOnContract },
+                { value: "none", label: t.noPoliciesOnContract },
               ]}
             />
             {!hasPolicies && (
@@ -1110,8 +1119,38 @@ export function ContractBuilder({
       {policy === "cancellation" && (
         <CancellationDrawer
           initial={draft.policies.cancellation}
-          onSave={(tiers) => dispatch(saveCancellationPolicy(tiers))}
+          currency={basics.currency}
+          onSave={(next) => {
+            dispatch(saveCancellationPolicy(next));
+            notify.success(f.policies.cancellationSaved);
+          }}
           onClose={() => setPolicy(null)}
+        />
+      )}
+      {confirmNoPolicies && (
+        <IconModal
+          tone="danger"
+          icon={<AlertTriangle className="h-5 w-5" aria-hidden="true" />}
+          overline={t.sections[8]!}
+          title={f.policies.noneTitle}
+          body={f.policies.noneBody}
+          onClose={() => setConfirmNoPolicies(false)}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setConfirmNoPolicies(false)}>
+                {f.policies.noneKeep}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  dispatch(setPoliciesEnabled(false));
+                  setConfirmNoPolicies(false);
+                }}
+              >
+                {f.policies.noneConfirm}
+              </Button>
+            </>
+          }
         />
       )}
       {policy === "release" && (

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Plus, Timer, X } from "lucide-react";
-import { Drawer } from "@/components/layout/overlay";
+import { AlertTriangle, ChevronDown, Plus, Timer, X } from "lucide-react";
+import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -46,6 +46,15 @@ const START: Tier[] = [
 
 const START_NO_SHOW: CancellationFee = { charge: "percent", value: "100" };
 
+const policyOf = (tiers: Tier[], noShow: CancellationFee): CancellationPolicy => ({
+  tiers: tiers.map(({ days, charge, value }) => ({
+    days,
+    charge: charge as CancellationCharge | "",
+    value: charge === "free" ? "" : value,
+  })),
+  noShow: { ...noShow, value: noShow.charge === "free" ? "" : noShow.value },
+});
+
 /** The small cell that holds a number inside a tier row. */
 function NumberCell({
   value,
@@ -74,9 +83,47 @@ function NumberCell({
       }}
       className={cn(
         "font-data h-9 rounded-lg border border-border-strong bg-surface-default px-2 text-center text-sm text-text-primary placeholder:text-text-muted focus-visible:border-border-focus focus-visible:outline-none",
-        wide ? "w-24" : "w-14"
+        wide ? "w-[96px]" : "w-14"
       )}
     />
+  );
+}
+
+const TIER_ROW = "grid grid-cols-[76px_minmax(0,1fr)_308px_28px] items-center gap-3";
+
+function ChargeCell({
+  fee,
+  label,
+  unit,
+  onPick,
+  onValue,
+}: {
+  fee: { charge: ChargeKind; value: string };
+  label: string;
+  unit: string;
+  onPick: (kind: ChargeKind) => void;
+  onValue: (next: string) => void;
+}) {
+  return (
+    <span className="flex items-center gap-2">
+      <ChargeMenu charge={fee.charge} onPick={onPick} />
+      <span className="flex w-[132px] items-center gap-1.5">
+        {fee.charge === "free" || !fee.charge ? (
+          <span className="px-2 text-sm text-text-muted">-</span>
+        ) : (
+          <>
+            <NumberCell
+              value={fee.value}
+              decimal={fee.charge !== "nights"}
+              wide={fee.charge === "fixed"}
+              label={label}
+              onChange={onValue}
+            />
+            <span className="truncate text-[11.5px] text-text-muted">{unit}</span>
+          </>
+        )}
+      </span>
+    </span>
   );
 }
 
@@ -98,7 +145,7 @@ function ChargeMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-9 min-w-[150px] items-center justify-between gap-2 rounded-lg border border-border-strong bg-surface-default px-2.5 text-start text-sm text-text-primary hover:bg-surface-subtle"
+          className="flex h-9 w-[168px] items-center justify-between gap-2 rounded-lg border border-border-strong bg-surface-default px-2.5 text-start text-sm text-text-primary hover:bg-surface-subtle"
         >
           <span className={cn("truncate", !current && "text-text-muted")}>
             {current ? current.label[k] : c.choosePlaceholder[k]}
@@ -136,11 +183,13 @@ function ChargeMenu({
 export function CancellationDrawer({
   season,
   initial,
+  currency,
   onSave,
   onClose,
 }: {
   season?: SeasonPolicy;
   initial?: CancellationPolicy | null;
+  currency?: string | null;
   onSave?: (policy: CancellationPolicy) => void;
   onClose: () => void;
 }) {
@@ -156,28 +205,46 @@ export function CancellationDrawer({
   );
   const [noShow, setNoShow] = useState<CancellationFee>(initial?.noShow ?? START_NO_SHOW);
   const [issues, setIssues] = useState<string[]>([]);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [startSnapshot] = useState(() => JSON.stringify(policyOf(tiers, noShow)));
+  const dirty = JSON.stringify(policyOf(tiers, noShow)) !== startSnapshot;
+
+  const closeSmoothly = () => {
+    setConfirmClose(false);
+    setClosing(true);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.setTimeout(onClose, reduced ? 0 : 200);
+  };
+  const requestClose = () => (dirty ? setConfirmClose(true) : closeSmoothly());
 
   const save = () => {
-    const next: CancellationPolicy = {
-      tiers: tiers.map(({ days, charge, value }) => ({
-        days,
-        charge: charge as CancellationCharge | "",
-        value: charge === "free" ? "" : value,
-      })),
-      noShow: { ...noShow, value: noShow.charge === "free" ? "" : noShow.value },
-    };
+    const sorted = tiers.every((tier) => tier.days !== "")
+      ? [...tiers].sort((a, b) => Number(b.days) - Number(a.days))
+      : tiers;
+    setTiers(sorted);
+    const next = policyOf(sorted, noShow);
     const found = cancellationIssues(next, dict.builder.form.v);
     setIssues(found);
     if (found.length > 0) return;
     onSave?.(next);
-    onClose();
+    closeSmoothly();
   };
+
+  const unit = (charge: ChargeKind) =>
+    charge === "nights"
+      ? c.unitNights[k]
+      : charge === "percent"
+        ? c.unitPercent[k]
+        : charge === "fixed"
+          ? (currency ?? "")
+          : "";
   const [removed, setRemoved] = useState<{ tier: Tier; at: number } | null>(
     null
   );
 
-  const last = tiers[tiers.length - 1];
-  const isNew = Boolean(last && !last.days);
+  const isNew = tiers.some((tier) => !tier.days);
+  const smallest = Math.min(...tiers.map((tier) => Number(tier.days) || Infinity));
   const full = tiers.length >= MAX_CANCELLATION_TIERS;
 
   const update = (id: number, patch: Partial<Tier>) =>
@@ -196,17 +263,20 @@ export function CancellationDrawer({
       overline={season ? season.overline[k] : c.overline[k]}
       title={season ? season.title[k] : c.title[k]}
       meta={season ? season.body[k] : c.body[k]}
-      onClose={onClose}
+      onClose={closeSmoothly}
+      closing={closing}
+      dirty={dirty}
+      onGuard={() => setConfirmClose(true)}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={requestClose}>
             {c.cancel[k]}
           </Button>
           <Button onClick={save}>{c.confirm[k]}</Button>
         </>
       }
     >
-      <div className="grid grid-cols-[76px_1fr_1fr_28px] items-center gap-3 pb-2 text-overline text-text-muted">
+      <div className={cn(TIER_ROW, "pb-2 text-overline text-text-muted")}>
         {c.head.map((cell) => (
           <span key={cell.en}>{cell[k]}</span>
         ))}
@@ -214,10 +284,7 @@ export function CancellationDrawer({
       </div>
 
       {tiers.map((tier, index) => (
-        <div
-          key={tier.id}
-          className="grid grid-cols-[76px_1fr_1fr_28px] items-center gap-3 border-t border-border-subtle py-2.5"
-        >
+        <div key={tier.id} className={cn(TIER_ROW, "border-t border-border-subtle py-2.5")}>
           <span className="text-[12.5px] font-medium text-text-primary">
             {fill(c.tierName[k], { n: index + 1 })}
           </span>
@@ -228,27 +295,15 @@ export function CancellationDrawer({
               placeholder={c.daysPlaceholder[k]}
               onChange={(next) => update(tier.id, { days: next })}
             />
-            <span className="text-[11.5px] text-text-muted">
-              {c.daysBefore[k]}
-            </span>
+            <span className="text-[11.5px] text-text-muted">{c.daysBefore[k]}</span>
           </span>
-          <span className="flex items-center gap-2">
-            <ChargeMenu
-              charge={tier.charge}
-              onPick={(kind) => update(tier.id, { charge: kind })}
-            />
-            {tier.charge === "free" || !tier.charge ? (
-              <span className="text-sm text-text-muted">-</span>
-            ) : (
-              <NumberCell
-                value={tier.value}
-                decimal={tier.charge !== "nights"}
-                wide={tier.charge === "fixed"}
-                label={fill(c.tierName[k], { n: index + 1 })}
-                onChange={(next) => update(tier.id, { value: next })}
-              />
-            )}
-          </span>
+          <ChargeCell
+            fee={tier}
+            label={fill(c.tierName[k], { n: index + 1 })}
+            unit={unit(tier.charge)}
+            onPick={(kind) => update(tier.id, { charge: kind })}
+            onValue={(next) => update(tier.id, { value: next })}
+          />
           <button
             type="button"
             onClick={() => remove(tier, index)}
@@ -260,38 +315,26 @@ export function CancellationDrawer({
         </div>
       ))}
 
-      {/* No-show is drawn like a tier but cannot be moved or removed. */}
-      <div className="grid grid-cols-[76px_1fr_1fr_28px] items-center gap-3 border-t border-border-subtle py-2.5">
-        <span className="text-[12.5px] font-medium text-text-primary">
-          {c.noShow[k]}
+      <div className={cn(TIER_ROW, "border-t border-border-subtle py-2.5")}>
+        <span>
+          <span className="block text-[12.5px] font-medium text-text-primary">{c.noShow[k]}</span>
+          <span className="mt-0.5 block text-[10.5px] text-text-muted">{c.alwaysLast[k]}</span>
         </span>
-        <span className="text-[11.5px] text-text-muted">
-          {isNew
+        <span className="text-[11.5px] leading-4 text-text-muted">
+          {isNew || !Number.isFinite(smallest)
             ? c.noShowRuleNew[k]
-            : fill(c.noShowRule[k], { days: last?.days ?? "3" })}
+            : fill(c.noShowRule[k], { days: smallest })}
         </span>
-        <span className="flex items-center gap-2">
-          <ChargeMenu
-            charge={noShow.charge}
-            onPick={(kind) =>
-              setNoShow((prev) => ({ charge: kind, value: kind === prev.charge ? prev.value : "" }))
-            }
-          />
-          {noShow.charge === "free" || !noShow.charge ? (
-            <span className="text-sm text-text-muted">-</span>
-          ) : (
-            <NumberCell
-              value={noShow.value}
-              decimal={noShow.charge !== "nights"}
-              wide={noShow.charge === "fixed"}
-              label={c.noShow[k]}
-              onChange={(next) => setNoShow((prev) => ({ ...prev, value: next }))}
-            />
-          )}
-        </span>
-        <span className="text-[10px] leading-3 text-text-muted">
-          {c.alwaysLast[k]}
-        </span>
+        <ChargeCell
+          fee={noShow}
+          label={c.noShow[k]}
+          unit={unit(noShow.charge)}
+          onPick={(kind) =>
+            setNoShow((prev) => ({ charge: kind, value: kind === prev.charge ? prev.value : "" }))
+          }
+          onValue={(next) => setNoShow((prev) => ({ ...prev, value: next }))}
+        />
+        <span />
       </div>
 
       {/* OV 03.16D — a removed tier can come straight back. */}
@@ -357,6 +400,27 @@ export function CancellationDrawer({
         <p className="mt-3 rounded-[12px] bg-surface-subtle px-3.5 py-3 text-[11.5px] leading-5 text-text-body">
           {season.footer[k]}
         </p>
+      )}
+
+      {confirmClose && (
+        <IconModal
+          tone="danger"
+          icon={<AlertTriangle className="h-5 w-5" aria-hidden="true" />}
+          overline={season ? season.overline[k] : c.overline[k]}
+          title={c.discardTitle[k]}
+          body={c.discardBody[k]}
+          onClose={() => setConfirmClose(false)}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setConfirmClose(false)}>
+                {c.keepEditing[k]}
+              </Button>
+              <Button variant="destructive" onClick={closeSmoothly}>
+                {c.discard[k]}
+              </Button>
+            </>
+          }
+        />
       )}
     </Drawer>
   );

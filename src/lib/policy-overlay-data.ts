@@ -54,7 +54,7 @@ export const cancellationDrawer = {
   ],
   tierName: t("Tier {n}", "الشريحة {n}"),
   daysBefore: t("days before", "يومًا قبل"),
-  daysPlaceholder: t("e.g. 2", "مثال: ٢"),
+  daysPlaceholder: t("2", "٢"),
   choosePlaceholder: t("Choose charge", "اختر الرسوم"),
   noShow: t("No-show", "عدم الحضور"),
   noShowRule: t("Under {days} days, or no-show", "أقل من {days} يوم، أو عدم حضور"),
@@ -68,6 +68,15 @@ export const cancellationDrawer = {
     "No-show is always the last tier. Bookings keep the policy in force at confirmation - changing tiers later affects new bookings only.",
     "عدم الحضور دائمًا الشريحة الأخيرة. وتحتفظ الحجوزات بالسياسة السارية عند تأكيدها - وتغيير الشرائح لاحقًا يمسّ الحجوزات الجديدة وحدها."
   ),
+  unitNights: t("nights", "ليلة"),
+  unitPercent: t("%", "٪"),
+  discardTitle: t("Discard your changes to this policy?", "هل تتجاهل تعديلاتك على هذه السياسة؟"),
+  discardBody: t(
+    "You changed this policy but haven't saved it. Closing now loses those changes.",
+    "عدّلت هذه السياسة ولم تحفظها. الإغلاق الآن يُضيّع هذه التعديلات."
+  ),
+  keepEditing: t("Keep editing", "متابعة التعديل"),
+  discard: t("Discard changes", "تجاهل التعديلات"),
   cancel: t("Cancel", "إلغاء"),
   confirm: t("Save policy", "حفظ السياسة"),
 };

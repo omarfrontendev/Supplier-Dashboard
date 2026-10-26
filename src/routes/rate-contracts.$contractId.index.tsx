@@ -878,7 +878,7 @@ function ContractDetailPage() {
                   onChange={(next) => setHasPolicies(next === "add")}
                   options={[
                     { value: "add", label: b.addToContract },
-                    { value: "none", label: b.noneOnContract },
+                    { value: "none", label: b.noPoliciesOnContract },
                   ]}
                 />
               )}
