@@ -19,6 +19,8 @@ import {
   hasInactiveRestrictions,
   restrictionsChanged,
   restrictionsFromContract,
+  cancellationChanged,
+  cancellationFromContract,
   toRestrictions,
   childrenFromContract,
   contractDifferences,
@@ -49,6 +51,7 @@ import {
   useContractDraft,
 } from "@/components/contracts/contract-form/shared";
 import {
+  cancellationIssues,
   childIssues,
   restrictionsIssues,
   validateContract,
@@ -57,6 +60,7 @@ import {
 import { readableDay } from "@/components/ui/date-field";
 import {
   loadContract,
+  replaceCancellation,
   replaceChildren,
   replaceRestrictions,
   resetDraft,
@@ -284,6 +288,15 @@ export function ContractBuilder({
       jumpTo("restrictions");
       return false;
     }
+    const cancellationErrors =
+      draft.policies.enabled && draft.policies.cancellation
+        ? cancellationIssues(draft.policies.cancellation, f.v)
+        : [];
+    if (cancellationErrors.length > 0) {
+      notify.error(cancellationErrors[0]!);
+      jumpTo("policies");
+      return false;
+    }
     let contract: SupplierHotelContract | null = saved;
     let createdId: number | null = null;
     try {
@@ -336,6 +349,9 @@ export function ContractBuilder({
           }
           if (!restrictionsChanged(editing, before)) {
             dispatch(replaceRestrictions(restrictionsFromContract(latest.restrictions ?? [])));
+          }
+          if (!cancellationChanged(editing, before)) {
+            dispatch(replaceCancellation(cancellationFromContract(latest.cancellationPolicy ?? null)));
           }
         }
         notify.error(

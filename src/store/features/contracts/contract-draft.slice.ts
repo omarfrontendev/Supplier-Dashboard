@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import type {
-  CancellationTier,
+  CancellationPolicy,
   ChildRule,
   ChildRuleKey,
   ChildRules,
@@ -79,6 +79,7 @@ export const contractDraftSlice = createSlice({
         pricingModel: PricingModel;
         children?: ChildRules;
         restrictions?: ContractRestrictions;
+        cancellation?: CancellationPolicy | null;
       }>,
     ) => ({
       ...initialState,
@@ -86,10 +87,16 @@ export const contractDraftSlice = createSlice({
       pricingModel: action.payload.pricingModel,
       children: action.payload.children ?? initialState.children,
       restrictions: action.payload.restrictions ?? initialState.restrictions,
+      policies: { ...initialState.policies, cancellation: action.payload.cancellation ?? null },
     }),
 
     replaceRestrictions: (state, action: PayloadAction<ContractRestrictions>) => {
       state.restrictions = action.payload;
+    },
+
+    replaceCancellation: (state, action: PayloadAction<CancellationPolicy | null>) => {
+      state.policies.cancellation = action.payload;
+      if (action.payload) state.policies.enabled = true;
     },
 
     replaceChildren: (state, action: PayloadAction<ChildRules>) => {
@@ -239,7 +246,7 @@ export const contractDraftSlice = createSlice({
       }
     },
 
-    saveCancellationPolicy: (state, action: PayloadAction<CancellationTier[]>) => {
+    saveCancellationPolicy: (state, action: PayloadAction<CancellationPolicy>) => {
       state.policies.cancellation = action.payload;
     },
 
@@ -292,6 +299,7 @@ export const {
   removeRestriction,
   setPoliciesEnabled,
   saveCancellationPolicy,
+  replaceCancellation,
   saveReleasePolicy,
 } = contractDraftSlice.actions;
 

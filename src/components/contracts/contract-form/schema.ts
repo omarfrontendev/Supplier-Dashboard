@@ -4,6 +4,9 @@ import { fill } from "@/lib/i18n";
 import type { Dict } from "@/lib/dict";
 import { toAmount } from "@/store/features/contracts/contract-payload";
 import {
+  CANCELLATION_MAX_AMOUNT,
+  CANCELLATION_MAX_DAYS,
+  CANCELLATION_MAX_NIGHTS,
   CHILD_MAX_AGE,
   CHILD_RULES,
   CONTRACT_NAME_MAX,
@@ -13,7 +16,8 @@ import {
   SLA_MAX_MINUTES,
   SLA_MIN_MINUTES,
   WEEKDAYS,
-  type CancellationTier,
+  type CancellationFee,
+  type CancellationPolicy,
   type ChildRule,
   type ChildRules,
   type ContractDraftState,
@@ -51,25 +55,35 @@ const wholeNumber = (value: string, min: number, max: number) => {
   return amount !== null && Number.isInteger(amount) && amount >= min && amount <= max;
 };
 
-export function cancellationIssues(tiers: CancellationTier[], m: Messages): string[] {
+const twoDecimals = (value: string) => /^\d+(\.\d{1,2})?$/.test(value.trim());
+
+const feeValid = ({ charge, value }: CancellationFee) => {
+  if (charge === "free") return true;
+  if (charge === "nights") return wholeNumber(value, 1, CANCELLATION_MAX_NIGHTS);
+  const amount = toAmount(value);
+  if (amount === null || !twoDecimals(value) || amount <= 0) return false;
+  return charge === "percent" ? amount <= 100 : amount <= CANCELLATION_MAX_AMOUNT;
+};
+
+export function cancellationIssues({ tiers, noShow }: CancellationPolicy, m: Messages): string[] {
   const issues: string[] = [];
   if (tiers.length === 0) issues.push(m.tiersEmpty);
   if (tiers.length > MAX_CANCELLATION_TIERS) {
     issues.push(fill(m.tiersMax, { max: MAX_CANCELLATION_TIERS }));
   }
-  if (tiers.some((tier) => !wholeNumber(tier.days, 0, 365))) issues.push(m.tiersDays);
+  if (tiers.some((tier) => !wholeNumber(tier.days, 1, CANCELLATION_MAX_DAYS))) {
+    issues.push(fill(m.tiersDays, { max: CANCELLATION_MAX_DAYS }));
+  }
   if (tiers.some((tier) => !tier.charge)) issues.push(m.tiersCharge);
-  const badValue = tiers.some((tier) => {
-    if (tier.charge === "nights") return !wholeNumber(tier.value, 1, 30);
-    if (tier.charge === "percent") return !wholeNumber(tier.value, 1, 100);
-    if (tier.charge === "fixed") return (toAmount(tier.value) ?? 0) <= 0;
-    return false;
-  });
-  if (badValue) issues.push(m.tiersValue);
+  if (tiers.some((tier) => tier.charge && !feeValid(tier))) {
+    issues.push(fill(m.tiersValue, { nights: CANCELLATION_MAX_NIGHTS }));
+  }
   const days = tiers.map((tier) => toAmount(tier.days));
   if (days.every((day) => day !== null) && days.some((day, i) => i > 0 && day! >= days[i - 1]!)) {
     issues.push(m.tiersOrder);
   }
+  if (!noShow.charge) issues.push(m.noShowCharge);
+  else if (!feeValid(noShow)) issues.push(fill(m.noShowValue, { nights: CANCELLATION_MAX_NIGHTS }));
   return issues;
 }
 

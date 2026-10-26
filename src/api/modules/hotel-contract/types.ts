@@ -73,6 +73,7 @@ export interface SupplierHotelContract {
   weekPricing: unknown | null;
   childPricing: ContractChildPricing | null;
   restrictions?: ContractRestriction[];
+  cancellationPolicy?: ContractCancellationPolicy | null;
 
   createdBySupplierUserId: number;
   updatedBySupplierUserId: number;
@@ -134,14 +135,33 @@ export interface CreateHotelContractBody {
   pricingModel: PricingModel;
   childPricing: ContractChildPricing;
   restrictions?: Omit<ContractRestrictionInput, "isActive">[];
+  cancellationPolicy?: ContractCancellationPolicy;
 }
 
 export type UpdateHotelContractBody = Partial<
-  Omit<CreateHotelContractBody, "hotelId" | "pricingModel" | "restrictions">
+  Omit<CreateHotelContractBody, "hotelId" | "pricingModel" | "restrictions" | "cancellationPolicy">
 > & {
   expectedVersion: number;
   restrictions?: ContractRestrictionInput[];
+  cancellationPolicy?: ContractCancellationPolicy | null;
 };
+
+export type CancellationChargeKind = "free" | "nights" | "percent" | "fixed";
+
+export interface ContractCancellationCharge {
+  kind: CancellationChargeKind;
+  value?: number;
+}
+
+export interface ContractCancellationTier {
+  daysBefore: number;
+  charge: ContractCancellationCharge;
+}
+
+export interface ContractCancellationPolicy {
+  tiers: ContractCancellationTier[];
+  noShow: ContractCancellationCharge;
+}
 
 export type RestrictionAppliesOn = "every_day" | "weekend_days";
 

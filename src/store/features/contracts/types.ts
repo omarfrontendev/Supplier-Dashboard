@@ -112,13 +112,24 @@ export type MealRules = Record<MealPlan, MealRule>;
 
 export type CancellationCharge = "free" | "nights" | "percent" | "fixed";
 
-export interface CancellationTier {
-  days: string;
+export interface CancellationFee {
   charge: CancellationCharge | "";
   value: string;
 }
 
-export const MAX_CANCELLATION_TIERS = 4;
+export interface CancellationTier extends CancellationFee {
+  days: string;
+}
+
+export interface CancellationPolicy {
+  tiers: CancellationTier[];
+  noShow: CancellationFee;
+}
+
+export const MAX_CANCELLATION_TIERS = 3;
+export const CANCELLATION_MAX_DAYS = 365;
+export const CANCELLATION_MAX_NIGHTS = 365;
+export const CANCELLATION_MAX_AMOUNT = 10_000_000;
 
 export type ReleasePeriod = "same_day" | "days";
 
@@ -152,7 +163,7 @@ export interface ContractRestrictions {
 
 export interface ContractPolicies {
   enabled: boolean;
-  cancellation: CancellationTier[] | null;
+  cancellation: CancellationPolicy | null;
   release: ReleasePolicy | null;
 }
 

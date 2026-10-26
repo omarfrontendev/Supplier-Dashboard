@@ -1,5 +1,7 @@
 import type {
   BookingType as ApiBookingType,
+  ContractCancellationCharge,
+  ContractCancellationPolicy,
   ContractChildPricing,
   ContractRestriction,
   ContractRestrictionInput,
@@ -15,6 +17,8 @@ import {
   WEEKDAY_NUMBER,
   WEEKDAYS,
   type BookingType,
+  type CancellationFee,
+  type CancellationPolicy,
   type ChildRules,
   type ContractDraftState,
   type PricingModel,
@@ -54,6 +58,7 @@ export function toCreateContractBody(draft: ContractDraftState): CreateHotelCont
     ...(draft.restrictions.enabled && draft.restrictions.rules.length > 0
       ? { restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule) }
       : {}),
+    ...(toCancellationPolicy(draft) ? { cancellationPolicy: toCancellationPolicy(draft)! } : {}),
   };
 }
 
@@ -80,13 +85,15 @@ export function toUpdateContractBody(
   const fields = changedContractFields(draft, contract);
   const children = childPricingChanged(draft, contract);
   const restrictions = restrictionsChanged(draft, contract);
-  if (fields.length === 0 && !children && !restrictions) return null;
+  const cancellation = cancellationChanged(draft, contract);
+  if (fields.length === 0 && !children && !restrictions && !cancellation) return null;
   return fields.reduce<UpdateHotelContractBody>(
     (body, field) => ({ ...body, [field]: next[field] }),
     {
       expectedVersion: contract.version,
       ...(children ? { childPricing: next.childPricing } : {}),
       ...(restrictions ? { restrictions: toRestrictions(draft) } : {}),
+      ...(cancellation ? { cancellationPolicy: toCancellationPolicy(draft) } : {}),
     },
   );
 }
@@ -115,6 +122,7 @@ export function draftFromContract(contract: SupplierHotelContract) {
       : "base_supplements") as PricingModel,
     ...(contract.childPricing ? { children: childrenFromContract(contract.childPricing) } : {}),
     restrictions: restrictionsFromContract(contract.restrictions ?? []),
+    cancellation: cancellationFromContract(contract.cancellationPolicy ?? null),
   };
 }
 
@@ -181,7 +189,8 @@ export function childPricingChanged(draft: ContractDraftState, contract: Supplie
 export const sameSavedDraft = (draft: ContractDraftState, contract: SupplierHotelContract) =>
   sameSavedBasics(draft, contract) &&
   !childPricingChanged(draft, contract) &&
-  !restrictionsChanged(draft, contract);
+  !restrictionsChanged(draft, contract) &&
+  !cancellationChanged(draft, contract);
 
 const toDays = (numbers: number[]) =>
   WEEKDAYS.filter((day) => numbers.includes(WEEKDAY_NUMBER[day]));
@@ -232,3 +241,52 @@ export function restrictionsChanged(draft: ContractDraftState, contract: Supplie
   const saved = (contract.restrictions ?? []).map(restrictionKey);
   return next.length !== saved.length || next.some((key, index) => key !== saved[index]);
 }
+
+const toCharge = ({ charge, value }: CancellationFee): ContractCancellationCharge =>
+  charge === "free" || !charge
+    ? { kind: "free" }
+    : { kind: charge, value: toAmount(value) ?? 0 };
+
+const fromCharge = (charge: ContractCancellationCharge): CancellationFee => ({
+  charge: charge.kind,
+  value: charge.kind === "free" || charge.value === undefined ? "" : String(Number(charge.value)),
+});
+
+export function toCancellationPolicy({ policies }: ContractDraftState): ContractCancellationPolicy | null {
+  if (!policies.enabled || !policies.cancellation) return null;
+  return {
+    tiers: policies.cancellation.tiers.map((tier) => ({
+      daysBefore: Number(tier.days),
+      charge: toCharge(tier),
+    })),
+    noShow: toCharge(policies.cancellation.noShow),
+  };
+}
+
+export function cancellationFromContract(
+  saved: ContractCancellationPolicy | null,
+): CancellationPolicy | null {
+  if (!saved) return null;
+  return {
+    tiers: [...saved.tiers]
+      .sort((a, b) => b.daysBefore - a.daysBefore)
+      .map((tier) => ({ days: String(tier.daysBefore), ...fromCharge(tier.charge) })),
+    noShow: fromCharge(saved.noShow),
+  };
+}
+
+const chargeKey = (charge: ContractCancellationCharge) =>
+  `${charge.kind}:${charge.kind === "free" ? "" : Number(charge.value)}`;
+
+const cancellationKey = (policy: ContractCancellationPolicy | null) =>
+  policy
+    ? [
+        ...[...policy.tiers]
+          .sort((a, b) => b.daysBefore - a.daysBefore)
+          .map((tier) => `${tier.daysBefore}=${chargeKey(tier.charge)}`),
+        `noShow=${chargeKey(policy.noShow)}`,
+      ].join("|")
+    : "none";
+
+export const cancellationChanged = (draft: ContractDraftState, contract: SupplierHotelContract) =>
+  cancellationKey(toCancellationPolicy(draft)) !== cancellationKey(contract.cancellationPolicy ?? null);

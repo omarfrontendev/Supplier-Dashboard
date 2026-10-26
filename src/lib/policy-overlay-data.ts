@@ -36,7 +36,7 @@ export const chargeKinds: Array<{
   {
     kind: "fixed",
     label: t("Fixed amount", "مبلغ ثابت"),
-    hint: t("charge a set amount in SAR", "احتساب مبلغ محدد بالريال"),
+    hint: t("charge a set amount in the contract currency", "احتساب مبلغ محدد بعملة العقد"),
   },
 ];
 
@@ -57,17 +57,13 @@ export const cancellationDrawer = {
   daysPlaceholder: t("e.g. 2", "مثال: ٢"),
   choosePlaceholder: t("Choose charge", "اختر الرسوم"),
   noShow: t("No-show", "عدم الحضور"),
-  noShowRule: t("Under {days} days, or no-show", "أقل من {days} أيام، أو عدم حضور"),
+  noShowRule: t("Under {days} days, or no-show", "أقل من {days} يوم، أو عدم حضور"),
   noShowRuleNew: t("Under the new tier, or no-show", "أقل من الشريحة الجديدة، أو عدم حضور"),
   alwaysLast: t("always last", "دائمًا الأخيرة"),
   addTier: t("Add tier", "إضافة شريحة"),
-  maxTiers: t("4 tiers is the maximum", "الحد الأقصى ٤ شرائح"),
+  maxTiers: t("3 tiers is the maximum", "الحد الأقصى ٣ شرائح"),
   removed: t("Tier {n} removed", "حُذفت الشريحة {n}"),
   undo: t("Undo", "تراجع"),
-  minTiers: t(
-    "A cancellation policy needs at least two tiers - remove one more and the policy stops being valid.",
-    "تحتاج سياسة الإلغاء إلى شريحتين على الأقل - واحذف واحدة أخرى وتتوقف السياسة عن الصلاحية."
-  ),
   note: t(
     "No-show is always the last tier. Bookings keep the policy in force at confirmation - changing tiers later affects new bookings only.",
     "عدم الحضور دائمًا الشريحة الأخيرة. وتحتفظ الحجوزات بالسياسة السارية عند تأكيدها - وتغيير الشرائح لاحقًا يمسّ الحجوزات الجديدة وحدها."

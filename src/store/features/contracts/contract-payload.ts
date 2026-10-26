@@ -85,11 +85,20 @@ export function buildContractPayload(draft: ContractDraftState) {
       : null,
     policies: draft.policies.enabled
       ? {
-          cancellationTiers: (draft.policies.cancellation ?? []).map((tier) => ({
+          cancellationTiers: (draft.policies.cancellation?.tiers ?? []).map((tier) => ({
             minDaysBeforeCheckIn: toAmount(tier.days),
             charge: tier.charge,
             value: tier.charge === "free" ? null : toAmount(tier.value),
           })),
+          noShow: draft.policies.cancellation
+            ? {
+                charge: draft.policies.cancellation.noShow.charge,
+                value:
+                  draft.policies.cancellation.noShow.charge === "free"
+                    ? null
+                    : toAmount(draft.policies.cancellation.noShow.value),
+              }
+            : null,
           release: draft.policies.release
             ? {
                 period: draft.policies.release.period,

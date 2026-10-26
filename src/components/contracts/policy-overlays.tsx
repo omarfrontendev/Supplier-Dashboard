@@ -25,7 +25,8 @@ import {
   MAX_CANCELLATION_TIERS,
   type AfterRelease,
   type CancellationCharge,
-  type CancellationTier,
+  type CancellationFee,
+  type CancellationPolicy,
   type ReleasePolicy,
 } from "@/store/features/contracts/types";
 
@@ -43,17 +44,21 @@ const START: Tier[] = [
   { id: 2, days: "3", charge: "nights", value: "1" },
 ];
 
+const START_NO_SHOW: CancellationFee = { charge: "percent", value: "100" };
+
 /** The small cell that holds a number inside a tier row. */
 function NumberCell({
   value,
   placeholder,
   decimal = false,
+  wide = false,
   label,
   onChange,
 }: {
   value: string;
   placeholder?: string;
   decimal?: boolean;
+  wide?: boolean;
   label?: string;
   onChange: (next: string) => void;
 }) {
@@ -67,7 +72,10 @@ function NumberCell({
         const next = event.target.value;
         if ((decimal ? /^\d*\.?\d{0,2}$/ : /^\d{0,3}$/).test(next)) onChange(next);
       }}
-      className="font-data h-9 w-14 rounded-lg border border-border-strong bg-surface-default px-2 text-center text-sm text-text-primary placeholder:text-text-muted focus-visible:border-border-focus focus-visible:outline-none"
+      className={cn(
+        "font-data h-9 rounded-lg border border-border-strong bg-surface-default px-2 text-center text-sm text-text-primary placeholder:text-text-muted focus-visible:border-border-focus focus-visible:outline-none",
+        wide ? "w-24" : "w-14"
+      )}
     />
   );
 }
@@ -132,28 +140,32 @@ export function CancellationDrawer({
   onClose,
 }: {
   season?: SeasonPolicy;
-  initial?: CancellationTier[] | null;
-  onSave?: (tiers: CancellationTier[]) => void;
+  initial?: CancellationPolicy | null;
+  onSave?: (policy: CancellationPolicy) => void;
   onClose: () => void;
 }) {
   const { c: dict, lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = cancellationDrawer;
   const [tiers, setTiers] = useState<Tier[]>(() =>
-    initial?.length
-      ? initial.map((tier, index) => ({ id: index + 1, ...tier }))
+    initial?.tiers.length
+      ? initial.tiers.map((tier, index) => ({ id: index + 1, ...tier }))
       : season
         ? [{ id: 1, days: "14", charge: "free", value: "" }]
         : START
   );
+  const [noShow, setNoShow] = useState<CancellationFee>(initial?.noShow ?? START_NO_SHOW);
   const [issues, setIssues] = useState<string[]>([]);
 
   const save = () => {
-    const next = tiers.map(({ days, charge, value }) => ({
-      days,
-      charge: charge as CancellationCharge | "",
-      value: charge === "free" ? "" : value,
-    }));
+    const next: CancellationPolicy = {
+      tiers: tiers.map(({ days, charge, value }) => ({
+        days,
+        charge: charge as CancellationCharge | "",
+        value: charge === "free" ? "" : value,
+      })),
+      noShow: { ...noShow, value: noShow.charge === "free" ? "" : noShow.value },
+    };
     const found = cancellationIssues(next, dict.builder.form.v);
     setIssues(found);
     if (found.length > 0) return;
@@ -230,7 +242,8 @@ export function CancellationDrawer({
             ) : (
               <NumberCell
                 value={tier.value}
-                decimal={tier.charge === "fixed"}
+                decimal={tier.charge !== "nights"}
+                wide={tier.charge === "fixed"}
                 label={fill(c.tierName[k], { n: index + 1 })}
                 onChange={(next) => update(tier.id, { value: next })}
               />
@@ -258,12 +271,23 @@ export function CancellationDrawer({
             : fill(c.noShowRule[k], { days: last?.days ?? "3" })}
         </span>
         <span className="flex items-center gap-2">
-          <span className="flex h-9 min-w-[150px] items-center rounded-lg border border-border-subtle bg-surface-subtle px-2.5 text-sm text-text-secondary">
-            {chargeKinds[2]!.label[k]}
-          </span>
-          <span className="font-data flex h-9 w-14 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle text-sm text-text-secondary">
-            100
-          </span>
+          <ChargeMenu
+            charge={noShow.charge}
+            onPick={(kind) =>
+              setNoShow((prev) => ({ charge: kind, value: kind === prev.charge ? prev.value : "" }))
+            }
+          />
+          {noShow.charge === "free" || !noShow.charge ? (
+            <span className="text-sm text-text-muted">-</span>
+          ) : (
+            <NumberCell
+              value={noShow.value}
+              decimal={noShow.charge !== "nights"}
+              wide={noShow.charge === "fixed"}
+              label={c.noShow[k]}
+              onChange={(next) => setNoShow((prev) => ({ ...prev, value: next }))}
+            />
+          )}
         </span>
         <span className="text-[10px] leading-3 text-text-muted">
           {c.alwaysLast[k]}
@@ -292,13 +316,6 @@ export function CancellationDrawer({
           </button>
         </div>
       )}
-      {/* A season may carry a single tier; the contract policy may not. */}
-      {!season && tiers.length < 2 && (
-        <p className="mt-2 text-[11.5px] leading-4 text-status-warning">
-          {c.minTiers[k]}
-        </p>
-      )}
-
       <div className="mt-3">
         {full ? (
           <p className="text-[11.5px] text-text-muted">{c.maxTiers[k]}</p>

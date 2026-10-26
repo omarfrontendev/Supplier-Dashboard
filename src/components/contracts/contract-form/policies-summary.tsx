@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
 import { cancellationDrawer, chargeKinds } from "@/lib/policy-overlay-data";
 import { toAmount } from "@/store/features/contracts/contract-payload";
-import { MAX_CANCELLATION_TIERS, type CancellationTier } from "@/store/features/contracts/types";
+import { MAX_CANCELLATION_TIERS, type CancellationFee } from "@/store/features/contracts/types";
 import { contractIssuesFor } from "./schema";
 import { formatAmount, useContractDraft } from "./shared";
 
@@ -23,10 +23,10 @@ export function PoliciesSummary({
   const { cancellation, release } = draft.policies;
   const issues = contractIssuesFor(draft, t.form.v, "policies");
 
-  const chargeText = (tier: CancellationTier) => {
+  const chargeText = (tier: CancellationFee) => {
     if (tier.charge === "free") return p.chargeFree;
-    if (tier.charge === "nights") return fill(p.chargeNights, { value: tier.value });
-    if (tier.charge === "percent") return fill(p.chargePercent, { value: tier.value });
+    if (tier.charge === "nights") return fill(p.chargeNights, { value: Number(tier.value) });
+    if (tier.charge === "percent") return fill(p.chargePercent, { value: Number(tier.value) });
     if (tier.charge === "fixed") {
       return fill(p.chargeFixed, {
         value: formatAmount(toAmount(tier.value) ?? 0, lang, draft.basics.currency),
@@ -51,16 +51,19 @@ export function PoliciesSummary({
           {cancellation ? (
             <>
               <ul className="mt-1.5 space-y-1">
-                {cancellation.map((tier, index) => (
+                {cancellation.tiers.map((tier, index) => (
                   <li key={index} className="text-sm font-medium text-text-primary">
                     {fill(cancellationDrawer.tierName[k], { n: index + 1 })} ·{" "}
-                    {fill(p.tierLine, { days: tier.days, charge: chargeText(tier) })}
+                    {fill(p.tierLine, { days: Number(tier.days), charge: chargeText(tier) })}
                   </li>
                 ))}
+                <li className="text-sm font-medium text-text-primary">
+                  {fill(p.noShowLine, { charge: chargeText(cancellation.noShow) })}
+                </li>
               </ul>
               <p className="mt-1 text-xs text-text-muted">
                 {fill(p.tiersCount, {
-                  count: cancellation.length,
+                  count: cancellation.tiers.length,
                   max: MAX_CANCELLATION_TIERS,
                 })}
               </p>
