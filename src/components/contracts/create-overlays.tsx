@@ -5,10 +5,10 @@ import { z } from "zod";
 import { AlertTriangle, Building2, CalendarDays, Coins, Info, Save } from "lucide-react";
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
-import { DateField, arabicDigits } from "@/components/ui/date-field";
+import { DateField } from "@/components/ui/date-field";
 import { addDays, dateOf, keyOf } from "@/components/ui/date-picker";
 import { useLanguage } from "@/lib/i18n";
-import { WEEKDAY_NUMBER, WEEKDAYS, type Weekday } from "@/store/features/contracts/types";
+import { WEEKDAY_NUMBER, type Weekday } from "@/store/features/contracts/types";
 import { cn } from "@/lib/utils";
 import {
   currencyPanel,
@@ -149,9 +149,6 @@ export function TermOverlay({
   const p = termPanel;
   const v = c.builder.form.v;
   const weekendNumbers = weekendDays.map((day) => WEEKDAY_NUMBER[day]);
-  const weekendLabel = WEEKDAYS.filter((day) => weekendDays.includes(day))
-    .map((day) => c.builder.form.days[day])
-    .join(ar ? " و" : " · ");
   const schema = z
     .object({
       start: z.string().min(1, v.startDate),
@@ -174,10 +171,6 @@ export function TermOverlay({
   const start = watch("start");
   const end = watch("end");
   const endMin = start ? addDays(start, 1) : undefined;
-  const valid = Boolean(start && end && end > start);
-  const nights = valid
-    ? Math.round((dateOf(end).getTime() - dateOf(start).getTime()) / 86_400_000)
-    : 0;
 
   const pickEnd = (next: string) => setValue("end", next, { shouldValidate: true });
   const pickRange = (range: { start: string; end: string }) => {
@@ -188,18 +181,13 @@ export function TermOverlay({
   };
 
   const usePreset = (preset: (typeof p.presets)[number]) => {
-    if (preset.months) {
-      const from = start || keyOf(new Date());
-      const base = dateOf(from);
-      const to = new Date(base.getFullYear(), base.getMonth() + preset.months, base.getDate() - 1);
-      setValue("start", from, { shouldValidate: true });
-      setValue("end", keyOf(to), { shouldValidate: true });
-      return;
-    }
-    if (preset.start && preset.end) {
-      setValue("start", preset.start, { shouldValidate: true });
-      setValue("end", preset.end, { shouldValidate: true });
-    }
+    const from = start || keyOf(new Date());
+    const base = dateOf(from);
+    const to = preset.months
+      ? keyOf(new Date(base.getFullYear(), base.getMonth() + preset.months, base.getDate() - 1))
+      : addDays(from, (preset.days ?? 1) - 1);
+    setValue("start", from, { shouldValidate: true });
+    setValue("end", to, { shouldValidate: true });
   };
 
   return (
@@ -289,13 +277,6 @@ export function TermOverlay({
         </div>
       )}
 
-      {valid && (
-        <p className="text-[11.5px] leading-4 text-text-muted">
-          {(weekendLabel ? (ar ? p.noteAr : p.note) : ar ? p.noteNoWeekendAr : p.noteNoWeekend)
-            .replace("{nights}", ar ? arabicDigits(nights, true) : String(nights))
-            .replace("{weekend}", weekendLabel)}
-        </p>
-      )}
     </IconModal>
   );
 }

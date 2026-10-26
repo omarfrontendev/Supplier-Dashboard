@@ -480,39 +480,13 @@ export const termPanel = {
   endValueAr: "٣١ أغسطس ٢٠٢٧",
   badEndValue: "15 Aug 2026",
   badEndValueAr: "١٥ أغسطس ٢٠٢٦",
-  /** The dates each preset fills in, from the contract's own seasons. */
   presets: [
     { label: "12 months", labelAr: "١٢ شهرًا", months: 12 },
-    {
-      label: "Ramadan 1448",
-      labelAr: "رمضان ١٤٤٨",
-      start: "2027-02-18",
-      end: "2027-03-19",
-    },
-    {
-      label: "Hajj 1448",
-      labelAr: "حج ١٤٤٨",
-      start: "2027-05-13",
-      end: "2027-05-20",
-    },
-    {
-      label: "Summer 2027",
-      labelAr: "صيف ٢٠٢٧",
-      start: "2027-07-01",
-      end: "2027-08-31",
-    },
-  ] as Array<{
-    label: string;
-    labelAr: string;
-    months?: number;
-    start?: string;
-    end?: string;
-  }>,
-  note: "{nights} nights · {weekend} weekends · the term locks after the first confirmed booking (Amend to change).",
-  noteNoWeekend: "{nights} nights · the term locks after the first confirmed booking (Amend to change).",
-  noteAr:
-    "{nights} ليلة · نهاية الأسبوع {weekend} · وتُقفل المدة بعد أول حجز مؤكد (تُغيَّر بتعديل تعاقدي).",
-  noteNoWeekendAr: "{nights} ليلة · وتُقفل المدة بعد أول حجز مؤكد (تُغيَّر بتعديل تعاقدي).",
+    { label: "6 months", labelAr: "٦ أشهر", months: 6 },
+    { label: "2 months", labelAr: "شهران", months: 2 },
+    { label: "1 month", labelAr: "شهر", months: 1 },
+    { label: "2 weeks", labelAr: "أسبوعان", days: 14 },
+  ] as Array<{ label: string; labelAr: string; months?: number; days?: number }>,
   error: "End date must be after the start date.",
   errorAr: "يجب أن يكون تاريخ النهاية بعد تاريخ البداية.",
   startPh: "Pick the start date",
