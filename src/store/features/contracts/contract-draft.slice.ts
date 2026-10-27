@@ -139,13 +139,15 @@ export const contractDraftSlice = createSlice({
 
     setBaseRoom: (state, action: PayloadAction<number>) => {
       const base = state.baseSupplements;
-      base.baseRoomId = action.payload;
-      const row = base.rooms.find((room) => room.roomId === action.payload);
-      if (row) {
-        row.supplement = "0";
-      } else {
-        base.rooms.push({ roomId: action.payload, supplement: "0" });
+      if (base.baseRoomId === action.payload) return;
+      if (
+        base.baseRoomId !== null &&
+        !base.rooms.some((room) => room.roomId === base.baseRoomId)
+      ) {
+        base.rooms.push({ roomId: base.baseRoomId, supplement: "0" });
       }
+      base.baseRoomId = action.payload;
+      base.rooms = base.rooms.filter((room) => room.roomId !== action.payload);
     },
 
     setBaseCost: (state, action: PayloadAction<{ day: "weekday" | "weekend"; value: string }>) => {

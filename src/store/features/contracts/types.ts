@@ -16,7 +16,7 @@ export type Weekday = "sat" | "sun" | "mon" | "tue" | "wed" | "thu" | "fri";
 
 export const WEEKDAYS: Weekday[] = ["sat", "sun", "mon", "tue", "wed", "thu", "fri"];
 
-export type MealPlan = "room_only" | "bed_breakfast" | "half_board" | "full_board" | "iftar_sohour";
+export type MealPlan = "room_only" | "bed_breakfast" | "half_board" | "full_board" | "iftar_sohour" | "iftar_and_suhoor";
 
 export const MEAL_PLANS: MealPlan[] = [
   "room_only",
@@ -24,6 +24,7 @@ export const MEAL_PLANS: MealPlan[] = [
   "half_board",
   "full_board",
   "iftar_sohour",
+  "iftar_and_suhoor"
 ];
 
 export type RoomView =

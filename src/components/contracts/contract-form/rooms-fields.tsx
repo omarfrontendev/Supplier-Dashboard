@@ -2,11 +2,15 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 
-import { useLinkedHotelRooms } from "@/api/modules/hotels/useLinkedHotelRooms";
+import type {
+  HotelContractsMetadataData,
+  SupplierHotelContractRoom,
+} from "@/api/modules/hotel-contract/types";
+import { useContractHotelRooms } from "@/api/modules/hotel-contract/useContractHotelRooms";
 import { Table } from "@/components/contracts/contract-parts";
 import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
-import { effectivePrice } from "@/store/features/contracts/contract-payload";
+import { effectivePrice, toAmount } from "@/store/features/contracts/contract-payload";
 import {
   removeFixedRoom,
   setFixedPrice,
@@ -18,17 +22,27 @@ import {
   AmountInput,
   formatAmount,
   RoomTick,
-  roomLabel,
   useAppDispatch,
   useContractDraft,
 } from "./shared";
 
-export function RoomsFields() {
+export function RoomsFields({
+  metadata,
+  metadataLoading,
+  metadataError,
+  onRetryMetadata,
+}: {
+  metadata: HotelContractsMetadataData | undefined;
+  metadataLoading: boolean;
+  metadataError: boolean;
+  onRetryMetadata: () => void;
+}) {
   const { c, lang } = useLanguage();
   const f = c.builder.form;
   const dispatch = useAppDispatch();
   const { basics, pricingModel, weekPricing, baseSupplements, fixedRooms } = useContractDraft();
-  const { rooms, isLoading, isError, refetch } = useLinkedHotelRooms(basics.hotelId);
+  const roomsQuery = useContractHotelRooms(basics.hotelId, { page: 1, limit: 100 });
+  const rooms = (roomsQuery.data?.rooms ?? []).filter((room) => room.status === "active");
   const [adding, setAdding] = useState(false);
 
   const split = weekPricing === "weekday_weekend";
@@ -39,14 +53,20 @@ export function RoomsFields() {
   if (!basics.hotelId) {
     return <p className="text-sm text-text-muted">{f.pickHotelFirst}</p>;
   }
-  if (isLoading) {
+  if (
+    roomsQuery.isLoading &&
+    (pricingModel === "fixed_price" || baseSupplements.baseRoomId === null)
+  ) {
     return <p className="text-sm text-text-muted">{f.roomsLoading}</p>;
   }
-  if (isError) {
+  if (
+    roomsQuery.isError &&
+    (pricingModel === "fixed_price" || baseSupplements.baseRoomId === null)
+  ) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-status-danger">{f.roomsError}</p>
-        <Button variant="outline" size="sm" onClick={() => void refetch()}>
+        <Button variant="outline" size="sm" onClick={() => void roomsQuery.refetch()}>
           {f.retry}
         </Button>
       </div>
@@ -80,7 +100,9 @@ export function RoomsFields() {
                 : `#${row.roomId}`;
               return [
                 name,
-                f.meals[row.mealPlan],
+                f.meals[
+                  row.mealPlan === "bed_and_breakfast" ? "bed_breakfast" : row.mealPlan
+                ],
                 f.views[row.view],
                 <AmountInput
                   key="weekday"
@@ -119,19 +141,59 @@ export function RoomsFields() {
         )}
 
         {adding && (
-          <AddRoomDialog hotelId={basics.hotelId} rooms={rooms} onClose={() => setAdding(false)} />
+          <AddRoomDialog
+            hotelId={basics.hotelId}
+            metadata={metadata}
+            metadataLoading={metadataLoading}
+            metadataError={metadataError}
+            onRetryMetadata={onRetryMetadata}
+            onClose={() => setAdding(false)}
+          />
         )}
       </>
     );
   }
 
-  if (rooms.length === 0) {
+  if (rooms.length === 0 && baseSupplements.baseRoomId === null) {
     return <p className="text-sm text-text-muted">{f.roomsEmpty}</p>;
   }
   const picked = new Map(baseSupplements.rooms.map((room) => [room.roomId, room]));
+  const baseRoom =
+    rooms.find((room) => room.id === baseSupplements.baseRoomId) ??
+    (baseSupplements.baseRoomId === null
+      ? undefined
+      : ({
+          id: baseSupplements.baseRoomId,
+          hotelId: basics.hotelId,
+          nameEn: `#${baseSupplements.baseRoomId}`,
+          nameAr: `#${baseSupplements.baseRoomId}`,
+          view: null,
+          maxOccupancy: null,
+          adults: null,
+          bedTypeId: null,
+          roomSizeId: null,
+          areaSqm: null,
+          status: "active",
+        } satisfies SupplierHotelContractRoom));
+  const displayRooms = baseRoom
+    ? [baseRoom, ...rooms.filter((room) => room.id !== baseRoom.id)]
+    : rooms;
+  const labelForRoom = (room: SupplierHotelContractRoom) =>
+    (lang === "ar" ? room.nameAr || room.nameEn : room.nameEn || room.nameAr) || `#${room.id}`;
 
   return (
     <>
+      {roomsQuery.isLoading && (
+        <p className="text-sm text-text-muted">{f.roomsLoading}</p>
+      )}
+      {roomsQuery.isError && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-status-danger">{f.roomsError}</p>
+          <Button variant="outline" size="sm" onClick={() => void roomsQuery.refetch()}>
+            {f.retry}
+          </Button>
+        </div>
+      )}
       <Link
         to="/hotel/$hotelId"
         params={{ hotelId: String(basics.hotelId) }}
@@ -147,23 +209,25 @@ export function RoomsFields() {
           f.colSupplement,
           ...(split ? [f.colWeekdayPrice, f.colWeekendPrice] : [f.colPrice]),
         ]}
-        muted={rooms
-          .map((room, index) => (room.id === baseSupplements.baseRoomId ? index : -1))
-          .filter((index) => index >= 0)}
-        rows={rooms.map((room) => {
-          const label = roomLabel(room, lang, f);
+        muted={baseRoom ? [0] : []}
+        rows={displayRooms.map((room) => {
+          const label = labelForRoom(room);
           const row = picked.get(room.id);
           const isBase = room.id === baseSupplements.baseRoomId;
-          const weekday = row
-            ? effectivePrice(baseSupplements.weekdayBaseCost, row.supplement)
-            : null;
-          const weekend = row
-            ? effectivePrice(baseSupplements.weekendBaseCost, row.supplement)
-            : null;
+          const weekday = isBase
+            ? toAmount(baseSupplements.weekdayBaseCost)
+            : row
+              ? effectivePrice(baseSupplements.weekdayBaseCost, row.supplement)
+              : null;
+          const weekend = isBase
+            ? toAmount(baseSupplements.weekendBaseCost)
+            : row
+              ? effectivePrice(baseSupplements.weekendBaseCost, row.supplement)
+              : null;
           return [
             <RoomTick
               key="tick"
-              on={Boolean(row)}
+              on={isBase || Boolean(row)}
               locked={isBase}
               label={label}
               onToggle={() => dispatch(toggleSupplementRoom(room.id))}

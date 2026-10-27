@@ -257,7 +257,7 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
       if (
         MEAL_PLANS.some(
           (meal) =>
-            meal !== "room_only" && draft.meals[meal].enabled && !filled(draft.meals[meal].price),
+            meal !== "room_only" && draft.meals[meal]?.enabled && !filled(draft.meals[meal].price),
         )
       ) {
         issue("meals", m.mealPrice);
@@ -275,7 +275,7 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
 
     childIssues(draft.children, m, childMaxAge).forEach((message) => issue("children", message));
 
-    if (draft.restrictions.enabled) {
+    if (draft.restrictions?.enabled) {
       if (draft.restrictions.rules.length === 0) {
         issue("restrictions", m.restrictionsEmpty);
       }
@@ -284,7 +284,7 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
       );
     }
 
-    if (draft.policies.enabled) {
+    if (draft.policies?.enabled) {
       const { cancellation, release } = draft.policies;
       if (!cancellation) {
         issue("policies", m.cancellationRequired);

@@ -6,6 +6,9 @@ import {
   type MealRule,
 } from "./types";
 
+const mealPlanToApi = (meal: (typeof MEAL_PLANS)[number]) =>
+  meal === "bed_breakfast" ? "bed_and_breakfast" : meal;
+
 export const toAmount = (value: string): number | null => {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -48,24 +51,30 @@ export function buildContractPayload(draft: ContractDraftState) {
       : null,
     pricingModel,
     weekPricing,
-    basePriceRooms:
+    basePricing:
       pricingModel === "base_supplements"
         ? {
             baseRoomId: draft.baseSupplements.baseRoomId,
-            weekdayBaseCost: toAmount(draft.baseSupplements.weekdayBaseCost),
-            weekendBaseCost: split ? toAmount(draft.baseSupplements.weekendBaseCost) : null,
-            rooms: draft.baseSupplements.rooms.map((room) => ({
-              roomId: room.roomId,
-              isBaseRoom: room.roomId === draft.baseSupplements.baseRoomId,
-              supplement: toAmount(room.supplement),
-            })),
+            baseRate: {
+              amount: toAmount(draft.baseSupplements.weekdayBaseCost),
+              ...(split
+                ? { weekendAmount: toAmount(draft.baseSupplements.weekendBaseCost) }
+                : {}),
+            },
+            mealPlans: MEAL_PLANS.filter((meal) => draft.meals[meal].enabled).map(mealPlanToApi),
+            rooms: draft.baseSupplements.rooms
+              .filter((room) => room.roomId !== draft.baseSupplements.baseRoomId)
+              .map((room) => ({
+                roomId: room.roomId,
+                supplement: { amount: toAmount(room.supplement) },
+              })),
           }
         : null,
     fixedPriceRooms:
       pricingModel === "fixed_price"
         ? draft.fixedRooms.map((room) => ({
             roomId: room.roomId,
-            mealPlan: room.mealPlan,
+            mealPlan: mealPlanToApi(room.mealPlan),
             view: room.view,
             weekdayPrice: toAmount(room.weekdayPrice),
             weekendPrice: split ? toAmount(room.weekendPrice) : null,
@@ -115,7 +124,7 @@ export function buildContractPayload(draft: ContractDraftState) {
     mealPlans:
       pricingModel === "base_supplements"
         ? MEAL_PLANS.filter((meal) => draft.meals[meal].enabled).map((meal) => ({
-            mealPlan: meal,
+            mealPlan: mealPlanToApi(meal),
             basis: draft.meals[meal].basis,
             price: meal === "room_only" ? 0 : toAmount(draft.meals[meal].price),
           }))

@@ -488,7 +488,10 @@ function RateContractsPage() {
     ...(filters.pricingModel !== undefined && { pricingModel: filters.pricingModel }),
   };
 
-  const { data, isPending, isError, refetch, error } = useHotelContracts(hotelContractsParams);
+  const { data, isPending, isError, refetch, errorMessage } =
+    useHotelContracts(hotelContractsParams);
+
+  console.log(errorMessage);
 
   const filtered = data?.contracts;
   const meta = data?.meta;
@@ -838,7 +841,7 @@ function RateContractsPage() {
 
             <h3 className="text-base font-semibold text-foreground">{t.errorTitle}</h3>
 
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{error.message}</p>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{errorMessage}</p>
 
             <button
               type="button"
@@ -855,7 +858,7 @@ function RateContractsPage() {
               {contracts.length ? t.filterEmptyTitle : t.emptyTitle}
             </p>
 
-            <p className="mx-auto mt-2 max-w-lg text-sm text-text-secondary">
+            {/* <p className="mx-auto mt-2 max-w-lg text-sm text-text-secondary">
               {contracts.length
                 ? [
                     hotel &&
@@ -866,7 +869,7 @@ function RateContractsPage() {
                     .filter(Boolean)
                     .join(" · ")
                 : t.emptyBody}
-            </p>
+            </p> */}
 
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               {contracts.length ? (
@@ -875,32 +878,14 @@ function RateContractsPage() {
                     variant="outline"
                     onClick={() => {
                       dispatch({
-                        type: "SET_HOTEL",
-                        payload: undefined,
+                        type: "CLEAR_FILTERS",
                       });
-                      dispatch({
-                        type: "SET_SEARCH",
-                        payload: "",
-                      });
-                      dispatch({
-                        type: "SET_PRICING_MODEL",
-                        payload: undefined,
-                      });
-                      dispatch({
-                        type: "SET_STATUS",
-                        payload: "",
-                      });
-                      dispatch({
-                        type: "SET_PAGE",
-                        payload: 1,
-                      });
-                      // Clear the remaining filters here if needed.
                     }}
                   >
                     {t.clearAll}
                   </Button>
 
-                  {hotel && (
+                  {/* {hotel && (
                     <Link to="/rate-contracts/new" search={{ source: undefined }}>
                       <Button>
                         {fill(t.createFor, {
@@ -908,7 +893,7 @@ function RateContractsPage() {
                         })}
                       </Button>
                     </Link>
-                  )}
+                  )} */}
                 </>
               ) : (
                 <>

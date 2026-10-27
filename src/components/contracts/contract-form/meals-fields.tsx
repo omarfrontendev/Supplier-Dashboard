@@ -38,10 +38,21 @@ export function MealsFields() {
 
   const enabledMeals = MEAL_PLANS.filter((meal) => meals[meal].enabled);
   const baseRoom = rooms.find((room) => room.id === baseSupplements.baseRoomId);
+  const pricedRoomCount =
+    baseSupplements.rooms.filter((room) => room.roomId !== baseSupplements.baseRoomId).length +
+    (baseSupplements.baseRoomId === null ? 0 : 1);
 
   const priceRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return baseSupplements.rooms
+    const pricedRooms = [
+      ...(baseSupplements.baseRoomId === null
+        ? []
+        : [{ roomId: baseSupplements.baseRoomId, supplement: "0" }]),
+      ...baseSupplements.rooms.filter(
+        (room) => room.roomId !== baseSupplements.baseRoomId,
+      ),
+    ];
+    return pricedRooms
       .map((row) => {
         const room = rooms.find((item) => item.id === row.roomId);
         if (!room) return null;
@@ -51,7 +62,7 @@ export function MealsFields() {
       })
       .filter((row): row is NonNullable<typeof row> => row !== null)
       .filter((row) => !needle || row.label.toLowerCase().includes(needle));
-  }, [baseSupplements, rooms, query, lang, f]);
+  }, [baseSupplements.baseRoomId, baseSupplements.rooms, baseSupplements.weekdayBaseCost, baseSupplements.weekendBaseCost, rooms, query, lang, f]);
 
   const lowest = priceRows.reduce<number | null>(
     (min, row) =>
@@ -128,13 +139,13 @@ export function MealsFields() {
           </div>
         </div>
 
-        {baseSupplements.rooms.length === 0 ? (
+        {pricedRoomCount === 0 ? (
           <p className="mt-3 text-sm text-text-muted">{t.listEmpty}</p>
         ) : (
           <>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
               <StatusPill tone="neutral">
-                {fill(t.roomsCount, { count: baseSupplements.rooms.length })}
+                {fill(t.roomsCount, { count: pricedRoomCount })}
               </StatusPill>
               {lowest !== null && (
                 <StatusPill tone="brand">{fill(t.from, { amount: money(lowest) })}</StatusPill>
