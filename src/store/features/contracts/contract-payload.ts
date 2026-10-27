@@ -67,6 +67,7 @@ export function buildContractPayload(draft: ContractDraftState) {
               .map((room) => ({
                 roomId: room.roomId,
                 supplement: { amount: toAmount(room.supplement) },
+                view: room.view,
               })),
           }
         : null,

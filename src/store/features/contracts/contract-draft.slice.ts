@@ -14,6 +14,7 @@ import type {
   PricingModel,
   ReleasePolicy,
   RestrictionRule,
+  RoomView,
   WeekPricing,
 } from "./types";
 
@@ -137,17 +138,8 @@ export const contractDraftSlice = createSlice({
       }
     },
 
-    setBaseRoom: (state, action: PayloadAction<number>) => {
-      const base = state.baseSupplements;
-      if (base.baseRoomId === action.payload) return;
-      if (
-        base.baseRoomId !== null &&
-        !base.rooms.some((room) => room.roomId === base.baseRoomId)
-      ) {
-        base.rooms.push({ roomId: base.baseRoomId, supplement: "0" });
-      }
-      base.baseRoomId = action.payload;
-      base.rooms = base.rooms.filter((room) => room.roomId !== action.payload);
+    setBaseRoom: (state, action: PayloadAction<number | null>) => {
+      state.baseSupplements.baseRoomId = action.payload;
     },
 
     setBaseCost: (state, action: PayloadAction<{ day: "weekday" | "weekend"; value: string }>) => {
@@ -165,15 +157,29 @@ export const contractDraftSlice = createSlice({
       if (index >= 0) {
         base.rooms.splice(index, 1);
       } else {
-        base.rooms.push({ roomId: action.payload, supplement: "" });
+        base.rooms.push({ roomId: action.payload, supplement: "", view: null });
       }
     },
 
-    setRoomSupplement: (state, action: PayloadAction<{ roomId: number; value: string }>) => {
-      const row = state.baseSupplements.rooms.find((room) => room.roomId === action.payload.roomId);
-      if (row && row.roomId !== state.baseSupplements.baseRoomId) {
-        row.supplement = action.payload.value;
+    addSupplementRoom: (state, action: PayloadAction<{ roomId: number; view: RoomView }>) => {
+      const base = state.baseSupplements;
+      if (
+        base.rooms.some(
+          (room) => room.roomId === action.payload.roomId && room.view === action.payload.view,
+        )
+      ) {
+        return;
       }
+      base.rooms.push({ ...action.payload, supplement: "" });
+    },
+    removeSupplementRoom: (state, action: PayloadAction<number>) => {
+      if (!state.baseSupplements.rooms[action.payload]) return;
+      state.baseSupplements.rooms.splice(action.payload, 1);
+    },
+
+    setRoomSupplement: (state, action: PayloadAction<{ index: number; value: string }>) => {
+      const row = state.baseSupplements.rooms[action.payload.index];
+      if (row) row.supplement = action.payload.value;
     },
 
     addFixedRoom: (
@@ -286,6 +292,8 @@ export const {
   setBaseRoom,
   setBaseCost,
   toggleSupplementRoom,
+  addSupplementRoom,
+  removeSupplementRoom,
   setRoomSupplement,
   addFixedRoom,
   removeFixedRoom,

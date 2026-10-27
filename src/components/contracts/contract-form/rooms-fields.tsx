@@ -13,15 +13,14 @@ import { fill, useLanguage } from "@/lib/i18n";
 import { effectivePrice, toAmount } from "@/store/features/contracts/contract-payload";
 import {
   removeFixedRoom,
+  removeSupplementRoom,
   setFixedPrice,
   setRoomSupplement,
-  toggleSupplementRoom,
 } from "@/store/features/contracts/contract-draft.slice";
 import { AddRoomDialog } from "./add-room-dialog";
 import {
   AmountInput,
   formatAmount,
-  RoomTick,
   useAppDispatch,
   useContractDraft,
 } from "./shared";
@@ -52,6 +51,9 @@ export function RoomsFields({
 
   if (!basics.hotelId) {
     return <p className="text-sm text-text-muted">{f.pickHotelFirst}</p>;
+  }
+  if (pricingModel === "base_supplements" && baseSupplements.baseRoomId === null) {
+    return null;
   }
   if (
     roomsQuery.isLoading &&
@@ -147,6 +149,7 @@ export function RoomsFields({
             metadataLoading={metadataLoading}
             metadataError={metadataError}
             onRetryMetadata={onRetryMetadata}
+            pricingModel="fixed_price"
             onClose={() => setAdding(false)}
           />
         )}
@@ -154,35 +157,42 @@ export function RoomsFields({
     );
   }
 
-  if (rooms.length === 0 && baseSupplements.baseRoomId === null) {
-    return <p className="text-sm text-text-muted">{f.roomsEmpty}</p>;
-  }
-  const picked = new Map(baseSupplements.rooms.map((room) => [room.roomId, room]));
+  const roomById = new Map(rooms.map((room) => [room.id, room]));
+  const roomForId = (roomId: number) =>
+    roomById.get(roomId) ??
+    ({
+      id: roomId,
+      hotelId: basics.hotelId!,
+      nameEn: `#${roomId}`,
+      nameAr: `#${roomId}`,
+      view: null,
+      maxOccupancy: null,
+      adults: null,
+      bedTypeId: null,
+      roomSizeId: null,
+      areaSqm: null,
+      status: "active",
+    } satisfies SupplierHotelContractRoom);
   const baseRoom =
-    rooms.find((room) => room.id === baseSupplements.baseRoomId) ??
-    (baseSupplements.baseRoomId === null
-      ? undefined
-      : ({
-          id: baseSupplements.baseRoomId,
-          hotelId: basics.hotelId,
-          nameEn: `#${baseSupplements.baseRoomId}`,
-          nameAr: `#${baseSupplements.baseRoomId}`,
-          view: null,
-          maxOccupancy: null,
-          adults: null,
-          bedTypeId: null,
-          roomSizeId: null,
-          areaSqm: null,
-          status: "active",
-        } satisfies SupplierHotelContractRoom));
-  const displayRooms = baseRoom
-    ? [baseRoom, ...rooms.filter((room) => room.id !== baseRoom.id)]
-    : rooms;
+    baseSupplements.baseRoomId === null ? undefined : roomForId(baseSupplements.baseRoomId);
+  const displayRows = [
+    ...(baseRoom ? [{ room: baseRoom, row: undefined, index: -1, isBase: true }] : []),
+    ...baseSupplements.rooms.map((row, index) => ({
+      room: roomForId(row.roomId),
+      row,
+      index,
+      isBase: false,
+    })),
+  ];
   const labelForRoom = (room: SupplierHotelContractRoom) =>
     (lang === "ar" ? room.nameAr || room.nameEn : room.nameEn || room.nameAr) || `#${room.id}`;
 
   return (
     <>
+      <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        {c.builder.addRoom}
+      </Button>
       {roomsQuery.isLoading && (
         <p className="text-sm text-text-muted">{f.roomsLoading}</p>
       )}
@@ -198,22 +208,22 @@ export function RoomsFields({
         to="/hotel/$hotelId"
         params={{ hotelId: String(basics.hotelId) }}
         target="_blank"
-        className="text-xs font-medium text-text-link hover:underline"
+        className="text-xs font-medium text-text-link hover:underline block mt-2"
       >
         {f.missingRoom}
       </Link>
       <Table
         head={[
-          "",
           f.colRoom,
+          f.colView,
           f.colSupplement,
           ...(split ? [f.colWeekdayPrice, f.colWeekendPrice] : [f.colPrice]),
+          "",
         ]}
         muted={baseRoom ? [0] : []}
-        rows={displayRooms.map((room) => {
+        rows={displayRows.map(({ room, row, index, isBase }) => {
           const label = labelForRoom(room);
-          const row = picked.get(room.id);
-          const isBase = room.id === baseSupplements.baseRoomId;
+          const view = isBase ? undefined : row?.view;
           const weekday = isBase
             ? toAmount(baseSupplements.weekdayBaseCost)
             : row
@@ -225,14 +235,8 @@ export function RoomsFields({
               ? effectivePrice(baseSupplements.weekendBaseCost, row.supplement)
               : null;
           return [
-            <RoomTick
-              key="tick"
-              on={isBase || Boolean(row)}
-              locked={isBase}
-              label={label}
-              onToggle={() => dispatch(toggleSupplementRoom(room.id))}
-            />,
             isBase ? `${label} · ${f.baseTag}` : label,
+            view ? f.views[view] : "-",
             isBase ? (
               f.baseTag
             ) : row ? (
@@ -242,16 +246,40 @@ export function RoomsFields({
                 {...currencySuffix}
                 className="max-w-[160px]"
                 value={row.supplement}
-                onValue={(value) => dispatch(setRoomSupplement({ roomId: room.id, value }))}
+                onValue={(value) => dispatch(setRoomSupplement({ index, value }))}
               />
             ) : (
               "-"
             ),
             money(weekday),
             ...(split ? [money(weekend)] : []),
+            isBase ? (
+              ""
+            ) : (
+              <Button
+                key="remove"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={fill(f.remove, { room: label })}
+                onClick={() => dispatch(removeSupplementRoom(index))}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            ),
           ];
         })}
       />
+      {adding && (
+        <AddRoomDialog
+          hotelId={basics.hotelId}
+          metadata={metadata}
+          metadataLoading={metadataLoading}
+          metadataError={metadataError}
+          onRetryMetadata={onRetryMetadata}
+          pricingModel="base_supplements"
+          onClose={() => setAdding(false)}
+        />
+      )}
     </>
   );
 }

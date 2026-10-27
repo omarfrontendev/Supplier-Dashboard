@@ -21,6 +21,7 @@ export function ContractRoomSelect({
   value,
   onChange,
   disabled = false,
+  clearable = false,
 }: {
   hotelId: number | null;
   label: string;
@@ -28,6 +29,7 @@ export function ContractRoomSelect({
   value: string;
   onChange: (value: string, room?: SupplierHotelContractRoom) => void;
   disabled?: boolean;
+  clearable?: boolean;
 }) {
   const { c, lang } = useLanguage();
   const [search, setSearch] = useState("");
@@ -89,6 +91,7 @@ export function ContractRoomSelect({
       placeholder={placeholder}
       value={value}
       disabled={disabled || hotelId === null}
+      clearable={clearable}
       onChange={(next) => {
         const selectedRoom = rooms.find((room) => String(room.id) === next);
         const nextLabel = selectedRoom ? roomOptionLabel(selectedRoom, lang) : "";
