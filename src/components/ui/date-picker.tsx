@@ -195,14 +195,14 @@ export function DatePicker({
     const list = weekendDays
       .map((k) => `${t.daysShort[dateOf(k).getDay()]} ${n(dateOf(k).getDate())}`)
       .join(ar ? "، " : ", ");
-    const parts = [
-      t.weekdaysCount.replace("{count}", n(days.length - weekendDays.length)),
-      weekendDays.length === 1
-        ? t.oneWeekendNight.replace("{list}", list)
-        : t.weekendNights
-            .replace("{count}", n(weekendDays.length))
-            .replace("{list}", list),
-    ];
+    const parts = [t.weekdaysCount.replace("{count}", n(days.length - weekendDays.length))];
+    if (weekendDays.length === 1) {
+      parts.push(t.oneWeekendNight.replace("{list}", list));
+    } else if (weekendDays.length > 1) {
+      parts.push(
+        t.weekendNights.replace("{count}", n(weekendDays.length)).replace("{list}", list),
+      );
+    }
     if (changedDays.length) {
       parts.push(t.alreadyChanged.replace("{count}", n(changedDays.length)));
     }

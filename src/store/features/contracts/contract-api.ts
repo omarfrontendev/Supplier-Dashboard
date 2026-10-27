@@ -5,6 +5,8 @@ import type {
   ContractChildPricing,
   ContractRestriction,
   ContractRestrictionInput,
+  ContractSeason,
+  ContractSeasonInput,
   CreateHotelContractBody,
   PricingModel as ApiPricingModel,
   SupplierHotelContract,
@@ -23,6 +25,7 @@ import {
   type ContractDraftState,
   type PricingModel,
   type RestrictionRule,
+  type SeasonRule,
 } from "./types";
 
 const bookingToApi: Record<BookingType, ApiBookingType> = {
@@ -59,6 +62,7 @@ export function toCreateContractBody(draft: ContractDraftState): CreateHotelCont
       ? { restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule) }
       : {}),
     ...(toCancellationPolicy(draft) ? { cancellationPolicy: toCancellationPolicy(draft)! } : {}),
+    ...(draft.seasons.length > 0 ? { seasons: toSeasons(draft) } : {}),
   };
 }
 
@@ -86,7 +90,8 @@ export function toUpdateContractBody(
   const children = childPricingChanged(draft, contract);
   const restrictions = restrictionsChanged(draft, contract);
   const cancellation = cancellationChanged(draft, contract);
-  if (fields.length === 0 && !children && !restrictions && !cancellation) return null;
+  const seasons = seasonsChanged(draft, contract);
+  if (fields.length === 0 && !children && !restrictions && !cancellation && !seasons) return null;
   return fields.reduce<UpdateHotelContractBody>(
     (body, field) => ({ ...body, [field]: next[field] }),
     {
@@ -94,6 +99,7 @@ export function toUpdateContractBody(
       ...(children ? { childPricing: next.childPricing } : {}),
       ...(restrictions ? { restrictions: toRestrictions(draft) } : {}),
       ...(cancellation ? { cancellationPolicy: toCancellationPolicy(draft) } : {}),
+      ...(seasons ? { seasons: toSeasons(draft) } : {}),
     },
   );
 }
@@ -123,6 +129,7 @@ export function draftFromContract(contract: SupplierHotelContract) {
     ...(contract.childPricing ? { children: childrenFromContract(contract.childPricing) } : {}),
     restrictions: restrictionsFromContract(contract.restrictions ?? []),
     cancellation: cancellationFromContract(contract.cancellationPolicy ?? null),
+    seasons: seasonsFromContract(contract.seasons ?? []),
   };
 }
 
@@ -190,7 +197,8 @@ export const sameSavedDraft = (draft: ContractDraftState, contract: SupplierHote
   sameSavedBasics(draft, contract) &&
   !childPricingChanged(draft, contract) &&
   !restrictionsChanged(draft, contract) &&
-  !cancellationChanged(draft, contract);
+  !cancellationChanged(draft, contract) &&
+  !seasonsChanged(draft, contract);
 
 const toDays = (numbers: number[]) =>
   WEEKDAYS.filter((day) => numbers.includes(WEEKDAY_NUMBER[day]));
@@ -252,15 +260,14 @@ const fromCharge = (charge: ContractCancellationCharge): CancellationFee => ({
   value: charge.kind === "free" || charge.value === undefined ? "" : String(Number(charge.value)),
 });
 
+const policyToApi = (policy: CancellationPolicy): ContractCancellationPolicy => ({
+  tiers: policy.tiers.map((tier) => ({ daysBefore: Number(tier.days), charge: toCharge(tier) })),
+  noShow: toCharge(policy.noShow),
+});
+
 export function toCancellationPolicy({ policies }: ContractDraftState): ContractCancellationPolicy | null {
   if (!policies.enabled || !policies.cancellation) return null;
-  return {
-    tiers: policies.cancellation.tiers.map((tier) => ({
-      daysBefore: Number(tier.days),
-      charge: toCharge(tier),
-    })),
-    noShow: toCharge(policies.cancellation.noShow),
-  };
+  return policyToApi(policies.cancellation);
 }
 
 export function cancellationFromContract(
@@ -290,3 +297,74 @@ const cancellationKey = (policy: ContractCancellationPolicy | null) =>
 
 export const cancellationChanged = (draft: ContractDraftState, contract: SupplierHotelContract) =>
   cancellationKey(toCancellationPolicy(draft)) !== cancellationKey(contract.cancellationPolicy ?? null);
+
+export function toSeasons({ seasons }: ContractDraftState): ContractSeasonInput[] {
+  return seasons.map((season) => {
+    const childPrices = Object.fromEntries(
+      CHILD_RULES.filter((key) => toAmount(season.childPrices[key]) !== null).map((key) => [
+        key,
+        toAmount(season.childPrices[key])!,
+      ]),
+    );
+    const pricing = {
+      ...(season.keptPricing ?? {}),
+      ...(Object.keys(childPrices).length > 0 ? { childPrices } : {}),
+    };
+    return {
+      name: season.name.trim(),
+      startDate: season.startDate,
+      endDate: season.endDate,
+      color: season.color.toUpperCase(),
+      ...(Object.keys(pricing).length > 0 ? { pricing } : {}),
+      ...(season.cancellation ? { cancellationPolicy: policyToApi(season.cancellation) } : {}),
+    };
+  });
+}
+
+export function seasonsFromContract(saved: ContractSeason[]): SeasonRule[] {
+  return [...saved]
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((season) => {
+      const baseRate = season.pricing?.baseRate ?? null;
+      const rooms = season.pricing?.rooms ?? [];
+      const kept = {
+        ...(baseRate ? { baseRate } : {}),
+        ...(rooms.length > 0 ? { rooms } : {}),
+      };
+      const prices = season.pricing?.childPrices ?? {};
+      return {
+        id: `saved-${season.id}`,
+        name: season.name,
+        startDate: season.startDate.slice(0, 10),
+        endDate: season.endDate.slice(0, 10),
+        color: season.color.toUpperCase(),
+        childPrices: {
+          sharing_parents: prices.sharing_parents === undefined ? "" : String(Number(prices.sharing_parents)),
+          shared_bed: prices.shared_bed === undefined ? "" : String(Number(prices.shared_bed)),
+          extra_bed: prices.extra_bed === undefined ? "" : String(Number(prices.extra_bed)),
+        },
+        cancellation: cancellationFromContract(season.cancellationPolicy),
+        keptPricing: Object.keys(kept).length > 0 ? kept : null,
+        issues: season.issues ?? [],
+      };
+    });
+}
+
+const seasonKey = (season: ContractSeasonInput) =>
+  JSON.stringify([
+    season.name.trim(),
+    season.startDate.slice(0, 10),
+    season.endDate.slice(0, 10),
+    season.color.toUpperCase(),
+    CHILD_RULES.map((key) => season.pricing?.childPrices?.[key] ?? null),
+    cancellationKey(season.cancellationPolicy ?? null),
+  ]);
+
+export function seasonsChanged(draft: ContractDraftState, contract: SupplierHotelContract) {
+  const next = toSeasons(draft).map(seasonKey).sort();
+  const saved = seasonsFromContract(contract.seasons ?? [])
+    .map((season) => toSeasons({ ...draft, seasons: [season] })[0]!)
+    .map(seasonKey)
+    .sort();
+  return next.length !== saved.length || next.some((key, index) => key !== saved[index]);
+}

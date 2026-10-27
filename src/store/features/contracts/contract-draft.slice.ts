@@ -14,6 +14,7 @@ import type {
   PricingModel,
   ReleasePolicy,
   RestrictionRule,
+  SeasonRule,
   WeekPricing,
 } from "./types";
 
@@ -56,6 +57,7 @@ const initialState: ContractDraftState = {
   meals: emptyMeals(),
   policies: { enabled: true, cancellation: null, release: null },
   restrictions: { enabled: true, rules: [] },
+  seasons: [],
 };
 
 export const sameFixedOffer = (
@@ -80,6 +82,7 @@ export const contractDraftSlice = createSlice({
         children?: ChildRules;
         restrictions?: ContractRestrictions;
         cancellation?: CancellationPolicy | null;
+        seasons?: SeasonRule[];
       }>,
     ) => ({
       ...initialState,
@@ -88,7 +91,23 @@ export const contractDraftSlice = createSlice({
       children: action.payload.children ?? initialState.children,
       restrictions: action.payload.restrictions ?? initialState.restrictions,
       policies: { ...initialState.policies, cancellation: action.payload.cancellation ?? null },
+      seasons: action.payload.seasons ?? [],
     }),
+
+    saveSeason: (state, action: PayloadAction<SeasonRule>) => {
+      const index = state.seasons.findIndex((season) => season.id === action.payload.id);
+      if (index === -1) state.seasons.push(action.payload);
+      else state.seasons[index] = action.payload;
+      state.seasons.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    },
+
+    removeSeason: (state, action: PayloadAction<string>) => {
+      state.seasons = state.seasons.filter((season) => season.id !== action.payload);
+    },
+
+    replaceSeasons: (state, action: PayloadAction<SeasonRule[]>) => {
+      state.seasons = action.payload;
+    },
 
     replaceRestrictions: (state, action: PayloadAction<ContractRestrictions>) => {
       state.restrictions = action.payload;
@@ -300,6 +319,9 @@ export const {
   setPoliciesEnabled,
   saveCancellationPolicy,
   replaceCancellation,
+  saveSeason,
+  removeSeason,
+  replaceSeasons,
   saveReleasePolicy,
 } = contractDraftSlice.actions;
 

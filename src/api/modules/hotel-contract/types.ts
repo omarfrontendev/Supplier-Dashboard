@@ -74,6 +74,7 @@ export interface SupplierHotelContract {
   childPricing: ContractChildPricing | null;
   restrictions?: ContractRestriction[];
   cancellationPolicy?: ContractCancellationPolicy | null;
+  seasons?: ContractSeason[];
 
   createdBySupplierUserId: number;
   updatedBySupplierUserId: number;
@@ -136,6 +137,7 @@ export interface CreateHotelContractBody {
   childPricing: ContractChildPricing;
   restrictions?: Omit<ContractRestrictionInput, "isActive">[];
   cancellationPolicy?: ContractCancellationPolicy;
+  seasons?: ContractSeasonInput[];
 }
 
 export type UpdateHotelContractBody = Partial<
@@ -145,6 +147,34 @@ export type UpdateHotelContractBody = Partial<
   restrictions?: ContractRestrictionInput[];
   cancellationPolicy?: ContractCancellationPolicy | null;
 };
+
+export type SeasonChildPrices = Partial<Record<keyof ContractChildPricing, number>>;
+
+export interface ContractSeasonPricing {
+  baseRate?: unknown;
+  rooms?: unknown[];
+  childPrices?: SeasonChildPrices;
+}
+
+export interface ContractSeasonInput {
+  name: string;
+  startDate: string;
+  endDate: string;
+  color: string;
+  pricing?: ContractSeasonPricing;
+  cancellationPolicy?: ContractCancellationPolicy;
+}
+
+export interface ContractSeason extends Omit<ContractSeasonInput, "pricing" | "cancellationPolicy"> {
+  id: number;
+  contractId: number;
+  nights: number;
+  issues: { code: string; message: string }[];
+  pricing: { baseRate: unknown | null; rooms: unknown[]; childPrices: SeasonChildPrices } | null;
+  cancellationPolicy: ContractCancellationPolicy | null;
+  effectiveCancellationPolicy: ContractCancellationPolicy | null;
+  cancellationPolicySource: "season" | "contract" | null;
+}
 
 export type CancellationChargeKind = "free" | "nights" | "percent" | "fixed";
 

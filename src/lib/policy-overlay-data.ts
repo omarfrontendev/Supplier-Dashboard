@@ -136,7 +136,7 @@ export interface SeasonPolicy {
   footer: Bi;
 }
 
-const seasonPolicy = (
+export const seasonPolicy = (
   key: string,
   nameEn: string,
   nameAr: string,

@@ -36,6 +36,7 @@ type Common = {
   disabled?: boolean | undefined;
   /** Weekday numbers the contract sells as weekend — 0 is Sunday. */
   weekend?: number[] | undefined;
+  locked?: DayKey[] | undefined;
   className?: string | undefined;
   /** Keeps the panel inside the viewport on a phone. */
   panelClassName?: string | undefined;
@@ -142,6 +143,7 @@ export function DateField(props: DayProps | RangeProps) {
               {...(props.min ? { min: props.min } : {})}
               {...(props.max ? { max: props.max } : {})}
               {...(props.weekend ? { weekend: props.weekend } : {})}
+              {...(props.locked ? { locked: props.locked } : {})}
               onCancel={() => setOpen(false)}
               onApply={(range) => {
                 if (mode === "range") {

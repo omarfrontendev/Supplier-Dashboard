@@ -96,4 +96,60 @@ export const seasonPage = {
   removeSeason: t("Remove season", "حذف الموسم"),
   cancel: t("Cancel", "إلغاء"),
   save: t("Save season", "حفظ الموسم"),
+
+  newTitle: t("New season", "موسم جديد"),
+  editorOverline: t("RATE SEASON", "موسم الأسعار"),
+  editorBody: t(
+    "Name, dates and what changes on these nights. Anything you leave empty uses the contract.",
+    "الاسم والتواريخ وما يتغيّر في هذه الليالي. وكل ما تتركه فارغًا يأخذ قيمة العقد."
+  ),
+  namePlaceholder: t("e.g. Ramadan", "مثال: رمضان"),
+  datesPlaceholder: t("Pick the first and last night", "اختر أول ليلة وآخر ليلة"),
+  datesHint: t(
+    "{nights} nights · inside the contract term. Nights of other seasons are locked.",
+    "{nights} ليلة · داخل مدة العقد. وليالي المواسم الأخرى مقفلة."
+  ),
+  datesHintEmpty: t(
+    "Inside the contract term. Nights of other seasons are locked.",
+    "داخل مدة العقد. وليالي المواسم الأخرى مقفلة."
+  ),
+  sectionPrices: t("2 · PRICES FOR THESE DATES", "٢ · الأسعار لهذه التواريخ"),
+  pricingPending: t(
+    "The season's base room price and room supplements open once the contract's room prices are saved. Meal plan prices per season aren't available yet.",
+    "سعر الغرفة الأساس وفروق الغرف للموسم تُفتح بعد حفظ أسعار غرف العقد. وأسعار الوجبات لكل موسم غير متاحة بعد."
+  ),
+  childrenTitle: t("Extra children", "الأطفال الإضافيون"),
+  childrenBody: t(
+    "Leave a price empty to keep the contract price. Ages always come from the contract.",
+    "اترك السعر فارغًا ليبقى سعر العقد. والأعمار تأتي دائمًا من العقد."
+  ),
+  colRule: t("Child rule", "قاعدة الطفل"),
+  colContractPrice: t("Contract price", "سعر العقد"),
+  colSeasonPrice: t("Season price · per night", "سعر الموسم · لليلة"),
+  sectionPolicy: t("3 · CANCELLATION POLICY", "٣ · سياسة الإلغاء"),
+  policyFromContract: t("Uses the contract policy", "يتبع سياسة العقد"),
+  policyNoContract: t(
+    "The contract has no cancellation policy yet.",
+    "لا توجد سياسة إلغاء على العقد بعد."
+  ),
+  policyOwn: t("Own policy for these dates", "سياسة خاصة لهذه التواريخ"),
+  setPolicy: t("Set a policy for these dates", "ضبط سياسة لهذه التواريخ"),
+  editPolicy: t("Edit policy", "تعديل السياسة"),
+  useContractPolicy: t("Use the contract policy", "اتباع سياسة العقد"),
+  discardTitle: t("Discard your changes to this season?", "هل تتجاهل تعديلاتك على هذا الموسم؟"),
+  discardBody: t(
+    "You changed this season but haven't saved it. Closing now loses those changes.",
+    "عدّلت هذا الموسم ولم تحفظه. الإغلاق الآن يُضيّع هذه التعديلات."
+  ),
+  keepEditing: t("Keep editing", "متابعة التعديل"),
+  discard: t("Discard changes", "تجاهل التعديلات"),
+  removeTitle: t("Remove “{season}”?", "هل تحذف «{season}»؟"),
+  removeBody: t(
+    "Its nights go back to the contract prices and policy once you save the draft.",
+    "تعود لياليه إلى أسعار العقد وسياسته بعد حفظ المسودة."
+  ),
+  removeKeep: t("Keep season", "إبقاء الموسم"),
+  added: t("Season added - save the draft to keep it", "أُضيف الموسم - احفظ المسودة لتثبيته"),
+  updated: t("Season updated - save the draft to keep it", "عُدّل الموسم - احفظ المسودة لتثبيته"),
+  removed: t("Season removed - save the draft to keep it", "حُذف الموسم - احفظ المسودة لتثبيت ذلك"),
 };

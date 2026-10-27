@@ -27,7 +27,7 @@ import { arabicDigits } from "@/components/ui/date-field";
 import { cn } from "@/lib/utils";
 
 /** A numbered band across the season page, the way the frame groups them. */
-function Band({
+export function Band({
   label,
   children,
 }: {
@@ -45,7 +45,7 @@ function Band({
 }
 
 /** A heading and its explanation inside a band. */
-function Part({
+export function Part({
   title,
   body,
   right,

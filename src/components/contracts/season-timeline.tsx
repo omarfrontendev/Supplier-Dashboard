@@ -1,4 +1,11 @@
-import type { RateSeason } from "@/lib/contract-data";
+export interface TimelineSeason {
+  name: string;
+  nameAr?: string;
+  from?: string;
+  to?: string;
+  colour?: string;
+}
+
 
 /** UI 03.1F — the contract's twelve months, SEP first. */
 const MONTH_ORDER = [
@@ -16,6 +23,27 @@ const MONTH_ORDER = [
   { label: "AUG", labelAr: "أغسطس", year: 2027, month: 7 },
 ];
 
+function monthsOf(start: string, end: string) {
+  const first = dayOf(start);
+  const last = dayOf(end);
+  const months: typeof MONTH_ORDER = [];
+  for (let y = first.y, m = first.m; (y < last.y || (y === last.y && m <= last.m)) && months.length < 24; ) {
+    const date = new Date(y, m, 1);
+    months.push({
+      label: date.toLocaleString("en-US", { month: "short" }).toUpperCase(),
+      labelAr: date.toLocaleString("ar-EG", { month: "long" }),
+      year: y,
+      month: m,
+    });
+    m += 1;
+    if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+  }
+  return months;
+}
+
 function dayOf(key: string) {
   const [y, m, d] = key.split("-").map(Number);
   return { y: y ?? 2026, m: (m ?? 1) - 1, d: d ?? 1 };
@@ -28,15 +56,20 @@ function dayOf(key: string) {
 export function SeasonTimeline({
   seasons,
   ar,
+  start,
+  end,
 }: {
-  seasons: RateSeason[];
+  seasons: TimelineSeason[];
   ar: boolean;
+  start?: string;
+  end?: string;
 }) {
   const painted = seasons.filter((season) => season.from && season.to);
+  const months = start && end ? monthsOf(start, end) : MONTH_ORDER;
 
   return (
     <div className="grid grid-cols-6 gap-x-1 gap-y-3 sm:grid-cols-12">
-      {MONTH_ORDER.map((slot) => {
+      {months.map((slot) => {
         const length = new Date(slot.year, slot.month + 1, 0).getDate();
         const blocks = painted
           .map((season) => {
@@ -69,7 +102,7 @@ export function SeasonTimeline({
         }>;
 
         return (
-          <div key={slot.label}>
+          <div key={`${slot.year}-${slot.month}`}>
             <div className="relative h-[22px] overflow-hidden rounded-md bg-surface-subtle">
               {blocks.map((block) => (
                 <span
@@ -99,7 +132,7 @@ export function SeasonLegend({
   seasons,
   ar,
 }: {
-  seasons: RateSeason[];
+  seasons: TimelineSeason[];
   ar: boolean;
 }) {
   return (

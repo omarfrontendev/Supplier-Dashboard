@@ -23,6 +23,8 @@ import {
   restrictionsFromContract,
   cancellationChanged,
   cancellationFromContract,
+  seasonsChanged,
+  seasonsFromContract,
   toRestrictions,
   childrenFromContract,
   contractDifferences,
@@ -35,10 +37,7 @@ import {
   toUpdateContractBody,
 } from "@/store/features/contracts/contract-api";
 import type { SupplierHotelContract } from "@/api/modules/hotel-contract/types";
-import {
-  SeasonOverlapOverlay,
-  UnsavedOverlay,
-} from "@/components/contracts/create-overlays";
+import { UnsavedOverlay } from "@/components/contracts/create-overlays";
 import { BasicsFields } from "@/components/contracts/contract-form/basics-fields";
 import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
 import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
@@ -56,6 +55,7 @@ import {
   cancellationIssues,
   childIssues,
   restrictionsIssues,
+  seasonsIssues,
   validateContract,
   type ContractSectionKey,
 } from "@/components/contracts/contract-form/schema";
@@ -65,6 +65,9 @@ import {
   replaceCancellation,
   replaceChildren,
   replaceRestrictions,
+  replaceSeasons,
+  removeSeason,
+  saveSeason,
   resetDraft,
   updateBasics,
   saveCancellationPolicy,
@@ -76,20 +79,14 @@ import {
   CancellationDrawer,
   ReleaseDrawer,
 } from "@/components/contracts/policy-overlays";
-import {
-  seasonPolicyFor,
-  type SeasonPolicy,
-} from "@/lib/policy-overlay-data";
-import { SeasonDetailPanel } from "@/components/contracts/season-detail";
+import { SeasonEditor, seasonNights as nightsIn } from "@/components/contracts/season-editor";
 import {
   SeasonLegend,
   SeasonTimeline,
 } from "@/components/contracts/season-timeline";
-import { SeasonPage } from "@/components/contracts/season-page";
-import {
-  seasonDetails,
-  type SeasonDetail,
-} from "@/lib/season-detail-data";
+import { policyLines } from "@/components/contracts/contract-form/policies-summary";
+import { seasonPage } from "@/lib/season-page-data";
+import { WEEKDAY_NUMBER, type SeasonRule } from "@/store/features/contracts/types";
 import { ChoiceRow, Section, Table } from "@/components/contracts/contract-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,8 +98,6 @@ import {
   MONTHS,
   inventoryCaps,
   perRoomStock,
-  rateSeasons,
-  seasonPolicies,
 } from "@/lib/contract-data";
 
 type SoldOut = "stop" | "request" | "overbooking";
@@ -151,7 +146,6 @@ export function ContractBuilder({
     dispatch(loadContract(draftFromContract(saved)));
   }, [dispatch, saved, draft]);
   const contractHotels = useContractHotels({ page: 1, limit: 100 });
-  const [picker, setPicker] = useState<"overlap" | null>(null);
   const allowLeave = useRef(false);
   const [inventory, setInventory] = useState<Inventory>("shared");
   const [stock, setStock] = useState("50");
@@ -163,13 +157,7 @@ export function ContractBuilder({
   /* OV 03.16 / 03.17 — the two policy drawers. */
   const [policy, setPolicy] = useState<"cancellation" | "release" | null>(null);
   const [confirmNoPolicies, setConfirmNoPolicies] = useState(false);
-  const [seasonPolicy, setSeasonPolicy] = useState<SeasonPolicy | null>(null);
-  /* OV 03.14 - 03.17 — one season, one room, every night it covers. */
-  const [seasonDetail, setSeasonDetail] = useState<SeasonDetail | null>(null);
-  const detailFor = (name: string) =>
-    seasonDetails.find((x) => x.name.en === name) ?? null;
-  /* OV 03.12 — Edit season opens the season editor itself. */
-  const [seasonEditor, setSeasonEditor] = useState<SeasonDetail | null>(null);
+  const [editingSeason, setEditingSeason] = useState<SeasonRule | "new" | null>(null);
 
   const onRequest = basics.bookingType === "on_request";
   const hasPolicies = draft.policies.enabled;
@@ -237,8 +225,26 @@ export function ContractBuilder({
   const contractRoomCount = fixed
     ? draft.fixedRooms.length
     : draft.baseSupplements.rooms.length;
-  const seasons = rateSeasons.filter((season) => !season.base);
-  const seasonNights = seasons.reduce((sum, season) => sum + season.nights, 0);
+  const seasons = draft.seasons;
+  const seasonNights = seasons.reduce((sum, season) => sum + nightsIn(season), 0);
+  const termNights =
+    basics.startDate && basics.endDate
+      ? nightsIn({ startDate: basics.startDate, endDate: basics.endDate })
+      : 0;
+  const timeline = seasons.map((season) => ({
+    name: season.name,
+    nameAr: season.name,
+    from: season.startDate,
+    to: season.endDate,
+    colour: season.color,
+  }));
+  const seasonChanges = (season: SeasonRule) => {
+    const changes = [
+      ...(Object.values(season.childPrices).some((price) => price.trim() !== "") ? [t.changesChildren] : []),
+      ...(season.cancellation ? [t.changesPolicy] : []),
+    ];
+    return changes.length > 0 ? changes.join(" · ") : t.changesNone;
+  };
 
   const hotel = contractHotels.data?.hotels.find((item) => item.id === basics.hotelId);
   const hotelName = hotel
@@ -289,6 +295,12 @@ export function ContractBuilder({
     if (restrictionErrors.length > 0) {
       notify.error(restrictionErrors[0]!);
       jumpTo("restrictions");
+      return false;
+    }
+    const seasonErrors = seasonsIssues(draft.seasons, basics, f.v, (day) => readableDay(day, lang));
+    if (seasonErrors.length > 0) {
+      notify.error(seasonErrors[0]!);
+      jumpTo("seasons");
       return false;
     }
     const cancellationErrors =
@@ -355,6 +367,9 @@ export function ContractBuilder({
           }
           if (!cancellationChanged(editing, before)) {
             dispatch(replaceCancellation(cancellationFromContract(latest.cancellationPolicy ?? null)));
+          }
+          if (!seasonsChanged(editing, before)) {
+            dispatch(replaceSeasons(seasonsFromContract(latest.seasons ?? [])));
           }
         }
         notify.error(
@@ -846,7 +861,7 @@ export function ContractBuilder({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPicker("overlap")}
+                  onClick={() => setEditingSeason("new")}
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   {t.addSeason}
@@ -876,65 +891,79 @@ export function ContractBuilder({
               </div>
             ) : (
               <>
-                {/* UI 03.1F — the month map, then the table it explains. */}
-                <SeasonTimeline seasons={rateSeasons} ar={lang === "ar"} />
-                <div className="mt-3">
-                  <SeasonLegend seasons={rateSeasons} ar={lang === "ar"} />
-                </div>
+                <SeasonTimeline
+                  seasons={timeline}
+                  ar={lang === "ar"}
+                  {...(basics.startDate && basics.endDate
+                    ? { start: basics.startDate, end: basics.endDate }
+                    : {})}
+                />
+                {seasons.length > 0 && (
+                  <div className="mt-3">
+                    <SeasonLegend seasons={timeline} ar={lang === "ar"} />
+                  </div>
+                )}
 
                 <div className="mt-4 overflow-hidden rounded-xl border border-border-subtle">
-                  <div className="hidden grid-cols-[180px_190px_60px_130px_minmax(0,1fr)_248px] gap-3 bg-surface-subtle px-3.5 py-2 text-[12px] leading-[15px] text-text-muted lg:grid">
+                  <div className="hidden grid-cols-[200px_210px_70px_minmax(0,1fr)_160px] gap-3 bg-surface-subtle px-3.5 py-2 text-[12px] leading-[15px] text-text-muted lg:grid">
                     <span>{t.colSegment}</span>
                     <span>{t.colDates}</span>
                     <span>{t.colNights}</span>
-                    <span>{t.colRule}</span>
-                    <span>{t.colResult}</span>
+                    <span>{t.colChanges}</span>
                     <span />
                   </div>
 
-                  {rateSeasons.map((season) => (
+                  <div className="grid gap-x-3 gap-y-2 px-3.5 py-3 text-[13px] leading-[18px] text-text-body lg:grid-cols-[200px_210px_70px_minmax(0,1fr)_160px] lg:items-center lg:py-2.5">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#eef1ee]" aria-hidden="true" />
+                      <b className="text-[13px] font-semibold text-text-primary">{t.baseSegment}</b>
+                    </span>
+                    <span>{t.everyNight}</span>
+                    <span className="font-data">{Math.max(termNights - seasonNights, 0)}</span>
+                    <span>{t.changesNone}</span>
+                    <span />
+                  </div>
+
+                  {seasons.map((season) => (
                     <div
-                      key={season.name}
-                      className="grid gap-x-3 gap-y-2 border-t border-border-subtle px-3.5 py-3 text-[13px] leading-[18px] text-text-body first:border-t-0 lg:grid-cols-[180px_190px_60px_130px_minmax(0,1fr)_248px] lg:items-center lg:py-2.5"
+                      key={season.id}
+                      className="grid gap-x-3 gap-y-2 border-t border-border-subtle px-3.5 py-3 text-[13px] leading-[18px] text-text-body lg:grid-cols-[200px_210px_70px_minmax(0,1fr)_160px] lg:items-center lg:py-2.5"
                     >
-                      <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex min-w-0 items-center gap-2">
                         <span
                           className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{
-                            backgroundColor: season.colour ?? "#eef1ee",
-                          }}
+                          style={{ backgroundColor: season.color }}
                           aria-hidden="true"
                         />
-                        <b className="text-[13px] font-semibold text-text-primary">
-                          {lang === "ar" ? season.nameAr : season.name}
-                        </b>
+                        <b className="truncate text-[13px] font-semibold text-text-primary">{season.name}</b>
                       </span>
                       <span>
-                        {season.base
-                          ? t.everyNight
-                          : lang === "ar"
-                            ? season.datesAr
-                            : season.dates}
+                        {readableDay(season.startDate, lang)} – {readableDay(season.endDate, lang)}
                       </span>
-                      <span className="font-data">{season.nights}</span>
-                      <span>{lang === "ar" ? season.ruleAr : season.rule}</span>
-                      <span className="font-data">{season.result}</span>
+                      <span className="font-data">{nightsIn(season)}</span>
+                      <span>
+                        {seasonChanges(season)}
+                        {season.issues.map((issue) => (
+                          <span key={issue.code} className="mt-0.5 block text-[12px] text-status-warning">
+                            {issue.message}
+                          </span>
+                        ))}
+                      </span>
                       <span className="lg:justify-self-end">
-                        {!season.base && (
-                          <Button
-                            variant="outline"
-                            className="w-full lg:w-[248px]"
-                            onClick={() =>
-                              setSeasonDetail(detailFor(season.name))
-                            }
-                          >
-                            {t.edit}
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          className="w-full lg:w-[160px]"
+                          onClick={() => setEditingSeason(season)}
+                        >
+                          {t.edit}
+                        </Button>
                       </span>
                     </div>
                   ))}
                 </div>
+                {seasons.length === 0 && (
+                  <p className="mt-3 text-xs leading-relaxed text-text-muted">{t.seasonsEmpty}</p>
+                )}
               </>
             )}
           </Section>
@@ -1010,35 +1039,35 @@ export function ContractBuilder({
                       </tr>
                     </thead>
                     <tbody>
-                      {seasonPolicies.map((row) => (
-                        <tr
-                          key={row.season}
-                          className="border-t border-border-subtle"
-                        >
+                      <tr className="border-t border-border-subtle">
+                        <td className="py-2.5 pe-3 text-text-secondary">{t.contractPolicyRow}</td>
+                        <td className="py-2.5 pe-3 text-text-secondary">{t.everyNight}</td>
+                        <td className="py-2.5 pe-3 text-text-secondary">
+                          {draft.policies.cancellation
+                            ? policyLines(draft.policies.cancellation, f.policies, lang, basics.currency).join(" · ")
+                            : t.noPolicyYet}
+                        </td>
+                        <td />
+                      </tr>
+                      {seasons.map((season) => (
+                        <tr key={season.id} className="border-t border-border-subtle">
+                          <td className="py-2.5 pe-3 text-text-secondary">{season.name}</td>
                           <td className="py-2.5 pe-3 text-text-secondary">
-                            {lang === "ar" ? row.seasonAr : row.season}
+                            {readableDay(season.startDate, lang)} – {readableDay(season.endDate, lang)}
                           </td>
                           <td className="py-2.5 pe-3 text-text-secondary">
-                            {lang === "ar" ? row.datesAr : row.dates}
-                          </td>
-                          <td className="py-2.5 pe-3 text-text-secondary">
-                            {lang === "ar" ? row.policyAr : row.policy}
+                            {season.cancellation
+                              ? policyLines(season.cancellation, f.policies, lang, basics.currency).join(" · ")
+                              : t.samePolicy}
                           </td>
                           <td className="py-2.5 text-end">
-                            {/* OV 03.16S* — each season can carry its own. */}
-                            {row.own && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSeasonPolicy(
-                                    seasonPolicyFor(row.season) ?? null
-                                  )
-                                }
-                                className="text-xs font-medium text-text-link hover:underline"
-                              >
-                                {t.editInSeason}
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setEditingSeason(season)}
+                              className="text-xs font-medium text-text-link hover:underline"
+                            >
+                              {t.editInSeason}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1091,29 +1120,26 @@ export function ContractBuilder({
         </div>
       </div>
 
-      {seasonDetail && (
-        <SeasonDetailPanel
-          season={seasonDetail}
-          mode={mode === "edit" ? "live" : "draft"}
-          onClose={() => setSeasonDetail(null)}
-          onEdit={() => {
-            setSeasonEditor(seasonDetail);
-            setSeasonDetail(null);
+      {editingSeason && (
+        <SeasonEditor
+          season={editingSeason === "new" ? null : editingSeason}
+          others={seasons.filter((season) => editingSeason === "new" || season.id !== editingSeason.id)}
+          term={{ startDate: basics.startDate, endDate: basics.endDate }}
+          weekend={basics.weekendDays.map((day) => WEEKDAY_NUMBER[day])}
+          currency={basics.currency}
+          contractChildren={draft.children}
+          contractPolicy={draft.policies.enabled ? draft.policies.cancellation : null}
+          onSave={(season) => {
+            dispatch(saveSeason(season));
+            notify.success(editingSeason === "new" ? seasonPage.added[lang === "ar" ? "ar" : "en"] : seasonPage.updated[lang === "ar" ? "ar" : "en"]);
+            setEditingSeason(null);
           }}
-        />
-      )}
-      {seasonEditor && (
-        <SeasonPage
-          season={seasonEditor}
-          fixedPrice={fixed}
-          onClose={() => setSeasonEditor(null)}
-          onRemove={() => setSeasonEditor(null)}
-        />
-      )}
-      {seasonPolicy && (
-        <CancellationDrawer
-          season={seasonPolicy}
-          onClose={() => setSeasonPolicy(null)}
+          onRemove={(id) => {
+            dispatch(removeSeason(id));
+            notify.success(seasonPage.removed[lang === "ar" ? "ar" : "en"]);
+            setEditingSeason(null);
+          }}
+          onClose={() => setEditingSeason(null)}
         />
       )}
       {policy === "cancellation" && (
@@ -1180,12 +1206,6 @@ export function ContractBuilder({
             leaveBlocker.proceed();
           }}
           onSave={() => void saveAndLeave()}
-        />
-      )}
-      {picker === "overlap" && (
-        <SeasonOverlapOverlay
-          onClose={() => setPicker(null)}
-          onUseDates={() => setPicker(null)}
         />
       )}
 

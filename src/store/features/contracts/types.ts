@@ -181,6 +181,38 @@ export interface ChildRule {
 
 export type ChildRules = Record<ChildRuleKey, ChildRule>;
 
+export const SEASON_NAME_MAX = 100;
+
+export const SEASON_COLOURS = [
+  "#4A3AA7",
+  "#E87BA4",
+  "#2A78D6",
+  "#1AA3B8",
+  "#8E5BD8",
+  "#1F8A6E",
+  "#9A6A3A",
+  "#5B6B8C",
+] as const;
+
+export type SeasonChildPrices = Record<ChildRuleKey, string>;
+
+export interface SeasonIssue {
+  code: string;
+  message: string;
+}
+
+export interface SeasonRule {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  color: string;
+  childPrices: SeasonChildPrices;
+  cancellation: CancellationPolicy | null;
+  keptPricing: Record<string, unknown> | null;
+  issues: SeasonIssue[];
+}
+
 export interface ContractDraftState {
   basics: ContractBasics;
   pricingModel: PricingModel;
@@ -191,4 +223,5 @@ export interface ContractDraftState {
   meals: MealRules;
   policies: ContractPolicies;
   restrictions: ContractRestrictions;
+  seasons: SeasonRule[];
 }

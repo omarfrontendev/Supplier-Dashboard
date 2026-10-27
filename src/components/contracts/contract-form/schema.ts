@@ -13,6 +13,7 @@ import {
   MAX_CANCELLATION_TIERS,
   MEAL_PLANS,
   RESTRICTION_MAX_NIGHTS,
+  SEASON_NAME_MAX,
   SLA_MAX_MINUTES,
   SLA_MIN_MINUTES,
   WEEKDAYS,
@@ -23,10 +24,19 @@ import {
   type ContractDraftState,
   type ReleasePolicy,
   type RestrictionRule,
+  type SeasonRule,
 } from "@/store/features/contracts/types";
 
 export type ContractSectionKey =
-  "basics" | "pricing" | "rooms" | "children" | "meals" | "restrictions" | "policies" | "booking";
+  | "basics"
+  | "pricing"
+  | "rooms"
+  | "children"
+  | "meals"
+  | "restrictions"
+  | "seasons"
+  | "policies"
+  | "booking";
 
 export interface ContractIssue {
   section: ContractSectionKey;
@@ -191,6 +201,84 @@ export function restrictionsIssues(
   return [...issues];
 }
 
+export function seasonOverlap(season: SeasonRule, others: SeasonRule[]) {
+  if (!season.startDate || !season.endDate) return null;
+  for (const other of others) {
+    if (other.id === season.id) continue;
+    if (other.startDate > season.endDate || season.startDate > other.endDate) continue;
+    return {
+      season: other,
+      from: season.startDate > other.startDate ? season.startDate : other.startDate,
+      to: season.endDate < other.endDate ? season.endDate : other.endDate,
+    };
+  }
+  return null;
+}
+
+export function seasonIssues(
+  season: SeasonRule,
+  others: SeasonRule[],
+  term: { startDate: string; endDate: string },
+  m: Messages,
+  formatDay: (day: string) => string = (day) => day,
+): string[] {
+  const issues: string[] = [];
+  const name = season.name.trim();
+  if (!name) issues.push(m.seasonName);
+  else if (name.length > SEASON_NAME_MAX) issues.push(fill(m.seasonNameLong, { max: SEASON_NAME_MAX }));
+  if (!season.startDate || !season.endDate || season.endDate < season.startDate) {
+    issues.push(m.seasonDates);
+  } else if (
+    (term.startDate && season.startDate < term.startDate) ||
+    (term.endDate && season.endDate > term.endDate)
+  ) {
+    issues.push(
+      fill(m.seasonOutside, {
+        start: formatDay(term.startDate),
+        end: formatDay(term.endDate),
+      }),
+    );
+  }
+  const overlap = seasonOverlap(season, others);
+  if (overlap) {
+    issues.push(
+      fill(m.seasonOverlap, {
+        season: overlap.season.name,
+        dates: `${formatDay(overlap.season.startDate)} – ${formatDay(overlap.season.endDate)}`,
+        shared:
+          overlap.from === overlap.to
+            ? formatDay(overlap.from)
+            : `${formatDay(overlap.from)} – ${formatDay(overlap.to)}`,
+      }),
+    );
+  }
+  if (
+    Object.values(season.childPrices).some((price) => {
+      if (!price.trim()) return false;
+      const amount = toAmount(price);
+      return amount === null || amount < 0 || amount > 10_000_000 || !/^\d+(\.\d{1,2})?$/.test(price.trim());
+    })
+  ) {
+    issues.push(m.seasonChildPrice);
+  }
+  return issues;
+}
+
+export function seasonsIssues(
+  seasons: SeasonRule[],
+  term: { startDate: string; endDate: string },
+  m: Messages,
+  formatDay?: (day: string) => string,
+): string[] {
+  const issues = new Set<string>();
+  seasons.forEach((season, index) =>
+    seasonIssues(season, seasons.slice(0, index), term, m, formatDay).forEach((message) =>
+      issues.add(`${season.name.trim() || "—"}: ${message}`),
+    ),
+  );
+  return [...issues];
+}
+
 export function childIssues(
   children: ChildRules,
   m: Messages,
@@ -283,6 +371,8 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
         (message) => issue("restrictions", message),
       );
     }
+
+    seasonsIssues(draft.seasons, basics, m).forEach((message) => issue("seasons", message));
 
     if (draft.policies.enabled) {
       const { cancellation, release } = draft.policies;
