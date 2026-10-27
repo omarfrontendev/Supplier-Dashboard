@@ -63,7 +63,9 @@ import {
 } from "@/api/modules/hotel-contract/types";
 import { ContractStatus } from "@/store/features/contracts/types";
 import { api } from "@/api/client";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
+import { isAxiosError } from "axios";
 
 export const Route = createFileRoute("/rate-contracts/")({
   head: () => ({
@@ -108,6 +110,9 @@ const copy = {
     fixedPerRoom: "Fixed Per Room",
     retry: "Retry",
     errorTitle: "Something went wrong",
+    forbiddenTitle: "You don't have access to hotel supply contracts",
+    forbiddenBody:
+      "Your permissions profile doesn't include viewing contracts. Ask your account owner or admin to add it.",
     overline: "PROPERTY · HOTEL SUPPLY CONTRACTS",
     title: "Hotel supply contracts",
     subtitle:
@@ -217,6 +222,8 @@ const copy = {
     fixedPerRoom: "سعر ثابت للغرفة",
     retry: "إعادة المحاولة",
     errorTitle: "حدث خطأ ما",
+    forbiddenTitle: "ليس لديك صلاحية على عقود توريد الفنادق",
+    forbiddenBody: "ملف صلاحياتك لا يتضمن عرض العقود. اطلب من مالك الحساب أو المسؤول إضافتها.",
     overline: "المنشأة · عقود توريد الفنادق",
     title: "عقود توريد الفنادق",
     subtitle: "عقد واحد لكل فندق وفترة. يدير المورّد العقود وتصبح مباشرة فور نشرها.",
@@ -489,6 +496,7 @@ function RateContractsPage() {
   };
 
   const { data, isPending, isError, refetch, error } = useHotelContracts(hotelContractsParams);
+  const forbidden = isError && isAxiosError(error) && error.response?.status === 403;
 
   const filtered = data?.contracts;
   const meta = data?.meta;
@@ -830,6 +838,14 @@ function RateContractsPage() {
           <div className="border-t border-border-subtle p-4">
             <RowsSkeleton />
           </div>
+        ) : forbidden ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-status-warning-bg">
+              <ShieldAlert className="h-7 w-7 text-status-warning" aria-hidden="true" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">{t.forbiddenTitle}</h3>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">{t.forbiddenBody}</p>
+          </div>
         ) : isError ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
@@ -838,7 +854,9 @@ function RateContractsPage() {
 
             <h3 className="text-base font-semibold text-foreground">{t.errorTitle}</h3>
 
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{error.message}</p>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              {getApiErrorMessage(error, error.message)}
+            </p>
 
             <button
               type="button"
