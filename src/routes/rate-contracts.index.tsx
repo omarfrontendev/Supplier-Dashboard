@@ -496,6 +496,8 @@ function RateContractsPage() {
 
   const { data, isPending, isError, refetch, error, errorMessage } =
     useHotelContracts(hotelContractsParams);
+
+  console.log(errorMessage);
   const forbidden = isError && isAxiosError(error) && error.response?.status === 403;
 
   const filtered = data?.contracts;
