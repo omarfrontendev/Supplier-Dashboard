@@ -7,11 +7,16 @@ import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useLanguage } from "@/lib/i18n";
-import { addFixedRoom, sameFixedOffer } from "@/store/features/contracts/contract-draft.slice";
+import {
+  addFixedRoom,
+  addSupplementRoom,
+  sameFixedOffer,
+} from "@/store/features/contracts/contract-draft.slice";
 import {
   MEAL_PLANS,
   ROOM_VIEWS,
   type MealPlan,
+  type PricingModel,
   type RoomView,
 } from "@/store/features/contracts/types";
 import { ContractRoomSelect } from "./room-select";
@@ -23,6 +28,7 @@ export function AddRoomDialog({
   metadataLoading,
   metadataError,
   onRetryMetadata,
+  pricingModel,
   onClose,
 }: {
   hotelId: number;
@@ -30,20 +36,33 @@ export function AddRoomDialog({
   metadataLoading: boolean;
   metadataError: boolean;
   onRetryMetadata: () => void;
+  pricingModel: PricingModel;
   onClose: () => void;
 }) {
   const { c, lang } = useLanguage();
   const f = c.builder.form;
   const dispatch = useAppDispatch();
-  const { fixedRooms } = useContractDraft();
+  const { fixedRooms, baseSupplements } = useContractDraft();
   const [roomId, setRoomId] = useState("");
   const [mealPlan, setMealPlan] = useState<MealPlan | "">("");
   const [view, setView] = useState<RoomView | "">("");
 
-  const complete = roomId !== "" && mealPlan !== "" && view !== "";
-  const duplicate =
-    complete &&
-    fixedRooms.some((room) => sameFixedOffer(room, { roomId: Number(roomId), mealPlan, view }));
+  const hasMealPlan = pricingModel === "fixed_price";
+  const fixedSelection =
+    hasMealPlan && roomId !== "" && view !== "" && mealPlan !== ""
+      ? { roomId: Number(roomId), mealPlan, view }
+      : null;
+  const supplementSelection =
+    !hasMealPlan && roomId !== "" && view !== "" ? { roomId: Number(roomId), view } : null;
+  const selection = fixedSelection ?? supplementSelection;
+  const duplicate = fixedSelection
+    ? fixedRooms.some((room) => sameFixedOffer(room, fixedSelection))
+    : supplementSelection
+      ? baseSupplements.rooms.some(
+          (room) =>
+            room.roomId === supplementSelection.roomId && room.view === supplementSelection.view,
+        )
+      : false;
 
   const mealOptions = (metadata?.mealPlans ?? []).flatMap((option) => {
     const value =
@@ -64,7 +83,7 @@ export function AddRoomDialog({
   return (
     <IconModal
       icon={<BedDouble className="h-5 w-5" aria-hidden="true" />}
-      overline={c.builder.modelFixed}
+      overline={hasMealPlan ? c.builder.modelFixed : c.builder.modelSupplements}
       title={f.addRoomTitle}
       body={f.addRoomBody}
       onClose={onClose}
@@ -75,10 +94,11 @@ export function AddRoomDialog({
             {f.cancel}
           </Button>
           <Button
-            disabled={!complete || duplicate}
+            disabled={!selection || duplicate}
             onClick={() => {
-              if (!complete) return;
-              dispatch(addFixedRoom({ roomId: Number(roomId), mealPlan, view }));
+              if (!selection || duplicate) return;
+              if (fixedSelection) dispatch(addFixedRoom(fixedSelection));
+              else if (supplementSelection) dispatch(addSupplementRoom(supplementSelection));
               onClose();
             }}
           >
@@ -102,16 +122,18 @@ export function AddRoomDialog({
           }}
         />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label={f.mealPlan}
-            placeholder={f.mealPlanPh}
-            loading={metadataLoading}
-            {...(metadataError ? { loadError: f.roomsError } : {})}
-            onRetry={onRetryMetadata}
-            value={mealPlan}
-            onChange={(value) => setMealPlan(MEAL_PLANS.find((meal) => meal === value) ?? "")}
-            options={mealOptions}
-          />
+          {hasMealPlan && (
+            <Select
+              label={f.mealPlan}
+              placeholder={f.mealPlanPh}
+              loading={metadataLoading}
+              {...(metadataError ? { loadError: f.roomsError } : {})}
+              onRetry={onRetryMetadata}
+              value={mealPlan}
+              onChange={(value) => setMealPlan(MEAL_PLANS.find((meal) => meal === value) ?? "")}
+              options={mealOptions}
+            />
+          )}
           <Select
             label={f.view}
             placeholder={f.viewPh}

@@ -84,7 +84,8 @@ export function PricingFields({ modelLocked = false }: { modelLocked?: boolean }
               label={f.baseRoom}
               placeholder={basics.hotelId ? f.baseRoomPh : f.pickHotelFirst}
               value={baseSupplements.baseRoomId ? String(baseSupplements.baseRoomId) : ""}
-              onChange={(value) => value && dispatch(setBaseRoom(Number(value)))}
+              clearable
+              onChange={(value) => dispatch(setBaseRoom(value ? Number(value) : null))}
             />
             <p className="mt-1.5 text-xs leading-relaxed text-text-muted">{f.baseRoomHint}</p>
           </div>

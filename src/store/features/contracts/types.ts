@@ -84,6 +84,7 @@ export interface ContractBasics {
 export interface BasePriceRoom {
   roomId: number;
   supplement: string;
+  view: RoomView | null;
 }
 
 export interface BaseSupplements {
