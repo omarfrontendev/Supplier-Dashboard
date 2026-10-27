@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BedDouble } from "lucide-react";
 
-import type { LinkedHotelRoom } from "@/api/modules/hotels/useLinkedHotelRooms";
+import type { HotelContractsMetadataData } from "@/api/modules/hotel-contract/types";
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -14,15 +14,22 @@ import {
   type MealPlan,
   type RoomView,
 } from "@/store/features/contracts/types";
-import { roomLabel, useAppDispatch, useContractDraft } from "./shared";
+import { ContractRoomSelect } from "./room-select";
+import { useAppDispatch, useContractDraft } from "./shared";
 
 export function AddRoomDialog({
   hotelId,
-  rooms,
+  metadata,
+  metadataLoading,
+  metadataError,
+  onRetryMetadata,
   onClose,
 }: {
   hotelId: number;
-  rooms: LinkedHotelRoom[];
+  metadata: HotelContractsMetadataData | undefined;
+  metadataLoading: boolean;
+  metadataError: boolean;
+  onRetryMetadata: () => void;
   onClose: () => void;
 }) {
   const { c, lang } = useLanguage();
@@ -37,6 +44,22 @@ export function AddRoomDialog({
   const duplicate =
     complete &&
     fixedRooms.some((room) => sameFixedOffer(room, { roomId: Number(roomId), mealPlan, view }));
+
+  const mealOptions = (metadata?.mealPlans ?? []).flatMap((option) => {
+    const value =
+      option.value === "bed_and_breakfast"
+        ? "bed_breakfast"
+        : option.value === "iftar_sohour"
+          ? "iftar_and_suhoor"
+          : MEAL_PLANS.find((meal) => meal === option.value);
+    return value ? [{ value, label: lang === "ar" ? option.labelAr : option.labelEn }] : [];
+  });
+  const viewOptions = (metadata?.roomViews ?? [])
+    .filter((option) => ROOM_VIEWS.some((item) => item === option.value))
+    .map((option) => ({
+      value: option.value,
+      label: lang === "ar" ? option.labelAr : option.labelEn,
+    }));
 
   return (
     <IconModal
@@ -65,36 +88,39 @@ export function AddRoomDialog({
       }
     >
       <div className="grid gap-4">
-        <Select
+        <ContractRoomSelect
+          key={hotelId}
+          hotelId={hotelId}
           label={f.room}
           placeholder={f.roomPh}
           value={roomId}
-          onChange={(value) => {
+          onChange={(value, room) => {
             setRoomId(value);
-            const room = rooms.find((item) => String(item.id) === value);
-            if (room?.view && view === "") setView(room.view);
+            if (room?.view && ROOM_VIEWS.some((item) => item === room.view) && view === "") {
+              setView(room.view as RoomView);
+            }
           }}
-          options={rooms.map((room) => ({
-            value: String(room.id),
-            label: roomLabel(room, lang, f),
-          }))}
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
             label={f.mealPlan}
             placeholder={f.mealPlanPh}
-            searchable={false}
+            loading={metadataLoading}
+            {...(metadataError ? { loadError: f.roomsError } : {})}
+            onRetry={onRetryMetadata}
             value={mealPlan}
-            onChange={(value) => setMealPlan(value as MealPlan)}
-            options={MEAL_PLANS.map((meal) => ({ value: meal, label: f.meals[meal] }))}
+            onChange={(value) => setMealPlan(MEAL_PLANS.find((meal) => meal === value) ?? "")}
+            options={mealOptions}
           />
           <Select
             label={f.view}
             placeholder={f.viewPh}
-            searchable={false}
+            loading={metadataLoading}
+            {...(metadataError ? { loadError: f.roomsError } : {})}
+            onRetry={onRetryMetadata}
             value={view}
             onChange={(value) => setView(value as RoomView)}
-            options={ROOM_VIEWS.map((item) => ({ value: item, label: f.views[item] }))}
+            options={viewOptions}
           />
         </div>
         {duplicate && <p className="text-[12.5px] text-status-danger">{f.duplicate}</p>}

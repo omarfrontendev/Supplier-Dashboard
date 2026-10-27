@@ -1,5 +1,68 @@
 export type ContractStatus = "draft" | "scheduled" | "active" | "paused" | "expired" | "terminated";
 
+export interface HotelContractMetadataOption {
+  value: string;
+  labelEn: string;
+  labelAr: string;
+}
+
+export interface HotelContractsMetadataData {
+  mealPlans: HotelContractMetadataOption[];
+  roomViews: HotelContractMetadataOption[];
+}
+
+export interface HotelContractsMetadataResponse {
+  status: "success";
+  message: string;
+  data: HotelContractsMetadataData;
+}
+
+export interface GetSupplierHotelContractRoomsParams {
+  page?: number | null;
+  limit?: number | null;
+  search?: string | null;
+  sortOrder?: string | null;
+  sortBy?: string | null;
+  view?: string | null;
+  bedTypeId?: number | null;
+  roomSizeId?: number | null;
+  minCapacity?: number | null;
+  maxCapacity?: number | null;
+}
+
+export interface SupplierHotelContractRoom {
+  id: number;
+  hotelId: number;
+  nameEn: string;
+  nameAr: string;
+  view: string | null;
+  maxOccupancy: number | null;
+  adults: number | null;
+  bedTypeId: number | null;
+  roomSizeId: number | null;
+  areaSqm: number | null;
+  status: string;
+}
+
+export interface SupplierHotelContractRoomsMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface SupplierHotelContractRoomsData {
+  rooms: SupplierHotelContractRoom[];
+  meta: SupplierHotelContractRoomsMeta;
+  emptyState: string | null;
+}
+
+export interface SupplierHotelContractRoomsResponse {
+  status: "success";
+  message: string;
+  data: SupplierHotelContractRoomsData;
+}
+
 export type BookingType = "allotment_block" | "on_request";
 
 export type PricingModel = "base_plus_supplements" | "fixed_per_room";

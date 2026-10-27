@@ -1,18 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
-import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
-  Lock,
-  Plus,
-  Save,
-} from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Lock, Plus, Save } from "lucide-react";
 import { IconModal } from "@/components/layout/overlay";
 import { PageShell } from "@/components/layout/page-shell";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
 import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
+import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorList } from "@/lib/api-error";
 import {
@@ -127,7 +121,8 @@ export function ContractBuilder({
   const draft = useContractDraft();
   const { basics } = draft;
   const sourceName = source?.name;
-  const savedId = mode === "edit" && contractId && /^\d+$/.test(contractId) ? Number(contractId) : null;
+  const savedId =
+    mode === "edit" && contractId && /^\d+$/.test(contractId) ? Number(contractId) : null;
   const remote = useHotelContract(savedId);
   const saved = remote.data ?? null;
   const saveContract = useSaveHotelContract();
@@ -146,6 +141,7 @@ export function ContractBuilder({
     dispatch(loadContract(draftFromContract(saved)));
   }, [dispatch, saved, draft]);
   const contractHotels = useContractHotels({ page: 1, limit: 100 });
+  const contractMetadata = useHotelContractsMetadata();
   const allowLeave = useRef(false);
   const [inventory, setInventory] = useState<Inventory>("shared");
   const [stock, setStock] = useState("50");
@@ -205,8 +201,7 @@ export function ContractBuilder({
           ["review", t.sections[9]!],
         ] as const)
   ).map(([key, title]) => ({ key, title }));
-  const num = (key: string) =>
-    sectionList.findIndex((item) => item.key === key) + 1;
+  const num = (key: string) => sectionList.findIndex((item) => item.key === key) + 1;
   const sectionLocked = (key: string) =>
     key === "basics" ? false : key === "seasons" ? !seasonsDone : !basicsDone;
   const sectionDone = (key: string) =>
@@ -216,7 +211,7 @@ export function ContractBuilder({
         ? seasonsDone
         : basicsDone;
   const firstOpen = sectionList.findIndex(
-    (item) => !sectionLocked(item.key) && !sectionDone(item.key)
+    (item) => !sectionLocked(item.key) && !sectionDone(item.key),
   );
   const currentSection = firstOpen === -1 ? sectionList.length - 1 : firstOpen;
 
@@ -224,7 +219,8 @@ export function ContractBuilder({
      is held here and section 2's base row follows it. */
   const contractRoomCount = fixed
     ? draft.fixedRooms.length
-    : draft.baseSupplements.rooms.length;
+    : draft.baseSupplements.rooms.filter((room) => room.roomId !== draft.baseSupplements.baseRoomId)
+        .length + (draft.baseSupplements.baseRoomId === null ? 0 : 1);
   const seasons = draft.seasons;
   const seasonNights = seasons.reduce((sum, season) => sum + nightsIn(season), 0);
   const termNights =
@@ -248,7 +244,7 @@ export function ContractBuilder({
 
   const hotel = contractHotels.data?.hotels.find((item) => item.id === basics.hotelId);
   const hotelName = hotel
-    ? (lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn || hotel.nameAr) ?? ""
+    ? ((lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn || hotel.nameAr) ?? "")
     : basics.hotelId
       ? `#${basics.hotelId}`
       : "";
@@ -256,9 +252,7 @@ export function ContractBuilder({
   function openReview() {
     const issues = validateContract(draft, f.v, childMaxAge);
     if (issues.length > 0) {
-      notify.error(
-        fill(f.reviewBlocked, { count: issues.length, first: issues[0]!.message })
-      );
+      notify.error(fill(f.reviewBlocked, { count: issues.length, first: issues[0]!.message }));
       jumpTo(issues[0]!.section);
       return;
     }
@@ -269,7 +263,6 @@ export function ContractBuilder({
       .getElementById(`contract-section-${num(section)}`)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
-
 
   async function saveDraft(leaving = false): Promise<boolean> {
     if (!basicsReady(draft)) {
@@ -366,7 +359,9 @@ export function ContractBuilder({
             dispatch(replaceRestrictions(restrictionsFromContract(latest.restrictions ?? [])));
           }
           if (!cancellationChanged(editing, before)) {
-            dispatch(replaceCancellation(cancellationFromContract(latest.cancellationPolicy ?? null)));
+            dispatch(
+              replaceCancellation(cancellationFromContract(latest.cancellationPolicy ?? null)),
+            );
           }
           if (!seasonsChanged(editing, before)) {
             dispatch(replaceSeasons(seasonsFromContract(latest.seasons ?? [])));
@@ -452,12 +447,7 @@ export function ContractBuilder({
         roomNames: [],
         allotment: Number(stock) || 0,
         roomTypes: contractRoomCount,
-        soldOut:
-          soldOut === "stop"
-            ? "stop"
-            : soldOut === "request"
-              ? "onRequest"
-              : "overbooking",
+        soldOut: soldOut === "stop" ? "stop" : soldOut === "request" ? "onRequest" : "overbooking",
         overbooking: Number(overLimit) || 2,
         releaseDays: 3,
         version: "v1.0",
@@ -476,10 +466,7 @@ export function ContractBuilder({
         onClick={() => navigate({ to: "/rate-contracts" })}
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
       >
-        <ChevronRight
-          className="h-4 w-4 rotate-180 rtl:rotate-0"
-          aria-hidden="true"
-        />
+        <ChevronRight className="h-4 w-4 rotate-180 rtl:rotate-0" aria-hidden="true" />
         {t.back}
       </button>
 
@@ -491,9 +478,7 @@ export function ContractBuilder({
           <h1 className="mt-1 text-[28px] font-semibold text-text-primary">
             {saved ? basics.name.trim() || t.titleEdit : mode === "edit" ? t.titleEdit : t.title}
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">
-            {t.subtitle}
-          </p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">{t.subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs text-text-muted">{draftStatus}</span>
@@ -527,9 +512,7 @@ export function ContractBuilder({
                   href={`#contract-section-${index + 1}`}
                   className={cn(
                     "flex items-center gap-3 border-b border-border-subtle px-4 py-3 text-sm last:border-0",
-                    index === currentSection
-                      ? "bg-primary-subtle"
-                      : "hover:bg-surface-subtle"
+                    index === currentSection ? "bg-primary-subtle" : "hover:bg-surface-subtle",
                   )}
                 >
                   <span
@@ -539,28 +522,21 @@ export function ContractBuilder({
                         ? "bg-status-neutral-bg text-text-muted"
                         : done
                           ? "bg-brand-deep text-text-inverse"
-                          : "border border-brand-deep bg-surface-default text-brand-deep"
+                          : "border border-brand-deep bg-surface-default text-brand-deep",
                     )}
                   >
-                    {done && !locked ? (
-                      <Check className="h-3 w-3" aria-hidden="true" />
-                    ) : (
-                      index + 1
-                    )}
+                    {done && !locked ? <Check className="h-3 w-3" aria-hidden="true" /> : index + 1}
                   </span>
                   <span
                     className={cn(
                       "min-w-0 flex-1 truncate",
-                      locked ? "text-text-muted" : "text-text-primary"
+                      locked ? "text-text-muted" : "text-text-primary",
                     )}
                   >
                     {label}
                   </span>
                   {locked && (
-                    <Lock
-                      className="h-3.5 w-3.5 shrink-0 text-status-warning"
-                      aria-hidden="true"
-                    />
+                    <Lock className="h-3.5 w-3.5 shrink-0 text-status-warning" aria-hidden="true" />
                   )}
                 </a>
               );
@@ -575,11 +551,7 @@ export function ContractBuilder({
                 [t.summaryTerm, term || t.summaryEmpty],
                 [
                   t.summaryType,
-                  basicsDone
-                    ? onRequest
-                      ? f.bookingRequest
-                      : f.bookingAllotment
-                    : t.summaryEmpty,
+                  basicsDone ? (onRequest ? f.bookingRequest : f.bookingAllotment) : t.summaryEmpty,
                 ],
                 [
                   t.summaryRooms,
@@ -636,9 +608,7 @@ export function ContractBuilder({
             {!basicsDone && (
               <div className="mt-4 flex gap-2 rounded-xl border border-border-subtle bg-surface-subtle p-3.5">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
-                <p className="text-xs leading-relaxed text-text-secondary">
-                  {t.lockNote}
-                </p>
+                <p className="text-xs leading-relaxed text-text-secondary">{t.lockNote}</p>
               </div>
             )}
           </Section>
@@ -647,13 +617,7 @@ export function ContractBuilder({
           <Section
             id={num("pricing")}
             title={fixed ? t.pricingFixedTitle : t.sections[1]!}
-            body={
-              fixed
-                ? t.pricingFixedBody
-                : basicsDone
-                  ? t.pricingBodyFilled
-                  : t.pricingBody
-            }
+            body={fixed ? t.pricingFixedBody : basicsDone ? t.pricingBodyFilled : t.pricingBody}
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
@@ -664,17 +628,16 @@ export function ContractBuilder({
           <Section
             id={num("rooms")}
             title={t.sections[2]!}
-            body={
-              fixed
-                ? t.roomsFixedBody
-                : basicsDone
-                  ? t.roomsBody
-                  : t.roomsBodyEmpty
-            }
+            body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <RoomsFields />
+            <RoomsFields
+              metadata={contractMetadata.data}
+              metadataLoading={contractMetadata.isLoading}
+              metadataError={contractMetadata.isError}
+              onRetryMetadata={() => void contractMetadata.refetch()}
+            />
           </Section>
 
           <Section
@@ -689,8 +652,8 @@ export function ContractBuilder({
 
           {!fixed && (
             <>
-          {/* 5 — Meal plans */}
-          <Section
+              {/* 5 — Meal plans */}
+              {/* <Section
             id={num("meals")}
             title={t.sections[4]!}
             body={t.mealsBody}
@@ -698,7 +661,7 @@ export function ContractBuilder({
             tone={basicsDone ? "done" : "locked"}
           >
             <MealsFields />
-          </Section>
+          </Section> */}
             </>
           )}
 
@@ -712,14 +675,10 @@ export function ContractBuilder({
           >
             {/* UI 03.1B — an On Request contract commits no rooms at all. */}
             {onRequest ? (
-              <p className="text-sm leading-relaxed text-text-secondary">
-                {t.requestInvShort}
-              </p>
+              <p className="text-sm leading-relaxed text-text-secondary">{t.requestInvShort}</p>
             ) : (
               <>
-                <p className="text-sm font-medium text-text-primary">
-                  {t.inventoryModel}
-                </p>
+                <p className="text-sm font-medium text-text-primary">{t.inventoryModel}</p>
                 <ChoiceRow
                   value={inventory}
                   onChange={(next) => setInventory(next as Inventory)}
@@ -740,16 +699,11 @@ export function ContractBuilder({
                 {/* UI 03.1L — free sale has no number, so it has no table. */}
                 {inventory === "free" && (
                   <div className="mt-3 space-y-2">
-                    {[t.invFreeNote1, t.invFreeNote2, t.invFreeNote3].map(
-                      (note) => (
-                        <p
-                          key={note}
-                          className="text-xs leading-relaxed text-text-muted"
-                        >
-                          {note}
-                        </p>
-                      )
-                    )}
+                    {[t.invFreeNote1, t.invFreeNote2, t.invFreeNote3].map((note) => (
+                      <p key={note} className="text-xs leading-relaxed text-text-muted">
+                        {note}
+                      </p>
+                    ))}
                   </div>
                 )}
 
@@ -775,9 +729,7 @@ export function ContractBuilder({
                         lang === "ar" ? cap.sellsAr : cap.sells,
                       ])}
                     />
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                      {t.capHint}
-                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.capHint}</p>
                   </>
                 )}
 
@@ -800,9 +752,7 @@ export function ContractBuilder({
 
                 {inventory !== "free" && (
                   <>
-                    <p className="mt-5 text-sm font-medium text-text-primary">
-                      {t.soldOut}
-                    </p>
+                    <p className="mt-5 text-sm font-medium text-text-primary">{t.soldOut}</p>
                     <ChoiceRow
                       value={soldOut}
                       onChange={(next) => setSoldOut(next as SoldOut)}
@@ -812,9 +762,7 @@ export function ContractBuilder({
                         { value: "overbooking", label: t.soldOutOver },
                       ]}
                     />
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                      {t.overHint}
-                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.overHint}</p>
                     {soldOut === "stop" && (
                       <p className="mt-2 text-xs leading-relaxed text-text-muted">
                         {t.soldOutStopHint}
@@ -853,9 +801,7 @@ export function ContractBuilder({
             title={t.sections[6]!}
             body={t.seasonsBody}
             locked={false}
-            tone={
-              !basicsDone ? "locked" : seasonsDone ? "done" : "open"
-            }
+            tone={!basicsDone ? "locked" : seasonsDone ? "done" : "open"}
             right={
               seasonsDone ? (
                 <Button
@@ -871,9 +817,7 @@ export function ContractBuilder({
           >
             {!seasonsDone ? (
               <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
-                <p className="text-xs leading-relaxed text-text-secondary">
-                  {t.seasonsLocked}
-                </p>
+                <p className="text-xs leading-relaxed text-text-secondary">{t.seasonsLocked}</p>
                 <div className="mt-3 flex flex-wrap gap-3">
                   <a
                     href={`#contract-section-${num("restrictions")}`}
@@ -1003,9 +947,7 @@ export function ContractBuilder({
             />
             {!hasPolicies && (
               <>
-                <p className="mt-3 text-xs leading-relaxed text-text-muted">
-                  {t.policiesNone}
-                </p>
+                <p className="mt-3 text-xs leading-relaxed text-text-muted">{t.policiesNone}</p>
                 <p className="mt-2 text-xs leading-relaxed text-status-warning">
                   {t.policiesNoneWarn}
                 </p>
@@ -1018,9 +960,7 @@ export function ContractBuilder({
                   onRelease={() => setPolicy("release")}
                 />
 
-                <p className="mt-5 text-overline text-text-muted">
-                  {t.seasonPolicyOverline}
-                </p>
+                <p className="mt-5 text-overline text-text-muted">{t.seasonPolicyOverline}</p>
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full min-w-[640px] border-collapse text-sm">
                     <thead>
@@ -1030,7 +970,7 @@ export function ContractBuilder({
                             key={cell || index}
                             className={cn(
                               "py-2 font-semibold",
-                              index === 3 ? "text-end" : "text-start"
+                              index === 3 ? "text-end" : "text-start",
                             )}
                           >
                             {cell}
@@ -1074,7 +1014,6 @@ export function ContractBuilder({
                     </tbody>
                   </table>
                 </div>
-
               </>
             )}
           </Section>
@@ -1095,15 +1034,13 @@ export function ContractBuilder({
             title={t.sections[9]!}
             body={t.reviewBody}
             locked={!basicsDone}
-            tone={
-              !basicsDone ? "locked" : sectionDone("review") ? "done" : "open"
-            }
+            tone={!basicsDone ? "locked" : sectionDone("review") ? "done" : "open"}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p
                 className={cn(
                   "min-w-0 flex-1 text-sm",
-                  seasonsDone ? "text-status-success" : "text-text-muted"
+                  seasonsDone ? "text-status-success" : "text-text-muted",
                 )}
               >
                 {seasonsDone ? t.reviewReady : t.reviewLocked}
@@ -1212,4 +1149,3 @@ export function ContractBuilder({
     </PageShell>
   );
 }
-
