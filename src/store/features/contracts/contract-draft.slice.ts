@@ -62,9 +62,9 @@ const initialState: ContractDraftState = {
 };
 
 export const sameFixedOffer = (
-  a: Pick<FixedPriceRoom, "roomId" | "mealPlan" | "view">,
-  b: Pick<FixedPriceRoom, "roomId" | "mealPlan" | "view">,
-) => a.roomId === b.roomId && a.mealPlan === b.mealPlan && a.view === b.view;
+  a: Pick<FixedPriceRoom, "roomId" | "view">,
+  b: Pick<FixedPriceRoom, "roomId" | "view">,
+) => a.roomId === b.roomId && a.view === b.view;
 
 export const contractDraftSlice = createSlice({
   name: "contractDraft",
@@ -203,7 +203,7 @@ export const contractDraftSlice = createSlice({
 
     addFixedRoom: (
       state,
-      action: PayloadAction<Pick<FixedPriceRoom, "roomId" | "mealPlan" | "view">>,
+      action: PayloadAction<Pick<FixedPriceRoom, "roomId" | "view" | "meals">>,
     ) => {
       if (state.fixedRooms.some((room) => sameFixedOffer(room, action.payload))) {
         return;

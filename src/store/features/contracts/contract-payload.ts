@@ -75,8 +75,12 @@ export function buildContractPayload(draft: ContractDraftState) {
       pricingModel === "fixed_price"
         ? draft.fixedRooms.map((room) => ({
             roomId: room.roomId,
-            mealPlan: mealPlanToApi(room.mealPlan),
             view: room.view,
+            mealPlans: room.meals.map((meal) => ({
+              mealPlan: mealPlanToApi(meal.plan),
+              basis: meal.basis,
+              price: meal.plan === "room_only" ? 0 : toAmount(meal.price),
+            })),
             weekdayPrice: toAmount(room.weekdayPrice),
             weekendPrice: split ? toAmount(room.weekendPrice) : null,
           }))

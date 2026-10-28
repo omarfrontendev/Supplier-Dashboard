@@ -94,15 +94,21 @@ export interface BaseSupplements {
   rooms: BasePriceRoom[];
 }
 
+export type MealBasis = "per_room" | "per_person";
+
+export interface FixedRoomMeal {
+  plan: MealPlan;
+  basis: MealBasis;
+  price: string;
+}
+
 export interface FixedPriceRoom {
   roomId: number;
-  mealPlan: MealPlan;
   view: RoomView;
+  meals: FixedRoomMeal[];
   weekdayPrice: string;
   weekendPrice: string;
 }
-
-export type MealBasis = "per_room" | "per_person";
 
 export interface MealRule {
   enabled: boolean;

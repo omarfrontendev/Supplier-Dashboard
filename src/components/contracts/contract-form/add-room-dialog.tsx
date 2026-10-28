@@ -6,6 +6,7 @@ import type { HotelContractsMetadataData } from "@/api/modules/hotel-contract/ty
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { ChoiceRow, Table } from "@/components/contracts/contract-parts";
 import { useLanguage } from "@/lib/i18n";
 import {
   addFixedRoom,
@@ -15,12 +16,29 @@ import {
 import {
   MEAL_PLANS,
   ROOM_VIEWS,
+  type FixedRoomMeal,
+  type MealBasis,
   type MealPlan,
   type PricingModel,
   type RoomView,
 } from "@/store/features/contracts/types";
 import { ContractRoomSelect } from "./room-select";
-import { useAppDispatch, useContractDraft } from "./shared";
+import { AmountInput, RoomTick, useAppDispatch, useContractDraft } from "./shared";
+
+export function mealOptionsFrom(
+  metadata: HotelContractsMetadataData | undefined,
+  lang: string,
+): Array<{ value: MealPlan; label: string }> {
+  return (metadata?.mealPlans ?? []).flatMap((option) => {
+    const value =
+      option.value === "bed_and_breakfast"
+        ? "bed_breakfast"
+        : option.value === "iftar_sohour"
+          ? "iftar_and_suhoor"
+          : MEAL_PLANS.find((meal) => meal === option.value);
+    return value ? [{ value, label: lang === "ar" ? option.labelAr : option.labelEn }] : [];
+  });
+}
 
 export function AddRoomDialog({
   hotelId,
@@ -42,15 +60,26 @@ export function AddRoomDialog({
   const { c, lang } = useLanguage();
   const f = c.builder.form;
   const dispatch = useAppDispatch();
-  const { fixedRooms, baseSupplements } = useContractDraft();
+  const { basics, fixedRooms, baseSupplements } = useContractDraft();
+  const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
   const [roomId, setRoomId] = useState("");
-  const [mealPlan, setMealPlan] = useState<MealPlan | "">("");
   const [view, setView] = useState<RoomView | "">("");
+  const [meals, setMeals] = useState<Partial<Record<MealPlan, FixedRoomMeal>>>({
+    room_only: { plan: "room_only", basis: "per_room", price: "" },
+  });
 
   const hasMealPlan = pricingModel === "fixed_price";
+  const mealOptions = mealOptionsFrom(metadata, lang);
+  const pickedMeals = mealOptions.flatMap((option) => {
+    const meal = meals[option.value];
+    return meal ? [meal] : [];
+  });
+  const mealPriceMissing = pickedMeals.some(
+    (meal) => meal.plan !== "room_only" && meal.price.trim() === "",
+  );
   const fixedSelection =
-    hasMealPlan && roomId !== "" && view !== "" && mealPlan !== ""
-      ? { roomId: Number(roomId), mealPlan, view }
+    hasMealPlan && roomId !== "" && view !== "" && pickedMeals.length > 0 && !mealPriceMissing
+      ? { roomId: Number(roomId), view, meals: pickedMeals }
       : null;
   const supplementSelection =
     !hasMealPlan && roomId !== "" && view !== "" ? { roomId: Number(roomId), view } : null;
@@ -64,15 +93,19 @@ export function AddRoomDialog({
         )
       : false;
 
-  const mealOptions = (metadata?.mealPlans ?? []).flatMap((option) => {
-    const value =
-      option.value === "bed_and_breakfast"
-        ? "bed_breakfast"
-        : option.value === "iftar_sohour"
-          ? "iftar_and_suhoor"
-          : MEAL_PLANS.find((meal) => meal === option.value);
-    return value ? [{ value, label: lang === "ar" ? option.labelAr : option.labelEn }] : [];
-  });
+  const t = f.mealsTable;
+  const toggleMeal = (plan: MealPlan) =>
+    setMeals((current) => {
+      const next = { ...current };
+      if (next[plan]) delete next[plan];
+      else next[plan] = { plan, basis: "per_person", price: "" };
+      return next;
+    });
+  const editMeal = (plan: MealPlan, change: Partial<FixedRoomMeal>) =>
+    setMeals((current) => {
+      const meal = current[plan];
+      return meal ? { ...current, [plan]: { ...meal, ...change } } : current;
+    });
   const viewOptions = (metadata?.roomViews ?? [])
     .filter((option) => ROOM_VIEWS.some((item) => item === option.value))
     .map((option) => ({
@@ -82,12 +115,13 @@ export function AddRoomDialog({
 
   return (
     <IconModal
+      {...(hasMealPlan ? { width: "860px" } : {})}
       icon={<BedDouble className="h-5 w-5" aria-hidden="true" />}
       overline={hasMealPlan ? c.builder.modelFixed : c.builder.modelSupplements}
       title={f.addRoomTitle}
       body={f.addRoomBody}
       onClose={onClose}
-      dirty={roomId !== "" || mealPlan !== "" || view !== ""}
+      dirty={roomId !== "" || view !== "" || Object.keys(meals).length > 1}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
@@ -108,32 +142,20 @@ export function AddRoomDialog({
       }
     >
       <div className="grid gap-4">
-        <ContractRoomSelect
-          key={hotelId}
-          hotelId={hotelId}
-          label={f.room}
-          placeholder={f.roomPh}
-          value={roomId}
-          onChange={(value, room) => {
-            setRoomId(value);
-            if (room?.view && ROOM_VIEWS.some((item) => item === room.view) && view === "") {
-              setView(room.view as RoomView);
-            }
-          }}
-        />
         <div className="grid gap-4 sm:grid-cols-2">
-          {hasMealPlan && (
-            <Select
-              label={f.mealPlan}
-              placeholder={f.mealPlanPh}
-              loading={metadataLoading}
-              {...(metadataError ? { loadError: f.roomsError } : {})}
-              onRetry={onRetryMetadata}
-              value={mealPlan}
-              onChange={(value) => setMealPlan(MEAL_PLANS.find((meal) => meal === value) ?? "")}
-              options={mealOptions}
-            />
-          )}
+          <ContractRoomSelect
+            key={hotelId}
+            hotelId={hotelId}
+            label={f.room}
+            placeholder={f.roomPh}
+            value={roomId}
+            onChange={(value, room) => {
+              setRoomId(value);
+              if (room?.view && ROOM_VIEWS.some((item) => item === room.view) && view === "") {
+                setView(room.view as RoomView);
+              }
+            }}
+          />
           <Select
             label={f.view}
             placeholder={f.viewPh}
@@ -145,6 +167,73 @@ export function AddRoomDialog({
             options={viewOptions}
           />
         </div>
+        {hasMealPlan && (
+          <div>
+            <p className="text-sm font-semibold text-text-primary">{f.mealPlan}</p>
+            {metadataLoading ? (
+              <p className="mt-2 text-sm text-text-muted">{f.roomsLoading}</p>
+            ) : metadataError ? (
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <p className="text-sm text-status-danger">{f.roomsError}</p>
+                <Button variant="outline" size="sm" onClick={onRetryMetadata}>
+                  {f.retry}
+                </Button>
+              </div>
+            ) : (
+              <Table
+                head={["", t.colMeal, t.colBasis, t.colPrice]}
+                rows={mealOptions.map((option) => {
+                  const meal = meals[option.value];
+                  const included = option.value === "room_only";
+                  return [
+                    <RoomTick
+                      key="tick"
+                      on={Boolean(meal)}
+                      locked={included}
+                      label={option.label}
+                      onToggle={() => toggleMeal(option.value)}
+                    />,
+                    option.label,
+                    included ? (
+                      "-"
+                    ) : (
+                      <ChoiceRow
+                        key="basis"
+                        value={meal?.basis ?? "per_person"}
+                        disabled={!meal}
+                        onChange={(basis) =>
+                          editMeal(option.value, { basis: basis as MealBasis })
+                        }
+                        options={[
+                          { value: "per_room", label: t.perRoom },
+                          { value: "per_person", label: t.perPerson },
+                        ]}
+                      />
+                    ),
+                    included ? (
+                      <span key="included" className="text-sm font-medium text-brand-deep">
+                        {t.included}
+                      </span>
+                    ) : (
+                      <AmountInput
+                        key="price"
+                        aria-label={`${option.label} · ${t.colPrice}`}
+                        {...currencySuffix}
+                        className="max-w-[160px]"
+                        disabled={!meal}
+                        value={meal?.price ?? ""}
+                        onValue={(value) => editMeal(option.value, { price: value })}
+                      />
+                    ),
+                  ];
+                })}
+              />
+            )}
+            {mealPriceMissing && (
+              <p className="mt-2 text-[12.5px] text-status-danger">{f.v.mealPrice}</p>
+            )}
+          </div>
+        )}
         {duplicate && <p className="text-[12.5px] text-status-danger">{f.duplicate}</p>}
         <Link
           to="/hotel/$hotelId"

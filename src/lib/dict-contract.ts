@@ -416,7 +416,7 @@ export const contractEn = {
       "Fixed price per room: no base and no room supplements - every room gets its own full price in Rooms. Seasons follow the same model.",
     pricingFixedTitle: "Pricing model",
     roomsFixedBody:
-      "Add each room with one meal plan and one view and type its full price - no supplements, no extra beds. Add the same room again to sell it with a different view or meal.",
+      "Add each room with its view and meal plans and type its full price - no room supplements, no extra beds. Add the same room again to sell it with a different view.",
     addRoom: "Add room",
     colMealView: "Meal \u00b7 view",
     colWeekdayTotal: "Weekday \u00b7 total",
@@ -504,7 +504,7 @@ export const contractEn = {
       remove: "Remove {room}",
       addRoomTitle: "Add room",
       addRoomBody:
-        "Pick the room, its meal plan and its view. You type its prices in the table.",
+        "Pick the room and its view, then tick its meal plans. You type the room prices in the table.",
       room: "Room",
       roomPh: "Select a room",
       mealPlan: "Meal plan",
@@ -512,7 +512,7 @@ export const contractEn = {
       view: "View",
       viewPh: "Select a view",
       addRoomConfirm: "Add to contract",
-      duplicate: "This room, meal plan and view are already in the contract.",
+      duplicate: "This room with this view is already in the contract.",
       missingRoom: "Can't find the room? Request a missing room",
       meals: {
         room_only: "Room only",
@@ -1223,7 +1223,7 @@ export const contractAr: typeof contractEn = {
       "\u0633\u0639\u0631 \u062b\u0627\u0628\u062a \u0644\u0643\u0644 \u063a\u0631\u0641\u0629: \u0628\u0644\u0627 \u0623\u0633\u0627\u0633 \u0648\u0628\u0644\u0627 \u0641\u0631\u0648\u0642 - \u0644\u0643\u0644 \u063a\u0631\u0641\u0629 \u0633\u0639\u0631\u0647\u0627 \u0627\u0644\u0643\u0627\u0645\u0644 \u0641\u064a \u0627\u0644\u063a\u0631\u0641. \u0648\u0627\u0644\u0645\u0648\u0627\u0633\u0645 \u062a\u062a\u0628\u0639 \u0627\u0644\u0646\u0645\u0648\u0630\u062c \u0646\u0641\u0633\u0647.",
     pricingFixedTitle: "\u0646\u0645\u0648\u0630\u062c \u0627\u0644\u062a\u0633\u0639\u064a\u0631",
     roomsFixedBody:
-      "\u0623\u0636\u0641 \u0643\u0644 \u063a\u0631\u0641\u0629 \u0628\u062e\u0637\u0629 \u0648\u062c\u0628\u0627\u062a \u0648\u0627\u062d\u062f\u0629 \u0648\u0625\u0637\u0644\u0627\u0644\u0629 \u0648\u0627\u062d\u062f\u0629 \u0648\u0627\u0643\u062a\u0628 \u0633\u0639\u0631\u0647\u0627 \u0627\u0644\u0643\u0627\u0645\u0644 - \u0628\u0644\u0627 \u0641\u0631\u0648\u0642 \u0648\u0628\u0644\u0627 \u0623\u0633\u0631\u0651\u0629 \u0625\u0636\u0627\u0641\u064a\u0629. \u0648\u0623\u0636\u0641 \u0627\u0644\u063a\u0631\u0641\u0629 \u0646\u0641\u0633\u0647\u0627 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649 \u0644\u0628\u064a\u0639\u0647\u0627 \u0628\u0625\u0637\u0644\u0627\u0644\u0629 \u0623\u0648 \u0648\u062c\u0628\u0629 \u0645\u062e\u062a\u0644\u0641\u0629.",
+      "أضف كل غرفة بإطلالتها وخطط وجباتها واكتب سعرها الكامل - بلا فروق غرف وبلا أسرّة إضافية. وأضف الغرفة نفسها مرة أخرى لبيعها بإطلالة مختلفة.",
     addRoom: "\u0625\u0636\u0627\u0641\u0629 \u063a\u0631\u0641\u0629",
     colMealView: "\u0627\u0644\u0648\u062c\u0628\u0629 \u00b7 \u0627\u0644\u0625\u0637\u0644\u0627\u0644\u0629",
     colWeekdayTotal: "\u0623\u064a\u0627\u0645 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 \u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
@@ -1310,7 +1310,7 @@ export const contractAr: typeof contractEn = {
       fixedEmpty: "لا غرف بعد. أضف كل غرفة بخطة وجباتها وإطلالتها، ثم اكتب أسعارها هنا.",
       remove: "إزالة {room}",
       addRoomTitle: "إضافة غرفة",
-      addRoomBody: "اختر الغرفة وخطة وجباتها وإطلالتها. وتكتب أسعارها في الجدول.",
+      addRoomBody: "اختر الغرفة وإطلالتها، ثم حدّد خطط الوجبات. وتكتب أسعار الغرفة في الجدول.",
       room: "الغرفة",
       roomPh: "اختر غرفة",
       mealPlan: "خطة الوجبات",
@@ -1318,7 +1318,7 @@ export const contractAr: typeof contractEn = {
       view: "الإطلالة",
       viewPh: "اختر الإطلالة",
       addRoomConfirm: "إضافة للعقد",
-      duplicate: "هذه الغرفة بنفس خطة الوجبات والإطلالة موجودة في العقد.",
+      duplicate: "هذه الغرفة بنفس الإطلالة موجودة في العقد.",
       missingRoom: "لم تجد الغرفة؟ اطلب غرفة ناقصة",
       meals: {
         room_only: "غرفة فقط",

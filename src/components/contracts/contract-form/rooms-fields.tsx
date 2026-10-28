@@ -17,7 +17,7 @@ import {
   setFixedPrice,
   setRoomSupplement,
 } from "@/store/features/contracts/contract-draft.slice";
-import { AddRoomDialog } from "./add-room-dialog";
+import { AddRoomDialog, mealOptionsFrom } from "./add-room-dialog";
 import {
   AmountInput,
   formatAmount,
@@ -77,6 +77,10 @@ export function RoomsFields({
 
   if (pricingModel === "fixed_price") {
     const roomById = new Map(rooms.map((room) => [room.id, room]));
+    const mealLabel = new Map(
+      mealOptionsFrom(metadata, lang).map((option) => [option.value, option.label]),
+    );
+    const t = f.mealsTable;
     return (
       <>
         <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
@@ -102,9 +106,20 @@ export function RoomsFields({
                 : `#${row.roomId}`;
               return [
                 name,
-                f.meals[
-                  row.mealPlan === "bed_and_breakfast" ? "bed_breakfast" : row.mealPlan
-                ],
+                <ul key="meals" className="space-y-0.5">
+                  {row.meals.map((meal) => (
+                    <li key={meal.plan} className="text-sm text-text-primary">
+                      {mealLabel.get(meal.plan) ?? meal.plan}
+                      {meal.plan !== "room_only" && (
+                        <span className="text-text-muted">
+                          {` · +${money(toAmount(meal.price))} ${
+                            meal.basis === "per_person" ? t.perPerson : t.perRoom
+                          }`}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>,
                 f.views[row.view],
                 <AmountInput
                   key="weekday"
