@@ -189,6 +189,7 @@ export function BasicsFields({
         <PickerOverlay
           panel={currencyPanel}
           icon="currency"
+          initial={Math.max(CONTRACT_CURRENCIES.findIndex((code) => code === basics.currency), 0)}
           onClose={() => setPicker(null)}
           onConfirm={(index) => {
             dispatch(updateBasics({ currency: CONTRACT_CURRENCIES[index] ?? "SAR" }));

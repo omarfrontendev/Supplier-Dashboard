@@ -457,8 +457,8 @@ export const currencyPanel: PickerPanel = {
   ],
   cancel: "Cancel",
   cancelAr: "إلغاء",
-  confirm: "Use SAR",
-  confirmAr: "استخدم SAR",
+  confirm: "Use {option}",
+  confirmAr: "استخدم {option}",
 };
 
 /** OV 03.1Q / Q2 / Q3 — the term, and the two ways it can go wrong. */

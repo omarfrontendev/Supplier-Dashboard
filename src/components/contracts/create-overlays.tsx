@@ -7,7 +7,7 @@ import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { addDays, dateOf, keyOf } from "@/components/ui/date-picker";
-import { useLanguage } from "@/lib/i18n";
+import { fill, useLanguage } from "@/lib/i18n";
 import { WEEKDAY_NUMBER, type Weekday } from "@/store/features/contracts/types";
 import { cn } from "@/lib/utils";
 import {
@@ -70,18 +70,21 @@ export function OptionRow({
 export function PickerOverlay({
   panel,
   icon,
+  initial = 0,
   onClose,
   onConfirm,
 }: {
   panel: PickerPanel;
   icon: "hotel" | "currency";
+  initial?: number;
   onClose: () => void;
   /** The row the supplier actually picked, not always the first one. */
   onConfirm: (index: number) => void;
 }) {
   const { lang } = useLanguage();
   const ar = lang === "ar";
-  const [picked, setPicked] = useState(0);
+  const [picked, setPicked] = useState(initial);
+  const pickedCode = panel.options[picked]?.label.split(" · ")[0] ?? "";
 
   return (
     <IconModal
@@ -102,7 +105,7 @@ export function PickerOverlay({
             {ar ? panel.cancelAr : panel.cancel}
           </Button>
           <Button onClick={() => onConfirm(picked)}>
-            {ar ? panel.confirmAr : panel.confirm}
+            {fill(ar ? panel.confirmAr : panel.confirm, { option: pickedCode })}
           </Button>
         </>
       }
