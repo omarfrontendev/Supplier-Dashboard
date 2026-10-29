@@ -18,15 +18,6 @@ export const WEEKDAYS: Weekday[] = ["sat", "sun", "mon", "tue", "wed", "thu", "f
 
 export type MealPlan = string;
 
-export const MEAL_PLANS: MealPlan[] = [
-  "room_only",
-  "bed_breakfast",
-  "half_board",
-  "full_board",
-  "iftar_sohour",
-  "iftar_and_suhoor"
-];
-
 export type RoomView =
   | "sea"
   | "city"
