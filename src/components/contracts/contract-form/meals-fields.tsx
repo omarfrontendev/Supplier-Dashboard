@@ -1,17 +1,20 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
+import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
 import { useLinkedHotelRooms } from "@/api/modules/hotels/useLinkedHotelRooms";
 import { ChoiceRow, Table } from "@/components/contracts/contract-parts";
 import { StatusPill } from "@/components/layout/page-shell";
+import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
 import { effectivePrice, mealSupplement } from "@/store/features/contracts/contract-payload";
 import {
+  ensureMealPlans,
   setMealBasis,
   setMealPrice,
   toggleMeal,
 } from "@/store/features/contracts/contract-draft.slice";
-import { MEAL_PLANS, type MealBasis } from "@/store/features/contracts/types";
+import type { MealBasis, MealRule } from "@/store/features/contracts/types";
 import { contractIssuesFor } from "./schema";
 import {
   AmountInput,
@@ -29,14 +32,31 @@ export function MealsFields() {
   const dispatch = useAppDispatch();
   const draft = useContractDraft();
   const { basics, meals, baseSupplements, weekPricing } = draft;
+  const metadata = useHotelContractsMetadata();
+  const mealOptions = metadata.data?.mealPlans ?? [];
   const { rooms } = useLinkedHotelRooms(basics.hotelId);
   const [query, setQuery] = useState("");
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
   const split = weekPricing === "weekday_weekend";
   const money = (amount: number) => formatAmount(amount, lang, basics.currency);
   const issues = contractIssuesFor(draft, f.v, "meals");
+  const mealKeys = Object.keys(meals).sort().join("\0");
+  const ruleForMeal = (value: string): MealRule =>
+    meals[value] ?? {
+      enabled: value === "room_only",
+      price: value === "room_only" ? "0" : "",
+      basis: value === "room_only" ? "per_room" : "per_person",
+    };
 
-  const enabledMeals = MEAL_PLANS.filter((meal) => meals[meal].enabled);
+  useEffect(() => {
+    if (metadata.data) {
+      dispatch(ensureMealPlans(metadata.data.mealPlans.map((meal) => meal.value)));
+    }
+  }, [dispatch, metadata.data, mealKeys]);
+
+  const enabledMeals = mealOptions.filter(
+    (meal) => meal.value === "room_only" || meals[meal.value]?.enabled,
+  );
   const baseRoom = rooms.find((room) => room.id === baseSupplements.baseRoomId);
   const pricedRoomCount =
     baseSupplements.rooms.filter((room) => room.roomId !== baseSupplements.baseRoomId).length +
@@ -70,29 +90,48 @@ export function MealsFields() {
     null,
   );
 
+  if (metadata.isLoading) {
+    return <p className="text-sm text-text-muted">{t.metadataLoading}</p>;
+  }
+  if (metadata.isError && !metadata.data) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-status-danger">{t.metadataError}</p>
+        <Button variant="outline" size="sm" onClick={() => void metadata.refetch()}>
+          {f.retry}
+        </Button>
+      </div>
+    );
+  }
+  if (mealOptions.length === 0) {
+    return <p className="text-sm text-text-muted">{t.metadataEmpty}</p>;
+  }
+
   return (
     <>
       <Table
         head={["", t.colMeal, t.colBasis, t.colPrice]}
-        rows={MEAL_PLANS.map((meal) => {
-          const rule = meals[meal];
-          const included = meal === "room_only";
+        rows={mealOptions.map((meal) => {
+          const rule = ruleForMeal(meal.value);
+          const included = meal.value === "room_only";
           return [
             <RoomTick
               key="tick"
               on={rule.enabled}
               locked={included}
-              label={f.meals[meal]}
-              onToggle={() => dispatch(toggleMeal(meal))}
+              label={lang === "ar" ? meal.labelAr : meal.labelEn}
+              onToggle={() => dispatch(toggleMeal(meal.value))}
             />,
-            f.meals[meal],
+            lang === "ar" ? meal.labelAr : meal.labelEn,
             included ? (
               "-"
             ) : (
               <ChoiceRow
                 key="basis"
                 value={rule.basis}
-                onChange={(basis) => dispatch(setMealBasis({ meal, basis: basis as MealBasis }))}
+                onChange={(basis) =>
+                  dispatch(setMealBasis({ meal: meal.value, basis: basis as MealBasis }))
+                }
                 options={[
                   { value: "per_room", label: t.perRoom },
                   { value: "per_person", label: t.perPerson },
@@ -106,12 +145,12 @@ export function MealsFields() {
             ) : (
               <AmountInput
                 key="price"
-                aria-label={`${f.meals[meal]} · ${t.colPrice}`}
+                aria-label={`${lang === "ar" ? meal.labelAr : meal.labelEn} · ${t.colPrice}`}
                 {...currencySuffix}
                 className="max-w-[160px]"
                 disabled={!rule.enabled}
                 value={rule.price}
-                onValue={(value) => dispatch(setMealPrice({ meal, value }))}
+                onValue={(value) => dispatch(setMealPrice({ meal: meal.value, value }))}
               />
             ),
           ];
@@ -158,7 +197,12 @@ export function MealsFields() {
             </div>
 
             <Table
-              head={[f.colRoom, ...enabledMeals.map((meal) => f.meals[meal])]}
+              head={[
+                f.colRoom,
+                ...enabledMeals.map((meal) =>
+                  lang === "ar" ? meal.labelAr : meal.labelEn,
+                ),
+              ]}
               rows={priceRows.map((row) => [
                 <div key="room">
                   <p className="text-sm text-text-primary">{row.label}</p>
@@ -167,9 +211,9 @@ export function MealsFields() {
                   </p>
                 </div>,
                 ...enabledMeals.map((meal) => {
-                  const add = mealSupplement(meals[meal], row.room.adults);
+                  const add = mealSupplement(ruleForMeal(meal.value), row.room.adults);
                   return (
-                    <div key={meal} className="font-data">
+                    <div key={meal.value} className="font-data">
                       <p className="text-sm text-text-primary">
                         {row.weekday === null ? "-" : money(row.weekday + add)}
                       </p>

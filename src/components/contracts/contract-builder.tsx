@@ -69,15 +69,9 @@ import {
   setPoliciesEnabled,
 } from "@/store/features/contracts/contract-draft.slice";
 import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
-import {
-  CancellationDrawer,
-  ReleaseDrawer,
-} from "@/components/contracts/policy-overlays";
+import { CancellationDrawer, ReleaseDrawer } from "@/components/contracts/policy-overlays";
 import { SeasonEditor, seasonNights as nightsIn } from "@/components/contracts/season-editor";
-import {
-  SeasonLegend,
-  SeasonTimeline,
-} from "@/components/contracts/season-timeline";
+import { SeasonLegend, SeasonTimeline } from "@/components/contracts/season-timeline";
 import { policyLines } from "@/components/contracts/contract-form/policies-summary";
 import { seasonPage } from "@/lib/season-page-data";
 import { WEEKDAY_NUMBER, type SeasonRule } from "@/store/features/contracts/types";
@@ -88,11 +82,7 @@ import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
-import {
-  MONTHS,
-  inventoryCaps,
-  perRoomStock,
-} from "@/lib/contract-data";
+import { MONTHS, inventoryCaps, perRoomStock } from "@/lib/contract-data";
 
 type SoldOut = "stop" | "request" | "overbooking";
 type Inventory = "shared" | "perRoom" | "free";
@@ -236,7 +226,9 @@ export function ContractBuilder({
   }));
   const seasonChanges = (season: SeasonRule) => {
     const changes = [
-      ...(Object.values(season.childPrices).some((price) => price.trim() !== "") ? [t.changesChildren] : []),
+      ...(Object.values(season.childPrices).some((price) => price.trim() !== "")
+        ? [t.changesChildren]
+        : []),
       ...(season.cancellation ? [t.changesPolicy] : []),
     ];
     return changes.length > 0 ? changes.join(" · ") : t.changesNone;
@@ -640,6 +632,22 @@ export function ContractBuilder({
             />
           </Section>
 
+          {/* 4 — Meal plans */}
+          {!fixed && (
+            <>
+              <Section
+                id={num("meals")}
+                title={t.sections[4]!}
+                body={t.mealsBody}
+                locked={!basicsDone}
+                tone={basicsDone ? "done" : "locked"}
+              >
+                <MealsFields />
+              </Section>
+            </>
+          )}
+
+          {/* 4 — Children */}
           <Section
             id={num("children")}
             title={t.sections[3]!}
@@ -649,21 +657,6 @@ export function ContractBuilder({
           >
             <ChildrenFields />
           </Section>
-
-          {!fixed && (
-            <>
-              {/* 5 — Meal plans */}
-              {/* <Section
-            id={num("meals")}
-            title={t.sections[4]!}
-            body={t.mealsBody}
-            locked={!basicsDone}
-            tone={basicsDone ? "done" : "locked"}
-          >
-            <MealsFields />
-          </Section> */}
-            </>
-          )}
 
           {/* 6 — Inventory */}
           <Section
@@ -804,11 +797,7 @@ export function ContractBuilder({
             tone={!basicsDone ? "locked" : seasonsDone ? "done" : "open"}
             right={
               seasonsDone ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingSeason("new")}
-                >
+                <Button variant="outline" size="sm" onClick={() => setEditingSeason("new")}>
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   {t.addSeason}
                 </Button>
@@ -859,7 +848,10 @@ export function ContractBuilder({
 
                   <div className="grid gap-x-3 gap-y-2 px-3.5 py-3 text-[13px] leading-[18px] text-text-body lg:grid-cols-[200px_210px_70px_minmax(0,1fr)_160px] lg:items-center lg:py-2.5">
                     <span className="inline-flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#eef1ee]" aria-hidden="true" />
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#eef1ee]"
+                        aria-hidden="true"
+                      />
                       <b className="text-[13px] font-semibold text-text-primary">{t.baseSegment}</b>
                     </span>
                     <span>{t.everyNight}</span>
@@ -879,7 +871,9 @@ export function ContractBuilder({
                           style={{ backgroundColor: season.color }}
                           aria-hidden="true"
                         />
-                        <b className="truncate text-[13px] font-semibold text-text-primary">{season.name}</b>
+                        <b className="truncate text-[13px] font-semibold text-text-primary">
+                          {season.name}
+                        </b>
                       </span>
                       <span>
                         {readableDay(season.startDate, lang)} – {readableDay(season.endDate, lang)}
@@ -888,7 +882,10 @@ export function ContractBuilder({
                       <span>
                         {seasonChanges(season)}
                         {season.issues.map((issue) => (
-                          <span key={issue.code} className="mt-0.5 block text-[12px] text-status-warning">
+                          <span
+                            key={issue.code}
+                            className="mt-0.5 block text-[12px] text-status-warning"
+                          >
                             {issue.message}
                           </span>
                         ))}
@@ -984,7 +981,12 @@ export function ContractBuilder({
                         <td className="py-2.5 pe-3 text-text-secondary">{t.everyNight}</td>
                         <td className="py-2.5 pe-3 text-text-secondary">
                           {draft.policies.cancellation
-                            ? policyLines(draft.policies.cancellation, f.policies, lang, basics.currency).join(" · ")
+                            ? policyLines(
+                                draft.policies.cancellation,
+                                f.policies,
+                                lang,
+                                basics.currency,
+                              ).join(" · ")
                             : t.noPolicyYet}
                         </td>
                         <td />
@@ -993,11 +995,17 @@ export function ContractBuilder({
                         <tr key={season.id} className="border-t border-border-subtle">
                           <td className="py-2.5 pe-3 text-text-secondary">{season.name}</td>
                           <td className="py-2.5 pe-3 text-text-secondary">
-                            {readableDay(season.startDate, lang)} – {readableDay(season.endDate, lang)}
+                            {readableDay(season.startDate, lang)} –{" "}
+                            {readableDay(season.endDate, lang)}
                           </td>
                           <td className="py-2.5 pe-3 text-text-secondary">
                             {season.cancellation
-                              ? policyLines(season.cancellation, f.policies, lang, basics.currency).join(" · ")
+                              ? policyLines(
+                                  season.cancellation,
+                                  f.policies,
+                                  lang,
+                                  basics.currency,
+                                ).join(" · ")
                               : t.samePolicy}
                           </td>
                           <td className="py-2.5 text-end">
@@ -1060,7 +1068,9 @@ export function ContractBuilder({
       {editingSeason && (
         <SeasonEditor
           season={editingSeason === "new" ? null : editingSeason}
-          others={seasons.filter((season) => editingSeason === "new" || season.id !== editingSeason.id)}
+          others={seasons.filter(
+            (season) => editingSeason === "new" || season.id !== editingSeason.id,
+          )}
           term={{ startDate: basics.startDate, endDate: basics.endDate }}
           weekend={basics.weekendDays.map((day) => WEEKDAY_NUMBER[day])}
           currency={basics.currency}
@@ -1068,7 +1078,11 @@ export function ContractBuilder({
           contractPolicy={draft.policies.enabled ? draft.policies.cancellation : null}
           onSave={(season) => {
             dispatch(saveSeason(season));
-            notify.success(editingSeason === "new" ? seasonPage.added[lang === "ar" ? "ar" : "en"] : seasonPage.updated[lang === "ar" ? "ar" : "en"]);
+            notify.success(
+              editingSeason === "new"
+                ? seasonPage.added[lang === "ar" ? "ar" : "en"]
+                : seasonPage.updated[lang === "ar" ? "ar" : "en"],
+            );
             setEditingSeason(null);
           }}
           onRemove={(id) => {
@@ -1145,7 +1159,6 @@ export function ContractBuilder({
           onSave={() => void saveAndLeave()}
         />
       )}
-
     </PageShell>
   );
 }

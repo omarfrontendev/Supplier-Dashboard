@@ -20,7 +20,7 @@ type Form = Dict["builder"]["form"];
 
 export function roomLabel(room: LinkedHotelRoom, lang: string, f: Form) {
   const name = (lang === "ar" ? room.nameAr : room.nameEn) || room.nameEn || room.nameAr;
-  return room.view ? `${name} · ${f.views[room.view]}` : name;
+  return room.view ? `${name}` : name;
 }
 
 export function formatAmount(amount: number, lang: string, currency: string | null) {

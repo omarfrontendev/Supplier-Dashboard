@@ -11,7 +11,6 @@ import {
   CHILD_RULES,
   CONTRACT_NAME_MAX,
   MAX_CANCELLATION_TIERS,
-  MEAL_PLANS,
   RESTRICTION_MAX_NIGHTS,
   SEASON_NAME_MAX,
   SLA_MAX_MINUTES,
@@ -343,9 +342,8 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
         issue("rooms", m.supplement);
       }
       if (
-        MEAL_PLANS.some(
-          (meal) =>
-            meal !== "room_only" && draft.meals[meal]?.enabled && !filled(draft.meals[meal].price),
+        Object.entries(draft.meals).some(
+          ([meal, rule]) => meal !== "room_only" && rule.enabled && !filled(rule.price),
         )
       ) {
         issue("meals", m.mealPrice);

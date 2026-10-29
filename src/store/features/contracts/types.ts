@@ -16,7 +16,7 @@ export type Weekday = "sat" | "sun" | "mon" | "tue" | "wed" | "thu" | "fri";
 
 export const WEEKDAYS: Weekday[] = ["sat", "sun", "mon", "tue", "wed", "thu", "fri"];
 
-export type MealPlan = "room_only" | "bed_breakfast" | "half_board" | "full_board" | "iftar_sohour" | "iftar_and_suhoor";
+export type MealPlan = string;
 
 export const MEAL_PLANS: MealPlan[] = [
   "room_only",
@@ -116,7 +116,7 @@ export interface MealRule {
   basis: MealBasis;
 }
 
-export type MealRules = Record<MealPlan, MealRule>;
+export type MealRules = Record<string, MealRule>;
 
 export type CancellationCharge = "free" | "nights" | "percent" | "fixed";
 

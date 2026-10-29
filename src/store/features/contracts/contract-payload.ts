@@ -1,13 +1,9 @@
 import {
   CHILD_RULES,
-  MEAL_PLANS,
   WEEKDAY_NUMBER,
   type ContractDraftState,
   type MealRule,
 } from "./types";
-
-const mealPlanToApi = (meal: (typeof MEAL_PLANS)[number]) =>
-  meal === "bed_breakfast" ? "bed_and_breakfast" : meal;
 
 export const toAmount = (value: string): number | null => {
   const trimmed = value.trim();
@@ -34,6 +30,7 @@ export function buildContractPayload(draft: ContractDraftState) {
   const { basics, pricingModel, weekPricing } = draft;
   const split = weekPricing === "weekday_weekend";
   const onRequest = basics.bookingType === "on_request";
+  const enabledMeals = Object.entries(draft.meals).filter(([, meal]) => meal.enabled);
 
   return {
     hotelId: basics.hotelId,
@@ -61,7 +58,7 @@ export function buildContractPayload(draft: ContractDraftState) {
                 ? { weekendAmount: toAmount(draft.baseSupplements.weekendBaseCost) }
                 : {}),
             },
-            mealPlans: MEAL_PLANS.filter((meal) => draft.meals[meal].enabled).map(mealPlanToApi),
+            mealPlans: enabledMeals.map(([meal]) => meal),
             rooms: draft.baseSupplements.rooms
               .filter((room) => room.roomId !== draft.baseSupplements.baseRoomId)
               .map((room) => ({
@@ -77,7 +74,7 @@ export function buildContractPayload(draft: ContractDraftState) {
             roomId: room.roomId,
             view: room.view,
             mealPlans: room.meals.map((meal) => ({
-              mealPlan: mealPlanToApi(meal.plan),
+              mealPlan: meal.plan,
               basis: meal.basis,
               price: meal.plan === "room_only" ? 0 : toAmount(meal.price),
             })),
@@ -128,10 +125,10 @@ export function buildContractPayload(draft: ContractDraftState) {
       : null,
     mealPlans:
       pricingModel === "base_supplements"
-        ? MEAL_PLANS.filter((meal) => draft.meals[meal].enabled).map((meal) => ({
-            mealPlan: mealPlanToApi(meal),
-            basis: draft.meals[meal].basis,
-            price: meal === "room_only" ? 0 : toAmount(draft.meals[meal].price),
+        ? enabledMeals.map(([meal, rule]) => ({
+            mealPlan: meal,
+            basis: rule.basis,
+            price: meal === "room_only" ? 0 : toAmount(rule.price),
           }))
         : null,
     extraChildren: Object.fromEntries(

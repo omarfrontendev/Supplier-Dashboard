@@ -14,7 +14,6 @@ import {
   sameFixedOffer,
 } from "@/store/features/contracts/contract-draft.slice";
 import {
-  MEAL_PLANS,
   ROOM_VIEWS,
   type FixedRoomMeal,
   type MealBasis,
@@ -29,15 +28,10 @@ export function mealOptionsFrom(
   metadata: HotelContractsMetadataData | undefined,
   lang: string,
 ): Array<{ value: MealPlan; label: string }> {
-  return (metadata?.mealPlans ?? []).flatMap((option) => {
-    const value =
-      option.value === "bed_and_breakfast"
-        ? "bed_breakfast"
-        : option.value === "iftar_sohour"
-          ? "iftar_and_suhoor"
-          : MEAL_PLANS.find((meal) => meal === option.value);
-    return value ? [{ value, label: lang === "ar" ? option.labelAr : option.labelEn }] : [];
-  });
+  return (metadata?.mealPlans ?? []).map((option) => ({
+    value: option.value,
+    label: lang === "ar" ? option.labelAr : option.labelEn,
+  }));
 }
 
 export function AddRoomDialog({

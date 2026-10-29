@@ -7,6 +7,7 @@ import type {
   ChildRules,
   MealBasis,
   MealPlan,
+  MealRule,
   ContractBasics,
   ContractDraftState,
   ContractRestrictions,
@@ -26,12 +27,12 @@ const emptyBaseSupplements = (): ContractDraftState["baseSupplements"] => ({
   rooms: [],
 });
 
-const emptyMeals = (): ContractDraftState["meals"] => ({
-  room_only: { enabled: true, price: "0", basis: "per_room" },
-  bed_breakfast: { enabled: false, price: "", basis: "per_person" },
-  half_board: { enabled: false, price: "", basis: "per_person" },
-  full_board: { enabled: false, price: "", basis: "per_person" },
-  iftar_sohour: { enabled: false, price: "", basis: "per_person" },
+const emptyMeals = (): ContractDraftState["meals"] => ({});
+
+const emptyMealRule = (meal: MealPlan): MealRule => ({
+  enabled: meal === "room_only",
+  price: meal === "room_only" ? "0" : "",
+  basis: meal === "room_only" ? "per_room" : "per_person",
 });
 
 const initialState: ContractDraftState = {
@@ -284,20 +285,30 @@ export const contractDraftSlice = createSlice({
       };
     },
 
+    ensureMealPlans: (state, action: PayloadAction<MealPlan[]>) => {
+      action.payload.forEach((meal) => {
+        state.meals[meal] ??= emptyMealRule(meal);
+      });
+      const includedMeal = state.meals["room_only"];
+      if (includedMeal) includedMeal.enabled = true;
+    },
+
     toggleMeal: (state, action: PayloadAction<MealPlan>) => {
       if (action.payload === "room_only") return;
-      const meal = state.meals[action.payload];
-      meal.enabled = !meal.enabled;
+      const meal = state.meals[action.payload] ?? emptyMealRule(action.payload);
+      state.meals[action.payload] = { ...meal, enabled: !meal.enabled };
     },
 
     setMealPrice: (state, action: PayloadAction<{ meal: MealPlan; value: string }>) => {
       if (action.payload.meal === "room_only") return;
-      state.meals[action.payload.meal].price = action.payload.value;
+      const meal = state.meals[action.payload.meal] ?? emptyMealRule(action.payload.meal);
+      state.meals[action.payload.meal] = { ...meal, price: action.payload.value };
     },
 
     setMealBasis: (state, action: PayloadAction<{ meal: MealPlan; basis: MealBasis }>) => {
       if (action.payload.meal === "room_only") return;
-      state.meals[action.payload.meal].basis = action.payload.basis;
+      const meal = state.meals[action.payload.meal] ?? emptyMealRule(action.payload.meal);
+      state.meals[action.payload.meal] = { ...meal, basis: action.payload.basis };
     },
   },
 });
@@ -320,6 +331,7 @@ export const {
   setChildRule,
   replaceChildren,
   replaceRestrictions,
+  ensureMealPlans,
   toggleMeal,
   setMealPrice,
   setMealBasis,
