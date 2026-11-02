@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, FileText, Info, Lock } from "lucide-react";
+import { CalendarDays, FileText, Info, Lock, Pencil } from "lucide-react";
 import {
   counted,
   countedOf,
@@ -2463,8 +2463,9 @@ export function OneNightOverlay({
               <button
                 type="button"
                 onClick={() => setView("supplements")}
-                className="text-[12.5px] font-medium text-text-primary hover:underline"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-[12.5px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
               >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 {f.editMany[k]}
               </button>
             )}
