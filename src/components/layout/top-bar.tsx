@@ -82,7 +82,7 @@ export function TopBar() {
   const items = [
     // { key: "dashboard", label: c.nav.dashboard, Icon: IconDashboard, to: "/dashboard" },
     // { key: "bookings", label: c.nav.bookings, Icon: IconBookings, to: "/bookings" },
-    // { key: "rates", label: c.nav.rateCalendar, Icon: IconRateCalendar, to: "/rate-calendar" },
+    { key: "rates", label: c.nav.rateCalendar, Icon: IconRateCalendar, to: "/rate-calendar" },
     { key: "property", label: c.nav.property, Icon: IconProperty, to: "/agreement" },
     // { key: "finance", label: c.nav.finance, Icon: IconFinance, to: "/finance" },
     { key: "team", label: c.nav.teamAccess, Icon: IconTeamAccess, to: "/team" },
