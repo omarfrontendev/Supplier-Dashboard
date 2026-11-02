@@ -463,8 +463,8 @@ export const oneNight = {
 
   undo: t("Undo change", "التراجع عن التغيير"),
   draftNote: t(
-    "Saved as a draft · goes live when you publish",
-    "محفوظ كمسودة · يعمل عند النشر"
+    "Saved straight away · new bookings get it at once",
+    "يُحفظ فورًا · وتأخذه الحجوزات الجديدة مباشرة"
   ),
   cancel: t("Cancel", "إلغاء"),
   save: t("Save change", "حفظ التغيير"),

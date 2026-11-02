@@ -2459,37 +2459,39 @@ export function OneNightOverlay({
             <span className="min-w-0 flex-1 text-[12px] text-text-primary">
               {c.supplementsLabel[k]}
             </span>
-            <button
-              type="button"
-              onClick={() => setView("supplements")}
-              className="text-[12.5px] font-medium text-text-primary hover:underline"
-            >
-              {many ? f.editMany[k] : c.editSupplements[k]}
-            </button>
+            {many && (
+              <button
+                type="button"
+                onClick={() => setView("supplements")}
+                className="text-[12.5px] font-medium text-text-primary hover:underline"
+              >
+                {f.editMany[k]}
+              </button>
+            )}
           </PanelRow>
-          {c.supplements.map((line) => {
-            const changed = perNight[line.label.en];
-            const weekendOnly = perWeekend[line.label.en];
+          <SummaryRow
+            label={c.supplements[0]!.label[k]}
+            value={c.supplements[0]!.value[k]}
+          />
+          {c.supplements.slice(1).map((line) => {
+            const plain = bare(line.value[k]);
             return (
-              <SummaryRow
-                key={line.label.en}
-                label={line.label[k]}
-                value={
-                  changed
-                    ? weekendOnly
-                      ? fill(f.mealChangedWeekend[k], {
-                          now: changed.replace(/^\+\s*/, ""),
-                          weekend: weekendOnly.replace(/^\+\s*/, ""),
-                          was: line.value[k].replace(/[^0-9٠-٩]/g, ""),
-                        })
-                      : fill(f.mealChanged[k], {
-                          now: changed.replace(/^\+\s*/, ""),
-                          was: line.value[k].replace(/[^0-9٠-٩]/g, ""),
-                        })
-                    : line.value[k]
-                }
-                {...(changed ? { tone: "warning" as const } : {})}
-              />
+              <PanelRow key={line.label.en}>
+                <span className="min-w-0 flex-1 text-[12.5px] text-text-primary">
+                  {line.label[k]}
+                </span>
+                <Box
+                  value={perNight[line.label.en] ?? plain}
+                  onChange={(next) =>
+                    setPerNight((prev) => ({ ...prev, [line.label.en]: next }))
+                  }
+                  suffix={line.value.en.includes("per person") ? f.perPerson[k] : undefined}
+                  className="w-[150px]"
+                />
+                <span className="w-[110px] shrink-0 text-end text-[11.5px] text-text-muted">
+                  {fill(f.contractValue[k], { value: plain })}
+                </span>
+              </PanelRow>
             );
           })}
         </Panel>

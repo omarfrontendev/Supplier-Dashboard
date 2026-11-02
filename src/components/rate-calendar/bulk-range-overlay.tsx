@@ -55,6 +55,7 @@ import {
   MAX_RELEASE_DAYS,
   type BulkKind,
 } from "@/lib/bulk-range-data";
+import { oneNight } from "@/lib/rate-overlay-data";
 import { panelMotion, scrimMotion, useDismiss } from "@/components/layout/overlay";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +158,7 @@ export function BulkRangeOverlay({
      they have been asked for - the weekday when it has been typed in and
      emptied again, the weekend as soon as the weekday has an answer. */
   const [priceTouched, setPriceTouched] = useState(false);
+  const [supplements, setSupplements] = useState<Record<string, string>>({});
   /* Stop sale */
   const [setTo, setSetTo] = useState("stopSale");
   const [everyContract, setEveryContract] = useState(false);
@@ -195,6 +197,11 @@ export function BulkRangeOverlay({
   const [saved, setSaved] = useState<Line[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [finished, setFinished] = useState(false);
+
+  const oneRange = kind === "bulkRates";
+  const supplementRows = oneNight.supplements.slice(1);
+  const mealRows = supplementRows.filter((row) => !row.label.en.startsWith("Child"));
+  const childRows = supplementRows.filter((row) => row.label.en.startsWith("Child"));
 
   const title =
     kind === "bulkRates"
@@ -436,8 +443,27 @@ export function BulkRangeOverlay({
     setWeekdayPrice("");
     setWeekendPrice("");
     setPriceTouched(false);
+    setSupplements({});
     setMinNights("");
     setEveryContract(false);
+  };
+
+  const lineNow = (): Line => {
+    const detail = (key: Lang) =>
+      `${whenLabel} · ${roomNames(realRooms)[key]}`;
+    return {
+      id: `L-${Date.now()}`,
+      what: headline,
+      detail: { en: detail("en"), ar: detail("ar") },
+      when: { en: whenLabel, ar: whenLabel },
+      rooms: roomNames(realRooms),
+      value: setting,
+    };
+  };
+
+  const reviewOne = () => {
+    setLines([lineNow()]);
+    setReviewing(true);
   };
 
   const add = () => {
@@ -487,7 +513,13 @@ export function BulkRangeOverlay({
         width="max-w-[800px]"
         footer={
           <>
-            <Button variant="outline" onClick={() => setReviewing(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (oneRange) setLines([]);
+                setReviewing(false);
+              }}
+            >
               {c.backToEdit[k]}
             </Button>
             <div className="flex flex-wrap items-center gap-3">
@@ -520,17 +552,19 @@ export function BulkRangeOverlay({
                   {line.detail[k]}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setLines((current) =>
-                    current.filter((item) => item.id !== line.id)
-                  )
-                }
-                className="shrink-0 text-[12px] font-medium text-status-danger hover:underline"
-              >
-                {c.remove[k]}
-              </button>
+              {!oneRange && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLines((current) =>
+                      current.filter((item) => item.id !== line.id)
+                    )
+                  }
+                  className="shrink-0 text-[12px] font-medium text-status-danger hover:underline"
+                >
+                  {c.remove[k]}
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -546,7 +580,11 @@ export function BulkRangeOverlay({
             {atOnce ? c.takesEffect[k] : c.savedDraftBand[k]}
           </p>
           <p className="mt-0.5 text-[12px] leading-5 text-text-body">
-            {atOnce ? c.takesEffectBody[k] : c.savedDraftBandBody[k]}
+            {oneRange
+              ? c.pricesTakeEffectBody[k]
+              : atOnce
+                ? c.takesEffectBody[k]
+                : c.savedDraftBandBody[k]}
           </p>
         </div>
       </Shell>
@@ -567,6 +605,19 @@ export function BulkRangeOverlay({
           <Button variant="outline" onClick={onClose}>
             {c.done[k]}
           </Button>
+        ) : oneRange ? (
+          <>
+            <Button variant="outline" onClick={onClose}>
+              {c.cancel[k]}
+            </Button>
+            <Button
+              disabled={!canAdd}
+              reason={!canAdd ? c.oneRangeHint[k] : undefined}
+              onClick={reviewOne}
+            >
+              {c.reviewSave[k]}
+            </Button>
+          </>
         ) : (
           <>
             <Button variant="outline" onClick={onClose}>
@@ -617,7 +668,9 @@ export function BulkRangeOverlay({
                 {note.kind === "added"
                   ? c.addedBody[k]
                   : note.kind === "applied"
-                    ? c.appliedBody[k]
+                    ? oneRange
+                      ? c.pricesAppliedBody[k]
+                      : c.appliedBody[k]
                     : c.draftedBody[k]}
               </p>
             )}
@@ -655,10 +708,15 @@ export function BulkRangeOverlay({
               >
                 {nights === 0
                   ? c.pickNights[k]
-                  : fill(c.nightsPicked[k], {
-                      nights: say(nights, nightsWord),
-                      ranges: say(picked.length, rangesWord),
-                    })}
+                  : oneRange && picked[0]
+                    ? fill(c.rangeChip[k], {
+                        when: rangeLabel(picked[0]),
+                        nights: say(nights, nightsWord),
+                      })
+                    : fill(c.nightsPicked[k], {
+                        nights: say(nights, nightsWord),
+                        ranges: say(picked.length, rangesWord),
+                      })}
               </button>
               {/*
                 * The week, Sunday first, for "weekends only" pickers.
@@ -696,18 +754,30 @@ export function BulkRangeOverlay({
                   </button>
                 ))}
               </div>
-              <Button
-                variant={canAdd ? "dark" : "outline"}
-                disabled={!canAdd}
-                reason={!canAdd ? c.nightsHint[k] : undefined}
-                onClick={add}
-              >
-                {c.add[k]}
-              </Button>
+              {oneRange ? (
+                picked.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPicked([])}
+                    className="text-[11.5px] font-medium text-text-link hover:underline"
+                  >
+                    {c.clearNights[k]}
+                  </button>
+                )
+              ) : (
+                <Button
+                  variant={canAdd ? "dark" : "outline"}
+                  disabled={!canAdd}
+                  reason={!canAdd ? c.nightsHint[k] : undefined}
+                  onClick={add}
+                >
+                  {c.add[k]}
+                </Button>
+              )}
             </div>
 
             {/* OV 04.B*N - each range as its own chip, and a way out. */}
-            {picked.length > 0 && (
+            {!oneRange && picked.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {picked.map((item) => (
                   <span
@@ -734,8 +804,12 @@ export function BulkRangeOverlay({
               {nights > 0
                 ? fill(
                     weekendNights.length === 0
-                      ? c.pickedHintWeekdaysOnly[k]
-                      : c.pickedHint[k],
+                      ? oneRange
+                        ? c.oneRangePickedWeekdaysOnly[k]
+                        : c.pickedHintWeekdaysOnly[k]
+                      : oneRange
+                        ? c.oneRangePicked[k]
+                        : c.pickedHint[k],
                     {
                       nights: say(nights, nightsWord),
                       weekdays: say(
@@ -748,9 +822,11 @@ export function BulkRangeOverlay({
                       }),
                     }
                   )
-                : lines.length > 0
-                  ? c.againHint[k]
-                  : c.nightsHint[k]}
+                : oneRange
+                  ? c.oneRangeHint[k]
+                  : lines.length > 0
+                    ? c.againHint[k]
+                    : c.nightsHint[k]}
             </p>
           </Section>
 
@@ -834,6 +910,37 @@ export function BulkRangeOverlay({
               </p>
             </Section>
           )}
+
+          {kind === "bulkRates" &&
+            (
+              [
+                [c.mealPlans[k], mealRows],
+                [c.children[k], childRows],
+              ] as const
+            ).map(([label, list]) => (
+              <Section key={label} label={label}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {list.map((row) => (
+                    <Input
+                      key={row.label.en}
+                      label={row.label[k]}
+                      inputMode="numeric"
+                      value={supplements[row.label.en] ?? ""}
+                      onChange={(e) =>
+                        setSupplements((current) => ({
+                          ...current,
+                          [row.label.en]: e.target.value,
+                        }))
+                      }
+                      hint={fill(c.supplementHint[k], { value: row.value[k] })}
+                      {...(row.value.en.includes("per person")
+                        ? { suffix: c.perPerson[k] }
+                        : {})}
+                    />
+                  ))}
+                </div>
+              </Section>
+            ))}
 
           {kind === "stopSale" && (
             <Section label={c.setTo[k]}>
@@ -1169,7 +1276,7 @@ export function BulkRangeOverlay({
                               when: whenLabel,
                             }),
                         c.bulletHeld[k],
-                        c.bulletDraft[k],
+                        oneRange ? c.bulletPricesNow[k] : c.bulletDraft[k],
                       ]
                   ).map((line) => (
                     <li
@@ -1402,10 +1509,8 @@ export function BulkRangeOverlay({
           <DatePicker
             className="w-[300px]"
             onApply={(range) => {
-              setPicked((current) => [
-                ...current,
-                { id: `R-${Date.now()}`, range, nights: nightsIn(range) },
-              ]);
+              const item = { id: `R-${Date.now()}`, range, nights: nightsIn(range) };
+              setPicked((current) => (oneRange ? [item] : [...current, item]));
               setPicking(false);
             }}
             onCancel={() => setPicking(false)}
