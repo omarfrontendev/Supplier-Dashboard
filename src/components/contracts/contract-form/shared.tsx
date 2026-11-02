@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Check } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 
 import {
   useLinkedHotelRooms,
@@ -7,6 +7,7 @@ import {
 } from "@/api/modules/hotels/useLinkedHotelRooms";
 import { Input, type InputProps } from "@/components/ui/input";
 import type { Dict } from "@/lib/dict";
+import { contractRoomLabel } from "@/lib/contract-room-label";
 import { isAmountInput } from "@/store/features/contracts/contract-payload";
 import { CHILD_MAX_AGE } from "@/store/features/contracts/types";
 import { cn } from "@/lib/utils";
@@ -18,9 +19,8 @@ export const useAppDispatch = () => useDispatch<AppDispatch>();
 
 type Form = Dict["builder"]["form"];
 
-export function roomLabel(room: LinkedHotelRoom, lang: string, f: Form) {
-  const name = (lang === "ar" ? room.nameAr : room.nameEn) || room.nameEn || room.nameAr;
-  return room.view ? `${name}` : name;
+export function roomLabel(room: LinkedHotelRoom, lang: string, _f: Form) {
+  return contractRoomLabel(room, lang);
 }
 
 export function formatAmount(amount: number, lang: string, currency: string | null) {
@@ -53,32 +53,36 @@ export function AmountInput({
 
 export function RoomTick({
   on,
+  indeterminate = false,
   locked,
   label,
   onToggle,
 }: {
   on: boolean;
+  indeterminate?: boolean;
   locked: boolean;
   label: string;
   onToggle: () => void;
 }) {
+  const checked = on || indeterminate;
   return (
     <button
       type="button"
       role="checkbox"
-      aria-checked={on}
+      aria-checked={indeterminate ? "mixed" : on}
       aria-label={label}
       disabled={locked}
       onClick={onToggle}
       className={cn(
         "grid size-[22px] place-items-center rounded-md transition-colors",
-        on
+        checked
           ? "bg-brand-deep text-primary"
           : "border-[1.5px] border-border-strong bg-surface-default",
         locked ? "cursor-not-allowed opacity-70" : "cursor-pointer",
       )}
     >
       {on && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+      {indeterminate && <Minus className="h-3.5 w-3.5" aria-hidden="true" />}
     </button>
   );
 }

@@ -7,6 +7,7 @@ import type {
   ContractRestrictionInput,
   ContractSeason,
   ContractSeasonInput,
+  ContractInventoryRules,
   CreateHotelContractBody,
   PricingModel as ApiPricingModel,
   SupplierHotelContract,
@@ -23,6 +24,7 @@ import {
   type CancellationPolicy,
   type ChildRules,
   type ContractDraftState,
+  type InventoryDraft,
   type PricingModel,
   type RestrictionRule,
   type SeasonRule,
@@ -38,6 +40,201 @@ const pricingToApi: Record<PricingModel, ApiPricingModel> = {
   fixed_price: "fixed_per_room",
 };
 
+export interface InventoryVariation {
+  roomId: number;
+  view: string;
+}
+
+export const inventoryVariationKey = ({ roomId, view }: InventoryVariation) =>
+  JSON.stringify([roomId, view]);
+
+const inventoryActionToApi = {
+  stop: "stop_sale",
+  request: "on_request",
+  overbooking: "controlled_overbooking",
+} as const;
+
+const inventoryActionFromApi = {
+  stop_sale: "stop",
+  on_request: "request",
+  controlled_overbooking: "overbooking",
+} as const;
+
+const positiveInteger = (value: string) => {
+  const parsed = Number(value);
+  return value.trim() !== "" && Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+};
+
+export function toInventoryRules(
+  inventory: InventoryDraft,
+  variations: InventoryVariation[],
+  requireOverbookingLimit = false,
+): ContractInventoryRules | null {
+  if (inventory.model === "free") return { mode: "free_sale" };
+
+  const action = inventoryActionToApi[inventory.soldOut];
+  if (inventory.model === "shared") {
+    const roomsPerNight = positiveInteger(inventory.roomsPerNight);
+    if (roomsPerNight === null) return null;
+    const roomCaps: Array<{
+      roomId: number;
+      view: string;
+      maxRoomsPerNight: number;
+    }> = [];
+    for (const variation of variations) {
+      const value = inventory.roomCaps[inventoryVariationKey(variation)] ?? "";
+      if (!value.trim()) continue;
+      const maxRoomsPerNight = positiveInteger(value);
+      if (maxRoomsPerNight === null) return null;
+      roomCaps.push({ ...variation, maxRoomsPerNight });
+    }
+    const limitText = inventory.sharedOverbookingLimitPerNight;
+    const overbookingLimitPerNight =
+      inventory.soldOut === "overbooking" && limitText.trim()
+        ? positiveInteger(limitText)
+        : null;
+    if (
+      inventory.soldOut === "overbooking" &&
+      ((limitText.trim() && overbookingLimitPerNight === null) ||
+        (requireOverbookingLimit && overbookingLimitPerNight === null))
+    ) {
+      return null;
+    }
+    return {
+      mode: "shared_pool",
+      roomsPerNight,
+      ...(roomCaps.length > 0 ? { roomCaps } : {}),
+      whenSoldOut: {
+        action,
+        ...(overbookingLimitPerNight === null ? {} : { overbookingLimitPerNight }),
+      },
+    };
+  }
+
+  if (variations.length === 0) return null;
+
+  const rooms: Array<{
+    roomId: number;
+    view: string;
+    roomsPerNight: number;
+    overbookingLimitPerNight?: number;
+  }> = [];
+  for (const variation of variations) {
+    const rule = inventory.rooms[inventoryVariationKey(variation)];
+    const roomsPerNight = positiveInteger(rule?.roomsPerNight ?? "");
+    if (roomsPerNight === null) return null;
+    const limitText = rule?.overbookingLimitPerNight ?? "";
+    const overbookingLimitPerNight =
+      inventory.soldOut === "overbooking" && limitText.trim()
+        ? positiveInteger(limitText)
+        : null;
+    if (
+      inventory.soldOut === "overbooking" &&
+      ((limitText.trim() && overbookingLimitPerNight === null) ||
+        (requireOverbookingLimit && overbookingLimitPerNight === null))
+    ) {
+      return null;
+    }
+    rooms.push({
+      ...variation,
+      roomsPerNight,
+      ...(overbookingLimitPerNight === null ? {} : { overbookingLimitPerNight }),
+    });
+  }
+  return {
+    mode: "per_room_type",
+    rooms,
+    whenSoldOut: { action },
+  };
+}
+
+export function inventoryDraftFromRules(
+  rules: ContractInventoryRules | null,
+): InventoryDraft {
+  const initial: InventoryDraft = {
+    model: "shared",
+    roomsPerNight: "50",
+    roomCaps: {},
+    rooms: {},
+    soldOut: "overbooking",
+    sharedOverbookingLimitPerNight: "2",
+  };
+  if (!rules) return initial;
+  if (rules.mode === "free_sale") return { ...initial, model: "free" };
+  const soldOut = inventoryActionFromApi[rules.whenSoldOut.action];
+  if (rules.mode === "shared_pool") {
+    return {
+      ...initial,
+      model: "shared",
+      roomsPerNight: String(rules.roomsPerNight),
+      roomCaps: Object.fromEntries(
+        (rules.roomCaps ?? []).map((cap) => [
+          inventoryVariationKey(cap),
+          String(cap.maxRoomsPerNight),
+        ]),
+      ),
+      soldOut,
+      sharedOverbookingLimitPerNight: String(
+        rules.whenSoldOut.overbookingLimitPerNight ?? "",
+      ),
+    };
+  }
+  return {
+    ...initial,
+    model: "perRoom",
+    rooms: Object.fromEntries(
+      rules.rooms.map((room) => [
+        inventoryVariationKey(room),
+        {
+          roomsPerNight: String(room.roomsPerNight),
+          overbookingLimitPerNight: String(room.overbookingLimitPerNight ?? ""),
+        },
+      ]),
+    ),
+    soldOut,
+  };
+}
+
+const inventoryRuleKey = (rules: ContractInventoryRules | null | undefined) => {
+  if (!rules) return "";
+  if (rules.mode === "free_sale") return "free_sale";
+  if (rules.mode === "shared_pool") {
+    return JSON.stringify([
+      rules.mode,
+      rules.roomsPerNight,
+      [...(rules.roomCaps ?? [])]
+        .map((cap) => [cap.roomId, cap.view, cap.maxRoomsPerNight])
+        .sort(([aRoom, aView], [bRoom, bView]) =>
+          `${aRoom}:${aView}`.localeCompare(`${bRoom}:${bView}`),
+        ),
+      rules.whenSoldOut.action,
+      rules.whenSoldOut.overbookingLimitPerNight ?? null,
+    ]);
+  }
+  return JSON.stringify([
+    rules.mode,
+    [...rules.rooms]
+      .map((room) => [
+        room.roomId,
+        room.view,
+        room.roomsPerNight,
+        room.overbookingLimitPerNight ?? null,
+      ])
+      .sort(([aRoom, aView], [bRoom, bView]) =>
+        `${aRoom}:${aView}`.localeCompare(`${bRoom}:${bView}`),
+      ),
+    rules.whenSoldOut.action,
+  ]);
+};
+
+export const inventoryRulesChanged = (
+  bookingType: BookingType,
+  next: ContractInventoryRules | null | undefined,
+  saved: ContractInventoryRules | null | undefined,
+) =>
+  bookingType !== "on_request" &&
+  (!next || inventoryRuleKey(next) !== inventoryRuleKey(saved));
+
 export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.hotelId !== null &&
   basics.name.trim() !== "" &&
@@ -47,7 +244,10 @@ export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.endDate > basics.startDate &&
   basics.currency !== null;
 
-export function toCreateContractBody(draft: ContractDraftState): CreateHotelContractBody {
+export function toCreateContractBody(
+  draft: ContractDraftState,
+  inventoryRules?: ContractInventoryRules | null,
+): CreateHotelContractBody {
   const { basics } = draft;
   return {
     hotelId: basics.hotelId!,
@@ -57,6 +257,7 @@ export function toCreateContractBody(draft: ContractDraftState): CreateHotelCont
     currency: basics.currency!,
     bookingType: bookingToApi[basics.bookingType],
     pricingModel: pricingToApi[draft.pricingModel],
+    ...(basics.bookingType === "on_request" || !inventoryRules ? {} : { inventoryRules }),
     childPricing: toChildPricing(draft),
     ...(draft.restrictions.enabled && draft.restrictions.rules.length > 0
       ? { restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule) }
@@ -84,18 +285,36 @@ export function changedContractFields(
 export function toUpdateContractBody(
   draft: ContractDraftState,
   contract: SupplierHotelContract,
+  inventoryRules?: ContractInventoryRules | null,
 ): UpdateHotelContractBody | null {
-  const next = toCreateContractBody(draft);
+  const next = toCreateContractBody(draft, inventoryRules);
   const fields = changedContractFields(draft, contract);
   const children = childPricingChanged(draft, contract);
   const restrictions = restrictionsChanged(draft, contract);
   const cancellation = cancellationChanged(draft, contract);
   const seasons = seasonsChanged(draft, contract);
-  if (fields.length === 0 && !children && !restrictions && !cancellation && !seasons) return null;
+  const inventory = inventoryRulesChanged(
+    draft.basics.bookingType,
+    inventoryRules,
+    contract.inventoryRules ?? null,
+  );
+  if (
+    fields.length === 0 &&
+    !children &&
+    !restrictions &&
+    !cancellation &&
+    !seasons &&
+    !inventory
+  ) {
+    return null;
+  }
   return fields.reduce<UpdateHotelContractBody>(
     (body, field) => ({ ...body, [field]: next[field] }),
     {
       expectedVersion: contract.version,
+      ...(inventory && draft.basics.bookingType !== "on_request" && inventoryRules
+        ? { inventoryRules }
+        : {}),
       ...(children ? { childPricing: next.childPricing } : {}),
       ...(restrictions ? { restrictions: toRestrictions(draft) } : {}),
       ...(cancellation ? { cancellationPolicy: toCancellationPolicy(draft) } : {}),
@@ -126,6 +345,7 @@ export function draftFromContract(contract: SupplierHotelContract) {
     pricingModel: (contract.pricingModel === "fixed_per_room"
       ? "fixed_price"
       : "base_supplements") as PricingModel,
+    inventory: inventoryDraftFromRules(contract.inventoryRules ?? null),
     ...(contract.childPricing ? { children: childrenFromContract(contract.childPricing) } : {}),
     restrictions: restrictionsFromContract(contract.restrictions ?? []),
     cancellation: cancellationFromContract(contract.cancellationPolicy ?? null),
@@ -193,12 +413,21 @@ export function childPricingChanged(draft: ContractDraftState, contract: Supplie
   );
 }
 
-export const sameSavedDraft = (draft: ContractDraftState, contract: SupplierHotelContract) =>
+export const sameSavedDraft = (
+  draft: ContractDraftState,
+  contract: SupplierHotelContract,
+  inventoryRules?: ContractInventoryRules | null,
+) =>
   sameSavedBasics(draft, contract) &&
   !childPricingChanged(draft, contract) &&
   !restrictionsChanged(draft, contract) &&
   !cancellationChanged(draft, contract) &&
-  !seasonsChanged(draft, contract);
+  !seasonsChanged(draft, contract) &&
+  !inventoryRulesChanged(
+    draft.basics.bookingType,
+    inventoryRules,
+    contract.inventoryRules ?? null,
+  );
 
 const toDays = (numbers: number[]) =>
   WEEKDAYS.filter((day) => numbers.includes(WEEKDAY_NUMBER[day]));
@@ -251,9 +480,7 @@ export function restrictionsChanged(draft: ContractDraftState, contract: Supplie
 }
 
 const toCharge = ({ charge, value }: CancellationFee): ContractCancellationCharge =>
-  charge === "free" || !charge
-    ? { kind: "free" }
-    : { kind: charge, value: toAmount(value) ?? 0 };
+  charge === "free" || !charge ? { kind: "free" } : { kind: charge, value: toAmount(value) ?? 0 };
 
 const fromCharge = (charge: ContractCancellationCharge): CancellationFee => ({
   charge: charge.kind,
@@ -265,7 +492,9 @@ const policyToApi = (policy: CancellationPolicy): ContractCancellationPolicy => 
   noShow: toCharge(policy.noShow),
 });
 
-export function toCancellationPolicy({ policies }: ContractDraftState): ContractCancellationPolicy | null {
+export function toCancellationPolicy({
+  policies,
+}: ContractDraftState): ContractCancellationPolicy | null {
   if (!policies.enabled || !policies.cancellation) return null;
   return policyToApi(policies.cancellation);
 }
@@ -296,7 +525,8 @@ const cancellationKey = (policy: ContractCancellationPolicy | null) =>
     : "none";
 
 export const cancellationChanged = (draft: ContractDraftState, contract: SupplierHotelContract) =>
-  cancellationKey(toCancellationPolicy(draft)) !== cancellationKey(contract.cancellationPolicy ?? null);
+  cancellationKey(toCancellationPolicy(draft)) !==
+  cancellationKey(contract.cancellationPolicy ?? null);
 
 export function toSeasons({ seasons }: ContractDraftState): ContractSeasonInput[] {
   return seasons.map((season) => {
@@ -339,7 +569,8 @@ export function seasonsFromContract(saved: ContractSeason[]): SeasonRule[] {
         endDate: season.endDate.slice(0, 10),
         color: season.color.toUpperCase(),
         childPrices: {
-          sharing_parents: prices.sharing_parents === undefined ? "" : String(Number(prices.sharing_parents)),
+          sharing_parents:
+            prices.sharing_parents === undefined ? "" : String(Number(prices.sharing_parents)),
           shared_bed: prices.shared_bed === undefined ? "" : String(Number(prices.shared_bed)),
           extra_bed: prices.extra_bed === undefined ? "" : String(Number(prices.extra_bed)),
         },

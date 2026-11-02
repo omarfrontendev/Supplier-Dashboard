@@ -175,7 +175,7 @@ export function Table({
   rows,
   muted = [],
 }: {
-  head: string[];
+  head: ReactNode[];
   rows: ReactNode[][];
   /** Row indexes the frame greys out, such as the locked base room. */
   muted?: number[];
@@ -187,7 +187,7 @@ export function Table({
           <tr className="text-overline text-text-muted">
             {head.map((cell, index) => (
               <th
-                key={`${cell}-${index}`}
+                key={index}
                 className={cn(
                   "py-2 font-semibold",
                   index === head.length - 1 && cell === "" ? "text-end" : "text-start"

@@ -134,6 +134,7 @@ export interface SupplierHotelContract {
   status: ContractStatus;
 
   weekPricing: unknown | null;
+  inventoryRules?: ContractInventoryRules | null;
   childPricing: ContractChildPricing | null;
   restrictions?: ContractRestriction[];
   cancellationPolicy?: ContractCancellationPolicy | null;
@@ -197,6 +198,7 @@ export interface CreateHotelContractBody {
   currency: string;
   bookingType: BookingType;
   pricingModel: PricingModel;
+  inventoryRules?: ContractInventoryRules;
   childPricing: ContractChildPricing;
   restrictions?: Omit<ContractRestrictionInput, "isActive">[];
   cancellationPolicy?: ContractCancellationPolicy;
@@ -210,6 +212,38 @@ export type UpdateHotelContractBody = Partial<
   restrictions?: ContractRestrictionInput[];
   cancellationPolicy?: ContractCancellationPolicy | null;
 };
+
+export type InventorySoldOutAction = "stop_sale" | "on_request" | "controlled_overbooking";
+
+export type ContractInventoryRules =
+  | {
+      mode: "free_sale";
+    }
+  | {
+      mode: "shared_pool";
+      roomsPerNight: number;
+      roomCaps?: Array<{
+        roomId: number;
+        view: string;
+        maxRoomsPerNight: number;
+      }>;
+      whenSoldOut: {
+        action: InventorySoldOutAction;
+        overbookingLimitPerNight?: number;
+      };
+    }
+  | {
+      mode: "per_room_type";
+      rooms: Array<{
+        roomId: number;
+        view: string;
+        roomsPerNight: number;
+        overbookingLimitPerNight?: number;
+      }>;
+      whenSoldOut: {
+        action: InventorySoldOutAction;
+      };
+    };
 
 export type SeasonChildPrices = Partial<Record<keyof ContractChildPricing, number>>;
 

@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BedDouble } from "lucide-react";
 
-import type { HotelContractsMetadataData } from "@/api/modules/hotel-contract/types";
+import type {
+  HotelContractsMetadataData,
+  SupplierHotelContractRoom,
+} from "@/api/modules/hotel-contract/types";
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -21,6 +24,7 @@ import {
   type PricingModel,
   type RoomView,
 } from "@/store/features/contracts/types";
+import { ROOM_SIZES } from "@/lib/room-sizes";
 import { ContractRoomSelect } from "./room-select";
 import { AmountInput, RoomTick, useAppDispatch, useContractDraft } from "./shared";
 
@@ -36,6 +40,7 @@ export function mealOptionsFrom(
 
 export function AddRoomDialog({
   hotelId,
+  rooms,
   metadata,
   metadataLoading,
   metadataError,
@@ -44,6 +49,7 @@ export function AddRoomDialog({
   onClose,
 }: {
   hotelId: number;
+  rooms: SupplierHotelContractRoom[];
   metadata: HotelContractsMetadataData | undefined;
   metadataLoading: boolean;
   metadataError: boolean;
@@ -57,6 +63,7 @@ export function AddRoomDialog({
   const { basics, fixedRooms, baseSupplements } = useContractDraft();
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
   const [roomId, setRoomId] = useState("");
+  const [roomSizeId, setRoomSizeId] = useState<number | null>(null);
   const [view, setView] = useState<RoomView | "">("");
   const [meals, setMeals] = useState<Partial<Record<MealPlan, FixedRoomMeal>>>({
     room_only: { plan: "room_only", basis: "per_room", price: "" },
@@ -78,12 +85,20 @@ export function AddRoomDialog({
   const supplementSelection =
     !hasMealPlan && roomId !== "" && view !== "" ? { roomId: Number(roomId), view } : null;
   const selection = fixedSelection ?? supplementSelection;
+  const baseRoom = rooms.find((room) => room.id === baseSupplements.baseRoomId);
+  const baseRoomView = ROOM_VIEWS.find((roomView) => roomView === baseRoom?.view) ?? "no_view";
+  const isBaseSupplementVariation =
+    supplementSelection !== null &&
+    supplementSelection.roomId === baseSupplements.baseRoomId &&
+    supplementSelection.view === baseRoomView;
   const duplicate = fixedSelection
     ? fixedRooms.some((room) => sameFixedOffer(room, fixedSelection))
     : supplementSelection
-      ? baseSupplements.rooms.some(
+      ? isBaseSupplementVariation ||
+        baseSupplements.rooms.some(
           (room) =>
-            room.roomId === supplementSelection.roomId && room.view === supplementSelection.view,
+            room.roomId === supplementSelection.roomId &&
+            (room.view ?? "no_view") === supplementSelection.view,
         )
       : false;
 
@@ -100,12 +115,30 @@ export function AddRoomDialog({
       const meal = current[plan];
       return meal ? { ...current, [plan]: { ...meal, ...change } } : current;
     });
-  const viewOptions = (metadata?.roomViews ?? [])
-    .filter((option) => ROOM_VIEWS.some((item) => item === option.value))
-    .map((option) => ({
-      value: option.value,
-      label: lang === "ar" ? option.labelAr : option.labelEn,
-    }));
+  const getViewOptions = (sizeId: number | null) => {
+    const associatedViewIds =
+      sizeId === null
+        ? null
+        : new Set(
+            rooms
+              .filter((room) => room.roomSizeId === sizeId)
+              .flatMap((room) => (room.view ? [room.view] : [])),
+          );
+    const seenViewIds = new Set<string>();
+    return (metadata?.roomViews ?? [])
+      .filter((option) => {
+        if (!ROOM_VIEWS.some((item) => item === option.value)) return false;
+        if (associatedViewIds && !associatedViewIds.has(option.value)) return false;
+        if (seenViewIds.has(option.value)) return false;
+        seenViewIds.add(option.value);
+        return true;
+      })
+      .map((option) => ({
+        value: option.value,
+        label: lang === "ar" ? option.labelAr : option.labelEn,
+      }));
+  };
+  const viewOptions = getViewOptions(roomSizeId);
 
   return (
     <IconModal
@@ -145,9 +178,23 @@ export function AddRoomDialog({
             value={roomId}
             onChange={(value, room) => {
               setRoomId(value);
-              if (room?.view && ROOM_VIEWS.some((item) => item === room.view) && view === "") {
-                setView(room.view as RoomView);
-              }
+              const nextRoomSizeId =
+                ROOM_SIZES.find((size) => size.id === room?.roomSizeId)?.id ?? null;
+              const nextViewOptions = getViewOptions(nextRoomSizeId);
+              setRoomSizeId(nextRoomSizeId);
+              setView((current) => {
+                if (current && !nextViewOptions.some((option) => option.value === current)) {
+                  return "";
+                }
+                if (
+                  !current &&
+                  room?.view &&
+                  nextViewOptions.some((option) => option.value === room.view)
+                ) {
+                  return room.view as RoomView;
+                }
+                return current;
+              });
             }}
           />
           <Select
@@ -195,9 +242,7 @@ export function AddRoomDialog({
                         key="basis"
                         value={meal?.basis ?? "per_person"}
                         disabled={!meal}
-                        onChange={(basis) =>
-                          editMeal(option.value, { basis: basis as MealBasis })
-                        }
+                        onChange={(basis) => editMeal(option.value, { basis: basis as MealBasis })}
                         options={[
                           { value: "per_room", label: t.perRoom },
                           { value: "per_person", label: t.perPerson },

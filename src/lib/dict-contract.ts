@@ -299,9 +299,13 @@ export const contractEn = {
       "Every night of the contract. Any room type sells from this number - a 3-night stay takes 1 room on each of its 3 nights.",
     colRoomType: "Room type",
     colCap: "Max from this room · optional",
+    invNoCap: "No cap",
+    invNoVariations: "Add room/view variations in the Rooms section to configure inventory.",
+    invRoomDetailsError:
+      "The Base Room view is unavailable. Check the room details before activating.",
     colSellsShort: "Sells",
     capHint:
-      "No cap = that room can take the whole pool. Add a cap where the hotel has fewer rooms of that type, so you never sell rooms the hotel can’t deliver.",
+      "No cap means no extra per-room limit; the variation still draws from the shared pool and cannot exceed its remaining stock.",
     soldOut: "When sold out",
     soldOutStop: "Stop sale",
     soldOutRequest: "Switch to On Request",
@@ -382,7 +386,7 @@ export const contractEn = {
     colRoomsNight: "Rooms / night",
     colDrawsFrom: "Rooms that draw from it",
     perRoomLimitHint:
-      "Required \u00b7 \u2265 1 \u00b7 Maximum confirmed = 20 + {limit} for Standard Room",
+      "Enter a separate limit for every room and view. Maximum confirmed is that variation's rooms per night plus its limit.",
     soldOutStopHint:
       "The night closes the moment the last room goes. No overbooking, no requests - the safest setting, and the one to use when the hotel cannot find an extra room at short notice.",
     soldOutRequestHint:
@@ -556,6 +560,7 @@ export const contractEn = {
         supplement: "Enter a supplement for every selected room",
         fixedRooms: "Add at least one room",
         fixedPrice: "Enter the prices for every room",
+        inventory: "Enter valid inventory quantities and limits for every selected room and view",
         childAges: "Child ages must be whole numbers from 0 to {max}, and From can't be after To",
         childPrice: "Enter a price for every child rule - 0 if it is free",
         childOverlap: "Sharing parents' bed and Shared bed can't cover the same ages",
@@ -753,7 +758,8 @@ export const contractEn = {
     view: "View",
     selectAll: "Select all approved rooms",
     ratesTitle: "Set room rates",
-    ratesBody: "Enter the nightly net amount Hoteliana pays you. Prices are in Saudi riyals and include taxes.",
+    ratesBody:
+      "Enter the nightly net amount Hoteliana pays you. Prices are in Saudi riyals and include taxes.",
     mealPlan: "Meal plan",
     roomOnly: "Room only",
     breakfast: "Breakfast included",
@@ -775,7 +781,8 @@ export const contractEn = {
     payment: "Payment terms",
     paymentMonthly: "Monthly settlement · 30 days",
     inventoryTitle: "Add starting inventory",
-    inventoryBody: "Set how many rooms Hoteliana may sell each night. You can update or stop sales later in Rate Calendar.",
+    inventoryBody:
+      "Set how many rooms Hoteliana may sell each night. You can update or stop sales later in Rate Calendar.",
     allotment: "Rooms per night",
     minimumStay: "Minimum stay",
     release: "Release period",
@@ -786,7 +793,8 @@ export const contractEn = {
     stopSale: "Start with sales stopped",
     stopSaleHint: "The contract will be published but no room can be booked until you open sales.",
     reviewTitle: "Review and publish",
-    reviewBody: "Check every commercial term. Publishing makes this contract available to Hoteliana agents immediately.",
+    reviewBody:
+      "Check every commercial term. Publishing makes this contract available to Hoteliana agents immediately.",
     contractDetails: "CONTRACT DETAILS",
     roomRates: "ROOMS & RATES",
     sellingRules: "SELLING RULES",
@@ -794,11 +802,13 @@ export const contractEn = {
     edit: "Edit",
     publish: "Publish contract",
     publishTitle: "Publish this supply contract?",
-    publishBody: "Hoteliana agents can start booking the selected rooms for the travel period as soon as inventory is open.",
+    publishBody:
+      "Hoteliana agents can start booking the selected rooms for the travel period as soon as inventory is open.",
     publishConfirm: "Yes, publish contract",
     publishedOverline: "CONTRACT PUBLISHED",
     publishedTitle: "Your supply contract is live",
-    publishedBody: "The selected rooms are now available to Hoteliana agents for the contract travel dates.",
+    publishedBody:
+      "The selected rooms are now available to Hoteliana agents for the contract travel dates.",
     contractId: "SC-2027-0048",
     manageInventory: "Open Rate Calendar",
     backToList: "Back to supply contracts",
@@ -834,8 +844,7 @@ export const contractAr: typeof contractEn = {
     rowReleaseUnused: "الاسترجاع · غير مستخدم",
     rowRelease: "الاسترجاع",
     showRooms: "الغرف المعروضة · محفوظة للمرة القادمة",
-    showRoomsHint:
-      "اختر أنواع الغرف التي تظهر في التقويم، وتُحفظ للمرة القادمة.",
+    showRoomsHint: "اختر أنواع الغرف التي تظهر في التقويم، وتُحفظ للمرة القادمة.",
     allRooms: "الكل ({count})",
     view: "العرض",
     viewHint: "اضبط طريقة عرض التقويم.",
@@ -860,8 +869,7 @@ export const contractAr: typeof contractEn = {
       "انتهى هذا العقد في ١٩ سبتمبر ٢٠٢٦. يمكنك رؤية ما بيع وبأي سعر، ولا يمكن تغيير شيء. والتصدير ما زال يعمل.",
     noRateYet: "لا سعر بعد · اضغط على ليلة لتحديده",
     seasonPriced: "يتبع السعر الموسم في تواريخه",
-    pricedLeft:
-      "بقيت {count} - وتجلس في أسفل الشبكة. ولا يُعرض شيء بلا سعر.",
+    pricedLeft: "بقيت {count} - وتجلس في أسفل الشبكة. ولا يُعرض شيء بلا سعر.",
     showOnlyUnpriced: "عرض ما بلا سعر فقط ←",
     todayLabel: "اليوم",
     seasonHintFallback: "اضغط على موسم لفتحه",
@@ -906,8 +914,7 @@ export const contractAr: typeof contractEn = {
     notStarted:
       "يبدأ هذا العقد في ١٨ فبراير ٢٠٢٧. جهّز الأسعار وإيقاف البيع والاسترجاع الآن - لا شيء معروض للبيع حتى تاريخ البداية، ثم يعمل كل ما نُشر من تلقاء نفسه.",
     priced: "{done} من {total} أنواع غرف مسعّرة",
-    pricedBody:
-      "تُعرض فقط {count} أنواع غرف بلا سعر. اضبط سعرًا في أي ليلة - ويعمل عند النشر.",
+    pricedBody: "تُعرض فقط {count} أنواع غرف بلا سعر. اضبط سعرًا في أي ليلة - ويعمل عند النشر.",
     showAllRooms: "← عرض كل الغرف",
     filterNotPriced: "غير مسعّر",
     statusRow: "إيقاف البيع / طلب",
@@ -941,12 +948,10 @@ export const contractAr: typeof contractEn = {
       "تعديل إعدادات التشغيل - الأسعار والمواسم والمخزون والقواعد. يعمل بعد المراجعة والنشر بنفس الإصدار.",
     amendLine:
       "التعديل التعاقدي - المدة والنوع والعملة. يُنشئ إصدارًا جديدًا بتاريخ سريان، وتحتفظ الحجوزات القائمة بالإصدار القديم.",
-    basicsBody:
-      "المدة والعملة تعاقديتان - مقفلتان منذ أول حجز مؤكد. غيّرهما عبر التعديل التعاقدي.",
+    basicsBody: "المدة والعملة تعاقديتان - مقفلتان منذ أول حجز مؤكد. غيّرهما عبر التعديل التعاقدي.",
     lockedNote: "مقفل منذ أول حجز مؤكد · يُغيَّر عبر التعديل التعاقدي",
     pricingFixed: "نموذج التسعير · ثابت بمجرد تفعيل العقد",
-    pricingFixedNote:
-      "الأساس + الإضافات. غيّر سعرًا هنا وتتحرك معه كل غرفة مبنية عليه.",
+    pricingFixedNote: "الأساس + الإضافات. غيّر سعرًا هنا وتتحرك معه كل غرفة مبنية عليه.",
     pricingFixedNoteFixed:
       "كل سطر غرفة-ووجبة يحمل سعره الكامل. ولا يُضاف شيء فوقه — لا فروق ولا أسرّة إضافية.",
     inventoryBody:
@@ -954,8 +959,7 @@ export const contractAr: typeof contractEn = {
     openRates: "فتح الأسعار والإتاحة",
     poolValue: "مخزون مشترك · {stock} / ليلة",
     poolSplit: "ستاندرد ٢٠ · ديلوكس المدينة ١٢ · ديلوكس الحرم ٨",
-    poolNote:
-      "ستاندرد · ديلوكس المدينة · ديلوكس الحرم - كل خطة وجبات تسحب من غرفتها",
+    poolNote: "ستاندرد · ديلوكس المدينة · ديلوكس الحرم - كل خطة وجبات تسحب من غرفتها",
     soldOutValue: "تجاوز مضبوط · +{limit} / ليلة",
     soldOutNote: "أقصى تأكيد = المخزون + {limit}",
     seasonsBody: "سعر العقد الأساسي على {nights} ليلة · {count} تجاوزات موسمية.",
@@ -966,15 +970,18 @@ export const contractAr: typeof contractEn = {
       "\u062a\u0639\u062f\u064a\u0644 \u0645\u062d\u062c\u0648\u0632 \u00b7 \u064a\u0631\u062a\u0641\u0639 \u0627\u0644\u0623\u0633\u0627\u0633 \u0662\u0660 \u0631.\u0633 \u0641\u064a \u0623\u064a\u0627\u0645 \u0627\u0644\u0623\u0633\u0628\u0648\u0639\u060c \u0641\u062a\u062a\u062d\u0631\u0643 \u0645\u0639\u0647 \u0643\u0644 \u063a\u0631\u0641\u0629 \u0645\u0628\u0646\u064a\u0629 \u0639\u0644\u064a\u0647 \u0628\u0640 + \u0662\u0660 \u0631.\u0633. \u0648\u0644\u0627 \u0634\u064a\u0621 \u064a\u0639\u0645\u0644 \u062d\u062a\u0649 \u062a\u0646\u0634\u0631.",
     changedPrice: "{from} \u2192 {to} \u0631.\u0633 \u00b7 \u0645\u064f\u0639\u062f\u0651\u0644",
     changedPill: "\u0645\u064f\u0639\u062f\u0651\u0644",
-    baseOfferBody: "\u0633\u0639\u0631 \u0627\u0644\u0639\u0642\u062f \u0627\u0644\u0623\u0633\u0627\u0633\u064a - \u064a\u0646\u0637\u0628\u0642 \u0639\u0644\u0649 \u0643\u0644 \u0644\u064a\u0644\u0629 \u0628\u0644\u0627 \u0645\u0648\u0633\u0645.",
+    baseOfferBody:
+      "\u0633\u0639\u0631 \u0627\u0644\u0639\u0642\u062f \u0627\u0644\u0623\u0633\u0627\u0633\u064a - \u064a\u0646\u0637\u0628\u0642 \u0639\u0644\u0649 \u0643\u0644 \u0644\u064a\u0644\u0629 \u0628\u0644\u0627 \u0645\u0648\u0633\u0645.",
     restrictionsNoneEdit:
       "\u0644\u0627 \u0642\u064a\u0648\u062f \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0639\u0642\u062f - \u0627\u0644\u0644\u064a\u0627\u0644\u064a \u062e\u0627\u0631\u062c \u0627\u0644\u0645\u0648\u0627\u0633\u0645 \u062a\u064f\u0628\u0627\u0639 \u0628\u062d\u062f \u0623\u062f\u0646\u0649 \u0644\u064a\u0644\u0629 \u0648\u0627\u062d\u062f\u0629 \u0648\u0643\u0644 \u064a\u0648\u0645 \u0645\u0641\u062a\u0648\u062d. \u0648\u0644\u0644\u0645\u0648\u0627\u0633\u0645 \u0642\u064a\u0648\u062f\u0647\u0627. \u064a\u064f\u062d\u0641\u0638 \u0645\u0639 \u0647\u0630\u0627 \u0627\u0644\u062a\u0639\u062f\u064a\u0644 \u0648\u064a\u0633\u0631\u064a \u0639\u0644\u0649 \u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0627\u0644\u062c\u062f\u064a\u062f\u0629 \u0641\u0642\u0637.",
     policiesNoneEdit:
       "\u0644\u0627 \u0633\u064a\u0627\u0633\u0629 \u0625\u0644\u063a\u0627\u0621 \u0623\u0648 \u0625\u0641\u0631\u0627\u062c \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0639\u0642\u062f. \u0648\u0644\u0644\u0645\u0648\u0627\u0633\u0645 \u0633\u064a\u0627\u0633\u0627\u062a\u0647\u0627 \u0627\u0644\u062e\u0627\u0635\u0629.",
     policiesNoneEditWarn:
       "\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0641\u064a \u0627\u0644\u0644\u064a\u0627\u0644\u064a \u062e\u0627\u0631\u062c \u0627\u0644\u0645\u0648\u0627\u0633\u0645 \u0644\u0646 \u062a\u062d\u0645\u0644 \u0634\u0631\u0648\u0637 \u0625\u0644\u063a\u0627\u0621 \u0645\u0646 \u0647\u0630\u0627 \u0627\u0644\u0639\u0642\u062f. \u0648\u062a\u062d\u062a\u0641\u0638 \u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0627\u0644\u0645\u0624\u0643\u0651\u062f\u0629 \u0628\u0634\u0631\u0648\u0637\u0647\u0627 \u0648\u0642\u062a \u0627\u0644\u062d\u062c\u0632.",
-    editCancellationPolicy: "\u062a\u0639\u062f\u064a\u0644 \u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0644\u063a\u0627\u0621",
-    editReleasePolicy: "\u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0625\u0641\u0631\u0627\u062c \u0648\u0627\u0644\u0625\u063a\u0644\u0627\u0642",
+    editCancellationPolicy:
+      "\u062a\u0639\u062f\u064a\u0644 \u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0644\u063a\u0627\u0621",
+    editReleasePolicy:
+      "\u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0625\u0641\u0631\u0627\u062c \u0648\u0627\u0644\u0625\u063a\u0644\u0627\u0642",
     policiesBody: "شرائح الإلغاء والاسترجاع والإقفال.",
     cancellation: "الإلغاء",
     cancellationNote: "تحتفظ الحجوزات بالسياسة السارية وقت التأكيد",
@@ -1033,11 +1040,9 @@ export const contractAr: typeof contractEn = {
     type: "نوع العقد",
     typeBlock: "حصة مخصّصة / بلوك",
     typeRequest: "عند الطلب",
-    typeHint:
-      "البلوك = تلتزم بعدد غرف لكل ليلة. عند الطلب = بلا مخزون، وكل حجز ينتظر تأكيدك.",
+    typeHint: "البلوك = تلتزم بعدد غرف لكل ليلة. عند الطلب = بلا مخزون، وكل حجز ينتظر تأكيدك.",
     hotelMissing: "الفندق غير مدرج؟ اطلب الوصول أو أضفه من مكتبة الفنادق",
-    lockNote:
-      "الأقسام ٢ و٣ و٤ و٥ و٦ و٨ و٩ و١٠ - تُفتح بمجرد ضبط الفندق ومدة العقد.",
+    lockNote: "الأقسام ٢ و٣ و٤ و٥ و٦ و٨ و٩ و١٠ - تُفتح بمجرد ضبط الفندق ومدة العقد.",
     pricingBody:
       "سعر العقد الأساسي - ينطبق على كل ليلة بلا موسم. أرخص غرفة قابلة للبيع، وكل سعر آخر يُقاس منها.",
     pricingBodyFilled:
@@ -1093,32 +1098,31 @@ export const contractAr: typeof contractEn = {
     baseCell: "{amount} · الأساس الذي يُبنى عليه كل شيء",
     supplementCell: "{base} أساس + {supplement} إضافة",
     notOnSale: "{room}  -  غير معروضة في هذا العقد",
-    inventoryBody:
-      "أين يوجد عدد الغرف - مخزون واحد لكل العقد، أو رقم لكل نوع غرفة، أو بيع حر.",
+    inventoryBody: "أين يوجد عدد الغرف - مخزون واحد لكل العقد، أو رقم لكل نوع غرفة، أو بيع حر.",
     inventoryModel: "نموذج المخزون",
     invShared: "مخزون مشترك · رقم واحد",
     invPerRoom: "لكل نوع غرفة",
     invFree: "بيع حر · بلا كمية",
-    invSharedHint:
-      "مخزون مشترك · رقم واحد للغرف في الليلة لكل العقد - وكل نوع غرفة يبيع منه.",
+    invSharedHint: "مخزون مشترك · رقم واحد للغرف في الليلة لكل العقد - وكل نوع غرفة يبيع منه.",
     invNights: "غرف في الليلة · كل أنواع الغرف",
     invNightsValue: "{count} غرفة / ليلة",
     invNightsHint:
       "كل ليلة من ليالي العقد. أي نوع غرفة يبيع من هذا الرقم - إقامة ٣ ليالٍ تأخذ غرفة واحدة في كل ليلة من الثلاث.",
     colRoomType: "نوع الغرفة",
     colCap: "الحد الأقصى من هذه الغرفة · اختياري",
+    invNoCap: "بلا حد",
+    invNoVariations: "أضف أنواع الغرف وإطلالاتها في قسم الغرف لضبط المخزون.",
+    invRoomDetailsError: "إطلالة الغرفة الأساسية غير متاحة. تحقق من بيانات الغرفة قبل التفعيل.",
     colSellsShort: "تُباع",
     capHint:
-      "بلا حد = يمكن لتلك الغرفة أن تأخذ المخزون كله. أضف حدًا حيث يملك الفندق عددًا أقل من ذلك النوع، حتى لا تبيع غرفًا لا يستطيع الفندق توفيرها.",
+      "بلا حد يعني عدم وجود حد إضافي لهذا النوع؛ وتظل الإطلالة تسحب من المخزون المشترك ولا تتجاوز الكمية المتبقية منه.",
     soldOut: "عند النفاد",
     soldOutStop: "إيقاف البيع",
     soldOutRequest: "التحويل إلى عند الطلب",
     soldOutOver: "تجاوز مضبوط",
-    overHint:
-      "التجاوز يحتاج دائمًا حدًا لكل ليلة - لا يكون مفتوحًا. أقصى تأكيد = المخزون + الحد.",
+    overHint: "التجاوز يحتاج دائمًا حدًا لكل ليلة - لا يكون مفتوحًا. أقصى تأكيد = المخزون + الحد.",
     overLimit: "حد التجاوز لكل ليلة",
-    overLimitHint:
-      "مطلوب · ≥ ١ · أقصى تأكيد = {stock} + {limit} في الليلة عبر المخزون",
+    overLimitHint: "مطلوب · ≥ ١ · أقصى تأكيد = {stock} + {limit} في الليلة عبر المخزون",
     seasonsBody:
       "الموسم يعيد تسعير الغرف والإشغال وخطط الوجبات أعلاه في تواريخه - وكل ليلة بلا موسم تستخدم سعر العقد الأساسي.",
     seasonsLocked:
@@ -1134,7 +1138,8 @@ export const contractAr: typeof contractEn = {
     colResult: "نتيجة غرفة ستاندرد",
     everyNight: "كل ليلة بلا موسم",
     baseSegment: "العقد الأساسي",
-    seasonsEmpty: "لا مواسم بعد - كل ليلة تتبع العقد الأساسي. أضف موسمًا للتواريخ التي تُباع بشكل مختلف.",
+    seasonsEmpty:
+      "لا مواسم بعد - كل ليلة تتبع العقد الأساسي. أضف موسمًا للتواريخ التي تُباع بشكل مختلف.",
     colChanges: "ما الذي يتغيّر",
     changesNone: "كالعقد",
     changesChildren: "أسعار أطفال خاصة",
@@ -1166,16 +1171,14 @@ export const contractAr: typeof contractEn = {
     release: "الاسترجاع والإقفال",
     releaseValue: "٣ أيام قبلها · ١٨:٠٠",
     releaseHint: "بعدها تعود الغرف غير المباعة إلى الفندق",
-    seasonPolicyOverline:
-      "الإلغاء حسب الموسم · يُضبط داخل كل موسم ويظهر هنا بجانب سياسة العقد",
+    seasonPolicyOverline: "الإلغاء حسب الموسم · يُضبط داخل كل موسم ويظهر هنا بجانب سياسة العقد",
     editInSeason: "تعديل داخل الموسم  ←",
     editCancellation: "تعديل سياسة الإلغاء",
     editRelease: "تعديل الاسترجاع والإقفال",
     reviewBody:
       "يعرض لوح جانبي كل قسم في لمحة. التأكيد يفعّل العقد فورًا - هوتيليانا لا تعتمد العقود. والحجوزات المؤكدة ملزمة تعاقديًا.",
     reviewReady: "كل الأقسام التسعة مكتملة · المراجعة والتفعيل هي الخطوة الأخيرة.",
-    reviewLocked:
-      "أكمل كل قسم لتفعّل العقد - المواسم اختيارية. ويمكنك حفظ مسودة في أي وقت.",
+    reviewLocked: "أكمل كل قسم لتفعّل العقد - المواسم اختيارية. ويمكنك حفظ مسودة في أي وقت.",
     invPerRoomHint:
       "\u0644\u0643\u0644 \u0646\u0648\u0639 \u063a\u0631\u0641\u0629 \u00b7 \u0643\u0644 \u0646\u0648\u0639 \u0644\u0647 \u0639\u062f\u062f \u063a\u0631\u0641\u0647 \u0627\u0644\u062e\u0627\u0635 \u0644\u064a\u0644\u064b\u0627.",
     invPerRoomNote:
@@ -1189,48 +1192,58 @@ export const contractAr: typeof contractEn = {
     invFreeNote3:
       "\u00ab\u0639\u0646\u062f \u0627\u0644\u0646\u0641\u0627\u062f\u00bb \u0644\u0627 \u064a\u0646\u0637\u0628\u0642: \u0644\u0627 \u0634\u064a\u0621 \u064a\u0646\u0641\u062f. \u0648\u0625\u0646 \u0646\u0641\u062f\u062a \u063a\u0631\u0641 \u0627\u0644\u0641\u0646\u062f\u0642\u060c \u0623\u0648\u0642\u0641 \u0628\u064a\u0639 \u062a\u0644\u0643 \u0627\u0644\u0644\u064a\u0644\u0629 \u0645\u0646 \u0627\u0644\u0623\u0633\u0639\u0627\u0631 \u0648\u0627\u0644\u0625\u062a\u0627\u062d\u0629.",
     colRoomsNight: "\u063a\u0631\u0641 / \u0644\u064a\u0644\u0629",
-    colDrawsFrom: "\u0627\u0644\u063a\u0631\u0641 \u0627\u0644\u062a\u064a \u062a\u0633\u062d\u0628 \u0645\u0646\u0647",
+    colDrawsFrom:
+      "\u0627\u0644\u063a\u0631\u0641 \u0627\u0644\u062a\u064a \u062a\u0633\u062d\u0628 \u0645\u0646\u0647",
     perRoomLimitHint:
-      "\u0645\u0637\u0644\u0648\u0628 \u00b7 \u2265 \u0661 \u00b7 \u0623\u0642\u0635\u0649 \u0645\u0624\u0643\u0651\u062f = \u0662\u0660 + {limit} \u0644\u0644\u063a\u0631\u0641\u0629 \u0627\u0644\u0642\u064a\u0627\u0633\u064a\u0629",
+      "أدخل حدًا منفصلًا لكل غرفة وإطلالة. أقصى تأكيد هو عدد غرف هذا النوع في الليلة زائد الحد.",
     soldOutStopHint:
       "\u062a\u064f\u063a\u0644\u0642 \u0627\u0644\u0644\u064a\u0644\u0629 \u0644\u062d\u0638\u0629 \u0646\u0641\u0627\u062f \u0622\u062e\u0631 \u063a\u0631\u0641\u0629. \u0628\u0644\u0627 \u062d\u062c\u0632 \u0632\u0627\u0626\u062f \u0648\u0628\u0644\u0627 \u0637\u0644\u0628\u0627\u062a - \u0648\u0647\u0648 \u0627\u0644\u0623\u0623\u0645\u0646\u060c \u0648\u0627\u0644\u0645\u0646\u0627\u0633\u0628 \u062d\u064a\u0646 \u0644\u0627 \u064a\u0633\u062a\u0637\u064a\u0639 \u0627\u0644\u0641\u0646\u062f\u0642 \u062a\u062f\u0628\u064a\u0631 \u063a\u0631\u0641\u0629 \u0625\u0636\u0627\u0641\u064a\u0629 \u0633\u0631\u064a\u0639\u064b\u0627.",
     soldOutRequestHint:
       "\u064a\u0633\u062a\u0637\u064a\u0639 \u0627\u0644\u0648\u0643\u0644\u0627\u0621 \u0637\u0644\u0628 \u0644\u064a\u0644\u0629 \u0646\u0627\u0641\u062f\u0629. \u0648\u062a\u0631\u062f \u062e\u0644\u0627\u0644 \u0632\u0645\u0646 \u0627\u0644\u0631\u062f \u0627\u0644\u0645\u062d\u062f\u062f \u0641\u064a \u0627\u0644\u0633\u064a\u0627\u0633\u0627\u062a - \u0641\u0625\u0646 \u0648\u062c\u062f \u0627\u0644\u0641\u0646\u062f\u0642 \u063a\u0631\u0641\u0629 \u0623\u0643\u0651\u062f\u062a\u060c \u0648\u0625\u0644\u0627 \u0631\u0641\u0636\u062a \u0648\u0644\u0627 \u064a\u064f\u0628\u0627\u0639 \u0634\u064a\u0621 \u0632\u0627\u0626\u062f.",
-    requestTypeHint:
-      "عند الطلب: لا يُحجز مخزون. وكل حجز ينتظر تأكيدك خلال مهلة الرد أدناه.",
+    requestTypeHint: "عند الطلب: لا يُحجز مخزون. وكل حجز ينتظر تأكيدك خلال مهلة الرد أدناه.",
     requestInvBody:
       "\u0644\u0627 \u0636\u0645\u0627\u0646 \u0644\u0644\u0645\u062e\u0632\u0648\u0646 - \u0643\u0644 \u062d\u062c\u0632 \u064a\u062d\u062a\u0627\u062c \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0645\u0648\u0631\u0651\u062f. \u062d\u062f\u0651\u062f \u0633\u0631\u0639\u0629 \u0631\u062f\u0643 \u0641\u064a \u0627\u0644\u0623\u0633\u0641\u0644 \u0645\u0628\u0627\u0634\u0631\u0629.",
     requestInvShort:
       "\u0644\u0627 \u0636\u0645\u0627\u0646 \u0644\u0644\u0645\u062e\u0632\u0648\u0646 - \u0643\u0644 \u062d\u062c\u0632 \u064a\u062d\u062a\u0627\u062c \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0645\u0648\u0631\u0651\u062f.",
-    slaBlockTitle: "\u0639\u0646\u062f \u0627\u0644\u0637\u0644\u0628 \u00b7 \u0633\u0631\u0639\u0629 \u0631\u062f\u0643",
-    slaLabel: "\u0632\u0645\u0646 \u0627\u0644\u0631\u062f \u0639\u0644\u0649 \u0627\u0644\u0637\u0644\u0628\u0627\u062a",
+    slaBlockTitle:
+      "\u0639\u0646\u062f \u0627\u0644\u0637\u0644\u0628 \u00b7 \u0633\u0631\u0639\u0629 \u0631\u062f\u0643",
+    slaLabel:
+      "\u0632\u0645\u0646 \u0627\u0644\u0631\u062f \u0639\u0644\u0649 \u0627\u0644\u0637\u0644\u0628\u0627\u062a",
     slaValue: "\u0663\u0660 \u062f\u0642\u064a\u0642\u0629 \u0644\u0644\u0631\u062f",
-    slaCountdown: "\u064a\u0628\u062f\u0623 \u0627\u0644\u0639\u062f \u0644\u062d\u0638\u0629 \u0648\u0635\u0648\u0644 \u0627\u0644\u0637\u0644\u0628.",
-    slaExpires: "\u0639\u0646\u062f \u0627\u0646\u062a\u0647\u0627\u0621 \u0627\u0644\u0645\u062f\u0629",
+    slaCountdown:
+      "\u064a\u0628\u062f\u0623 \u0627\u0644\u0639\u062f \u0644\u062d\u0638\u0629 \u0648\u0635\u0648\u0644 \u0627\u0644\u0637\u0644\u0628.",
+    slaExpires:
+      "\u0639\u0646\u062f \u0627\u0646\u062a\u0647\u0627\u0621 \u0627\u0644\u0645\u062f\u0629",
     slaReject: "\u0631\u0641\u0636 \u062a\u0644\u0642\u0627\u0626\u064a",
-    slaEscalate: "\u0627\u0644\u062a\u0635\u0639\u064a\u062f \u0625\u0644\u0649 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627",
+    slaEscalate:
+      "\u0627\u0644\u062a\u0635\u0639\u064a\u062f \u0625\u0644\u0649 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627",
     slaRejectNote:
       "\u064a\u064f\u0642\u0627\u0633 \u0627\u0644\u0632\u0645\u0646 \u0628\u062a\u0648\u0642\u064a\u062a \u0627\u0644\u0633\u0639\u0648\u062f\u064a\u0629 (UTC+3). \u0648\u062a\u0638\u0647\u0631 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0645\u062a\u0623\u062e\u0651\u0631\u0629 \u0641\u064a \u00ab\u064a\u062d\u062a\u0627\u062c \u0627\u0646\u062a\u0628\u0627\u0647\u0643\u00bb \u0648\u0641\u064a \u0637\u0627\u0628\u0648\u0631 \u0627\u0644\u0637\u0644\u0628\u0627\u062a.",
     slaEscalateNote:
       "\u0625\u0646 \u0644\u0645 \u062a\u0631\u062f \u062e\u0644\u0627\u0644 \u0663\u0660 \u062f\u0642\u064a\u0642\u0629\u060c \u064a\u0646\u062a\u0642\u0644 \u0627\u0644\u0637\u0644\u0628 \u0625\u0644\u0649 \u0641\u0631\u064a\u0642 \u0647\u0648\u062a\u064a\u0644\u064a\u0627\u0646\u0627 \u0627\u0644\u0630\u064a \u064a\u062a\u0635\u0644 \u0628\u0627\u0644\u0641\u0646\u062f\u0642 \u0646\u064a\u0627\u0628\u0629 \u0639\u0646\u0643. \u0648\u064a\u064f\u0642\u0627\u0633 \u0628\u062a\u0648\u0642\u064a\u062a \u0627\u0644\u0633\u0639\u0648\u062f\u064a\u0629 (UTC+3).",
-    summaryRequestNote:
-      "عند الطلب: لا شيء مضمون حتى تؤكّد كل حجز داخل زمن الرد.",
+    summaryRequestNote: "عند الطلب: لا شيء مضمون حتى تؤكّد كل حجز داخل زمن الرد.",
     summarySlaLabel: "\u0632\u0645\u0646 \u0627\u0644\u0631\u062f",
-    summaryNoStock: "\u0628\u0644\u0627 \u0645\u062e\u0632\u0648\u0646 \u00b7 \u0631\u062f \u0663\u0660 \u062f\u0642\u064a\u0642\u0629",
+    summaryNoStock:
+      "\u0628\u0644\u0627 \u0645\u062e\u0632\u0648\u0646 \u00b7 \u0631\u062f \u0663\u0660 \u062f\u0642\u064a\u0642\u0629",
     weekOneHint:
       "\u0633\u0639\u0631 \u0648\u0627\u062d\u062f \u064a\u063a\u0637\u0651\u064a \u0643\u0644 \u0644\u064a\u0627\u0644\u064a \u0627\u0644\u0623\u0633\u0628\u0648\u0639. \u0648\u062a\u064f\u062a\u062c\u0627\u0647\u0644 \u0623\u064a\u0627\u0645 \u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0627\u0644\u062a\u064a \u062d\u062f\u0651\u062f\u062a\u0647\u0627 \u0641\u064a \u0623\u0633\u0627\u0633\u064a\u0627\u062a \u0627\u0644\u0639\u0642\u062f \u0644\u0633\u0639\u0631 \u0647\u0630\u0627 \u0627\u0644\u0639\u0642\u062f \u0627\u0644\u0623\u0633\u0627\u0633\u064a.",
     colPricePerNight: "\u0627\u0644\u0633\u0639\u0631 \u0644\u064a\u0644\u064b\u0627",
-    baseRoomOne: "{price} \u0631.\u0633 \u00b7 \u0627\u0644\u063a\u0631\u0641\u0629 \u0627\u0644\u0623\u0633\u0627\u0633 \u0645\u0642\u0641\u0644\u0629",
-    supplementOne: "+ {add} \u0631.\u0633 \u2190 {total} \u0631.\u0633 \u0643\u0644 \u0644\u064a\u0644\u0629",
+    baseRoomOne:
+      "{price} \u0631.\u0633 \u00b7 \u0627\u0644\u063a\u0631\u0641\u0629 \u0627\u0644\u0623\u0633\u0627\u0633 \u0645\u0642\u0641\u0644\u0629",
+    supplementOne:
+      "+ {add} \u0631.\u0633 \u2190 {total} \u0631.\u0633 \u0643\u0644 \u0644\u064a\u0644\u0629",
     pricingFixedBody:
       "\u0633\u0639\u0631 \u062b\u0627\u0628\u062a \u0644\u0643\u0644 \u063a\u0631\u0641\u0629: \u0628\u0644\u0627 \u0623\u0633\u0627\u0633 \u0648\u0628\u0644\u0627 \u0641\u0631\u0648\u0642 - \u0644\u0643\u0644 \u063a\u0631\u0641\u0629 \u0633\u0639\u0631\u0647\u0627 \u0627\u0644\u0643\u0627\u0645\u0644 \u0641\u064a \u0627\u0644\u063a\u0631\u0641. \u0648\u0627\u0644\u0645\u0648\u0627\u0633\u0645 \u062a\u062a\u0628\u0639 \u0627\u0644\u0646\u0645\u0648\u0630\u062c \u0646\u0641\u0633\u0647.",
     pricingFixedTitle: "\u0646\u0645\u0648\u0630\u062c \u0627\u0644\u062a\u0633\u0639\u064a\u0631",
     roomsFixedBody:
       "أضف كل غرفة بإطلالتها وخطط وجباتها واكتب سعرها الكامل - بلا فروق غرف وبلا أسرّة إضافية. وأضف الغرفة نفسها مرة أخرى لبيعها بإطلالة مختلفة.",
     addRoom: "\u0625\u0636\u0627\u0641\u0629 \u063a\u0631\u0641\u0629",
-    colMealView: "\u0627\u0644\u0648\u062c\u0628\u0629 \u00b7 \u0627\u0644\u0625\u0637\u0644\u0627\u0644\u0629",
-    colWeekdayTotal: "\u0623\u064a\u0627\u0645 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 \u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
-    colWeekendTotal: "\u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 \u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
+    colMealView:
+      "\u0627\u0644\u0648\u062c\u0628\u0629 \u00b7 \u0627\u0644\u0625\u0637\u0644\u0627\u0644\u0629",
+    colWeekdayTotal:
+      "\u0623\u064a\u0627\u0645 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 \u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
+    colWeekendTotal:
+      "\u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 \u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
     justAdded: "\u0623\u064f\u0636\u064a\u0641\u062a \u0644\u0644\u062a\u0648",
     form: {
       hotel: "الفندق",
@@ -1241,7 +1254,8 @@ export const contractAr: typeof contractEn = {
       saveFailedList: "لم تُحفظ المسودة: {errors}",
       draftCreated: "تم حفظ المسودة",
       draftUpdated: "تم تحديث المسودة",
-      saveStale: "حفظ أحدهم هذا العقد أثناء تعديلك ({fields}). تعديلاتك محفوظة في الصفحة - راجعها واحفظ مجددًا.",
+      saveStale:
+        "حفظ أحدهم هذا العقد أثناء تعديلك ({fields}). تعديلاتك محفوظة في الصفحة - راجعها واحفظ مجددًا.",
       saveStaleNone: "حفظ أحدهم هذا العقد أثناء تعديلك. تعديلاتك محفوظة في الصفحة - احفظ مجددًا.",
       noChanges: "لا توجد تغييرات للحفظ.",
       unavailable: "هذا العقد أو فندقه غير متاح للتعديل حاليًا. تعديلاتك محفوظة في الصفحة.",
@@ -1343,8 +1357,7 @@ export const contractAr: typeof contractEn = {
         no_view: "بدون إطلالة",
       },
       switchTitle: "تغيير نموذج التسعير؟",
-      switchBody:
-        "كل ما ضبطته في {model} - الغرف وأسعارها - سيُمسح. ولا يمكن التراجع.",
+      switchBody: "كل ما ضبطته في {model} - الغرف وأسعارها - سيُمسح. ولا يمكن التراجع.",
       switchConfirm: "غيّر وامسح",
       cancel: "إلغاء",
       reviewBlocked: "لا يمكن التفعيل بعد ({count} للإصلاح). أولها: {first}",
@@ -1365,6 +1378,7 @@ export const contractAr: typeof contractEn = {
         supplement: "اكتب الفرق لكل غرفة مختارة",
         fixedRooms: "أضف غرفة واحدة على الأقل",
         fixedPrice: "اكتب الأسعار لكل غرفة",
+        inventory: "أدخل كميات وحدود مخزون صحيحة لكل غرفة وإطلالة مختارة",
         childAges: "أعمار الأطفال أرقام صحيحة من 0 إلى {max}، ولا يكون «من» بعد «إلى»",
         childPrice: "اكتب سعرًا لكل قاعدة أطفال - 0 إن كانت مجانية",
         childOverlap: "لا يغطي «سرير الوالدين» و«سرير مشترك» نفس الأعمار",
@@ -1373,7 +1387,8 @@ export const contractAr: typeof contractEn = {
         seasonNameLong: "اسم الموسم {max} حرفًا كحد أقصى",
         seasonDates: "اختر أول ليلة وآخر ليلة في الموسم",
         seasonOutside: "يجب أن يكون الموسم داخل مدة العقد ({start} – {end})",
-        seasonOverlap: "هذه التواريخ تشترك في ليالٍ مع «{season}» ({dates}) في {shared}. الليلة تتبع موسمًا واحدًا فقط.",
+        seasonOverlap:
+          "هذه التواريخ تشترك في ليالٍ مع «{season}» ({dates}) في {shared}. الليلة تتبع موسمًا واحدًا فقط.",
         seasonChildPrice: "أسعار الأطفال ٠ أو أكثر، بمنزلتين عشريتين كحد أقصى",
         tiersEmpty: "أضف شريحة إلغاء واحدة على الأقل",
         tiersMax: "سياسة الإلغاء فيها {max} شرائح كحد أقصى",
@@ -1392,7 +1407,8 @@ export const contractAr: typeof contractEn = {
         restrictionDates: "اختر تواريخ القيد",
         restrictionOutside: "{dates} خارج مدة العقد ({start} - {end})",
         restrictionMinNights: "أدنى عدد ليالٍ رقم صحيح من 1 إلى {max}",
-        restrictionNoRule: "أضف قاعدة: حد أدنى ليلتين أو أكثر، أو أغلق الدخول أو الخروج في بعض الأيام",
+        restrictionNoRule:
+          "أضف قاعدة: حد أدنى ليلتين أو أكثر، أو أغلق الدخول أو الخروج في بعض الأيام",
         restrictionAllInClosed: "لا يمكن إغلاق الدخول في كل أيام الأسبوع",
         restrictionAllOutClosed: "لا يمكن إغلاق الخروج في كل أيام الأسبوع",
         restrictionMinConflict: "يتعارض مع {rule}: حدّان أدنيان مختلفان لنفس الليالي",
@@ -1421,7 +1437,8 @@ export const contractAr: typeof contractEn = {
         body: "أدنى عدد ليالٍ والأيام التي يدخل فيها الضيوف أو يخرجون. ولا يمكن لقيدين فعّالين لنفس الغرف أن يضعا حدّين أدنيين مختلفين لنفس الليالي.",
         closedInLabel: "الدخول مغلق في",
         closedOutLabel: "الخروج مغلق في",
-        closedHint: "انقر يومًا لإغلاقه في كل أسابيع تواريخ القيد. الأيام المفتوحة تبقى قابلة للحجز.",
+        closedHint:
+          "انقر يومًا لإغلاقه في كل أسابيع تواريخ القيد. الأيام المفتوحة تبقى قابلة للحجز.",
         startDate: "تاريخ البداية",
         endDate: "تاريخ النهاية",
         statusToggle: "حالة القيد",
@@ -1447,7 +1464,8 @@ export const contractAr: typeof contractEn = {
         cancellationSaved: "حُفظت سياسة الإلغاء",
         releaseLocalNote: "الإفراج والإقفال لا يُحفظ مع العقد بعد - سيُحفظ عندما يدعمه النظام.",
         noneTitle: "هل تزيل سياسات العقد؟",
-        noneBody: "ستُزال سياسة الإلغاء وقاعدة الإفراج والإقفال من هذا العقد. وتحتفظ المواسم بسياساتها.",
+        noneBody:
+          "ستُزال سياسة الإلغاء وقاعدة الإفراج والإقفال من هذا العقد. وتحتفظ المواسم بسياساتها.",
         noneKeep: "إبقاء السياسات",
         noneConfirm: "إزالة السياسات",
         releaseSameDay: "نفس اليوم الساعة {time}",
@@ -1507,8 +1525,7 @@ export const contractAr: typeof contractEn = {
     policiesNoneWarn:
       "\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0641\u064a \u0627\u0644\u0644\u064a\u0627\u0644\u064a \u062e\u0627\u0631\u062c \u0627\u0644\u0645\u0648\u0627\u0633\u0645 \u0644\u0646 \u062a\u062d\u0645\u0644 \u0634\u0631\u0648\u0637 \u0625\u0644\u063a\u0627\u0621 \u0645\u0646 \u0647\u0630\u0627 \u0627\u0644\u0639\u0642\u062f.",
     slaTitle: "زمن الرد على الطلبات",
-    slaBody:
-      "كل حجز ينتظر ردّك. وإن لم تردّ في الوقت المحدد يُصعَّد الطلب إلى هوتيليانا.",
+    slaBody: "كل حجز ينتظر ردّك. وإن لم تردّ في الوقت المحدد يُصعَّد الطلب إلى هوتيليانا.",
     activated: "تم تفعيل العقد",
   },
   contractFlow: {
@@ -1558,7 +1575,8 @@ export const contractAr: typeof contractEn = {
     view: "الإطلالة",
     selectAll: "اختيار كل الغرف المعتمدة",
     ratesTitle: "حدّد أسعار الغرف",
-    ratesBody: "أدخل صافي المبلغ الليلي الذي تدفعه هوتيليانا لك. الأسعار بالريال السعودي وتشمل الضرائب.",
+    ratesBody:
+      "أدخل صافي المبلغ الليلي الذي تدفعه هوتيليانا لك. الأسعار بالريال السعودي وتشمل الضرائب.",
     mealPlan: "خطة الوجبات",
     roomOnly: "غرفة فقط",
     breakfast: "يشمل الإفطار",
@@ -1580,7 +1598,8 @@ export const contractAr: typeof contractEn = {
     payment: "شروط الدفع",
     paymentMonthly: "تسوية شهرية · ٣٠ يومًا",
     inventoryTitle: "أضف المخزون المبدئي",
-    inventoryBody: "حدّد عدد الغرف التي يمكن لهوتيليانا بيعها كل ليلة. يمكنك التحديث أو إيقاف البيع لاحقًا من تقويم الأسعار.",
+    inventoryBody:
+      "حدّد عدد الغرف التي يمكن لهوتيليانا بيعها كل ليلة. يمكنك التحديث أو إيقاف البيع لاحقًا من تقويم الأسعار.",
     allotment: "الغرف لكل ليلة",
     minimumStay: "الحد الأدنى للإقامة",
     release: "فترة الاسترجاع",
@@ -1599,7 +1618,8 @@ export const contractAr: typeof contractEn = {
     edit: "تعديل",
     publish: "نشر العقد",
     publishTitle: "هل تريد نشر عقد التوريد؟",
-    publishBody: "يمكن لوكلاء هوتيليانا بدء حجز الغرف المختارة خلال فترة الإقامة بمجرد فتح المخزون.",
+    publishBody:
+      "يمكن لوكلاء هوتيليانا بدء حجز الغرف المختارة خلال فترة الإقامة بمجرد فتح المخزون.",
     publishConfirm: "نعم، انشر العقد",
     publishedOverline: "تم نشر العقد",
     publishedTitle: "عقد التوريد متاح الآن",

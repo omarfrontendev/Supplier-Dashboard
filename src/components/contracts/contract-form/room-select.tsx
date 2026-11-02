@@ -3,15 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupplierHotelContractRoom } from "@/api/modules/hotel-contract/types";
 import { useContractHotelRooms } from "@/api/modules/hotel-contract/useContractHotelRooms";
 import { Select } from "@/components/ui/select";
+import { contractRoomLabel } from "@/lib/contract-room-label";
 import { useLanguage } from "@/lib/i18n";
+import { ROOM_SIZES } from "@/lib/room-sizes";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 function roomOptionLabel(room: SupplierHotelContractRoom, lang: string) {
-  return (
-    (lang === "ar" ? room.nameAr || room.nameEn : room.nameEn || room.nameAr) ||
-    `#${room.id}`
-  );
+  return contractRoomLabel(room, lang);
 }
 
 export function ContractRoomSelect({
@@ -61,10 +60,19 @@ export function ContractRoomSelect({
     });
   }, [result.data]);
 
-  const options = rooms.map((room) => ({
-    value: String(room.id),
-    label: roomOptionLabel(room, lang),
-  }));
+  const seenRoomSizeIds = new Set<number>();
+  const options = rooms
+    .filter((room) => {
+      const roomSize = ROOM_SIZES.find((size) => size.id === room.roomSizeId);
+      if (!roomSize) return true;
+      if (seenRoomSizeIds.has(roomSize.id)) return false;
+      seenRoomSizeIds.add(roomSize.id);
+      return true;
+    })
+    .map((room) => ({
+      value: String(room.id),
+      label: roomOptionLabel(room, lang),
+    }));
 
   const hasMore = Boolean(
     result.data && result.data.meta.page < result.data.meta.totalPages,

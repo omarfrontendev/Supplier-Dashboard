@@ -1,48 +1,70 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 
-import type {
-  HotelContractsMetadataData,
-  SupplierHotelContractRoom,
-} from "@/api/modules/hotel-contract/types";
+import type { HotelContractsMetadataData } from "@/api/modules/hotel-contract/types";
 import { useContractHotelRooms } from "@/api/modules/hotel-contract/useContractHotelRooms";
 import { Table } from "@/components/contracts/contract-parts";
 import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
+import { contractRoomLabel } from "@/lib/contract-room-label";
 import { effectivePrice, toAmount } from "@/store/features/contracts/contract-payload";
 import {
   removeFixedRoom,
-  removeSupplementRoom,
+  removeSupplementRoomVariation,
   setFixedPrice,
   setRoomSupplement,
 } from "@/store/features/contracts/contract-draft.slice";
 import { AddRoomDialog, mealOptionsFrom } from "./add-room-dialog";
-import {
-  AmountInput,
-  formatAmount,
-  useAppDispatch,
-  useContractDraft,
-} from "./shared";
+import { AmountInput, formatAmount, useAppDispatch, useContractDraft } from "./shared";
 
 export function RoomsFields({
   metadata,
   metadataLoading,
   metadataError,
   onRetryMetadata,
+  onSelectedRoomDetails,
 }: {
   metadata: HotelContractsMetadataData | undefined;
   metadataLoading: boolean;
   metadataError: boolean;
   onRetryMetadata: () => void;
+  onSelectedRoomDetails: (
+    details: Record<number, { roomSizeId: number | null; view: string | null }>,
+    loading: boolean,
+  ) => void;
 }) {
   const { c, lang } = useLanguage();
   const f = c.builder.form;
   const dispatch = useAppDispatch();
   const { basics, pricingModel, weekPricing, baseSupplements, fixedRooms } = useContractDraft();
   const roomsQuery = useContractHotelRooms(basics.hotelId, { page: 1, limit: 100 });
-  const rooms = (roomsQuery.data?.rooms ?? []).filter((room) => room.status === "active");
+  const allRooms = useMemo(() => roomsQuery.data?.rooms ?? [], [roomsQuery.data?.rooms]);
+  const rooms = allRooms;
+  // .filter((room) => room.status === "active");
   const [adding, setAdding] = useState(false);
+  const selectedRoomIds = useMemo(
+    () =>
+      [
+        ...(baseSupplements.baseRoomId === null ? [] : [baseSupplements.baseRoomId]),
+        ...baseSupplements.rooms.map((room) => room.roomId),
+        ...fixedRooms.map((room) => room.roomId),
+      ].filter((roomId, index, roomIds) => roomIds.indexOf(roomId) === index),
+    [baseSupplements, fixedRooms],
+  );
+  const selectedRoomDetails = useMemo(
+    () =>
+      Object.fromEntries(
+        selectedRoomIds.flatMap((roomId) => {
+          const room = allRooms.find((candidate) => candidate.id === roomId);
+          return room ? [[roomId, { roomSizeId: room.roomSizeId, view: room.view }]] : [];
+        }),
+      ),
+    [allRooms, selectedRoomIds],
+  );
+  useEffect(() => {
+    onSelectedRoomDetails(selectedRoomDetails, roomsQuery.isLoading);
+  }, [onSelectedRoomDetails, roomsQuery.isLoading, selectedRoomDetails]);
 
   const split = weekPricing === "weekday_weekend";
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
@@ -101,9 +123,7 @@ export function RoomsFields({
             ]}
             rows={fixedRooms.map((row, index) => {
               const room = roomById.get(row.roomId);
-              const name = room
-                ? (lang === "ar" ? room.nameAr : room.nameEn) || room.nameEn
-                : `#${row.roomId}`;
+              const name = contractRoomLabel(room ?? { id: row.roomId }, lang);
               return [
                 name,
                 <ul key="meals" className="space-y-0.5">
@@ -160,6 +180,7 @@ export function RoomsFields({
         {adding && (
           <AddRoomDialog
             hotelId={basics.hotelId}
+            rooms={allRooms}
             metadata={metadata}
             metadataLoading={metadataLoading}
             metadataError={metadataError}
@@ -173,34 +194,19 @@ export function RoomsFields({
   }
 
   const roomById = new Map(rooms.map((room) => [room.id, room]));
-  const roomForId = (roomId: number) =>
-    roomById.get(roomId) ??
-    ({
-      id: roomId,
-      hotelId: basics.hotelId!,
-      nameEn: `#${roomId}`,
-      nameAr: `#${roomId}`,
-      view: null,
-      maxOccupancy: null,
-      adults: null,
-      bedTypeId: null,
-      roomSizeId: null,
-      areaSqm: null,
-      status: "active",
-    } satisfies SupplierHotelContractRoom);
+  const roomForId = (roomId: number) => roomById.get(roomId) ?? { id: roomId };
   const baseRoom =
     baseSupplements.baseRoomId === null ? undefined : roomForId(baseSupplements.baseRoomId);
   const displayRows = [
-    ...(baseRoom ? [{ room: baseRoom, row: undefined, index: -1, isBase: true }] : []),
-    ...baseSupplements.rooms.map((row, index) => ({
+    ...(baseRoom ? [{ room: baseRoom, row: undefined, isBase: true }] : []),
+    ...baseSupplements.rooms.map((row) => ({
       room: roomForId(row.roomId),
       row,
-      index,
       isBase: false,
     })),
   ];
-  const labelForRoom = (room: SupplierHotelContractRoom) =>
-    (lang === "ar" ? room.nameAr || room.nameEn : room.nameEn || room.nameAr) || `#${room.id}`;
+  const labelForRoom = (room: { id: number; roomSizeId?: number | null }) =>
+    contractRoomLabel(room, lang);
 
   return (
     <>
@@ -208,9 +214,7 @@ export function RoomsFields({
         <Plus className="h-4 w-4" aria-hidden="true" />
         {c.builder.addRoom}
       </Button>
-      {roomsQuery.isLoading && (
-        <p className="text-sm text-text-muted">{f.roomsLoading}</p>
-      )}
+      {roomsQuery.isLoading && <p className="text-sm text-text-muted">{f.roomsLoading}</p>}
       {roomsQuery.isError && (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-status-danger">{f.roomsError}</p>
@@ -236,7 +240,7 @@ export function RoomsFields({
           "",
         ]}
         muted={baseRoom ? [0] : []}
-        rows={displayRows.map(({ room, row, index, isBase }) => {
+        rows={displayRows.map(({ room, row, isBase }) => {
           const label = labelForRoom(room);
           const view = isBase ? undefined : row?.view;
           const weekday = isBase
@@ -261,14 +265,16 @@ export function RoomsFields({
                 {...currencySuffix}
                 className="max-w-[160px]"
                 value={row.supplement}
-                onValue={(value) => dispatch(setRoomSupplement({ index, value }))}
+                onValue={(value) =>
+                  dispatch(setRoomSupplement({ roomId: row.roomId, view: row.view, value }))
+                }
               />
             ) : (
               "-"
             ),
             money(weekday),
             ...(split ? [money(weekend)] : []),
-            isBase ? (
+            isBase || !row ? (
               ""
             ) : (
               <Button
@@ -276,7 +282,14 @@ export function RoomsFields({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={fill(f.remove, { room: label })}
-                onClick={() => dispatch(removeSupplementRoom(index))}
+                onClick={() =>
+                  dispatch(
+                    removeSupplementRoomVariation({
+                      roomId: row.roomId,
+                      view: row.view ?? "no_view",
+                    }),
+                  )
+                }
               >
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </Button>
@@ -287,6 +300,7 @@ export function RoomsFields({
       {adding && (
         <AddRoomDialog
           hotelId={basics.hotelId}
+          rooms={allRooms}
           metadata={metadata}
           metadataLoading={metadataLoading}
           metadataError={metadataError}

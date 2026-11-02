@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Check, ChevronRight, Lock, Plus, Save } from "lucide-react";
@@ -10,7 +10,6 @@ import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotel
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorList } from "@/lib/api-error";
 import {
-  basicsReady,
   childPricingChanged,
   hasInactiveRestrictions,
   restrictionsChanged,
@@ -25,10 +24,12 @@ import {
   draftFromContract,
   hasRoomPricing,
   mergeLatestBasics,
-  sameSavedBasics,
   sameSavedDraft,
   toCreateContractBody,
   toUpdateContractBody,
+  inventoryVariationKey,
+  toInventoryRules,
+  type InventoryVariation,
 } from "@/store/features/contracts/contract-api";
 import type { SupplierHotelContract } from "@/api/modules/hotel-contract/types";
 import { UnsavedOverlay } from "@/components/contracts/create-overlays";
@@ -40,6 +41,7 @@ import { PoliciesSummary } from "@/components/contracts/contract-form/policies-s
 import { RestrictionsFields } from "@/components/contracts/contract-form/restrictions-fields";
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
+import { AvailableHotelRooms } from "@/components/contracts/available-hotel-rooms";
 import {
   useAppDispatch,
   useChildAgeLimit,
@@ -67,6 +69,9 @@ import {
   saveCancellationPolicy,
   saveReleasePolicy,
   setPoliciesEnabled,
+  updateInventory,
+  setInventoryRoomCap,
+  setPerRoomInventory,
 } from "@/store/features/contracts/contract-draft.slice";
 import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
 import { CancellationDrawer, ReleaseDrawer } from "@/components/contracts/policy-overlays";
@@ -82,10 +87,9 @@ import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify, wait } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
-import { MONTHS, inventoryCaps, perRoomStock } from "@/lib/contract-data";
-
-type SoldOut = "stop" | "request" | "overbooking";
-type Inventory = "shared" | "perRoom" | "free";
+import { MONTHS } from "@/lib/contract-data";
+import type { InventoryModel, RoomView, SoldOutAction } from "@/store/features/contracts/types";
+import { contractRoomLabel } from "@/lib/contract-room-label";
 
 /**
  * The one-page supply-contract builder — Figma UI 03.1 and its variants.
@@ -127,16 +131,25 @@ export function ContractBuilder({
   useEffect(() => {
     if (!saved || loadedId.current === saved.id) return;
     loadedId.current = saved.id;
-    if (draft.basics.hotelId === saved.hotelId && sameSavedBasics(draft, saved)) return;
     dispatch(loadContract(draftFromContract(saved)));
   }, [dispatch, saved, draft]);
   const contractHotels = useContractHotels({ page: 1, limit: 100 });
   const contractMetadata = useHotelContractsMetadata();
+  const [selectedRoomDetails, setSelectedRoomDetails] = useState<
+    Record<number, { roomSizeId: number | null; view: string | null }>
+  >({});
+  const [selectedRoomDetailsLoading, setSelectedRoomDetailsLoading] = useState(true);
+  const receiveSelectedRoomDetails = useCallback(
+    (
+      details: Record<number, { roomSizeId: number | null; view: string | null }>,
+      loading: boolean,
+    ) => {
+      setSelectedRoomDetails(details);
+      setSelectedRoomDetailsLoading(loading);
+    },
+    [],
+  );
   const allowLeave = useRef(false);
-  const [inventory, setInventory] = useState<Inventory>("shared");
-  const [stock, setStock] = useState("50");
-  const [soldOut, setSoldOut] = useState<SoldOut>("overbooking");
-  const [overLimit, setOverLimit] = useState("2");
   const [saving, setSaving] = useState(false);
   /* OV 03.2 — the drawer that shows every section before it goes live. */
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -149,6 +162,7 @@ export function ContractBuilder({
   const hasPolicies = draft.policies.enabled;
   const hasRestrictions = draft.restrictions.enabled;
   const fixed = draft.pricingModel === "fixed_price";
+  const { inventory } = draft;
   const f = t.form;
   const term =
     basics.startDate && basics.endDate
@@ -211,6 +225,128 @@ export function ContractBuilder({
     ? draft.fixedRooms.length
     : draft.baseSupplements.rooms.filter((room) => room.roomId !== draft.baseSupplements.baseRoomId)
         .length + (draft.baseSupplements.baseRoomId === null ? 0 : 1);
+  const selectedDetailsById = selectedRoomDetails;
+  const inventoryVariationMap = new Map<
+    string,
+    InventoryVariation & { plans: Set<string>; isBase: boolean }
+  >();
+  const addInventoryVariation = (roomId: number, view: string, plans: string[], isBase = false) => {
+    const variation = { roomId, view };
+    const key = inventoryVariationKey(variation);
+    const existing = inventoryVariationMap.get(key);
+    if (existing) {
+      plans.forEach((plan) => existing.plans.add(plan));
+      existing.isBase ||= isBase;
+      return;
+    }
+    inventoryVariationMap.set(key, { ...variation, plans: new Set(plans), isBase });
+  };
+  const selectedBaseMealPlans = Object.entries(draft.meals)
+    .filter(([, meal]) => meal.enabled)
+    .map(([plan]) => plan);
+  const baseRoomDetails =
+    draft.baseSupplements.baseRoomId === null
+      ? undefined
+      : selectedDetailsById[draft.baseSupplements.baseRoomId];
+  const baseRoomDataAvailable = Boolean(baseRoomDetails);
+  const baseRoomView = baseRoomDetails?.view;
+  if (draft.baseSupplements.baseRoomId !== null && baseRoomDataAvailable) {
+    addInventoryVariation(
+      draft.baseSupplements.baseRoomId,
+      baseRoomView ?? "no_view",
+      selectedBaseMealPlans,
+      true,
+    );
+  }
+  if (fixed) {
+    draft.fixedRooms.forEach((room) =>
+      addInventoryVariation(
+        room.roomId,
+        room.view,
+        room.meals.map((meal) => meal.plan),
+        room.roomId === draft.baseSupplements.baseRoomId &&
+          room.view === (selectedDetailsById[room.roomId]?.view ?? "no_view"),
+      ),
+    );
+  } else {
+    draft.baseSupplements.rooms.forEach((room) => {
+      const selectedRoom = selectedDetailsById[room.roomId];
+      addInventoryVariation(
+        room.roomId,
+        room.view ?? selectedRoom?.view ?? "no_view",
+        selectedBaseMealPlans,
+        room.roomId === draft.baseSupplements.baseRoomId &&
+          (room.view ?? selectedRoom?.view ?? "no_view") ===
+            (selectedDetailsById[room.roomId]?.view ?? "no_view"),
+      );
+    });
+  }
+  const draftInventoryVariations = [...inventoryVariationMap.values()].map(
+    ({ plans, ...variation }) => ({
+      ...variation,
+      plans: [...plans],
+    }),
+  );
+  const savedInventoryVariationsRaw =
+    mode === "edit" && !draft.roomVariationsEdited && draftInventoryVariations.length === 0
+      ? saved?.inventoryRules?.mode === "shared_pool"
+        ? (saved.inventoryRules.roomCaps ?? []).map((variation) => ({
+            ...variation,
+            plans: [],
+            isBase:
+              draft.baseSupplements.baseRoomId !== null &&
+              baseRoomDataAvailable &&
+              inventoryVariationKey(variation) ===
+                inventoryVariationKey({
+                  roomId: draft.baseSupplements.baseRoomId,
+                  view: baseRoomView ?? "no_view",
+                }),
+          }))
+        : saved?.inventoryRules?.mode === "per_room_type"
+          ? saved.inventoryRules.rooms.map((variation) => ({
+              ...variation,
+              plans: [],
+              isBase:
+                draft.baseSupplements.baseRoomId !== null &&
+                baseRoomDataAvailable &&
+                inventoryVariationKey(variation) ===
+                  inventoryVariationKey({
+                    roomId: draft.baseSupplements.baseRoomId,
+                    view: baseRoomView ?? "no_view",
+                  }),
+            }))
+          : []
+      : [];
+  const savedInventoryVariations = [
+    ...new Map(
+      savedInventoryVariationsRaw.map((variation) => [inventoryVariationKey(variation), variation]),
+    ).values(),
+  ];
+  const inventoryVariations =
+    draftInventoryVariations.length > 0 ? draftInventoryVariations : savedInventoryVariations;
+  const baseInventoryVariation = inventoryVariations.find((variation) => variation.isBase);
+  // const additionalInventoryVariations = inventoryVariations.filter(
+  //   (variation) => !variation.isBase,
+  // );
+  const additionalInventoryVariations = inventoryVariations
+  const payloadInventoryVariations =
+    inventory.model === "shared" ? additionalInventoryVariations : inventoryVariations;
+  const inventoryRules = onRequest
+    ? undefined
+    : toInventoryRules(inventory, payloadInventoryVariations);
+  const baseRoomViewMissing =
+    !onRequest &&
+    draft.baseSupplements.baseRoomId !== null &&
+    !baseRoomDataAvailable &&
+    !selectedRoomDetailsLoading;
+  const inventoryQuantity =
+    inventory.model === "shared"
+      ? Number(inventory.roomsPerNight) || 0
+      : inventoryVariations.reduce(
+          (total, variation) =>
+            total + (Number(inventory.rooms[inventoryVariationKey(variation)]?.roomsPerNight) || 0),
+          0,
+        );
   const seasons = draft.seasons;
   const seasonNights = seasons.reduce((sum, season) => sum + nightsIn(season), 0);
   const termNights =
@@ -243,6 +379,12 @@ export function ContractBuilder({
 
   function openReview() {
     const issues = validateContract(draft, f.v, childMaxAge);
+    if (
+      !onRequest &&
+      (baseRoomViewMissing || !toInventoryRules(inventory, payloadInventoryVariations, true))
+    ) {
+      issues.push({ section: "inventory", message: f.v.inventory });
+    }
     if (issues.length > 0) {
       notify.error(fill(f.reviewBlocked, { count: issues.length, first: issues[0]!.message }));
       jumpTo(issues[0]!.section);
@@ -257,82 +399,87 @@ export function ContractBuilder({
   }
 
   async function saveDraft(leaving = false): Promise<boolean> {
-    if (!basicsReady(draft)) {
-      notify.error(f.saveNeedsBasics);
-      jumpTo("basics");
-      return false;
-    }
-    const childErrors = childIssues(draft.children, f.v, childMaxAge);
-    if (childErrors.length > 0) {
-      notify.error(childErrors[0]!);
-      jumpTo("children");
-      return false;
-    }
-    const restrictionErrors = draft.restrictions.enabled
-      ? restrictionsIssues(
-          draft.restrictions.rules,
-          basics,
-          f.v,
-          (rule) => `${readableDay(rule.startDate, lang)} – ${readableDay(rule.endDate, lang)}`,
-          (day) => readableDay(day, lang),
-        )
-      : [];
-    if (restrictionErrors.length > 0) {
-      notify.error(restrictionErrors[0]!);
-      jumpTo("restrictions");
-      return false;
-    }
-    const seasonErrors = seasonsIssues(draft.seasons, basics, f.v, (day) => readableDay(day, lang));
-    if (seasonErrors.length > 0) {
-      notify.error(seasonErrors[0]!);
-      jumpTo("seasons");
-      return false;
-    }
-    const cancellationErrors =
-      draft.policies.enabled && draft.policies.cancellation
-        ? cancellationIssues(draft.policies.cancellation, f.v)
-        : [];
-    if (cancellationErrors.length > 0) {
-      notify.error(cancellationErrors[0]!);
-      jumpTo("policies");
-      return false;
-    }
-    let contract: SupplierHotelContract | null = saved;
-    let createdId: number | null = null;
-    try {
-      if (!contract) {
-        contract = await saveContract.mutateAsync({ id: null, body: toCreateContractBody(draft) });
-        createdId = contract.id;
-        if (hasInactiveRestrictions(draft)) {
-          contract = await saveContract.mutateAsync({
-            id: contract.id,
-            body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
-          });
-        }
-      } else {
-        const body = toUpdateContractBody(draft, contract);
-        if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
-      }
-      if (contract === saved) {
-        notify.success(f.noChanges);
-        return true;
-      }
-      notify.success(createdId ? f.draftCreated : f.draftUpdated);
-      return true;
-    } catch (error) {
-      onSaveError(error as Error, contract);
-      return false;
-    } finally {
-      if (createdId !== null && !leaving) {
-        loadedId.current = createdId;
-        allowLeave.current = true;
-        navigate({
-          to: "/rate-contracts/$contractId/edit",
-          params: { contractId: String(createdId) },
-          replace: true,
-        });
-      }
-    }
+    console.log(draft);
+    // if (!basicsReady(draft)) {
+    //   notify.error(f.saveNeedsBasics);
+    //   jumpTo("basics");
+    //   return false;
+    // }
+    // const childErrors = childIssues(draft.children, f.v, childMaxAge);
+    // if (childErrors.length > 0) {
+    //   notify.error(childErrors[0]!);
+    //   jumpTo("children");
+    //   return false;
+    // }
+    // const restrictionErrors = draft.restrictions.enabled
+    //   ? restrictionsIssues(
+    //       draft.restrictions.rules,
+    //       basics,
+    //       f.v,
+    //       (rule) => `${readableDay(rule.startDate, lang)} – ${readableDay(rule.endDate, lang)}`,
+    //       (day) => readableDay(day, lang),
+    //     )
+    //   : [];
+    // if (restrictionErrors.length > 0) {
+    //   notify.error(restrictionErrors[0]!);
+    //   jumpTo("restrictions");
+    //   return false;
+    // }
+    // const seasonErrors = seasonsIssues(draft.seasons, basics, f.v, (day) => readableDay(day, lang));
+    // if (seasonErrors.length > 0) {
+    //   notify.error(seasonErrors[0]!);
+    //   jumpTo("seasons");
+    //   return false;
+    // }
+    // const cancellationErrors =
+    //   draft.policies.enabled && draft.policies.cancellation
+    //     ? cancellationIssues(draft.policies.cancellation, f.v)
+    //     : [];
+    // if (cancellationErrors.length > 0) {
+    //   notify.error(cancellationErrors[0]!);
+    //   jumpTo("policies");
+    //   return false;
+    // }
+    // let contract: SupplierHotelContract | null = saved;
+    // let createdId: number | null = null;
+    // try {
+    //   if (!contract) {
+    //     contract = await saveContract.mutateAsync({
+    //       id: null,
+    //       body: toCreateContractBody(draft, inventoryRules),
+    //     });
+    //     createdId = contract.id;
+    //     if (hasInactiveRestrictions(draft)) {
+    //       contract = await saveContract.mutateAsync({
+    //         id: contract.id,
+    //         body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
+    //       });
+    //     }
+    //   } else {
+    //     const body = toUpdateContractBody(draft, contract, inventoryRules);
+    //     if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
+    //   }
+    //   if (contract === saved) {
+    //     notify.success(f.noChanges);
+    //     return true;
+    //   }
+    //   notify.success(createdId ? f.draftCreated : f.draftUpdated);
+    //   return true;
+    // } catch (error) {
+    //   onSaveError(error as Error, contract);
+    //   return false;
+    // } finally {
+    //   if (createdId !== null && !leaving) {
+    //     loadedId.current = createdId;
+    //     allowLeave.current = true;
+    //     navigate({
+    //       to: "/rate-contracts/$contractId/edit",
+    //       params: { contractId: String(createdId) },
+    //       replace: true,
+    //     });
+    //   }
+    // }
+    return false;
   }
 
   function onSaveError(error: Error, base: SupplierHotelContract | null = saved) {
@@ -396,14 +543,14 @@ export function ContractBuilder({
       ? f.loadFailed
       : !saved
         ? t.draftEmpty
-        : sameSavedDraft(draft, saved)
+        : sameSavedDraft(draft, saved, inventoryRules)
           ? fill(t.draftSaved, { time: savedAt })
           : t.draftUnsaved;
 
   const hasUnsaved =
     !remote.isLoading &&
     (saved
-      ? !sameSavedDraft(draft, saved)
+      ? !sameSavedDraft(draft, saved, inventoryRules)
       : Boolean(basics.hotelId || basics.name.trim() || basics.startDate || basics.currency));
   const leaveBlocker = useBlocker({
     shouldBlockFn: () => !allowLeave.current && hasUnsaved,
@@ -437,10 +584,16 @@ export function ContractBuilder({
         rooms: contractRoomCount,
         state: "active",
         roomNames: [],
-        allotment: Number(stock) || 0,
+        allotment: inventoryQuantity,
         roomTypes: contractRoomCount,
-        soldOut: soldOut === "stop" ? "stop" : soldOut === "request" ? "onRequest" : "overbooking",
-        overbooking: Number(overLimit) || 2,
+        soldOut:
+          inventory.soldOut === "stop"
+            ? "stop"
+            : inventory.soldOut === "request"
+              ? "onRequest"
+              : "overbooking",
+        overbooking:
+          inventory.model === "shared" ? Number(inventory.sharedOverbookingLimitPerNight) || 0 : 0,
         releaseDays: 3,
         version: "v1.0",
       });
@@ -566,9 +719,9 @@ export function ContractBuilder({
                     ? t.summaryEmpty
                     : onRequest
                       ? t.summaryNoStock
-                      : inventory === "free"
+                      : inventory.model === "free"
                         ? t.invFree
-                        : fill(t.summaryStockValue, { count: stock }),
+                        : fill(t.summaryStockValue, { count: inventoryQuantity }),
                 ],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-start justify-between gap-3">
@@ -617,20 +770,44 @@ export function ContractBuilder({
           </Section>
 
           {/* 3 — Rooms */}
-          <Section
-            id={num("rooms")}
-            title={t.sections[2]!}
-            body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
-            locked={!basicsDone}
-            tone={basicsDone ? "done" : "locked"}
-          >
-            <RoomsFields
-              metadata={contractMetadata.data}
-              metadataLoading={contractMetadata.isLoading}
-              metadataError={contractMetadata.isError}
-              onRetryMetadata={() => void contractMetadata.refetch()}
-            />
-          </Section>
+          {fixed && (
+            <Section
+            id={sectionList.length + 1}
+              // id={num("rooms")}
+              title={t.sections[2]!}
+              body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
+              locked={!basicsDone}
+              tone={basicsDone ? "done" : "locked"}
+            >
+              <RoomsFields
+                metadata={contractMetadata.data}
+                metadataLoading={contractMetadata.isLoading}
+                metadataError={contractMetadata.isError}
+                onRetryMetadata={() => void contractMetadata.refetch()}
+                onSelectedRoomDetails={receiveSelectedRoomDetails}
+              />
+            </Section>
+          )}
+
+          {!fixed && (
+            <Section
+              id={sectionList.length + 1}
+              title={lang === "ar" ? "الغرف المتاحة في الفندق" : "Available Hotel Rooms"}
+              body={
+                lang === "ar"
+                  ? "الغرف المسجلة للفندق المحدد."
+                  : "Rooms registered for the selected hotel."
+              }
+              locked={!basicsDone}
+              tone={basicsDone ? "done" : "locked"}
+            >
+              <AvailableHotelRooms
+                hotelId={basics.hotelId}
+                metadata={contractMetadata.data}
+                onSelectedRoomDetails={receiveSelectedRoomDetails}
+              />
+            </Section>
+          )}
 
           {/* 4 — Meal plans */}
           {!fixed && (
@@ -671,10 +848,15 @@ export function ContractBuilder({
               <p className="text-sm leading-relaxed text-text-secondary">{t.requestInvShort}</p>
             ) : (
               <>
+                {baseRoomViewMissing && (
+                  <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <p className="text-sm text-status-danger">{t.invRoomDetailsError}</p>
+                  </div>
+                )}
                 <p className="text-sm font-medium text-text-primary">{t.inventoryModel}</p>
                 <ChoiceRow
-                  value={inventory}
-                  onChange={(next) => setInventory(next as Inventory)}
+                  value={inventory.model}
+                  onChange={(next) => dispatch(updateInventory({ model: next as InventoryModel }))}
                   options={[
                     { value: "shared", label: t.invShared },
                     { value: "perRoom", label: t.invPerRoom },
@@ -682,15 +864,15 @@ export function ContractBuilder({
                   ]}
                 />
                 <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                  {inventory === "shared"
+                  {inventory.model === "shared"
                     ? t.invSharedHint
-                    : inventory === "perRoom"
+                    : inventory.model === "perRoom"
                       ? t.invPerRoomHint
                       : t.invFreeHint}
                 </p>
 
                 {/* UI 03.1L — free sale has no number, so it has no table. */}
-                {inventory === "free" && (
+                {inventory.model === "free" && (
                   <div className="mt-3 space-y-2">
                     {[t.invFreeNote1, t.invFreeNote2, t.invFreeNote3].map((note) => (
                       <p key={note} className="text-xs leading-relaxed text-text-muted">
@@ -700,13 +882,18 @@ export function ContractBuilder({
                   </div>
                 )}
 
-                {inventory === "shared" && (
+                {inventory.model === "shared" && (
                   <>
                     <div className="mt-4 max-w-xs">
                       <Input
                         label={t.invNights}
-                        value={stock}
-                        onChange={(e) => setStock(e.target.value)}
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={inventory.roomsPerNight}
+                        onChange={(e) =>
+                          dispatch(updateInventory({ roomsPerNight: e.target.value }))
+                        }
                         suffix="/ night"
                       />
                     </div>
@@ -715,40 +902,208 @@ export function ContractBuilder({
                     </p>
 
                     <Table
-                      head={[t.colRoomType, t.colCap, t.colSellsShort]}
-                      rows={inventoryCaps.map((cap) => [
-                        lang === "ar" ? cap.roomAr : cap.room,
-                        lang === "ar" ? cap.capAr : cap.cap,
-                        lang === "ar" ? cap.sellsAr : cap.sells,
-                      ])}
+                      head={[c.roomDetails.roomSize, t.colCap, t.colSellsShort]}
+                      rows={additionalInventoryVariations.map((variation) => {
+                        const roomName = contractRoomLabel(
+                          {
+                            id: variation.roomId,
+                            roomSizeId: selectedDetailsById[variation.roomId]?.roomSizeId ?? null,
+                          },
+                          lang,
+                        );
+                        const viewName = f.views[variation.view as RoomView] ?? variation.view;
+                        const label = `${roomName} · ${viewName}`;
+                        const planNames = variation.plans
+                          .map((plan) => {
+                            const metadataPlan = contractMetadata.data?.mealPlans.find(
+                              (option) => option.value === plan,
+                            );
+                            return (
+                              (lang === "ar" ? metadataPlan?.labelAr : metadataPlan?.labelEn) ||
+                              plan
+                            );
+                          })
+                          .join(lang === "ar" ? "، " : ", ");
+                        const key = inventoryVariationKey(variation);
+                        return [
+                          <span key={`${key}-room`}>{label}</span>,
+                          <Input
+                            key={`${key}-cap`}
+                            className="max-w-32"
+                            type="number"
+                            min={1}
+                            step={1}
+                            aria-label={`${label} · ${t.colCap}`}
+                            placeholder={t.invNoCap}
+                            value={inventory.roomCaps[key] ?? ""}
+                            onChange={(event) =>
+                              dispatch(setInventoryRoomCap({ key, value: event.target.value }))
+                            }
+                          />,
+                          planNames || "—",
+                        ];
+                      })}
                     />
+                    {inventoryVariations.length === 0 && (
+                      <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
+                    )}
                     <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.capHint}</p>
                   </>
                 )}
 
                 {/* UI 03.1N — a number per room type, and what draws from it. */}
-                {inventory === "perRoom" && (
+                {inventory.model === "perRoom" && (
                   <>
-                    <p className="mt-3 text-xs leading-relaxed text-text-muted">
-                      {t.invPerRoomNote}
-                    </p>
                     <Table
-                      head={[t.colRoomType, t.colRoomsNight, t.colDrawsFrom]}
-                      rows={perRoomStock.map((row) => [
-                        lang === "ar" ? row.roomAr : row.room,
-                        lang === "ar" ? row.roomsAr : row.rooms,
-                        lang === "ar" ? row.drawsAr : row.draws,
-                      ])}
+                      head={[c.roomDetails.roomSize, t.colRoomsNight, t.colDrawsFrom]}
+                      rows={additionalInventoryVariations.map((variation) => {
+                        const roomName = contractRoomLabel(
+                          {
+                            id: variation.roomId,
+                            roomSizeId: selectedDetailsById[variation.roomId]?.roomSizeId ?? null,
+                          },
+                          lang,
+                        );
+                        const viewName = f.views[variation.view as RoomView] ?? variation.view;
+                        const label = `${roomName} · ${viewName}`;
+                        const planNames = variation.plans
+                          .map((plan) => {
+                            const metadataPlan = contractMetadata.data?.mealPlans.find(
+                              (option) => option.value === plan,
+                            );
+                            return (
+                              (lang === "ar" ? metadataPlan?.labelAr : metadataPlan?.labelEn) ||
+                              plan
+                            );
+                          })
+                          .join(lang === "ar" ? "، " : ", ");
+                        const key = inventoryVariationKey(variation);
+                        return [
+                          <span key={`${key}-room`}>{label}</span>,
+                          <div key={`${key}-quantity`} className="max-w-44 space-y-2">
+                            <Input
+                              className="max-w-32"
+                              type="number"
+                              min={1}
+                              step={1}
+                              aria-label={`${label} · ${t.colRoomsNight}`}
+                              value={inventory.rooms[key]?.roomsPerNight ?? ""}
+                              onChange={(event) =>
+                                dispatch(
+                                  setPerRoomInventory({
+                                    key,
+                                    field: "roomsPerNight",
+                                    value: event.target.value,
+                                  }),
+                                )
+                              }
+                            />
+                            {inventory.soldOut === "overbooking" && (
+                              <Input
+                                className="max-w-32"
+                                type="number"
+                                min={1}
+                                step={1}
+                                aria-label={`${label} · ${t.overLimit}`}
+                                placeholder={t.overLimit}
+                                value={inventory.rooms[key]?.overbookingLimitPerNight ?? ""}
+                                onChange={(event) =>
+                                  dispatch(
+                                    setPerRoomInventory({
+                                      key,
+                                      field: "overbookingLimitPerNight",
+                                      value: event.target.value,
+                                    }),
+                                  )
+                                }
+                              />
+                            )}
+                          </div>,
+                          planNames || "—",
+                        ];
+                      })}
                     />
+                    {baseInventoryVariation && (
+                      <div className="mt-4 rounded-lg border border-border-subtle p-4">
+                        <p className="mb-3 text-sm font-medium text-text-primary">
+                          {contractRoomLabel(
+                            {
+                              id: baseInventoryVariation.roomId,
+                              roomSizeId:
+                                selectedDetailsById[baseInventoryVariation.roomId]?.roomSizeId ??
+                                null,
+                            },
+                            lang,
+                          )}
+                          {" · "}
+                          {f.views[baseInventoryVariation.view as RoomView] ??
+                            baseInventoryVariation.view}
+                          {" · "}
+                          {f.baseTag}
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          <Input
+                            className="max-w-32"
+                            label={t.colRoomsNight}
+                            type="number"
+                            min={1}
+                            step={1}
+                            aria-label={`${f.baseTag} · ${t.colRoomsNight}`}
+                            value={
+                              inventory.rooms[inventoryVariationKey(baseInventoryVariation)]
+                                ?.roomsPerNight ?? ""
+                            }
+                            onChange={(event) =>
+                              dispatch(
+                                setPerRoomInventory({
+                                  key: inventoryVariationKey(baseInventoryVariation),
+                                  field: "roomsPerNight",
+                                  value: event.target.value,
+                                }),
+                              )
+                            }
+                          />
+                          {inventory.soldOut === "overbooking" && (
+                            <Input
+                              className="max-w-32"
+                              label={t.overLimit}
+                              type="number"
+                              min={1}
+                              step={1}
+                              aria-label={`${f.baseTag} · ${t.overLimit}`}
+                              placeholder={t.overLimit}
+                              value={
+                                inventory.rooms[inventoryVariationKey(baseInventoryVariation)]
+                                  ?.overbookingLimitPerNight ?? ""
+                              }
+                              onChange={(event) =>
+                                dispatch(
+                                  setPerRoomInventory({
+                                    key: inventoryVariationKey(baseInventoryVariation),
+                                    field: "overbookingLimitPerNight",
+                                    value: event.target.value,
+                                  }),
+                                )
+                              }
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {inventoryVariations.length === 0 && (
+                      <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
+                    )}
                   </>
                 )}
 
-                {inventory !== "free" && (
+                {inventory.model !== "free" && (
                   <>
                     <p className="mt-5 text-sm font-medium text-text-primary">{t.soldOut}</p>
                     <ChoiceRow
-                      value={soldOut}
-                      onChange={(next) => setSoldOut(next as SoldOut)}
+                      value={inventory.soldOut}
+                      onChange={(next) =>
+                        dispatch(updateInventory({ soldOut: next as SoldOutAction }))
+                      }
                       options={[
                         { value: "stop", label: t.soldOutStop },
                         { value: "request", label: t.soldOutRequest },
@@ -756,30 +1111,48 @@ export function ContractBuilder({
                       ]}
                     />
                     <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.overHint}</p>
-                    {soldOut === "stop" && (
+                    {inventory.soldOut === "stop" && (
                       <p className="mt-2 text-xs leading-relaxed text-text-muted">
                         {t.soldOutStopHint}
                       </p>
                     )}
-                    {soldOut === "request" && (
+                    {inventory.soldOut === "request" && (
                       <p className="mt-2 text-xs leading-relaxed text-text-muted">
                         {t.soldOutRequestHint}
                       </p>
                     )}
-                    {soldOut === "overbooking" && (
+                    {inventory.soldOut === "overbooking" && (
                       <>
-                        <div className="mt-3 max-w-xs">
-                          <Input
-                            label={t.overLimit}
-                            value={overLimit}
-                            onChange={(e) => setOverLimit(e.target.value)}
-                          />
-                        </div>
-                        <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                          {inventory === "perRoom"
-                            ? fill(t.perRoomLimitHint, { limit: overLimit })
-                            : fill(t.overLimitHint, { stock, limit: overLimit })}
-                        </p>
+                        {inventory.model === "shared" ? (
+                          <>
+                            <div className="mt-3 max-w-xs">
+                              <Input
+                                label={t.overLimit}
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={inventory.sharedOverbookingLimitPerNight}
+                                onChange={(event) =>
+                                  dispatch(
+                                    updateInventory({
+                                      sharedOverbookingLimitPerNight: event.target.value,
+                                    }),
+                                  )
+                                }
+                              />
+                            </div>
+                            <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                              {fill(t.overLimitHint, {
+                                stock: inventory.roomsPerNight || "0",
+                                limit: inventory.sharedOverbookingLimitPerNight || "—",
+                              })}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                            {t.perRoomLimitHint}
+                          </p>
+                        )}
                       </>
                     )}
                   </>

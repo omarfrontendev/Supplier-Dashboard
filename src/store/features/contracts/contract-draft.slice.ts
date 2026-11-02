@@ -12,6 +12,7 @@ import type {
   ContractDraftState,
   ContractRestrictions,
   FixedPriceRoom,
+  InventoryDraft,
   PricingModel,
   ReleasePolicy,
   RestrictionRule,
@@ -48,9 +49,18 @@ const initialState: ContractDraftState = {
     slaExpiryAction: "auto_reject",
   },
   pricingModel: "base_supplements",
+  inventory: {
+    model: "shared",
+    roomsPerNight: "50",
+    roomCaps: {},
+    rooms: {},
+    soldOut: "overbooking",
+    sharedOverbookingLimitPerNight: "2",
+  },
   weekPricing: "weekday_weekend",
   baseSupplements: emptyBaseSupplements(),
   fixedRooms: [],
+  roomVariationsEdited: false,
   children: {
     sharing_parents: { ageFrom: "0", ageTo: "5", price: "0" },
     shared_bed: { ageFrom: "6", ageTo: "11", price: "" },
@@ -81,6 +91,7 @@ export const contractDraftSlice = createSlice({
       action: PayloadAction<{
         basics: Partial<ContractBasics>;
         pricingModel: PricingModel;
+        inventory?: InventoryDraft;
         children?: ChildRules;
         restrictions?: ContractRestrictions;
         cancellation?: CancellationPolicy | null;
@@ -90,6 +101,7 @@ export const contractDraftSlice = createSlice({
       ...initialState,
       basics: { ...initialState.basics, ...action.payload.basics },
       pricingModel: action.payload.pricingModel,
+      inventory: action.payload.inventory ?? initialState.inventory,
       children: action.payload.children ?? initialState.children,
       restrictions: action.payload.restrictions ?? initialState.restrictions,
       policies: { ...initialState.policies, cancellation: action.payload.cancellation ?? null },
@@ -129,6 +141,7 @@ export const contractDraftSlice = createSlice({
       if (next.hotelId !== state.basics.hotelId) {
         state.baseSupplements = emptyBaseSupplements();
         state.fixedRooms = [];
+        state.roomVariationsEdited = true;
         state.restrictions.rules.forEach((rule) => {
           rule.roomId = null;
         });
@@ -145,6 +158,7 @@ export const contractDraftSlice = createSlice({
       state.pricingModel = action.payload;
       state.baseSupplements = emptyBaseSupplements();
       state.fixedRooms = [];
+      state.roomVariationsEdited = true;
       state.meals = emptyMeals();
     },
 
@@ -158,8 +172,35 @@ export const contractDraftSlice = createSlice({
       }
     },
 
+    updateInventory: (state, action: PayloadAction<Partial<InventoryDraft>>) => {
+      state.inventory = { ...state.inventory, ...action.payload };
+    },
+
+    setInventoryRoomCap: (state, action: PayloadAction<{ key: string; value: string }>) => {
+      state.inventory.roomCaps[action.payload.key] = action.payload.value;
+    },
+
+    setPerRoomInventory: (
+      state,
+      action: PayloadAction<{
+        key: string;
+        field: keyof InventoryDraft["rooms"][string];
+        value: string;
+      }>,
+    ) => {
+      const current = state.inventory.rooms[action.payload.key] ?? {
+        roomsPerNight: "",
+        overbookingLimitPerNight: "",
+      };
+      state.inventory.rooms[action.payload.key] = {
+        ...current,
+        [action.payload.field]: action.payload.value,
+      };
+    },
+
     setBaseRoom: (state, action: PayloadAction<number | null>) => {
       state.baseSupplements.baseRoomId = action.payload;
+      state.roomVariationsEdited = true;
     },
 
     setBaseCost: (state, action: PayloadAction<{ day: "weekday" | "weekend"; value: string }>) => {
@@ -174,6 +215,7 @@ export const contractDraftSlice = createSlice({
       const base = state.baseSupplements;
       if (action.payload === base.baseRoomId) return;
       const index = base.rooms.findIndex((room) => room.roomId === action.payload);
+      state.roomVariationsEdited = true;
       if (index >= 0) {
         base.rooms.splice(index, 1);
       } else {
@@ -185,20 +227,36 @@ export const contractDraftSlice = createSlice({
       const base = state.baseSupplements;
       if (
         base.rooms.some(
-          (room) => room.roomId === action.payload.roomId && room.view === action.payload.view,
+          (room) =>
+            room.roomId === action.payload.roomId &&
+            (room.view ?? "no_view") === action.payload.view,
         )
       ) {
         return;
       }
       base.rooms.push({ ...action.payload, supplement: "" });
+      state.roomVariationsEdited = true;
     },
-    removeSupplementRoom: (state, action: PayloadAction<number>) => {
-      if (!state.baseSupplements.rooms[action.payload]) return;
-      state.baseSupplements.rooms.splice(action.payload, 1);
+    removeSupplementRoomVariation: (
+      state,
+      action: PayloadAction<{ roomId: number; view: RoomView }>,
+    ) => {
+      const { roomId, view } = action.payload;
+      state.baseSupplements.rooms = state.baseSupplements.rooms.filter(
+        (room) => room.roomId !== roomId || (room.view ?? "no_view") !== view,
+      );
+      state.roomVariationsEdited = true;
     },
 
-    setRoomSupplement: (state, action: PayloadAction<{ index: number; value: string }>) => {
-      const row = state.baseSupplements.rooms[action.payload.index];
+    setRoomSupplement: (
+      state,
+      action: PayloadAction<{ roomId: number; view: RoomView | null; value: string }>,
+    ) => {
+      const row = state.baseSupplements.rooms.find(
+        (room) =>
+          room.roomId === action.payload.roomId &&
+          (room.view ?? "no_view") === (action.payload.view ?? "no_view"),
+      );
       if (row) row.supplement = action.payload.value;
     },
 
@@ -210,10 +268,13 @@ export const contractDraftSlice = createSlice({
         return;
       }
       state.fixedRooms.push({ ...action.payload, weekdayPrice: "", weekendPrice: "" });
+      state.roomVariationsEdited = true;
     },
 
     removeFixedRoom: (state, action: PayloadAction<number>) => {
+      if (!state.fixedRooms[action.payload]) return;
       state.fixedRooms.splice(action.payload, 1);
+      state.roomVariationsEdited = true;
     },
 
     setFixedPrice: (
@@ -319,11 +380,14 @@ export const {
   updateBasics,
   setPricingModel,
   setWeekPricing,
+  updateInventory,
+  setInventoryRoomCap,
+  setPerRoomInventory,
   setBaseRoom,
   setBaseCost,
   toggleSupplementRoom,
   addSupplementRoom,
-  removeSupplementRoom,
+  removeSupplementRoomVariation,
   setRoomSupplement,
   addFixedRoom,
   removeFixedRoom,

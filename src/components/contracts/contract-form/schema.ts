@@ -30,6 +30,7 @@ export type ContractSectionKey =
   | "basics"
   | "pricing"
   | "rooms"
+  | "inventory"
   | "children"
   | "meals"
   | "restrictions"

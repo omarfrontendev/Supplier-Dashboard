@@ -8,6 +8,23 @@ export type BookingType = "allotment" | "on_request";
 
 export type SlaExpiryAction = "auto_reject" | "escalate";
 
+export type InventoryModel = "shared" | "perRoom" | "free";
+export type SoldOutAction = "stop" | "request" | "overbooking";
+
+export interface PerRoomInventoryDraft {
+  roomsPerNight: string;
+  overbookingLimitPerNight: string;
+}
+
+export interface InventoryDraft {
+  model: InventoryModel;
+  roomsPerNight: string;
+  roomCaps: Record<string, string>;
+  rooms: Record<string, PerRoomInventoryDraft>;
+  soldOut: SoldOutAction;
+  sharedOverbookingLimitPerNight: string;
+}
+
 export type ContractCurrency = "SAR" | "USD" | "EUR";
 
 export const CONTRACT_CURRENCIES: ContractCurrency[] = ["SAR", "USD", "EUR"];
@@ -215,9 +232,11 @@ export interface SeasonRule {
 export interface ContractDraftState {
   basics: ContractBasics;
   pricingModel: PricingModel;
+  inventory: InventoryDraft;
   weekPricing: WeekPricing;
   baseSupplements: BaseSupplements;
   fixedRooms: FixedPriceRoom[];
+  roomVariationsEdited: boolean;
   children: ChildRules;
   meals: MealRules;
   policies: ContractPolicies;

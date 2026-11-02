@@ -2,19 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
 import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
+import { useContractHotelRooms } from "@/api/modules/hotel-contract/useContractHotelRooms";
 import { useLinkedHotelRooms } from "@/api/modules/hotels/useLinkedHotelRooms";
 import { ChoiceRow, Table } from "@/components/contracts/contract-parts";
 import { StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { fill, useLanguage } from "@/lib/i18n";
-import { effectivePrice, mealSupplement } from "@/store/features/contracts/contract-payload";
+import { contractRoomLabel } from "@/lib/contract-room-label";
+import {
+  effectivePrice,
+  mealSupplement,
+  toAmount,
+} from "@/store/features/contracts/contract-payload";
 import {
   ensureMealPlans,
   setMealBasis,
   setMealPrice,
   toggleMeal,
 } from "@/store/features/contracts/contract-draft.slice";
-import type { MealBasis, MealRule } from "@/store/features/contracts/types";
+import type { MealBasis, MealRule, RoomView } from "@/store/features/contracts/types";
 import { contractIssuesFor } from "./schema";
 import {
   AmountInput,
@@ -35,6 +41,11 @@ export function MealsFields() {
   const metadata = useHotelContractsMetadata();
   const mealOptions = metadata.data?.mealPlans ?? [];
   const { rooms } = useLinkedHotelRooms(basics.hotelId);
+  const contractRoomsQuery = useContractHotelRooms(basics.hotelId, { page: 1, limit: 100 });
+  const contractRooms = useMemo(
+    () => contractRoomsQuery.data?.rooms ?? [],
+    [contractRoomsQuery.data?.rooms],
+  );
   const [query, setQuery] = useState("");
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
   const split = weekPricing === "weekday_weekend";
@@ -58,31 +69,77 @@ export function MealsFields() {
     (meal) => meal.value === "room_only" || meals[meal.value]?.enabled,
   );
   const baseRoom = rooms.find((room) => room.id === baseSupplements.baseRoomId);
-  const pricedRoomCount =
-    baseSupplements.rooms.filter((room) => room.roomId !== baseSupplements.baseRoomId).length +
-    (baseSupplements.baseRoomId === null ? 0 : 1);
 
   const priceRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const pricedRooms = [
       ...(baseSupplements.baseRoomId === null
         ? []
-        : [{ roomId: baseSupplements.baseRoomId, supplement: "0" }]),
-      ...baseSupplements.rooms.filter(
-        (room) => room.roomId !== baseSupplements.baseRoomId,
-      ),
+        : [
+            {
+              roomId: baseSupplements.baseRoomId,
+              view: null,
+              supplement: "0",
+              isBase: true,
+            },
+          ]),
+      ...baseSupplements.rooms.map((room) => ({ ...room, isBase: false })),
     ];
-    return pricedRooms
+    const uniquePricedRooms = pricedRooms.filter(
+      (row, index) =>
+        pricedRooms.findIndex(
+          (candidate) =>
+            candidate.roomId === row.roomId &&
+            (candidate.view ?? "no_view") === (row.view ?? "no_view"),
+        ) === index,
+    );
+    return uniquePricedRooms
       .map((row) => {
-        const room = rooms.find((item) => item.id === row.roomId);
-        if (!room) return null;
-        const weekday = effectivePrice(baseSupplements.weekdayBaseCost, row.supplement);
-        const weekend = effectivePrice(baseSupplements.weekendBaseCost, row.supplement);
-        return { room, label: roomLabel(room, lang, f), weekday, weekend };
+        const roomDetails = contractRooms.find(
+          (item) =>
+            item.id === row.roomId &&
+            (row.isBase || (item.view ?? "no_view") === (row.view ?? "no_view")),
+        );
+        const linkedRoom = rooms.find(
+          (item) =>
+            item.id === row.roomId &&
+            (row.isBase || (item.view ?? "no_view") === (row.view ?? "no_view")),
+        );
+        const supplement = row.isBase ? "0" : row.supplement;
+        const weekday = effectivePrice(baseSupplements.weekdayBaseCost, supplement);
+        const weekend = effectivePrice(baseSupplements.weekendBaseCost, supplement);
+        const roomSizeLabel = contractRoomLabel(
+          { id: row.roomId, roomSizeId: roomDetails?.roomSizeId ?? null },
+          lang,
+        );
+        const viewOption = metadata.data?.roomViews.find((option) => option.value === row.view);
+        const viewLabel =
+          !row.isBase && row.view
+            ? (lang === "ar" ? viewOption?.labelAr : viewOption?.labelEn) ||
+              f.views[row.view as RoomView] ||
+              row.view
+            : null;
+        return {
+          adults: roomDetails?.adults ?? linkedRoom?.adults ?? null,
+          label: viewLabel ? `${roomSizeLabel} · ${viewLabel}` : roomSizeLabel,
+          weekday,
+          weekend,
+        };
       })
-      .filter((row): row is NonNullable<typeof row> => row !== null)
       .filter((row) => !needle || row.label.toLowerCase().includes(needle));
-  }, [baseSupplements.baseRoomId, baseSupplements.rooms, baseSupplements.weekdayBaseCost, baseSupplements.weekendBaseCost, rooms, query, lang, f]);
+  }, [
+    baseSupplements.baseRoomId,
+    baseSupplements.rooms,
+    baseSupplements.weekdayBaseCost,
+    baseSupplements.weekendBaseCost,
+    contractRooms,
+    rooms,
+    query,
+    lang,
+    f,
+    metadata.data?.roomViews,
+  ]);
+  const pricedRoomCount = priceRows.length;
 
   const lowest = priceRows.reduce<number | null>(
     (min, row) =>
@@ -199,25 +256,31 @@ export function MealsFields() {
             <Table
               head={[
                 f.colRoom,
-                ...enabledMeals.map((meal) =>
-                  lang === "ar" ? meal.labelAr : meal.labelEn,
-                ),
+                ...enabledMeals.map((meal) => (lang === "ar" ? meal.labelAr : meal.labelEn)),
               ]}
               rows={priceRows.map((row) => [
                 <div key="room">
                   <p className="text-sm text-text-primary">{row.label}</p>
                   <p className="mt-0.5 text-xs text-text-muted">
-                    {fill(t.guests, { count: row.room.adults })}
+                    {row.adults === null ? "-" : fill(t.guests, { count: row.adults })}
                   </p>
                 </div>,
                 ...enabledMeals.map((meal) => {
-                  const add = mealSupplement(ruleForMeal(meal.value), row.room.adults);
+                  const mealRule = ruleForMeal(meal.value);
+                  const hasMealPrice =
+                    meal.value === "room_only" || toAmount(mealRule.price) !== null;
+                  const add =
+                    meal.value === "room_only"
+                      ? 0
+                      : !hasMealPrice || (mealRule.basis === "per_person" && row.adults === null)
+                        ? null
+                        : mealSupplement(mealRule, row.adults ?? 0);
                   return (
                     <div key={meal.value} className="font-data">
                       <p className="text-sm text-text-primary">
-                        {row.weekday === null ? "-" : money(row.weekday + add)}
+                        {row.weekday === null || add === null ? "-" : money(row.weekday + add)}
                       </p>
-                      {split && row.weekend !== null && (
+                      {split && row.weekend !== null && add !== null && (
                         <p className="mt-0.5 text-xs text-text-muted">
                           {fill(t.weekend, { amount: money(row.weekend + add) })}
                         </p>
