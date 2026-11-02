@@ -67,6 +67,91 @@ export type BookingType = "allotment_block" | "on_request";
 
 export type PricingModel = "base_plus_supplements" | "fixed_per_room";
 
+export type ContractWeekPricing =
+  { mode: "same_all_week" } | { mode: "weekday_weekend"; weekendDays: string[] };
+
+export type ContractRate = { amount: number } | { weekday: number; weekend: number };
+
+export interface ContractMealPricing {
+  type: string;
+  pricingBasis: "per_room" | "per_person";
+  price: number;
+}
+
+export interface ContractBasePricing {
+  weekPricing: ContractWeekPricing;
+  baseRoom: {
+    roomId: number;
+    view: string;
+    rate: ContractRate;
+  };
+  rooms: Array<{
+    roomId: number;
+    view: string;
+    supplement: number;
+  }>;
+  mealPlans: ContractMealPricing[];
+}
+
+export interface ContractFixedPricing {
+  weekPricing: ContractWeekPricing;
+  rooms: Array<{
+    roomId: number;
+    view: string;
+    rate: ContractRate;
+    mealPlans: ContractMealPricing[];
+  }>;
+}
+
+export type ContractPricing = ContractBasePricing | ContractFixedPricing;
+
+export interface ContractPricingResponse {
+  weekPricing: ContractWeekPricing;
+  baseRoom?: {
+    roomId: number;
+    view: string;
+    rate?: ContractRate | null;
+    variationId?: number;
+    resolvedRoomPrices?: unknown;
+  };
+  rooms: Array<{
+    roomId: number;
+    view: string;
+    supplement?: number;
+    legacySupplement?: number;
+    rate?: ContractRate | null;
+    mealPlans?: Array<{
+      type: string;
+      pricingBasis: string;
+      price: number | null;
+    }>;
+    variationId?: number;
+    resolvedRoomPrices?: unknown;
+  }>;
+  mealPlans?: Array<{
+    type: string;
+    pricingBasis: string;
+    price: number | null;
+  }>;
+}
+
+export interface ContractOnRequestSettings {
+  slaMinutes: number;
+  expiryAction: "auto_reject" | "escalate_to_hoteliana";
+}
+
+export interface ContractReleasePolicy {
+  type: "same_day" | "number_of_days";
+  daysBeforeCheckIn?: number;
+  releaseTime: string;
+  afterReleaseAction: "stop_sale" | "on_request";
+}
+
+export interface ContractBookingCutoff {
+  daysBeforeCheckIn: number;
+  cutoffTime: string;
+}
+
 export const CONTRACT_PERIODS = [
   "everything",
   "covering_today",
@@ -134,10 +219,17 @@ export interface SupplierHotelContract {
   status: ContractStatus;
 
   weekPricing: unknown | null;
+  pricing?: ContractPricingResponse | null;
+  pricingStatus?: string;
+  pricingIssues?: unknown[];
+  resolvedRoomPrices?: unknown;
+  onRequestSettings?: ContractOnRequestSettings | null;
   inventoryRules?: ContractInventoryRules | null;
   childPricing: ContractChildPricing | null;
   restrictions?: ContractRestriction[];
   cancellationPolicy?: ContractCancellationPolicy | null;
+  releasePolicy?: ContractReleasePolicy | null;
+  bookingCutoff?: ContractBookingCutoff | null;
   seasons?: ContractSeason[];
 
   createdBySupplierUserId: number;
@@ -198,19 +290,35 @@ export interface CreateHotelContractBody {
   currency: string;
   bookingType: BookingType;
   pricingModel: PricingModel;
+  onRequestSettings?: ContractOnRequestSettings;
   inventoryRules?: ContractInventoryRules;
-  childPricing: ContractChildPricing;
+  childPricing?: ContractChildPricing;
   restrictions?: Omit<ContractRestrictionInput, "isActive">[];
   cancellationPolicy?: ContractCancellationPolicy;
+  releasePolicy?: ContractReleasePolicy;
+  bookingCutoff?: ContractBookingCutoff;
+  pricing?: ContractPricing;
   seasons?: ContractSeasonInput[];
 }
 
 export type UpdateHotelContractBody = Partial<
-  Omit<CreateHotelContractBody, "hotelId" | "pricingModel" | "restrictions" | "cancellationPolicy">
+  Omit<
+    CreateHotelContractBody,
+    | "hotelId"
+    | "pricingModel"
+    | "restrictions"
+    | "cancellationPolicy"
+    | "onRequestSettings"
+    | "releasePolicy"
+    | "bookingCutoff"
+  >
 > & {
   expectedVersion: number;
   restrictions?: ContractRestrictionInput[];
   cancellationPolicy?: ContractCancellationPolicy | null;
+  onRequestSettings?: ContractOnRequestSettings | null;
+  releasePolicy?: ContractReleasePolicy | null;
+  bookingCutoff?: ContractBookingCutoff | null;
 };
 
 export type InventorySoldOutAction = "stop_sale" | "on_request" | "controlled_overbooking";
@@ -262,7 +370,10 @@ export interface ContractSeasonInput {
   cancellationPolicy?: ContractCancellationPolicy;
 }
 
-export interface ContractSeason extends Omit<ContractSeasonInput, "pricing" | "cancellationPolicy"> {
+export interface ContractSeason extends Omit<
+  ContractSeasonInput,
+  "pricing" | "cancellationPolicy"
+> {
   id: number;
   contractId: number;
   nights: number;

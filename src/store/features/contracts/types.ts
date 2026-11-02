@@ -45,6 +45,7 @@ export type RoomView =
   | "street"
   | "landmark"
   | "haram"
+  | "partial_haram"
   | "no_view";
 
 export const ROOM_VIEWS: RoomView[] = [
@@ -57,6 +58,7 @@ export const ROOM_VIEWS: RoomView[] = [
   "street",
   "landmark",
   "haram",
+  "partial_haram",
   "no_view",
 ];
 

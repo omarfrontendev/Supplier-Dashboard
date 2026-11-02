@@ -2,12 +2,21 @@ import type {
   BookingType as ApiBookingType,
   ContractCancellationCharge,
   ContractCancellationPolicy,
+  ContractBasePricing,
   ContractChildPricing,
+  ContractFixedPricing,
+  ContractMealPricing,
+  ContractOnRequestSettings,
+  ContractPricing,
+  ContractPricingResponse,
+  ContractRate,
+  ContractReleasePolicy,
   ContractRestriction,
   ContractRestrictionInput,
   ContractSeason,
   ContractSeasonInput,
   ContractInventoryRules,
+  ContractWeekPricing,
   CreateHotelContractBody,
   PricingModel as ApiPricingModel,
   SupplierHotelContract,
@@ -17,6 +26,7 @@ import { toAmount } from "./contract-payload";
 import {
   CHILD_RULES,
   CONTRACT_NAME_MAX,
+  ROOM_VIEWS,
   WEEKDAY_NUMBER,
   WEEKDAYS,
   type BookingType,
@@ -24,10 +34,15 @@ import {
   type CancellationPolicy,
   type ChildRules,
   type ContractDraftState,
+  type FixedPriceRoom,
   type InventoryDraft,
+  type MealRules,
   type PricingModel,
+  type ReleasePolicy,
   type RestrictionRule,
+  type RoomView,
   type SeasonRule,
+  type Weekday,
 } from "./types";
 
 const bookingToApi: Record<BookingType, ApiBookingType> = {
@@ -40,10 +55,155 @@ const pricingToApi: Record<PricingModel, ApiPricingModel> = {
   fixed_price: "fixed_per_room",
 };
 
+const weekdayToApi: Record<Weekday, string> = {
+  sun: "sunday",
+  mon: "monday",
+  tue: "tuesday",
+  wed: "wednesday",
+  thu: "thursday",
+  fri: "friday",
+  sat: "saturday",
+};
+
+const weekdayFromApi = Object.fromEntries(
+  Object.entries(weekdayToApi).map(([day, value]) => [value, day]),
+) as Record<string, Weekday>;
+
+const apiWeekPricing = (draft: ContractDraftState): ContractWeekPricing | null => {
+  if (draft.weekPricing === "one_price") return { mode: "same_all_week" };
+  if (draft.basics.weekendDays.length === 0) return null;
+  return {
+    mode: "weekday_weekend",
+    weekendDays: draft.basics.weekendDays.map((day) => weekdayToApi[day]),
+  };
+};
+
+const draftWeekPricing = (
+  weekPricing: ContractWeekPricing | null | undefined,
+): { weekPricing: ContractDraftState["weekPricing"]; weekendDays: Weekday[] } => ({
+  weekPricing: weekPricing?.mode === "weekday_weekend" ? "weekday_weekend" : "one_price",
+  weekendDays:
+    weekPricing?.mode === "weekday_weekend"
+      ? weekPricing.weekendDays.flatMap((day) => (weekdayFromApi[day] ? [weekdayFromApi[day]] : []))
+      : [],
+});
+
+const apiRate = (weekday: string, weekend: string, split: boolean): ContractRate | null => {
+  const weekdayAmount = toAmount(weekday);
+  if (weekdayAmount === null) return null;
+  if (!split) return { amount: weekdayAmount };
+  const weekendAmount = toAmount(weekend);
+  return weekendAmount === null ? null : { weekday: weekdayAmount, weekend: weekendAmount };
+};
+
+const draftRate = (rate: ContractRate | null | undefined): { weekday: string; weekend: string } => {
+  if (!rate) return { weekday: "", weekend: "" };
+  return "amount" in rate
+    ? { weekday: String(rate.amount), weekend: "" }
+    : { weekday: String(rate.weekday), weekend: String(rate.weekend) };
+};
+
+const apiMealPlans = (plans: MealRules): ContractMealPricing[] | null => {
+  const result: ContractMealPricing[] = [];
+  for (const [type, plan] of Object.entries(plans)) {
+    if (!plan.enabled || type === "room_only") continue;
+    const price = toAmount(plan.price);
+    if (price === null) return null;
+    result.push({ type, pricingBasis: plan.basis, price });
+  }
+  return result;
+};
+
+const apiFixedMealPlans = (room: FixedPriceRoom): ContractMealPricing[] | null => {
+  const result: ContractMealPricing[] = [];
+  for (const meal of room.meals) {
+    if (meal.plan === "room_only") continue;
+    const price = toAmount(meal.price);
+    if (price === null) return null;
+    result.push({ type: meal.plan, pricingBasis: meal.basis, price });
+  }
+  return result;
+};
+
+export const hasChildPricing = ({ children }: ContractDraftState) =>
+  CHILD_RULES.some((key) => {
+    const rule = children[key];
+    const defaults =
+      key === "sharing_parents"
+        ? { ageFrom: "0", ageTo: "5", price: "0" }
+        : { ageFrom: "6", ageTo: "11", price: "" };
+    return (
+      rule.ageFrom !== defaults.ageFrom ||
+      rule.ageTo !== defaults.ageTo ||
+      rule.price.trim() !== defaults.price
+    );
+  });
+
+export const hasPricingInput = (draft: ContractDraftState) =>
+  draft.pricingModel === "base_supplements"
+    ? draft.baseSupplements.baseRoomId !== null ||
+      draft.baseSupplements.weekdayBaseCost.trim() !== "" ||
+      draft.baseSupplements.weekendBaseCost.trim() !== "" ||
+      draft.baseSupplements.rooms.length > 0 ||
+      Object.entries(draft.meals).some(
+        ([meal, rule]) => meal !== "room_only" && (rule.enabled || rule.price.trim() !== ""),
+      )
+    : draft.fixedRooms.length > 0;
+
+const amountForComparison = (value: string) => toAmount(value) ?? value.trim();
+
+const pricingDraftKey = (draft: ContractDraftState, includeWeekendDays = true) =>
+  JSON.stringify({
+    pricingModel: draft.pricingModel,
+    weekPricing: draft.weekPricing,
+    ...(includeWeekendDays ? { weekendDays: [...draft.basics.weekendDays].sort() } : {}),
+    baseSupplements: {
+      baseRoomId: draft.baseSupplements.baseRoomId,
+      weekdayBaseCost: amountForComparison(draft.baseSupplements.weekdayBaseCost),
+      weekendBaseCost: amountForComparison(draft.baseSupplements.weekendBaseCost),
+      rooms: [...draft.baseSupplements.rooms]
+        .map((room) => ({
+          roomId: room.roomId,
+          view: room.view ?? "no_view",
+          supplement: amountForComparison(room.supplement),
+        }))
+        .sort((a, b) => `${a.roomId}:${a.view}`.localeCompare(`${b.roomId}:${b.view}`)),
+    },
+    fixedRooms: [...draft.fixedRooms]
+      .map((room) => ({
+        roomId: room.roomId,
+        view: room.view,
+        weekdayPrice: amountForComparison(room.weekdayPrice),
+        weekendPrice: amountForComparison(room.weekendPrice),
+        meals: [...room.meals]
+          .map((meal) => ({
+            plan: meal.plan,
+            basis: meal.basis,
+            price: amountForComparison(meal.price),
+          }))
+          .sort((a, b) => a.plan.localeCompare(b.plan)),
+      }))
+      .sort((a, b) => `${a.roomId}:${a.view}`.localeCompare(`${b.roomId}:${b.view}`)),
+    meals: Object.fromEntries(
+      Object.entries(draft.meals)
+        .filter(([type, meal]) => type !== "room_only" && meal.enabled)
+        .map(([type, meal]) => [
+          type,
+          { basis: meal.basis, price: amountForComparison(meal.price) },
+        ])
+        .sort(([a], [b]) => String(a).localeCompare(String(b))),
+    ),
+  });
+
 export interface InventoryVariation {
   roomId: number;
   view: string;
 }
+
+const inventoryVariationToApi = ({ roomId, view }: InventoryVariation) => ({
+  roomId,
+  view,
+});
 
 export const inventoryVariationKey = ({ roomId, view }: InventoryVariation) =>
   JSON.stringify([roomId, view]);
@@ -86,13 +246,14 @@ export function toInventoryRules(
       if (!value.trim()) continue;
       const maxRoomsPerNight = positiveInteger(value);
       if (maxRoomsPerNight === null) return null;
-      roomCaps.push({ ...variation, maxRoomsPerNight });
+      roomCaps.push({
+        ...inventoryVariationToApi(variation),
+        maxRoomsPerNight,
+      });
     }
     const limitText = inventory.sharedOverbookingLimitPerNight;
     const overbookingLimitPerNight =
-      inventory.soldOut === "overbooking" && limitText.trim()
-        ? positiveInteger(limitText)
-        : null;
+      inventory.soldOut === "overbooking" && limitText.trim() ? positiveInteger(limitText) : null;
     if (
       inventory.soldOut === "overbooking" &&
       ((limitText.trim() && overbookingLimitPerNight === null) ||
@@ -125,9 +286,7 @@ export function toInventoryRules(
     if (roomsPerNight === null) return null;
     const limitText = rule?.overbookingLimitPerNight ?? "";
     const overbookingLimitPerNight =
-      inventory.soldOut === "overbooking" && limitText.trim()
-        ? positiveInteger(limitText)
-        : null;
+      inventory.soldOut === "overbooking" && limitText.trim() ? positiveInteger(limitText) : null;
     if (
       inventory.soldOut === "overbooking" &&
       ((limitText.trim() && overbookingLimitPerNight === null) ||
@@ -136,7 +295,7 @@ export function toInventoryRules(
       return null;
     }
     rooms.push({
-      ...variation,
+      ...inventoryVariationToApi(variation),
       roomsPerNight,
       ...(overbookingLimitPerNight === null ? {} : { overbookingLimitPerNight }),
     });
@@ -148,9 +307,7 @@ export function toInventoryRules(
   };
 }
 
-export function inventoryDraftFromRules(
-  rules: ContractInventoryRules | null,
-): InventoryDraft {
+export function inventoryDraftFromRules(rules: ContractInventoryRules | null): InventoryDraft {
   const initial: InventoryDraft = {
     model: "shared",
     roomsPerNight: "50",
@@ -174,9 +331,7 @@ export function inventoryDraftFromRules(
         ]),
       ),
       soldOut,
-      sharedOverbookingLimitPerNight: String(
-        rules.whenSoldOut.overbookingLimitPerNight ?? "",
-      ),
+      sharedOverbookingLimitPerNight: String(rules.whenSoldOut.overbookingLimitPerNight ?? ""),
     };
   }
   return {
@@ -231,9 +386,7 @@ export const inventoryRulesChanged = (
   bookingType: BookingType,
   next: ContractInventoryRules | null | undefined,
   saved: ContractInventoryRules | null | undefined,
-) =>
-  bookingType !== "on_request" &&
-  (!next || inventoryRuleKey(next) !== inventoryRuleKey(saved));
+) => bookingType !== "on_request" && (!next || inventoryRuleKey(next) !== inventoryRuleKey(saved));
 
 export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.hotelId !== null &&
@@ -244,11 +397,227 @@ export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.endDate > basics.startDate &&
   basics.currency !== null;
 
+export function pricingFromDraft(
+  draft: ContractDraftState,
+  baseRoomView?: string,
+): ContractPricing | null {
+  const weekPricing = apiWeekPricing(draft);
+  if (!weekPricing) return null;
+
+  if (draft.pricingModel === "base_supplements") {
+    const { baseRoomId, weekdayBaseCost, weekendBaseCost, rooms } = draft.baseSupplements;
+    if (baseRoomId === null || baseRoomView === undefined) return null;
+    const rate = apiRate(weekdayBaseCost, weekendBaseCost, draft.weekPricing === "weekday_weekend");
+    const mealPlans = apiMealPlans(draft.meals);
+    if (!rate || !mealPlans) return null;
+
+    const roomPairs: ContractBasePricing["rooms"] = [];
+    for (const room of rooms) {
+      const view = room.view ?? "no_view";
+      if (room.roomId === baseRoomId && view === baseRoomView) continue;
+      const supplement = toAmount(room.supplement);
+      if (supplement === null) return null;
+      roomPairs.push({ roomId: room.roomId, view, supplement });
+    }
+
+    return {
+      weekPricing,
+      baseRoom: {
+        roomId: baseRoomId,
+        view: baseRoomView,
+        rate,
+      },
+      rooms: roomPairs,
+      mealPlans,
+    };
+  }
+
+  if (draft.fixedRooms.length === 0) return null;
+  const rooms: ContractFixedPricing["rooms"] = [];
+  for (const room of draft.fixedRooms) {
+    const rate = apiRate(
+      room.weekdayPrice,
+      room.weekendPrice,
+      draft.weekPricing === "weekday_weekend",
+    );
+    const mealPlans = apiFixedMealPlans(room);
+    if (!rate || !mealPlans) return null;
+    rooms.push({ roomId: room.roomId, view: room.view, rate, mealPlans });
+  }
+  return { weekPricing, rooms };
+}
+
+const apiOnRequestSettings = (draft: ContractDraftState): ContractOnRequestSettings | null => {
+  if (draft.basics.bookingType !== "on_request") return null;
+  const slaMinutes = toAmount(draft.basics.slaMinutes);
+  if (slaMinutes === null || !Number.isInteger(slaMinutes)) return null;
+  return {
+    slaMinutes,
+    expiryAction:
+      draft.basics.slaExpiryAction === "escalate" ? "escalate_to_hoteliana" : "auto_reject",
+  };
+};
+
+const apiReleasePolicy = (policy: ReleasePolicy | null): ContractReleasePolicy | null =>
+  policy
+    ? {
+        type: policy.period === "same_day" ? "same_day" : "number_of_days",
+        ...(policy.period === "days" ? { daysBeforeCheckIn: Number(policy.days) } : {}),
+        releaseTime: policy.time,
+        afterReleaseAction: policy.afterRelease,
+      }
+    : null;
+
+const draftReleasePolicy = (
+  policy: ContractReleasePolicy | null | undefined,
+): ReleasePolicy | null =>
+  policy
+    ? {
+        period: policy.type === "same_day" ? "same_day" : "days",
+        days: policy.type === "number_of_days" ? String(policy.daysBeforeCheckIn ?? "") : "",
+        time: policy.releaseTime,
+        afterRelease: policy.afterReleaseAction,
+      }
+    : null;
+
+const roomViewFromApi = (view: string | null | undefined): RoomView =>
+  view && ROOM_VIEWS.includes(view as RoomView) ? (view as RoomView) : "no_view";
+
+const mealRulesFromApi = (plans: ContractPricingResponse["mealPlans"]): MealRules => {
+  const meals: MealRules = {
+    room_only: { enabled: true, price: "0", basis: "per_room" },
+  };
+  for (const plan of plans ?? []) {
+    if (
+      plan.type === "room_only" ||
+      (plan.pricingBasis !== "per_person" && plan.pricingBasis !== "per_room") ||
+      plan.price === null
+    ) {
+      continue;
+    }
+    meals[plan.type] = {
+      enabled: true,
+      price: String(plan.price),
+      basis: plan.pricingBasis,
+    };
+  }
+  return meals;
+};
+
+const isContractWeekPricing = (value: unknown): value is ContractWeekPricing => {
+  if (typeof value !== "object" || value === null || !("mode" in value)) return false;
+  const mode = value.mode;
+  return (
+    mode === "same_all_week" ||
+    (mode === "weekday_weekend" &&
+      "weekendDays" in value &&
+      Array.isArray(value.weekendDays) &&
+      value.weekendDays.every((day) => typeof day === "string"))
+  );
+};
+
+function pricingFieldsFromContract(contract: SupplierHotelContract) {
+  const pricing = contract.pricing;
+  const pricingModel: PricingModel =
+    contract.pricingModel === "fixed_per_room" ? "fixed_price" : "base_supplements";
+  const weekPricingValue =
+    pricing?.weekPricing ??
+    (isContractWeekPricing(contract.weekPricing) ? contract.weekPricing : undefined);
+  const { weekPricing, weekendDays } = draftWeekPricing(weekPricingValue);
+
+  if (pricingModel === "base_supplements") {
+    const baseRoom = pricing?.baseRoom;
+    const baseRate = draftRate(baseRoom?.rate);
+    return {
+      pricingModel,
+      weekPricing,
+      weekendDays,
+      baseSupplements: {
+        baseRoomId: baseRoom?.roomId ?? null,
+        weekdayBaseCost: baseRate.weekday,
+        weekendBaseCost: weekPricing === "weekday_weekend" ? baseRate.weekend : "",
+        rooms: (pricing?.rooms ?? []).map((room) => ({
+          roomId: room.roomId,
+          view: roomViewFromApi(room.view),
+          supplement: room.supplement === undefined ? "" : String(room.supplement),
+        })),
+      },
+      fixedRooms: [],
+      meals: mealRulesFromApi(pricing?.mealPlans),
+    };
+  }
+
+  return {
+    pricingModel,
+    weekPricing,
+    weekendDays,
+    baseSupplements: {
+      baseRoomId: null,
+      weekdayBaseCost: "",
+      weekendBaseCost: "",
+      rooms: [],
+    },
+    fixedRooms: (pricing?.rooms ?? []).map((room): FixedPriceRoom => {
+      const rate = draftRate(room.rate);
+      return {
+        roomId: room.roomId,
+        view: roomViewFromApi(room.view),
+        meals: (room.mealPlans ?? [])
+          .filter(
+            (meal) =>
+              meal.type !== "room_only" &&
+              (meal.pricingBasis === "per_person" || meal.pricingBasis === "per_room") &&
+              meal.price !== null,
+          )
+          .map((meal) => ({
+            plan: meal.type,
+            basis: meal.pricingBasis === "per_person" ? "per_person" : "per_room",
+            price: String(meal.price),
+          })),
+        weekdayPrice: rate.weekday,
+        weekendPrice: weekPricing === "weekday_weekend" ? rate.weekend : "",
+      };
+    }),
+    meals: {},
+  };
+}
+
+export function pricingChanged(
+  draft: ContractDraftState,
+  contract: SupplierHotelContract,
+): boolean {
+  const saved = pricingFieldsFromContract(contract);
+  const savedDraft: ContractDraftState = {
+    ...draft,
+    basics: { ...draft.basics, weekendDays: saved.weekendDays },
+    pricingModel: saved.pricingModel,
+    weekPricing: saved.weekPricing,
+    baseSupplements: saved.baseSupplements,
+    fixedRooms: saved.fixedRooms,
+    meals: saved.meals,
+  };
+  return pricingDraftKey(draft) !== pricingDraftKey(savedDraft);
+}
+
+const requestSettingsChanged = (draft: ContractDraftState, contract: SupplierHotelContract) =>
+  JSON.stringify(apiOnRequestSettings(draft)) !==
+  JSON.stringify(contract.onRequestSettings ?? null);
+
+export function releasePolicyChanged(draft: ContractDraftState, contract: SupplierHotelContract) {
+  const next = apiReleasePolicy(draft.policies.enabled ? draft.policies.release : null);
+  return JSON.stringify(next) !== JSON.stringify(contract.releasePolicy ?? null);
+}
+
 export function toCreateContractBody(
   draft: ContractDraftState,
   inventoryRules?: ContractInventoryRules | null,
+  baseRoomView?: string,
 ): CreateHotelContractBody {
   const { basics } = draft;
+  const pricing = pricingFromDraft(draft, baseRoomView);
+  const childPricing = hasChildPricing(draft) ? toChildPricing(draft) : null;
+  const onRequestSettings = apiOnRequestSettings(draft);
+  const releasePolicy = apiReleasePolicy(draft.policies.enabled ? draft.policies.release : null);
   return {
     hotelId: basics.hotelId!,
     name: basics.name.trim(),
@@ -257,13 +626,14 @@ export function toCreateContractBody(
     currency: basics.currency!,
     bookingType: bookingToApi[basics.bookingType],
     pricingModel: pricingToApi[draft.pricingModel],
+    ...(onRequestSettings ? { onRequestSettings } : {}),
     ...(basics.bookingType === "on_request" || !inventoryRules ? {} : { inventoryRules }),
-    childPricing: toChildPricing(draft),
-    ...(draft.restrictions.enabled && draft.restrictions.rules.length > 0
-      ? { restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule) }
-      : {}),
+    ...(childPricing ? { childPricing } : {}),
+    restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule),
     ...(toCancellationPolicy(draft) ? { cancellationPolicy: toCancellationPolicy(draft)! } : {}),
-    ...(draft.seasons.length > 0 ? { seasons: toSeasons(draft) } : {}),
+    ...(releasePolicy ? { releasePolicy } : {}),
+    ...(pricing ? { pricing } : {}),
+    seasons: toSeasons(draft),
   };
 }
 
@@ -286,12 +656,22 @@ export function toUpdateContractBody(
   draft: ContractDraftState,
   contract: SupplierHotelContract,
   inventoryRules?: ContractInventoryRules | null,
+  baseRoomView?: string,
 ): UpdateHotelContractBody | null {
-  const next = toCreateContractBody(draft, inventoryRules);
+  const next = toCreateContractBody(draft, inventoryRules, baseRoomView);
   const fields = changedContractFields(draft, contract);
   const children = childPricingChanged(draft, contract);
   const restrictions = restrictionsChanged(draft, contract);
   const cancellation = cancellationChanged(draft, contract);
+  const release = releasePolicyChanged(draft, contract);
+  const onRequestSettings = requestSettingsChanged(draft, contract);
+  const savedPricingModel =
+    contract.pricingModel === "fixed_per_room" ? "fixed_price" : "base_supplements";
+  const pricing =
+    draft.pricingModel === savedPricingModel &&
+    pricingChanged(draft, contract) &&
+    next.pricing !== undefined &&
+    contract.pricingStatus !== "incomplete";
   const seasons = seasonsChanged(draft, contract);
   const inventory = inventoryRulesChanged(
     draft.basics.bookingType,
@@ -303,6 +683,9 @@ export function toUpdateContractBody(
     !children &&
     !restrictions &&
     !cancellation &&
+    !release &&
+    !onRequestSettings &&
+    !pricing &&
     !seasons &&
     !inventory
   ) {
@@ -315,9 +698,16 @@ export function toUpdateContractBody(
       ...(inventory && draft.basics.bookingType !== "on_request" && inventoryRules
         ? { inventoryRules }
         : {}),
-      ...(children ? { childPricing: next.childPricing } : {}),
+      ...(children && next.childPricing ? { childPricing: next.childPricing } : {}),
       ...(restrictions ? { restrictions: toRestrictions(draft) } : {}),
       ...(cancellation ? { cancellationPolicy: toCancellationPolicy(draft) } : {}),
+      ...(release
+        ? {
+            releasePolicy: apiReleasePolicy(draft.policies.enabled ? draft.policies.release : null),
+          }
+        : {}),
+      ...(onRequestSettings ? { onRequestSettings: apiOnRequestSettings(draft) } : {}),
+      ...(pricing && next.pricing ? { pricing: next.pricing } : {}),
       ...(seasons ? { seasons: toSeasons(draft) } : {}),
     },
   );
@@ -330,7 +720,11 @@ export function contractDifferences(
   return MUTABLE_FIELDS.filter((field) => before[field] !== after[field]);
 }
 
-export function draftFromContract(contract: SupplierHotelContract) {
+export function draftFromContract(contract: SupplierHotelContract): ContractDraftState {
+  const pricing = pricingFieldsFromContract(contract);
+  const cancellation = cancellationFromContract(contract.cancellationPolicy ?? null);
+  const release = draftReleasePolicy(contract.releasePolicy);
+  const onRequestSettings = contract.onRequestSettings ?? null;
   return {
     basics: {
       hotelId: contract.hotelId,
@@ -341,14 +735,25 @@ export function draftFromContract(contract: SupplierHotelContract) {
       bookingType: (contract.bookingType === "on_request"
         ? "on_request"
         : "allotment") as BookingType,
+      weekendDays: pricing.weekendDays,
+      slaMinutes: onRequestSettings ? String(onRequestSettings.slaMinutes) : "",
+      slaExpiryAction:
+        onRequestSettings?.expiryAction === "escalate_to_hoteliana" ? "escalate" : "auto_reject",
     },
-    pricingModel: (contract.pricingModel === "fixed_per_room"
-      ? "fixed_price"
-      : "base_supplements") as PricingModel,
+    pricingModel: pricing.pricingModel,
     inventory: inventoryDraftFromRules(contract.inventoryRules ?? null),
-    ...(contract.childPricing ? { children: childrenFromContract(contract.childPricing) } : {}),
+    weekPricing: pricing.weekPricing,
+    baseSupplements: pricing.baseSupplements,
+    fixedRooms: pricing.fixedRooms,
+    roomVariationsEdited: false,
+    children: childrenFromContract(contract.childPricing),
+    meals: pricing.meals,
+    policies: {
+      enabled: Boolean(cancellation || release),
+      cancellation,
+      release,
+    },
     restrictions: restrictionsFromContract(contract.restrictions ?? []),
-    cancellation: cancellationFromContract(contract.cancellationPolicy ?? null),
     seasons: seasonsFromContract(contract.seasons ?? []),
   };
 }
@@ -356,7 +761,8 @@ export function draftFromContract(contract: SupplierHotelContract) {
 export const sameSavedBasics = (draft: ContractDraftState, contract: SupplierHotelContract) =>
   basicsReady(draft) && changedContractFields(draft, contract).length === 0;
 
-export const hasRoomPricing = (contract: SupplierHotelContract) => contract.weekPricing !== null;
+export const hasRoomPricing = (contract: SupplierHotelContract) =>
+  contract.pricing != null || contract.weekPricing !== null;
 
 export function mergeLatestBasics(
   draft: ContractDraftState,
@@ -366,13 +772,65 @@ export function mergeLatestBasics(
   const original = draftFromContract(before).basics;
   const incoming = draftFromContract(latest).basics;
   const current = { ...draft.basics, name: draft.basics.name.trim() };
-  return MUTABLE_FIELDS.reduce<Partial<ContractDraftState["basics"]>>(
+  const fields: (keyof ContractDraftState["basics"])[] = [
+    "hotelId",
+    "name",
+    "startDate",
+    "endDate",
+    "currency",
+    "weekendDays",
+    "bookingType",
+    "slaMinutes",
+    "slaExpiryAction",
+  ];
+  return fields.reduce<Partial<ContractDraftState["basics"]>>(
     (merged, field) =>
-      current[field] === original[field] && original[field] !== incoming[field]
+      JSON.stringify(current[field]) === JSON.stringify(original[field]) &&
+      JSON.stringify(original[field]) !== JSON.stringify(incoming[field])
         ? { ...merged, [field]: incoming[field] }
         : merged,
     {},
   );
+}
+
+export function mergeLatestDraft(
+  draft: ContractDraftState,
+  before: SupplierHotelContract,
+  latest: SupplierHotelContract,
+) {
+  const original = draftFromContract(before);
+  const incoming = draftFromContract(latest);
+  const merged = {
+    ...incoming,
+    basics: { ...incoming.basics, ...mergeLatestBasics(draft, before, latest) },
+  };
+  if (pricingDraftKey(draft, false) !== pricingDraftKey(original, false)) {
+    merged.pricingModel = draft.pricingModel;
+    merged.weekPricing = draft.weekPricing;
+    merged.baseSupplements = draft.baseSupplements;
+    merged.fixedRooms = draft.fixedRooms;
+    merged.meals = draft.meals;
+    merged.roomVariationsEdited = draft.roomVariationsEdited;
+  }
+  if (JSON.stringify(draft.inventory) !== JSON.stringify(original.inventory)) {
+    merged.inventory = draft.inventory;
+  }
+  if (JSON.stringify(draft.children) !== JSON.stringify(original.children)) {
+    merged.children = draft.children;
+  }
+  if (JSON.stringify(draft.meals) !== JSON.stringify(original.meals)) {
+    merged.meals = draft.meals;
+  }
+  if (JSON.stringify(draft.policies) !== JSON.stringify(original.policies)) {
+    merged.policies = draft.policies;
+  }
+  if (JSON.stringify(draft.restrictions) !== JSON.stringify(original.restrictions)) {
+    merged.restrictions = draft.restrictions;
+  }
+  if (JSON.stringify(draft.seasons) !== JSON.stringify(original.seasons)) {
+    merged.seasons = draft.seasons;
+  }
+  return merged;
 }
 
 export function toChildPricing({ children }: ContractDraftState): ContractChildPricing {
@@ -388,7 +846,14 @@ export function toChildPricing({ children }: ContractDraftState): ContractChildP
   };
 }
 
-export function childrenFromContract(pricing: ContractChildPricing): ChildRules {
+export function childrenFromContract(pricing: ContractChildPricing | null): ChildRules {
+  if (!pricing) {
+    return {
+      sharing_parents: { ageFrom: "0", ageTo: "5", price: "0" },
+      shared_bed: { ageFrom: "6", ageTo: "11", price: "" },
+      extra_bed: { ageFrom: "6", ageTo: "11", price: "" },
+    };
+  }
   const rule = (key: (typeof CHILD_RULES)[number]) => ({
     ageFrom: String(pricing[key].from),
     ageTo: String(pricing[key].to),
@@ -403,31 +868,32 @@ export function childrenFromContract(pricing: ContractChildPricing): ChildRules 
 
 export function childPricingChanged(draft: ContractDraftState, contract: SupplierHotelContract) {
   const saved = contract.childPricing;
-  if (!saved) return true;
-  const next = toChildPricing(draft);
-  return CHILD_RULES.some(
-    (key) =>
-      next[key].from !== saved[key].from ||
-      next[key].to !== saved[key].to ||
-      next[key].price !== Number(saved[key].price),
-  );
+  const next = hasChildPricing(draft) ? toChildPricing(draft) : null;
+  return JSON.stringify(next) !== JSON.stringify(saved ?? null);
 }
 
 export const sameSavedDraft = (
   draft: ContractDraftState,
   contract: SupplierHotelContract,
   inventoryRules?: ContractInventoryRules | null,
+  baseRoomView?: string,
 ) =>
   sameSavedBasics(draft, contract) &&
   !childPricingChanged(draft, contract) &&
   !restrictionsChanged(draft, contract) &&
   !cancellationChanged(draft, contract) &&
+  !releasePolicyChanged(draft, contract) &&
+  !requestSettingsChanged(draft, contract) &&
+  !pricingChanged(draft, contract) &&
   !seasonsChanged(draft, contract) &&
   !inventoryRulesChanged(
     draft.basics.bookingType,
     inventoryRules,
     contract.inventoryRules ?? null,
-  );
+  ) &&
+  (baseRoomView === undefined ||
+    pricingFromDraft(draft, baseRoomView) !== null ||
+    !hasPricingInput(draft));
 
 const toDays = (numbers: number[]) =>
   WEEKDAYS.filter((day) => numbers.includes(WEEKDAY_NUMBER[day]));

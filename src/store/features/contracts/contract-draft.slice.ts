@@ -88,23 +88,25 @@ export const contractDraftSlice = createSlice({
 
     loadContract: (
       _state,
-      action: PayloadAction<{
-        basics: Partial<ContractBasics>;
-        pricingModel: PricingModel;
-        inventory?: InventoryDraft;
-        children?: ChildRules;
-        restrictions?: ContractRestrictions;
-        cancellation?: CancellationPolicy | null;
-        seasons?: SeasonRule[];
-      }>,
+      action: PayloadAction<
+        {
+          basics: Partial<ContractBasics>;
+          pricingModel: PricingModel;
+        } & Partial<Omit<ContractDraftState, "basics" | "pricingModel">>
+      >,
     ) => ({
       ...initialState,
       basics: { ...initialState.basics, ...action.payload.basics },
       pricingModel: action.payload.pricingModel,
       inventory: action.payload.inventory ?? initialState.inventory,
+      weekPricing: action.payload.weekPricing ?? initialState.weekPricing,
+      baseSupplements: action.payload.baseSupplements ?? emptyBaseSupplements(),
+      fixedRooms: action.payload.fixedRooms ?? [],
+      roomVariationsEdited: action.payload.roomVariationsEdited ?? false,
       children: action.payload.children ?? initialState.children,
+      meals: action.payload.meals ?? emptyMeals(),
+      policies: action.payload.policies ?? initialState.policies,
       restrictions: action.payload.restrictions ?? initialState.restrictions,
-      policies: { ...initialState.policies, cancellation: action.payload.cancellation ?? null },
       seasons: action.payload.seasons ?? [],
     }),
 

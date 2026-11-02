@@ -21,8 +21,7 @@ export const contractEn = {
     rowReleaseUnused: "Release · not used",
     rowRelease: "Release",
     showRooms: "SHOW ROOMS · kept for next time",
-    showRoomsHint:
-      "Select room types to show in the calendar and save for next time.",
+    showRoomsHint: "Select room types to show in the calendar and save for next time.",
     allRooms: "All {count}",
     view: "VIEW",
     viewHint: "Adjust how the calendar is displayed.",
@@ -47,8 +46,7 @@ export const contractEn = {
       "This contract ended on 19 Sep 2026. You can see what was sold and at what price, but nothing can be changed. Export still works.",
     noRateYet: "No rate yet · tap a night to set one",
     seasonPriced: "price follows the season on its dates",
-    pricedLeft:
-      "{count} left - they sit at the bottom of the grid. Nothing unpriced goes live.",
+    pricedLeft: "{count} left - they sit at the bottom of the grid. Nothing unpriced goes live.",
     showOnlyUnpriced: "Show only unpriced →",
     todayLabel: "today",
     seasonHintFallback: "tap a season to open it",
@@ -144,8 +142,7 @@ export const contractEn = {
     openRates: "Open Rates & Availability",
     poolValue: "Shared pool · {stock} / night",
     poolSplit: "Standard 20 · Deluxe City 12 · Deluxe Haram 8",
-    poolNote:
-      "Standard · Deluxe City · Deluxe Haram - every meal plan draws from its own room",
+    poolNote: "Standard · Deluxe City · Deluxe Haram - every meal plan draws from its own room",
     soldOutValue: "Controlled overbooking · +{limit} / night",
     soldOutNote: "Maximum confirmed = stock + {limit}",
     seasonsBody: "Base contract rate on {nights} nights · {count} season overrides.",
@@ -193,8 +190,7 @@ export const contractEn = {
     summarySeasons: "Seasons",
     summaryStock: "Stock",
     summaryEmpty: "-",
-    summaryNote:
-      "Activates the moment you confirm the review - no Hoteliana approval.",
+    summaryNote: "Activates the moment you confirm the review - no Hoteliana approval.",
     summaryRoomsValue: "{count} room types on sale",
     summarySeasonsValue: "{count} · {nights} nights",
     summaryStockValue: "{count} rooms / night",
@@ -313,8 +309,7 @@ export const contractEn = {
     overHint:
       "Overbooking always needs a per-night limit - never unlimited. Maximum confirmed = stock + limit.",
     overLimit: "Overbooking limit per night",
-    overLimitHint:
-      "Required · ≥ 1 · Maximum confirmed = {stock} + {limit} a night across the pool",
+    overLimitHint: "Required · ≥ 1 · Maximum confirmed = {stock} + {limit} a night across the pool",
     seasonsBody:
       "A season re-prices the rooms, occupancy and meal plans above for its dates - every night without a season uses the base contract rate.",
     seasonsLocked:
@@ -330,7 +325,8 @@ export const contractEn = {
     colResult: "Standard Room result",
     everyNight: "Every night without a season",
     baseSegment: "Base contract",
-    seasonsEmpty: "No seasons yet - every night uses the base contract. Add a season for dates that sell differently.",
+    seasonsEmpty:
+      "No seasons yet - every night uses the base contract. Add a season for dates that sell differently.",
     colChanges: "What changes",
     changesNone: "Same as the contract",
     changesChildren: "Own child prices",
@@ -431,14 +427,23 @@ export const contractEn = {
       hotelLocked: "The hotel can't change once the draft is saved.",
       modelLocked: "The pricing model can't change once the draft is saved.",
       saveNeedsBasics: "Fill the hotel, name, dates and currency to save the draft.",
+      pricingClearUnsupported:
+        "The API does not support clearing saved room pricing. Your changes are kept.",
+      childPricingClearUnsupported:
+        "The API does not support clearing saved child pricing. Your changes are kept.",
+      pricingIncomplete:
+        "Saved room pricing has unresolved legacy values. Resolve them before replacing pricing.",
       nameCount: "{count} / {max}",
       saveFailedList: "The draft wasn't saved: {errors}",
       draftCreated: "Draft saved",
       draftUpdated: "Draft updated",
-      saveStale: "Someone saved this contract while you were editing ({fields}). Your changes are kept - check them and save again.",
-      saveStaleNone: "Someone saved this contract while you were editing. Your changes are kept - save again.",
+      saveStale:
+        "Someone saved this contract while you were editing ({fields}). Your changes are kept - check them and save again.",
+      saveStaleNone:
+        "Someone saved this contract while you were editing. Your changes are kept - save again.",
       noChanges: "No changes to save.",
-      unavailable: "This contract or its hotel isn't available for changes right now. Your changes are kept.",
+      unavailable:
+        "This contract or its hotel isn't available for changes right now. Your changes are kept.",
       changedFields: {
         name: "name",
         startDate: "start date",
@@ -504,7 +509,8 @@ export const contractEn = {
       roomsError: "Couldn't load the hotel's rooms.",
       retry: "Try again",
       roomsEmpty: "This hotel has no active rooms yet.",
-      fixedEmpty: "No rooms yet. Add each room with its meal plan and view, then type its prices here.",
+      fixedEmpty:
+        "No rooms yet. Add each room with its meal plan and view, then type its prices here.",
       remove: "Remove {room}",
       addRoomTitle: "Add room",
       addRoomBody:
@@ -535,6 +541,7 @@ export const contractEn = {
         street: "Street",
         landmark: "Landmark",
         haram: "Haram",
+        partial_haram: "Partial Haram view",
         no_view: "No view",
       },
       switchTitle: "Change the pricing model?",
@@ -589,10 +596,12 @@ export const contractEn = {
         restrictionDates: "Pick the restriction dates",
         restrictionOutside: "{dates} is outside the contract term ({start} - {end})",
         restrictionMinNights: "Minimum nights must be a whole number from 1 to {max}",
-        restrictionNoRule: "Add a rule: a minimum stay of 2+ nights, or close check-in or check-out on some days",
+        restrictionNoRule:
+          "Add a rule: a minimum stay of 2+ nights, or close check-in or check-out on some days",
         restrictionAllInClosed: "Check-in can't be closed on every day of the week",
         restrictionAllOutClosed: "Check-out can't be closed on every day of the week",
-        restrictionMinConflict: "Conflicts with {rule}: two different minimum stays on the same nights",
+        restrictionMinConflict:
+          "Conflicts with {rule}: two different minimum stays on the same nights",
         restrictionDuplicate: "The same restriction already exists: {rule}",
         restrictionsEmpty: "Add at least one restriction, or choose None on the contract",
       },
@@ -606,11 +615,13 @@ export const contractEn = {
         wholeContract: "Whole contract",
         overline: "RESTRICTIONS",
         discardTitle: "Discard your changes to this restriction?",
-        discardBody: "You changed this restriction but haven't saved it. Closing now loses those changes.",
+        discardBody:
+          "You changed this restriction but haven't saved it. Closing now loses those changes.",
         keepEditing: "Keep editing",
         added: "Restriction added",
         noneTitle: "Remove all {count} restrictions from this contract?",
-        noneBody: "Choosing None takes them off this draft. They are removed from the contract when you save the draft.",
+        noneBody:
+          "Choosing None takes them off this draft. They are removed from the contract when you save the draft.",
         noneKeep: "Keep restrictions",
         noneConfirm: "Remove restrictions",
         updated: "Restriction updated",
@@ -618,7 +629,8 @@ export const contractEn = {
         body: "Minimum nights and the days guests can check in or out. Two active restrictions for the same rooms can't set different minimum stays on the same nights.",
         closedInLabel: "Check-in closed on",
         closedOutLabel: "Check-out closed on",
-        closedHint: "Tap a day to close it for every week of the restriction dates. Days left open stay bookable.",
+        closedHint:
+          "Tap a day to close it for every week of the restriction dates. Days left open stay bookable.",
         startDate: "Start date",
         endDate: "End date",
         statusToggle: "Restriction status",
@@ -685,7 +697,8 @@ export const contractEn = {
         colAgeTo: "Age to",
         colPrice: "Price per night",
         free: "Free",
-        requiredNote: "All three rules are required for every contract. Enter 0 for a category you give free.",
+        requiredNote:
+          "All three rules are required for every contract. Enter 0 for a category you give free.",
         ageLimit: "Rooms at this hotel take children up to {max} years.",
         ageRange: "Ages {from} - {to}",
         rules: {
@@ -714,7 +727,8 @@ export const contractEn = {
   contractFlow: {
     listOverline: "PROPERTY · SUPPLY CONTRACTS",
     listTitle: "Supply contracts",
-    listSubtitle: "Create and manage the commercial terms that make your linked hotels available for sale.",
+    listSubtitle:
+      "Create and manage the commercial terms that make your linked hotels available for sale.",
     newContract: "Create supply contract",
     active: "Selling",
     draft: "Draft",
@@ -1250,6 +1264,12 @@ export const contractAr: typeof contractEn = {
       hotelLocked: "لا يمكن تغيير الفندق بعد حفظ المسودة.",
       modelLocked: "لا يمكن تغيير نموذج التسعير بعد حفظ المسودة.",
       saveNeedsBasics: "أكمل الفندق والاسم والتواريخ والعملة لحفظ المسودة.",
+      pricingClearUnsupported:
+        "لا تدعم الواجهة البرمجية حذف تسعير الغرف المحفوظ. تم الاحتفاظ بتعديلاتك.",
+      childPricingClearUnsupported:
+        "لا تدعم الواجهة البرمجية حذف تسعير الأطفال المحفوظ. تم الاحتفاظ بتعديلاتك.",
+      pricingIncomplete:
+        "يتضمن تسعير الغرف المحفوظ قيماً قديمة غير محسومة. عالجها قبل استبدال التسعير.",
       nameCount: "{count} / {max}",
       saveFailedList: "لم تُحفظ المسودة: {errors}",
       draftCreated: "تم حفظ المسودة",
@@ -1354,6 +1374,7 @@ export const contractAr: typeof contractEn = {
         street: "الشارع",
         landmark: "معلم",
         haram: "الحرم",
+        partial_haram: "إطلالة جزئية على الحرم",
         no_view: "بدون إطلالة",
       },
       switchTitle: "تغيير نموذج التسعير؟",

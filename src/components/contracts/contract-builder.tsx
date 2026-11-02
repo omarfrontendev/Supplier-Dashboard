@@ -10,20 +10,18 @@ import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotel
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorList } from "@/lib/api-error";
 import {
+  basicsReady,
   childPricingChanged,
   hasInactiveRestrictions,
-  restrictionsChanged,
-  restrictionsFromContract,
-  cancellationChanged,
-  cancellationFromContract,
-  seasonsChanged,
-  seasonsFromContract,
+  hasChildPricing,
+  hasPricingInput,
+  mergeLatestDraft,
+  pricingChanged,
+  pricingFromDraft,
   toRestrictions,
-  childrenFromContract,
   contractDifferences,
   draftFromContract,
   hasRoomPricing,
-  mergeLatestBasics,
   sameSavedDraft,
   toCreateContractBody,
   toUpdateContractBody,
@@ -52,20 +50,16 @@ import {
   childIssues,
   restrictionsIssues,
   seasonsIssues,
+  releaseIssues,
   validateContract,
   type ContractSectionKey,
 } from "@/components/contracts/contract-form/schema";
 import { readableDay } from "@/components/ui/date-field";
 import {
   loadContract,
-  replaceCancellation,
-  replaceChildren,
-  replaceRestrictions,
-  replaceSeasons,
   removeSeason,
   saveSeason,
   resetDraft,
-  updateBasics,
   saveCancellationPolicy,
   saveReleasePolicy,
   setPoliciesEnabled,
@@ -248,8 +242,12 @@ export function ContractBuilder({
     draft.baseSupplements.baseRoomId === null
       ? undefined
       : selectedDetailsById[draft.baseSupplements.baseRoomId];
-  const baseRoomDataAvailable = Boolean(baseRoomDetails);
-  const baseRoomView = baseRoomDetails?.view;
+  const savedBaseRoom = saved?.pricing?.baseRoom;
+  const matchingSavedBaseRoom =
+    savedBaseRoom?.roomId === draft.baseSupplements.baseRoomId ? savedBaseRoom : undefined;
+  const baseRoomDataAvailable = Boolean(baseRoomDetails || matchingSavedBaseRoom);
+  const baseRoomView = baseRoomDetails?.view ?? matchingSavedBaseRoom?.view;
+  const basePricingRoomView = baseRoomDataAvailable ? (baseRoomView ?? "no_view") : undefined;
   if (draft.baseSupplements.baseRoomId !== null && baseRoomDataAvailable) {
     addInventoryVariation(
       draft.baseSupplements.baseRoomId,
@@ -328,7 +326,7 @@ export function ContractBuilder({
   // const additionalInventoryVariations = inventoryVariations.filter(
   //   (variation) => !variation.isBase,
   // );
-  const additionalInventoryVariations = inventoryVariations
+  const additionalInventoryVariations = inventoryVariations;
   const payloadInventoryVariations =
     inventory.model === "shared" ? additionalInventoryVariations : inventoryVariations;
   const inventoryRules = onRequest
@@ -399,87 +397,173 @@ export function ContractBuilder({
   }
 
   async function saveDraft(leaving = false): Promise<boolean> {
-    console.log(draft);
-    // if (!basicsReady(draft)) {
-    //   notify.error(f.saveNeedsBasics);
-    //   jumpTo("basics");
-    //   return false;
-    // }
-    // const childErrors = childIssues(draft.children, f.v, childMaxAge);
-    // if (childErrors.length > 0) {
-    //   notify.error(childErrors[0]!);
-    //   jumpTo("children");
-    //   return false;
-    // }
-    // const restrictionErrors = draft.restrictions.enabled
-    //   ? restrictionsIssues(
-    //       draft.restrictions.rules,
-    //       basics,
-    //       f.v,
-    //       (rule) => `${readableDay(rule.startDate, lang)} – ${readableDay(rule.endDate, lang)}`,
-    //       (day) => readableDay(day, lang),
-    //     )
-    //   : [];
-    // if (restrictionErrors.length > 0) {
-    //   notify.error(restrictionErrors[0]!);
-    //   jumpTo("restrictions");
-    //   return false;
-    // }
-    // const seasonErrors = seasonsIssues(draft.seasons, basics, f.v, (day) => readableDay(day, lang));
-    // if (seasonErrors.length > 0) {
-    //   notify.error(seasonErrors[0]!);
-    //   jumpTo("seasons");
-    //   return false;
-    // }
-    // const cancellationErrors =
-    //   draft.policies.enabled && draft.policies.cancellation
-    //     ? cancellationIssues(draft.policies.cancellation, f.v)
-    //     : [];
-    // if (cancellationErrors.length > 0) {
-    //   notify.error(cancellationErrors[0]!);
-    //   jumpTo("policies");
-    //   return false;
-    // }
-    // let contract: SupplierHotelContract | null = saved;
-    // let createdId: number | null = null;
-    // try {
-    //   if (!contract) {
-    //     contract = await saveContract.mutateAsync({
-    //       id: null,
-    //       body: toCreateContractBody(draft, inventoryRules),
-    //     });
-    //     createdId = contract.id;
-    //     if (hasInactiveRestrictions(draft)) {
-    //       contract = await saveContract.mutateAsync({
-    //         id: contract.id,
-    //         body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
-    //       });
-    //     }
-    //   } else {
-    //     const body = toUpdateContractBody(draft, contract, inventoryRules);
-    //     if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
-    //   }
-    //   if (contract === saved) {
-    //     notify.success(f.noChanges);
-    //     return true;
-    //   }
-    //   notify.success(createdId ? f.draftCreated : f.draftUpdated);
-    //   return true;
-    // } catch (error) {
-    //   onSaveError(error as Error, contract);
-    //   return false;
-    // } finally {
-    //   if (createdId !== null && !leaving) {
-    //     loadedId.current = createdId;
-    //     allowLeave.current = true;
-    //     navigate({
-    //       to: "/rate-contracts/$contractId/edit",
-    //       params: { contractId: String(createdId) },
-    //       replace: true,
-    //     });
-    //   }
-    // }
-    return false;
+    if (!basicsReady(draft)) {
+      notify.error(f.saveNeedsBasics);
+      jumpTo("basics");
+      return false;
+    }
+
+    if (!onRequest && !inventoryRules) {
+      notify.error(f.v.inventory);
+      jumpTo("inventory");
+      return false;
+    }
+
+    if (hasChildPricing(draft)) {
+      const childErrors = childIssues(draft.children, f.v, childMaxAge);
+      if (childErrors.length > 0) {
+        notify.error(childErrors[0]!);
+        jumpTo("children");
+        return false;
+      }
+    } else if (saved?.childPricing && childPricingChanged(draft, saved)) {
+      notify.error(f.childPricingClearUnsupported);
+      jumpTo("children");
+      return false;
+    }
+
+    const restrictionErrors = draft.restrictions.enabled
+      ? restrictionsIssues(
+          draft.restrictions.rules,
+          basics,
+          f.v,
+          (rule) => `${readableDay(rule.startDate, lang)} – ${readableDay(rule.endDate, lang)}`,
+          (day) => readableDay(day, lang),
+        )
+      : [];
+    if (restrictionErrors.length > 0) {
+      notify.error(restrictionErrors[0]!);
+      jumpTo("restrictions");
+      return false;
+    }
+
+    const seasonErrors = seasonsIssues(draft.seasons, basics, f.v, (day) => readableDay(day, lang));
+    if (seasonErrors.length > 0) {
+      notify.error(seasonErrors[0]!);
+      jumpTo("seasons");
+      return false;
+    }
+
+    const cancellationErrors =
+      draft.policies.enabled && draft.policies.cancellation
+        ? cancellationIssues(draft.policies.cancellation, f.v)
+        : [];
+    if (cancellationErrors.length > 0) {
+      notify.error(cancellationErrors[0]!);
+      jumpTo("policies");
+      return false;
+    }
+    if (draft.policies.enabled && draft.policies.release) {
+      const errors = releaseIssues(draft.policies.release, f.v);
+      if (errors.length > 0) {
+        notify.error(errors[0]!);
+        jumpTo("policies");
+        return false;
+      }
+    }
+
+    if (
+      saved &&
+      draft.pricingModel !==
+        (saved.pricingModel === "fixed_per_room" ? "fixed_price" : "base_supplements")
+    ) {
+      notify.error(f.modelLocked);
+      jumpTo("pricing");
+      return false;
+    }
+
+    const pricingNeedsWrite = saved ? pricingChanged(draft, saved) : hasPricingInput(draft);
+    if (pricingNeedsWrite && saved?.pricing && !hasPricingInput(draft)) {
+      notify.error(f.pricingClearUnsupported);
+      jumpTo("pricing");
+      return false;
+    }
+    if (pricingNeedsWrite && saved?.pricingStatus === "incomplete") {
+      notify.error(f.pricingIncomplete);
+      jumpTo("pricing");
+      return false;
+    }
+    if (pricingNeedsWrite && !hasPricingInput(draft) && saved) {
+      notify.error(draft.pricingModel === "fixed_price" ? f.v.fixedRooms : f.v.baseRoom);
+      jumpTo("pricing");
+      return false;
+    }
+    if (
+      pricingNeedsWrite &&
+      hasPricingInput(draft) &&
+      !pricingFromDraft(draft, basePricingRoomView)
+    ) {
+      const issue = validateContract(draft, f.v, childMaxAge).find((item) =>
+        ["pricing", "rooms", "meals"].includes(item.section),
+      );
+      const fallback =
+        draft.pricingModel === "fixed_price"
+          ? f.v.fixedPrice
+          : baseRoomDataAvailable
+            ? f.v.baseRoom
+            : t.invRoomDetailsError;
+      notify.error(issue?.message ?? fallback);
+      jumpTo(issue?.section ?? "pricing");
+      return false;
+    }
+
+    if (
+      basics.bookingType === "on_request" &&
+      (basics.slaMinutes.trim() || basics.slaExpiryAction !== "auto_reject")
+    ) {
+      const issue = validateContract(draft, f.v, childMaxAge).find(
+        (item) => item.section === "booking",
+      );
+      if (issue) {
+        notify.error(issue.message);
+        jumpTo("booking");
+        return false;
+      }
+    }
+
+    let contract: SupplierHotelContract | null = saved;
+    let createdId: number | null = null;
+    try {
+      if (!contract) {
+        contract = await saveContract.mutateAsync({
+          id: null,
+          body: toCreateContractBody(draft, inventoryRules, basePricingRoomView),
+        });
+        createdId = contract.id;
+        if (hasInactiveRestrictions(draft)) {
+          contract = await saveContract.mutateAsync({
+            id: contract.id,
+            body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
+          });
+        }
+      } else {
+        const body = toUpdateContractBody(draft, contract, inventoryRules, basePricingRoomView);
+        if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
+      }
+      if (contract === saved) {
+        if (saved && !sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)) {
+          notify.error(f.saveNeedsBasics);
+          return false;
+        }
+        notify.success(f.noChanges);
+        return true;
+      }
+      notify.success(createdId ? f.draftCreated : f.draftUpdated);
+      return true;
+    } catch (error) {
+      onSaveError(error instanceof Error ? error : new Error(String(error)), contract);
+      return false;
+    } finally {
+      if (createdId !== null && !leaving) {
+        loadedId.current = createdId;
+        allowLeave.current = true;
+        navigate({
+          to: "/rate-contracts/$contractId/edit",
+          params: { contractId: String(createdId) },
+          replace: true,
+        });
+      }
+    }
   }
 
   function onSaveError(error: Error, base: SupplierHotelContract | null = saved) {
@@ -490,21 +574,7 @@ export function ContractBuilder({
       void remote.refetch().then(({ data: latest }) => {
         const fields = latest ? contractDifferences(before, latest) : [];
         if (latest) {
-          dispatch(updateBasics(mergeLatestBasics(editing, before, latest)));
-          if (latest.childPricing && !childPricingChanged(editing, before)) {
-            dispatch(replaceChildren(childrenFromContract(latest.childPricing)));
-          }
-          if (!restrictionsChanged(editing, before)) {
-            dispatch(replaceRestrictions(restrictionsFromContract(latest.restrictions ?? [])));
-          }
-          if (!cancellationChanged(editing, before)) {
-            dispatch(
-              replaceCancellation(cancellationFromContract(latest.cancellationPolicy ?? null)),
-            );
-          }
-          if (!seasonsChanged(editing, before)) {
-            dispatch(replaceSeasons(seasonsFromContract(latest.seasons ?? [])));
-          }
+          dispatch(loadContract(mergeLatestDraft(editing, before, latest)));
         }
         notify.error(
           fields.length > 0
@@ -543,14 +613,14 @@ export function ContractBuilder({
       ? f.loadFailed
       : !saved
         ? t.draftEmpty
-        : sameSavedDraft(draft, saved, inventoryRules)
+        : sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)
           ? fill(t.draftSaved, { time: savedAt })
           : t.draftUnsaved;
 
   const hasUnsaved =
     !remote.isLoading &&
     (saved
-      ? !sameSavedDraft(draft, saved, inventoryRules)
+      ? !sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)
       : Boolean(basics.hotelId || basics.name.trim() || basics.startDate || basics.currency));
   const leaveBlocker = useBlocker({
     shouldBlockFn: () => !allowLeave.current && hasUnsaved,
@@ -772,7 +842,7 @@ export function ContractBuilder({
           {/* 3 — Rooms */}
           {fixed && (
             <Section
-            id={sectionList.length + 1}
+              id={sectionList.length + 1}
               // id={num("rooms")}
               title={t.sections[2]!}
               body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
