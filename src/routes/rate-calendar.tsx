@@ -58,11 +58,14 @@ import { useRatesHotels } from "@/api/modules/rates-availability/useRatesHotels"
 import { useRatesHotelContracts } from "@/api/modules/rates-availability/useRatesContracts";
 import {
   useRateTargets,
+  useRateOverrides,
   useRatesContractDetail,
   useRatesContext,
   useSaveRateOverrides,
 } from "@/api/modules/rates-availability/useRates";
+import type { AlreadySet } from "@/lib/bulk-range-data";
 import type {
+  RateOverrideRow,
   RateTarget,
   RateTargetsData,
   RatesContractDetail,
@@ -372,6 +375,7 @@ function RateCalendarPage() {
     | "prices"
     | null
   >(null);
+  const overridesQuery = useRateOverrides(pickedContract?.id, live && overlay === "bulk");
   /* OV 04.1PN - whose prices the grid is showing. Everyone, until asked. */
   const [priceGroup, setPriceGroup] = useState<CalendarGroupId>("everyone");
   /*
@@ -1230,6 +1234,28 @@ function RateCalendarPage() {
           {...(live && overlay === "bulk"
             ? {
                 roomOptions: allRows.map((row) => ({ en: row.name, ar: row.nameAr })),
+                existing: overrideRuns(overridesQuery.data ?? [], allRows, rateTargets.currency),
+                onRemoveExisting: async (row) => {
+                  const run = row.id ? JSON.parse(row.id) : null;
+                  if (!run) return;
+                  try {
+                    await saveRates.mutateAsync([
+                      {
+                        action: "remove",
+                        targets: [
+                          {
+                            variationId: run.variationId,
+                            ...(run.mealPlan ? { mealPlan: run.mealPlan } : {}),
+                          },
+                        ],
+                        dates: run.dates,
+                      },
+                    ]);
+                    notify.success(liveGrid.restored[k]);
+                  } catch (error) {
+                    notify.error(getApiErrorMessage(error));
+                  }
+                },
                 onApplyRates: async (value) => {
                   if (!rateTargets.eligible) {
                     notify.error(liveGrid.notEligible[k]);
@@ -1964,4 +1990,51 @@ function contractTerms(detail: RatesContractDetail, targets: RateTargetsData, k:
     restrictions,
     fill(terms.term[k], { from: day(detail.startDate), to: day(detail.endDate) }),
   ];
+}
+
+function overrideRuns(overrides: RateOverrideRow[], rows: GridRow[], currency: string): AlreadySet[] {
+  const sorted = [...overrides].sort(
+    (a, b) =>
+      a.variationId - b.variationId ||
+      (a.mealPlan ?? "").localeCompare(b.mealPlan ?? "") ||
+      a.stayDate.localeCompare(b.stayDate),
+  );
+  const runs: Array<{ variationId: number; mealPlan: string | null; amount: number; dates: string[] }> = [];
+  for (const item of sorted) {
+    const last = runs[runs.length - 1];
+    const next = last ? new Date(`${last.dates[last.dates.length - 1]}T00:00:00`) : null;
+    next?.setDate(next.getDate() + 1);
+    if (
+      last &&
+      next &&
+      last.variationId === item.variationId &&
+      last.mealPlan === item.mealPlan &&
+      last.amount === item.amount &&
+      isoDay(next) === item.stayDate
+    ) {
+      last.dates.push(item.stayDate);
+      continue;
+    }
+    runs.push({ variationId: item.variationId, mealPlan: item.mealPlan, amount: item.amount, dates: [item.stayDate] });
+  }
+  const label = (iso: string, lang: "en" | "ar") => {
+    const on = new Date(`${iso}T00:00:00`);
+    const num = (value: number) => (lang === "ar" ? arNum(value) : String(value));
+    return `${num(on.getDate())} ${datePickerCopy[lang].monthsShort[on.getMonth()]} ${num(on.getFullYear())}`;
+  };
+  const span = (dates: string[], lang: "en" | "ar") =>
+    dates.length === 1 ? label(dates[0]!, lang) : `${label(dates[0]!, lang)} - ${label(dates[dates.length - 1]!, lang)}`;
+  return runs.map((run) => {
+    const row = rows.find(
+      (item) =>
+        item.target?.variationId === run.variationId &&
+        (item.target.mealPlan ?? null) === run.mealPlan,
+    );
+    return {
+      id: JSON.stringify({ variationId: run.variationId, mealPlan: run.mealPlan, dates: run.dates }),
+      when: { en: span(run.dates, "en"), ar: span(run.dates, "ar") },
+      rooms: { en: row?.name ?? `#${run.variationId}`, ar: row?.nameAr ?? `#${run.variationId}` },
+      value: { en: `${run.amount} ${currency}`, ar: `${arNum(run.amount)} ${currency}` },
+    };
+  });
 }

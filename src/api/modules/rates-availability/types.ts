@@ -220,3 +220,21 @@ export interface RatesContractDetail {
   hotel: { id: number; nameEn: string | null; nameAr: string | null };
   inventory: { pools: RatesInventoryPool[]; caps: RatesInventoryCap[] };
 }
+
+export interface RateOverrideRow {
+  id: number;
+  contractId: number;
+  variationId: number;
+  mealPlan: RatesMealPlan | null;
+  stayDate: string;
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RateOverridesData {
+  overrides: RateOverrideRow[];
+  ratesRevision: number;
+  meta: RatesPageMeta;
+  emptyState: "no_overrides" | null;
+}

@@ -105,6 +105,7 @@ export const bulkRooms: Bi[] = [
 ];
 
 export interface AlreadySet {
+  id?: string;
   when: Bi;
   rooms: Bi;
   /** The right-hand value: what this row sets. */

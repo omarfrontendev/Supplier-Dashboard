@@ -53,6 +53,7 @@ import {
   contractRelease,
   hotelContracts,
   MAX_RELEASE_DAYS,
+  type AlreadySet,
   type BulkKind,
 } from "@/lib/bulk-range-data";
 import { oneNight } from "@/lib/rate-overlay-data";
@@ -121,6 +122,8 @@ export function BulkRangeOverlay({
   onEditContract,
   roomOptions,
   onApplyRates,
+  existing,
+  onRemoveExisting,
 }: {
   kind: BulkKind;
   /** The contract this is scoped to, printed as the overline. */
@@ -136,6 +139,8 @@ export function BulkRangeOverlay({
         rate: { amount: number } | { weekday: number; weekend: number };
       }) => Promise<void>)
     | undefined;
+  existing?: AlreadySet[] | undefined;
+  onRemoveExisting?: ((row: AlreadySet) => Promise<void>) | undefined;
 }) {
   const { lang, dir } = useLanguage();
   const k: Lang = lang === "ar" ? "ar" : "en";
@@ -436,7 +441,7 @@ export function BulkRangeOverlay({
   /* A night, a room and a sound middle are what make a line addable. */
   const canAdd =
     nights > 0 && realRooms.length > 0 && !broken && !priceMissing;
-  const rows = alreadySet[kind];
+  const rows = existing ?? alreadySet[kind];
   /* Contract rules whose dates have not started - Inactive, in the
      contract's own table, and not "live" whatever the count says. */
   const dormant = rows.filter((row) => row.inactive).length;
@@ -503,6 +508,7 @@ export function BulkRangeOverlay({
   };
 
   const [applying, setApplying] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
   const amountOf = (text: string) =>
     Number(text.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[^0-9.]/g, ""));
 
@@ -1464,7 +1470,7 @@ export function BulkRangeOverlay({
 
             {rows.map((row) => (
               <div
-                key={row.when.en}
+                key={row.id ?? row.when.en}
                 className="rounded-[10px] bg-surface-default p-3"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1516,15 +1522,27 @@ export function BulkRangeOverlay({
                         {row.draft ? c.newDraft[k] : c.live[k]}
                       </StatusPill>
                       <span className="flex items-center gap-3 text-[11.5px] font-medium">
+                        {!onRemoveExisting && (
+                          <button
+                            type="button"
+                            className="text-text-link hover:underline"
+                          >
+                            {c.edit[k]}
+                          </button>
+                        )}
                         <button
                           type="button"
-                          className="text-text-link hover:underline"
-                        >
-                          {c.edit[k]}
-                        </button>
-                        <button
-                          type="button"
-                          className="text-status-danger hover:underline"
+                          disabled={removing === (row.id ?? row.when.en)}
+                          onClick={async () => {
+                            if (!onRemoveExisting) return;
+                            setRemoving(row.id ?? row.when.en);
+                            try {
+                              await onRemoveExisting(row);
+                            } finally {
+                              setRemoving(null);
+                            }
+                          }}
+                          className="text-status-danger hover:underline disabled:opacity-50"
                         >
                           {c.delete[k]}
                         </button>

@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/api/client";
 import { endpoints } from "@/api/endpoints";
+import { fetchAllPages } from "./fetchAllPages";
 import type {
   RateChangesData,
   RatesContractDetail,
+  RateOverridesData,
   RateContextData,
   RateOperation,
   RateSelection,
@@ -15,6 +17,22 @@ import type {
 const rateKeys = {
   targets: (contractId: number | undefined) => ["rates-availability", "rate-targets", contractId],
   context: (contractId: number | undefined) => ["rates-availability", "rates-context", contractId],
+  overrides: (contractId: number | undefined) => ["rates-availability", "rate-overrides", contractId],
+};
+
+export const useRateOverrides = (contractId: number | undefined, enabled = true) => {
+  return useQuery({
+    queryKey: rateKeys.overrides(contractId),
+    queryFn: () =>
+      fetchAllPages(async (page) => {
+        const response = await api.get<RatesEnvelope<RateOverridesData>>(
+          endpoints.ratesAndAvailability.rateOverrides(contractId!),
+          { params: { page, limit: 100 } },
+        );
+        return { items: response.data.data.overrides, meta: response.data.data.meta };
+      }),
+    enabled: contractId !== undefined && enabled,
+  });
 };
 
 export const useRatesContractDetail = (contractId: number | undefined) => {
@@ -74,6 +92,7 @@ export const useSaveRateOverrides = (contractId: number | undefined) => {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: rateKeys.context(contractId) });
       void queryClient.invalidateQueries({ queryKey: rateKeys.targets(contractId) });
+      void queryClient.invalidateQueries({ queryKey: rateKeys.overrides(contractId) });
     },
   });
 };
