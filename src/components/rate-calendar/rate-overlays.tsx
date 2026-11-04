@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, FileText, Info, Lock, Pencil } from "lucide-react";
+import { CalendarDays, FileText, Info, Lock, Pencil, Search } from "lucide-react";
 import type {
   RatesContract,
   RatesContractStatus,
@@ -17,6 +17,8 @@ import {
 } from "@/lib/arabic-count";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ReusablePagination } from "@/components/ui/ReusablePagination";
 import {
   DatePicker,
   dateOf,
@@ -50,6 +52,7 @@ import {
   monthPicker,
   liveGrid,
   nightStatus,
+  pickerSearch,
   oneNight,
   oneNightStates,
   poolBreakdown,
@@ -2870,6 +2873,41 @@ function PickerState({
 
 const ENDED_STATUSES: RatesContractStatus[] = ["expired", "terminated"];
 
+const PICKER_PAGE = 6;
+
+function matching<T>(items: T[], query: string, fields: (item: T) => Array<string | null>) {
+  const words = query.trim().toLowerCase();
+  if (!words) return items;
+  return items.filter((item) => fields(item).some((field) => field?.toLowerCase().includes(words)));
+}
+
+function PickerSearch({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative mb-3">
+      <Search
+        className="pointer-events-none absolute start-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-text-muted"
+        aria-hidden="true"
+      />
+      <Input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className="[&_input]:ps-10"
+      />
+    </div>
+  );
+}
+
 export function ContractPickerOverlay({
   hotelName,
   contracts,
@@ -2896,9 +2934,14 @@ export function ContractPickerOverlay({
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = contractPicker;
-  const rows = contracts.filter(
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const shown = contracts.filter(
     (contract) => includeEnded || !ENDED_STATUSES.includes(contract.status),
   );
+  const rows = matching(shown, query, (contract) => [contract.name, String(contract.id)]);
+  const pages = Math.max(1, Math.ceil(rows.length / PICKER_PAGE));
+  const pageRows = rows.slice((Math.min(page, pages) - 1) * PICKER_PAGE, Math.min(page, pages) * PICKER_PAGE);
   const date = (value: string) =>
     new Intl.DateTimeFormat(k === "ar" ? "ar-EG" : "en-GB", {
       day: "numeric",
@@ -2914,18 +2957,34 @@ export function ContractPickerOverlay({
       title={c.title[k]}
       onClose={onClose}
     >
+      {!loading && !error && shown.length > 0 && (
+        <PickerSearch
+          value={query}
+          placeholder={pickerSearch.contracts[k]}
+          onChange={(next) => {
+            setQuery(next);
+            setPage(1);
+          }}
+        />
+      )}
       <PickerState
         loading={loading}
         error={error}
         empty={rows.length === 0}
         loadingText={c.loading[k]}
         errorText={c.error[k]}
-        emptyText={contracts.length === 0 ? c.empty[k] : c.emptyActive[k]}
+        emptyText={
+          query && shown.length > 0
+            ? pickerSearch.noMatch[k]
+            : contracts.length === 0
+              ? c.empty[k]
+              : c.emptyActive[k]
+        }
         onRetry={onRetry}
       />
       {!loading && !error && rows.length > 0 && (
         <div className="space-y-2">
-          {rows.map((contract) => (
+          {pageRows.map((contract) => (
             <PickerCard
               key={contract.id}
               title={contract.name}
@@ -2945,6 +3004,13 @@ export function ContractPickerOverlay({
           ))}
         </div>
       )}
+      <ReusablePagination
+        page={Math.min(page, pages)}
+        totalPages={pages}
+        onPageChange={setPage}
+        lang={k}
+        showBorder={false}
+      />
       <Check
         checked={includeEnded}
         onChange={() => onIncludeEnded(!includeEnded)}
@@ -2975,6 +3041,11 @@ export function HotelPickerOverlay({
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = hotelPicker;
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const rows = matching(hotels, query, (hotel) => [hotel.nameEn, hotel.nameAr, hotel.city]);
+  const pages = Math.max(1, Math.ceil(rows.length / PICKER_PAGE));
+  const pageRows = rows.slice((Math.min(page, pages) - 1) * PICKER_PAGE, Math.min(page, pages) * PICKER_PAGE);
 
   return (
     <IconModal
@@ -2983,18 +3054,28 @@ export function HotelPickerOverlay({
       title={c.title[k]}
       onClose={onClose}
     >
+      {!loading && !error && hotels.length > 0 && (
+        <PickerSearch
+          value={query}
+          placeholder={pickerSearch.hotels[k]}
+          onChange={(next) => {
+            setQuery(next);
+            setPage(1);
+          }}
+        />
+      )}
       <PickerState
         loading={loading}
         error={error}
-        empty={hotels.length === 0}
+        empty={rows.length === 0}
         loadingText={c.loading[k]}
         errorText={c.error[k]}
-        emptyText={c.empty[k]}
+        emptyText={query && hotels.length > 0 ? pickerSearch.noMatch[k] : c.empty[k]}
         onRetry={onRetry}
       />
-      {!loading && !error && hotels.length > 0 && (
+      {!loading && !error && rows.length > 0 && (
         <div className="space-y-2">
-          {hotels.map((hotel) => (
+          {pageRows.map((hotel) => (
             <PickerCard
               key={hotel.id}
               title={(k === "ar" ? hotel.nameAr : hotel.nameEn) || hotel.nameEn || hotel.nameAr || ""}
@@ -3013,6 +3094,13 @@ export function HotelPickerOverlay({
           ))}
         </div>
       )}
+      <ReusablePagination
+        page={Math.min(page, pages)}
+        totalPages={pages}
+        onPageChange={setPage}
+        lang={k}
+        showBorder={false}
+      />
     </IconModal>
   );
 }

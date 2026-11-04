@@ -366,6 +366,7 @@ function RateCalendarPage() {
   const [hidePast, setHidePast] = useState(false);
   const [pickup, setPickup] = useState(false);
   const [selectCells, setSelectCells] = useState(false);
+  const hasPast = month.today > 1;
   const [selected, setSelected] = useState<string[]>([]);
   const [filter, setFilter] = useState("all");
   const hotelLabel = pickedHotel
@@ -540,9 +541,17 @@ function RateCalendarPage() {
   };
 
   const pickedRange = pickedNights.length
-    ? `${ar ? arNum(pickedNights[0]!) : pickedNights[0]} - ${
-        ar ? arNum(pickedNights[pickedNights.length - 1]!) : pickedNights[pickedNights.length - 1]
-      } ${ar ? month.pickerAr.split(" ")[0] : month.picker.slice(0, 3)}`
+    ? (() => {
+        const first = dateOfNight(month, pickedNights[0]!);
+        const last = dateOfNight(month, pickedNights[pickedNights.length - 1]!);
+        const day = (date: Date) => (ar ? arNum(date.getDate()) : String(date.getDate()));
+        const short = (date: Date) => datePickerCopy[k].monthsShort[date.getMonth()];
+        return first.getTime() === last.getTime()
+          ? `${day(first)} ${short(first)}`
+          : first.getMonth() === last.getMonth()
+            ? `${day(first)} - ${day(last)} ${short(last)}`
+            : `${day(first)} ${short(first)} - ${day(last)} ${short(last)}`;
+      })()
     : "";
 
   /*
@@ -910,11 +919,19 @@ function RateCalendarPage() {
             <div className="grid gap-3">
               <CheckRow checked={compact} onChange={() => setCompact(!compact)} label={t.compact} />
               <CheckRow
-                checked={hidePast}
+                checked={hidePast && hasPast}
                 onChange={() => setHidePast(!hidePast)}
                 label={t.hidePast}
+                disabled={!hasPast}
+                hint={hasPast ? undefined : liveGrid.noPastNights[k]}
               />
-              <CheckRow checked={pickup} onChange={() => setPickup(!pickup)} label={t.pickup} />
+              <CheckRow
+                checked={pickup && !live}
+                onChange={() => setPickup(!pickup)}
+                label={t.pickup}
+                disabled={live}
+                hint={live ? liveGrid.noBookingData[k] : undefined}
+              />
               <CheckRow
                 checked={selectCells}
                 onChange={() => setSelectCells(!selectCells)}
@@ -1157,7 +1174,7 @@ function RateCalendarPage() {
             : show
         }
         compact={compact}
-        hidePast={hidePast}
+        hidePast={hidePast && hasPast}
         model={gridModel}
         fixedPrice={fixedPrice}
         currency={rateTargets?.currency}
@@ -1188,7 +1205,7 @@ function RateCalendarPage() {
         }
         selected={selected}
         selecting={selectCells}
-        pickup={pickup}
+        pickup={pickup && !live}
         onToggle={(key) =>
           setSelected((prev) =>
             prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
@@ -1914,19 +1931,34 @@ function CheckRow({
   checked,
   onChange,
   label,
+  disabled = false,
+  hint,
 }: {
   checked: boolean;
   onChange: () => void;
   label: string;
+  disabled?: boolean;
+  hint?: string | undefined;
 }) {
   return (
     <label
+      title={hint}
       className={cn(
-        "flex min-w-0 cursor-pointer select-none items-center gap-2 rounded-lg border bg-surface-default px-2.5 py-2 transition-colors",
-        checked ? "border-border-default" : "border-border-subtle hover:border-border-default",
+        "flex min-w-0 select-none items-center gap-2 rounded-lg border bg-surface-default px-2.5 py-2 transition-colors",
+        disabled
+          ? "cursor-not-allowed border-border-subtle opacity-50"
+          : checked
+            ? "cursor-pointer border-border-default"
+            : "cursor-pointer border-border-subtle hover:border-border-default",
       )}
     >
-      <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        className="peer sr-only"
+      />
       <span
         className={cn(
           "flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-border-focus peer-focus-visible:ring-offset-1",
@@ -1936,8 +1968,11 @@ function CheckRow({
       >
         {checked && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
       </span>
-      <span className="truncate text-xs leading-4 text-text-primary" title={label}>
-        {label}
+      <span className="min-w-0">
+        <span className="block truncate text-xs leading-4 text-text-primary" title={label}>
+          {label}
+        </span>
+        {hint && <span className="block text-[10.5px] leading-[14px] text-text-muted">{hint}</span>}
       </span>
     </label>
   );

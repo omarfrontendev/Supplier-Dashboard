@@ -186,7 +186,13 @@ export function RateGrid({
           style={{ insetInlineStart: ring.start, width: ring.width }}
         />
       )}
-      <table className="w-full border-collapse text-sm">
+      <table
+        className={cn(
+          "w-full border-collapse text-sm",
+          compact &&
+            "[&_tbody_th>span+span]:hidden [&_tbody_th]:!py-1 [&_tbody_td]:!py-0 [&_tbody_td]:!h-auto [&_tbody_td_button]:!h-5",
+        )}
+      >
         <caption className="sr-only">{ar ? month.labelAr : month.label}</caption>
         <thead>
           <tr>

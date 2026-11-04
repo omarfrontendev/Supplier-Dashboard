@@ -576,6 +576,12 @@ export const contractPicker = {
 };
 
 /** OV 04.10 — the hotels this account is linked to. */
+export const pickerSearch = {
+  hotels: t("Search hotels by name or city", "ابحث عن فندق بالاسم أو المدينة"),
+  contracts: t("Search contracts by name or number", "ابحث عن عقد بالاسم أو الرقم"),
+  noMatch: t("Nothing matches your search.", "لا توجد نتائج مطابقة."),
+};
+
 export const hotelPicker = {
   overline: t("Your linked hotels", "فنادقك المرتبطة"),
   title: t("Choose hotel", "اختيار الفندق"),
@@ -1008,6 +1014,8 @@ export const liveGrid = {
   ),
   nothingMatches: t("Nothing matches in the months you show.", "لا شيء يطابق في الأشهر المعروضة."),
   clearFilter: t("Clear filter", "إزالة الفلتر"),
+  noPastNights: t("No past nights in these dates", "لا ليالٍ فائتة في هذه التواريخ"),
+  noBookingData: t("No booking data yet", "لا توجد بيانات حجوزات بعد"),
   slaLabel: t("The hotel answers within", "يرد الفندق خلال"),
   slaHint: t("minutes · 10 - 120", "دقيقة · ١٠ - ١٢٠"),
   expiry: {
