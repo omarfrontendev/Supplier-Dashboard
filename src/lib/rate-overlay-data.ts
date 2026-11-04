@@ -1006,6 +1006,15 @@ export const liveGrid = {
     "This contract isn't published yet, so its prices can't be changed.",
     "هذا العقد غير منشور بعد، لذلك لا يمكن تغيير أسعاره.",
   ),
+  nothingMatches: t("Nothing matches in the months you show.", "لا شيء يطابق في الأشهر المعروضة."),
+  clearFilter: t("Clear filter", "إزالة الفلتر"),
+  exportHead: {
+    en: ["Room", "Night", "Rate", "Currency", "Price from", "Rooms in pool"],
+    ar: ["الغرفة", "الليلة", "السعر", "العملة", "مصدر السعر", "الغرف في المخزون"],
+  },
+  exportEdited: t("Changed for this night", "معدّل لهذه الليلة"),
+  exportContract: t("Contract or season", "العقد أو الموسم"),
+  exportRooms: t("{count} rooms", "{count} غرف"),
   terms: {
     basePlus: t(
       "Base + supplements · base {room} {weekday} / {weekend} {currency}",

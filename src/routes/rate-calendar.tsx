@@ -69,6 +69,7 @@ import type {
 } from "@/api/modules/rates-availability/types";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { notify } from "@/lib/notify";
+import { exportRows } from "@/lib/export-rows";
 import {
   WEEKEND_DAYS,
   fixedPriceRows,
@@ -542,23 +543,61 @@ function RateCalendarPage() {
   );
   const group = calendarGroups.find((item) => item.id === priceGroup) ?? calendarGroups[0]!;
 
-  const liveLeft = liveDetail
-    ? termDates.map((day) => nightsOf(null).get(day)?.capacity ?? null).filter((left) => left !== null)
-    : [];
+  const gridModel = liveModel ?? grid.model;
+  const poolLeftAt = (night: number) =>
+    gridModel !== "pool"
+      ? null
+      : liveDetail
+        ? (nightsOf(null).get(monthDates[night - 1]!)?.capacity ?? null)
+        : (month.poolLeft[night - 1] ?? null);
+  const roomLeftAt = (row: GridRow, night: number) =>
+    gridModel === "perRoom" || row.inventoryLabel === "left" ? (row.inventory[night - 1] ?? null) : null;
+  const isLow = (left: number | null, key: string) =>
+    left !== null && (key === "soldOut" ? left === 0 : left > 0 && left <= threshold);
+  const cellMatches = (key: string, night: number, row?: GridRow) => {
+    if (key === "soldOut" || key === "fewer")
+      return isLow(poolLeftAt(night), key) || (row ? isLow(roomLeftAt(row, night), key) : false);
+    if (!row) return false;
+    if (key === "stopSale") return row.status[night - 1] === "SS";
+    if (key === "onRequest") return row.status[night - 1] === "RQ";
+    if (key === "notPublished") return !live && month.editedNights.includes(night);
+    if (key === "notPriced") return unpriced.includes(row.name);
+    return true;
+  };
+  const shownNights = Array.from({ length: month.nights }, (_, index) => index + 1).filter(
+    (night) => !month.today || night >= month.today,
+  );
+  const nightsMatching = (key: string) =>
+    shownNights.filter(
+      (night) => cellMatches(key, night) || allRows.some((row) => cellMatches(key, night, row)),
+    ).length;
   const counts = {
     all: allRows.length,
     ...(liveDetail
       ? {
-          soldOut: liveLeft.filter((left) => left === 0).length,
-          fewer: liveLeft.filter((left) => left > 0 && left <= threshold).length,
-          stopSale: 0,
-          onRequest: 0,
+          soldOut: nightsMatching("soldOut"),
+          fewer: nightsMatching("fewer"),
+          stopSale: nightsMatching("stopSale"),
+          onRequest: nightsMatching("onRequest"),
           notPublished: 0,
         }
       : month.key === "2026-09"
         ? grid.counts
         : month.counts),
   };
+  const activeCount =
+    filter === "all"
+      ? null
+      : filter === "notPriced"
+        ? unpriced.length
+        : counts[filter as keyof typeof counts];
+  const fade =
+    filter === "all"
+      ? undefined
+      : (night: number, room?: string) => {
+          const row = room ? allRows.find((item) => item.name === room) : undefined;
+          return !(cellMatches(filter, night) || (row ? cellMatches(filter, night, row) : false));
+        };
 
   return (
     <PageShell>
@@ -987,7 +1026,7 @@ function RateCalendarPage() {
         </div>
       )}
 
-      {!live && grid.counts.fewer > 0 && month.key === "2026-09" && !unpriced.length && (
+      {!live && filter === "all" && grid.counts.fewer > 0 && month.key === "2026-09" && !unpriced.length && (
         <div className="mb-4 rounded-xl border border-status-info/25 bg-status-info-bg px-4 py-3">
           {/*
            * One row on a wide screen, as the frame draws it. On a phone
@@ -1062,12 +1101,26 @@ function RateCalendarPage() {
         </div>
       )}
 
+      {activeCount === 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-surface-subtle px-4 py-3">
+          <p className="min-w-0 flex-1 text-[12.5px] text-text-secondary">{liveGrid.nothingMatches[k]}</p>
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className="px-1 text-xs font-medium text-text-link hover:underline"
+          >
+            {liveGrid.clearFilter[k]}
+          </button>
+        </div>
+      )}
+
       <RateGrid
         rows={rows}
+        fade={fade}
         show={live ? { ...show, inventory: show.inventory && liveDetail !== undefined, status: false, release: false } : show}
         compact={compact}
         hidePast={hidePast}
-        model={liveModel ?? grid.model}
+        model={gridModel}
         fixedPrice={fixedPrice}
         currency={rateTargets?.currency}
         pool={liveDetail ? liveDetail.inventoryRules?.roomsPerNight : grid.pool}
@@ -1407,7 +1460,48 @@ function RateCalendarPage() {
 
       {overlay === "review" && <ReviewPublishDrawer onClose={() => setOverlay(null)} />}
 
-      {overlay === "export" && <ExportOverlay onClose={() => setOverlay(null)} />}
+      {overlay === "export" &&
+        (live ? (
+          <ExportOverlay
+            formats={["csv"]}
+            note={false}
+            overline={[
+              contractLabel,
+              fill(liveGrid.exportRooms[k], { count: ar ? arNum(rows.length) : rows.length }),
+              `${span.start} - ${span.end}`,
+            ].join(" · ")}
+            onClose={() => setOverlay(null)}
+            onDownload={() => {
+              const shown = monthDates
+                .map((day, index) => ({ day, night: index + 1 }))
+                .filter(({ day, night }) => termDates.includes(day) && (!hidePast || !month.today || night >= month.today));
+              let email = "";
+              try {
+                email = JSON.parse(localStorage.getItem("userData") ?? "null")?.email ?? "";
+              } catch {
+                email = "";
+              }
+              exportRows({
+                head: liveGrid.exportHead[k],
+                rows: rows.flatMap((row) =>
+                  shown.map(({ day, night }) => [
+                    ar ? row.nameAr : row.name,
+                    day,
+                    String(row.rate[night - 1] ?? ""),
+                    rateTargets.currency,
+                    row.edited?.includes(night) ? liveGrid.exportEdited[k] : liveGrid.exportContract[k],
+                    String(poolLeftAt(night) ?? roomLeftAt(row, night) ?? ""),
+                  ]),
+                ),
+                filename: `rates-${pickedContract!.id}-${span.start}-${span.end}.csv`,
+                lang,
+                email,
+              });
+            }}
+          />
+        ) : (
+          <ExportOverlay onClose={() => setOverlay(null)} />
+        ))}
 
       {overlay === "pool" && (
         <PoolBreakdownOverlay

@@ -2954,17 +2954,30 @@ export function HotelPickerOverlay({
 }
 
 /** OV 04.11 — the grid as a file, in the three shapes it can take. */
-export function ExportOverlay({ onClose }: { onClose: () => void }) {
+export function ExportOverlay({
+  onClose,
+  onDownload,
+  formats,
+  overline,
+  note = true,
+}: {
+  onClose: () => void;
+  onDownload?: (format: string) => void;
+  formats?: string[];
+  overline?: string;
+  note?: boolean;
+}) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = exportView;
-  const [format, setFormat] = useState("xlsx");
+  const options = formats ? c.formats.filter((option) => formats.includes(option.key)) : c.formats;
+  const [format, setFormat] = useState<string>(options[0]?.key ?? "xlsx");
 
   return (
     <IconModal
       width="660px"
       icon={<FileText className="h-5 w-5" aria-hidden="true" />}
-      overline={c.overline[k]}
+      overline={overline ?? c.overline[k]}
       title={c.title[k]}
       body={c.body[k]}
       onClose={onClose}
@@ -2976,12 +2989,19 @@ export function ExportOverlay({ onClose }: { onClose: () => void }) {
             </Button>
           }
         >
-          <Button onClick={onClose}>{c.download[k]}</Button>
+          <Button
+            onClick={() => {
+              onDownload?.(format);
+              onClose();
+            }}
+          >
+            {c.download[k]}
+          </Button>
         </Actions>
       }
     >
       <div className="space-y-2">
-        {c.formats.map((option) => (
+        {options.map((option) => (
           <button
             key={option.key}
             type="button"
@@ -3019,13 +3039,15 @@ export function ExportOverlay({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
-      <div className="flex items-start gap-2 rounded-[10px] bg-surface-subtle px-3.5 py-3">
-        <Info
-          className="mt-px h-3.5 w-3.5 shrink-0 text-text-muted"
-          aria-hidden="true"
-        />
-        <p className="text-[11.5px] leading-4 text-text-muted">{c.note[k]}</p>
-      </div>
+      {note && (
+        <div className="flex items-start gap-2 rounded-[10px] bg-surface-subtle px-3.5 py-3">
+          <Info
+            className="mt-px h-3.5 w-3.5 shrink-0 text-text-muted"
+            aria-hidden="true"
+          />
+          <p className="text-[11.5px] leading-4 text-text-muted">{c.note[k]}</p>
+        </div>
+      )}
     </IconModal>
   );
 }

@@ -62,8 +62,10 @@ export function RateGrid({
   onOpenStatus,
   onOpenPool,
   currency,
+  fade,
 }: {
   currency?: string | undefined;
+  fade?: ((night: number, room?: string) => boolean) | undefined;
   rows?: GridRow[];
   show: Record<GridRowKind, boolean>;
   compact?: boolean;
@@ -306,6 +308,7 @@ export function RateGrid({
                     key={night}
                     className={cn(
                       "border-s border-border-subtle px-0 py-2",
+                      fade?.(night) && "opacity-30",
                       isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg"
@@ -361,6 +364,7 @@ export function RateGrid({
               onOpenMeals={onOpenMeals}
               selecting={selecting}
               pickup={pickup}
+              fade={fade}
               onOpenNight={onOpenNight}
               onOpenStatus={onOpenStatus}
             />
@@ -390,6 +394,7 @@ function RoomBlock({
   fixedPrice = false,
   selecting = false,
   pickup = false,
+  fade,
   onOpenNight,
   onOpenStatus,
 }: {
@@ -411,6 +416,7 @@ function RoomBlock({
   fixedPrice?: boolean;
   selecting?: boolean;
   pickup?: boolean;
+  fade?: ((night: number, room?: string) => boolean) | undefined;
   onOpenNight?: ((room: GridRow, night: number) => void) | undefined;
   onOpenStatus?: ((room: GridRow, night: number) => void) | undefined;
 }) {
@@ -453,6 +459,7 @@ function RoomBlock({
                 key={night}
                 className={cn(
                   "border-s border-border-subtle px-0 py-2",
+                  fade?.(night, row.name) && "opacity-30",
                   isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg"
@@ -498,6 +505,7 @@ function RoomBlock({
                 key={night}
                 className={cn(
                   "font-data border-s border-border-subtle px-1 py-1.5 text-center text-[11px] text-text-secondary",
+                  fade?.(night, row.name) && "opacity-30",
                   isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg"
@@ -541,6 +549,7 @@ function RoomBlock({
                 key={night}
                 className={cn(
                   "font-data h-[42px] border-s border-border-subtle px-1 text-center text-[11px]",
+                  fade?.(night, row.name) && "opacity-30",
                   cell,
                   isWeekend(night)
                     ? "bg-cell-weekend-bg"
@@ -578,6 +587,7 @@ function RoomBlock({
                 key={night}
                 className={cn(
                   "border-s border-border-subtle px-0 py-px",
+                  fade?.(night, row.name) && "opacity-30",
                   isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg"
@@ -622,6 +632,7 @@ function RoomBlock({
                 key={night}
                 className={cn(
                   "font-data h-7 border-s border-border-subtle px-1 text-center text-[11px] font-medium",
+                  fade?.(night, row.name) && "opacity-30",
                   isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg",
@@ -649,6 +660,7 @@ function RoomBlock({
               key={night}
               className={cn(
                 "font-data h-7 border-s border-border-subtle px-1 text-center text-[11px] font-medium",
+                fade?.(night, row.name) && "opacity-30",
                 isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg",
