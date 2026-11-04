@@ -48,6 +48,7 @@ import {
   exportView,
   hotelPicker,
   monthPicker,
+  liveGrid,
   nightStatus,
   oneNight,
   oneNightStates,
@@ -1589,19 +1590,40 @@ export function NightStatusOverlay({
   date,
   fixed = false,
   onClose,
+  current,
+  onApply,
+  needsSla = false,
+  saving = false,
 }: {
   room?: string | undefined;
   date?: string | undefined;
   /** A fixed-price contract sells priced lines, not rooms. */
   fixed?: boolean;
   onClose: () => void;
+  current?: "open" | "stop" | "request" | undefined;
+  onApply?:
+    | ((
+        state: "open" | "stop" | "request",
+        sla?: { slaMinutes: number; expiryAction: "auto_reject" | "escalate_to_hoteliana" },
+      ) => void)
+    | undefined;
+  needsSla?: boolean;
+  saving?: boolean;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = nightStatus;
   const f = oneNightStates;
-  const [state, setState] = useState("request");
+  const [state, setState] = useState<string>(current ?? "request");
   const [hint, setHint] = useState(false);
+  const [slaMinutes, setSlaMinutes] = useState("30");
+  const [expiryAction, setExpiryAction] = useState<"auto_reject" | "escalate_to_hoteliana">(
+    "auto_reject",
+  );
+  const slaAsked = Boolean(onApply) && needsSla && state === "request";
+  const slaNumber = Number(slaMinutes);
+  const slaBad =
+    slaAsked && (!Number.isInteger(slaNumber) || slaNumber < 10 || slaNumber > 120);
 
   return (
     <IconModal
@@ -1618,7 +1640,18 @@ export function NightStatusOverlay({
             </Button>
           }
         >
-          <Button onClick={onClose}>{c.apply[k]}</Button>
+          <Button
+            disabled={saving || slaBad || (onApply !== undefined && state === current)}
+            onClick={() => {
+              if (!onApply) return onClose();
+              onApply(
+                state as "open" | "stop" | "request",
+                slaAsked ? { slaMinutes: slaNumber, expiryAction } : undefined,
+              );
+            }}
+          >
+            {c.apply[k]}
+          </Button>
         </Actions>
       }
     >
@@ -1661,6 +1694,37 @@ export function NightStatusOverlay({
           </button>
         ))}
       </div>
+      {slaAsked && (
+        <div className="space-y-2 rounded-[10px] bg-surface-subtle p-3">
+          <label className="flex flex-wrap items-center gap-2 text-[12.5px] text-text-primary">
+            {liveGrid.slaLabel[k]}
+            <input
+              inputMode="numeric"
+              value={slaMinutes}
+              onChange={(e) => setSlaMinutes(e.target.value)}
+              aria-invalid={slaBad}
+              className="h-9 w-20 rounded-lg border border-border-default bg-surface-default px-2 text-[12.5px]"
+            />
+            <span className="text-[11.5px] text-text-quiet">{liveGrid.slaHint[k]}</span>
+          </label>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {(["auto_reject", "escalate_to_hoteliana"] as const).map((value) => (
+              <label
+                key={value}
+                className="flex cursor-pointer items-center gap-2 text-[12.5px] text-text-primary"
+              >
+                <input
+                  type="radio"
+                  checked={expiryAction === value}
+                  onChange={() => setExpiryAction(value)}
+                  className="accent-[var(--brand-deep)]"
+                />
+                {liveGrid.expiry[value][k]}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
       <Check
         checked={hint}
         onChange={() => setHint(!hint)}

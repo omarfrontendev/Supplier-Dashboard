@@ -1008,6 +1008,23 @@ export const liveGrid = {
   ),
   nothingMatches: t("Nothing matches in the months you show.", "لا شيء يطابق في الأشهر المعروضة."),
   clearFilter: t("Clear filter", "إزالة الفلتر"),
+  slaLabel: t("The hotel answers within", "يرد الفندق خلال"),
+  slaHint: t("minutes · 10 - 120", "دقيقة · ١٠ - ١٢٠"),
+  expiry: {
+    auto_reject: t("No answer: reject the booking", "بلا رد: رفض الحجز"),
+    escalate_to_hoteliana: t("No answer: pass it to Hoteliana", "بلا رد: تحويله إلى Hoteliana"),
+  },
+  sellSaved: t("Sell status saved", "تم حفظ حالة البيع"),
+  sellHeld: t(
+    "Prices and rooms held stay as they are. Confirmed bookings are not touched.",
+    "الأسعار والغرف المحجوزة تبقى كما هي. والحجوزات المؤكدة لا تُمس.",
+  ),
+  sellNow: t(
+    "Live as soon as you save - new bookings follow it straight away.",
+    "يسري فور الحفظ - وتتبعه الحجوزات الجديدة مباشرة.",
+  ),
+  stopSaleValue: t("Stop sale", "إيقاف البيع"),
+  onRequestValue: t("On Request", "عند الطلب"),
   exportHead: {
     en: ["Room", "Night", "Rate", "Currency", "Price from", "Rooms in pool"],
     ar: ["الغرفة", "الليلة", "السعر", "العملة", "مصدر السعر", "الغرف في المخزون"],

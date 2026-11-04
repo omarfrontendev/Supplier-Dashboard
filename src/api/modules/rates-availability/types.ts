@@ -238,3 +238,90 @@ export interface RateOverridesData {
   meta: RatesPageMeta;
   emptyState: "no_overrides" | null;
 }
+
+export type SellControlStatus = "stop_sale" | "on_request";
+
+export interface SellControlSla {
+  slaMinutes: number;
+  expiryAction: "auto_reject" | "escalate_to_hoteliana";
+}
+
+export interface SellControlOverride {
+  ruleId: number;
+  reason: string | null;
+  status: SellControlStatus;
+  onRequestSettings: SellControlSla | null;
+  slaSource: "contract" | "rule" | null;
+}
+
+export interface SellControlScope {
+  variationIds?: number[];
+  allRooms?: true;
+  dates?: string[];
+  startDate?: string;
+  endDate?: string;
+  weekdays?: number[];
+}
+
+export interface SellControlTargetsData {
+  contractId: number;
+  timezone: string;
+  eligible: boolean;
+  bookingType: "allotment_block" | "on_request";
+  onRequestSettings: SellControlSla | null;
+  sellControlsRevision: number;
+  targets: Array<{ variationId: number; roomId: number; view: string }>;
+}
+
+export interface SellControlsContextData {
+  contractId: number;
+  sellControlsRevision: number;
+  eligible: boolean;
+  onRequestSettings: SellControlSla | null;
+  cells: Array<{ variationId: number; stayDate: string; override: SellControlOverride | null }>;
+}
+
+export interface SellControlRule {
+  id: number;
+  status: SellControlStatus;
+  live: boolean;
+  onRequestSettings: SellControlSla | null;
+  cells: Array<{ variationId: number; stayDate: string }>;
+  [key: string]: unknown;
+}
+
+export interface SellControlsListData {
+  contractId: number;
+  sellControlsRevision: number;
+  rules: SellControlRule[];
+  meta: RatesPageMeta;
+  emptyState: "no_sell_controls" | null;
+}
+
+export type SellControlOperation =
+  | (SellControlScope & {
+      action: "create";
+      status: SellControlStatus;
+      onRequestSettings?: SellControlSla;
+    })
+  | (SellControlScope & {
+      action: "edit";
+      ruleId: number;
+      status: SellControlStatus;
+      onRequestSettings?: SellControlSla;
+    })
+  | (SellControlScope & { action: "open_sale" })
+  | { action: "remove"; ruleId: number };
+
+export interface SellControlChangesData {
+  contractId: number;
+  sellControlsRevision: number;
+  changes: Array<{
+    variationId: number;
+    stayDate: string;
+    before: SellControlOverride | null;
+    after: SellControlOverride | null;
+  }>;
+  counts: { cells: number; nights: number; rooms: number };
+  replacedRuleIds: number[];
+}

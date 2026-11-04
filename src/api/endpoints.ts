@@ -92,6 +92,13 @@ const ratesAndAvailability = {
   rateOverridesPreview: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/rate-overrides/preview`,
   rateOverrides: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-overrides`,
+  sellControlTargets: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/sell-control-targets`,
+  sellControlsContext: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/sell-controls/context`,
+  sellControlsPreview: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/sell-controls/preview`,
+  sellControls: (contractId: number) => `/ratesandavailability/contracts/${contractId}/sell-controls`,
 };
 
 export const endpoints = {

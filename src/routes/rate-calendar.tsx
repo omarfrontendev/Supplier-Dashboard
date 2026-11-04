@@ -55,6 +55,12 @@ import {
   selectionBar,
 } from "@/lib/rate-overlay-data";
 import { useRatesHotels } from "@/api/modules/rates-availability/useRatesHotels";
+import {
+  useSaveSellControls,
+  useSellControlTargets,
+  useSellControls,
+  useSellControlsContext,
+} from "@/api/modules/rates-availability/useSellControls";
 import { useRatesHotelContracts } from "@/api/modules/rates-availability/useRatesContracts";
 import {
   useRateTargets,
@@ -65,6 +71,8 @@ import {
 } from "@/api/modules/rates-availability/useRates";
 import type { AlreadySet } from "@/lib/bulk-range-data";
 import type {
+  SellControlOperation,
+  SellControlRule,
   RateOverrideRow,
   RateTarget,
   RateTargetsData,
@@ -210,6 +218,15 @@ function RateCalendarPage() {
       : null,
   );
   const saveRates = useSaveRateOverrides(pickedContract?.id);
+  const sellQuery = useSellControlsContext(
+    pickedContract?.id,
+    live && termDates.length
+      ? { allRooms: true, startDate: termDates[0]!, endDate: termDates[termDates.length - 1]! }
+      : null,
+  );
+  const sellAt = new Map(
+    (sellQuery.data?.cells ?? []).map((cell) => [`${cell.variationId}|${cell.stayDate}`, cell.override]),
+  );
   const liveRows: GridRow[] = live
     ? rateTargets.targets.map((target) => {
         const nights = (contextQuery.data?.nights ?? []).filter(
@@ -268,7 +285,10 @@ function RateCalendarPage() {
                 ? (capByDay.get(day) ?? 0)
                 : 0,
           ),
-          status: monthDates.map(() => "·"),
+          status: monthDates.map((day) => {
+            const override = sellAt.get(`${target.variationId}|${day}`);
+            return override?.status === "stop_sale" ? "SS" : override?.status === "on_request" ? "RQ" : "·";
+          }),
           release: monthDates.map(() => 0),
           target: {
             variationId: target.variationId,
@@ -376,6 +396,11 @@ function RateCalendarPage() {
     | null
   >(null);
   const overridesQuery = useRateOverrides(pickedContract?.id, live && overlay === "bulk");
+  const sellTargets = useSellControlTargets(
+    live && (overlay === "stopSale" || overlay === "status") ? pickedContract?.id : undefined,
+  );
+  const sellRules = useSellControls(pickedContract?.id, live && overlay === "stopSale");
+  const saveSell = useSaveSellControls(pickedContract?.id);
   /* OV 04.1PN - whose prices the grid is showing. Everyone, until asked. */
   const [priceGroup, setPriceGroup] = useState<CalendarGroupId>("everyone");
   /*
@@ -1121,7 +1146,16 @@ function RateCalendarPage() {
       <RateGrid
         rows={rows}
         fade={fade}
-        show={live ? { ...show, inventory: show.inventory && liveDetail !== undefined, status: false, release: false } : show}
+        show={
+          live
+            ? {
+                ...show,
+                inventory: show.inventory && liveDetail !== undefined,
+                status: show.status && sellQuery.data !== undefined,
+                release: false,
+              }
+            : show
+        }
         compact={compact}
         hidePast={hidePast}
         model={gridModel}
@@ -1283,6 +1317,64 @@ function RateCalendarPage() {
                 },
               }
             : {})}
+          {...(live && overlay === "stopSale"
+            ? {
+                roomOptions: allRows
+                  .filter(
+                    (row, index, list) =>
+                      list.findIndex((item) => item.target?.variationId === row.target?.variationId) === index,
+                  )
+                  .map((row) => ({ en: row.name, ar: row.nameAr })),
+                needsSla: !sellTargets.data?.onRequestSettings,
+                existing: sellRuleRows(sellRules.data ?? [], allRows),
+                onRemoveExisting: async (row) => {
+                  try {
+                    await saveSell.mutateAsync([{ action: "remove", ruleId: Number(row.id) }]);
+                    notify.success(liveGrid.sellSaved[k]);
+                  } catch (error) {
+                    notify.error(getApiErrorMessage(error));
+                  }
+                },
+                onApplyStatus: async (lines) => {
+                  if (!sellTargets.data?.eligible) {
+                    notify.error(liveGrid.notEligible[k]);
+                    throw new Error("not eligible");
+                  }
+                  const ids = (names: string[]) => [
+                    ...new Set(
+                      allRows
+                        .filter((row) => names.includes(row.name))
+                        .flatMap((row) => (row.target ? [row.target.variationId] : [])),
+                    ),
+                  ];
+                  const operations: SellControlOperation[] = lines.flatMap((line) =>
+                    line.ranges.map((range) => {
+                      const scope = {
+                        ...(line.allRooms ? { allRooms: true as const } : { variationIds: ids(line.rooms) }),
+                        startDate: range.start,
+                        endDate: range.end ?? range.start,
+                        ...(line.weekdays.length < 7 ? { weekdays: line.weekdays } : {}),
+                      };
+                      return line.status === "openSale"
+                        ? { action: "open_sale" as const, ...scope }
+                        : {
+                            action: "create" as const,
+                            status: line.status === "stopSale" ? ("stop_sale" as const) : ("on_request" as const),
+                            ...scope,
+                            ...(line.sla ? { onRequestSettings: line.sla } : {}),
+                          };
+                    }),
+                  );
+                  try {
+                    await saveSell.mutateAsync(operations);
+                    notify.success(liveGrid.sellSaved[k]);
+                  } catch (error) {
+                    notify.error(getApiErrorMessage(error));
+                    throw error;
+                  }
+                },
+              }
+            : {})}
           onClose={() => setOverlay(null)}
           onEditContract={() => {
             setOverlay(null);
@@ -1430,6 +1522,43 @@ function RateCalendarPage() {
           date={nightDate}
           fixed={fixedPrice}
           onClose={() => setOverlay(null)}
+          {...(live && nightRow?.target && nightCell
+            ? {
+                current:
+                  nightRow.status[nightCell.night - 1] === "SS"
+                    ? ("stop" as const)
+                    : nightRow.status[nightCell.night - 1] === "RQ"
+                      ? ("request" as const)
+                      : ("open" as const),
+                needsSla: !sellTargets.data?.onRequestSettings,
+                saving: saveSell.isPending,
+                onApply: (state, sla) => {
+                  const scope = {
+                    variationIds: [nightRow.target!.variationId],
+                    dates: [isoDay(dateOfNight(month, nightCell.night))],
+                  };
+                  saveSell.mutate(
+                    [
+                      state === "open"
+                        ? { action: "open_sale", ...scope }
+                        : {
+                            action: "create",
+                            status: state === "stop" ? "stop_sale" : "on_request",
+                            ...scope,
+                            ...(sla ? { onRequestSettings: sla } : {}),
+                          },
+                    ],
+                    {
+                      onSuccess: () => {
+                        notify.success(liveGrid.sellSaved[k]);
+                        setOverlay(null);
+                      },
+                      onError: (error) => notify.error(getApiErrorMessage(error)),
+                    },
+                  );
+                },
+              }
+            : {})}
         />
       )}
 
@@ -2037,4 +2166,46 @@ function overrideRuns(overrides: RateOverrideRow[], rows: GridRow[], currency: s
       value: { en: `${run.amount} ${currency}`, ar: `${arNum(run.amount)} ${currency}` },
     };
   });
+}
+
+function sellRuleRows(rules: SellControlRule[], rows: GridRow[]): AlreadySet[] {
+  const label = (iso: string, lang: "en" | "ar") => {
+    const on = new Date(`${iso}T00:00:00`);
+    const num = (value: number) => (lang === "ar" ? arNum(value) : String(value));
+    return `${num(on.getDate())} ${datePickerCopy[lang].monthsShort[on.getMonth()]} ${num(on.getFullYear())}`;
+  };
+  const segments = (dates: string[], lang: "en" | "ar") => {
+    const runs: string[][] = [];
+    for (const day of [...new Set(dates)].sort()) {
+      const last = runs[runs.length - 1];
+      const next = last ? new Date(`${last[last.length - 1]}T00:00:00`) : null;
+      next?.setDate(next.getDate() + 1);
+      if (last && next && isoDay(next) === day) last.push(day);
+      else runs.push([day]);
+    }
+    return runs
+      .map((run) => (run.length === 1 ? label(run[0]!, lang) : `${label(run[0]!, lang)} - ${label(run[run.length - 1]!, lang)}`))
+      .join(lang === "ar" ? "، " : ", ");
+  };
+  const names = (ids: number[], lang: "en" | "ar") =>
+    [...new Set(ids)]
+      .map((id) => {
+        const row = rows.find((item) => item.target?.variationId === id);
+        return row ? (lang === "ar" ? row.nameAr : row.name) : `#${id}`;
+      })
+      .join(lang === "ar" ? "، " : ", ");
+  return rules
+    .filter((rule) => rule.live)
+    .map((rule) => {
+      const dates = rule.cells.map((cell) => cell.stayDate);
+      const ids = rule.cells.map((cell) => cell.variationId);
+      const value = rule.status === "stop_sale" ? liveGrid.stopSaleValue : liveGrid.onRequestValue;
+      return {
+        id: String(rule.id),
+        when: { en: segments(dates, "en"), ar: segments(dates, "ar") },
+        rooms: { en: names(ids, "en"), ar: names(ids, "ar") },
+        value: { en: value.en, ar: value.ar },
+        tone: rule.status === "stop_sale" ? ("danger" as const) : ("warning" as const),
+      };
+    });
 }

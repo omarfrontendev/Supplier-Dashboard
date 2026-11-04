@@ -56,7 +56,7 @@ import {
   type AlreadySet,
   type BulkKind,
 } from "@/lib/bulk-range-data";
-import { oneNight } from "@/lib/rate-overlay-data";
+import { liveGrid, oneNight } from "@/lib/rate-overlay-data";
 import { panelMotion, scrimMotion, useDismiss } from "@/components/layout/overlay";
 import { cn } from "@/lib/utils";
 
@@ -80,6 +80,16 @@ interface Line {
   rooms: Bi;
   value: Bi;
   tone?: "danger" | "warning" | undefined;
+  payload?: StatusPayload | undefined;
+}
+
+export interface StatusPayload {
+  status: "stopSale" | "openSale" | "onRequest";
+  ranges: DayRange[];
+  weekdays: number[];
+  rooms: string[];
+  allRooms: boolean;
+  sla?: { slaMinutes: number; expiryAction: "auto_reject" | "escalate_to_hoteliana" } | undefined;
 }
 
 interface Bi {
@@ -124,6 +134,8 @@ export function BulkRangeOverlay({
   onApplyRates,
   existing,
   onRemoveExisting,
+  onApplyStatus,
+  needsSla = false,
 }: {
   kind: BulkKind;
   /** The contract this is scoped to, printed as the overline. */
@@ -141,6 +153,8 @@ export function BulkRangeOverlay({
     | undefined;
   existing?: AlreadySet[] | undefined;
   onRemoveExisting?: ((row: AlreadySet) => Promise<void>) | undefined;
+  onApplyStatus?: ((lines: StatusPayload[]) => Promise<void>) | undefined;
+  needsSla?: boolean;
 }) {
   const { lang, dir } = useLanguage();
   const k: Lang = lang === "ar" ? "ar" : "en";
@@ -178,6 +192,10 @@ export function BulkRangeOverlay({
   /* Stop sale */
   const [setTo, setSetTo] = useState("stopSale");
   const [everyContract, setEveryContract] = useState(false);
+  const [slaMinutes, setSlaMinutes] = useState("30");
+  const [expiryAction, setExpiryAction] = useState<"auto_reject" | "escalate_to_hoteliana">(
+    "auto_reject",
+  );
   /* Release */
   const [releaseMode, setReleaseMode] = useState("days");
   const [releaseDays, setReleaseDays] = useState("3");
@@ -439,9 +457,25 @@ export function BulkRangeOverlay({
   }, [kind, releaseMode, releaseNumber, picked]);
 
   /* A night, a room and a sound middle are what make a line addable. */
+  const slaAsked = Boolean(onApplyStatus) && needsSla && setTo === "onRequest";
+  const slaNumber = Number(slaMinutes);
+  const slaBad =
+    slaAsked && (!Number.isInteger(slaNumber) || slaNumber < 10 || slaNumber > 120);
+  const statusPayload = (): StatusPayload | undefined =>
+    kind === "stopSale" && onApplyStatus
+      ? {
+          status: setTo as StatusPayload["status"],
+          ranges: picked.map((item) => item.range),
+          weekdays: days,
+          rooms: realRooms.map((room) => room.en),
+          allRooms: rooms.includes(roomList[0]!.en),
+          ...(slaAsked ? { sla: { slaMinutes: slaNumber, expiryAction } } : {}),
+        }
+      : undefined;
   const canAdd =
-    nights > 0 && realRooms.length > 0 && !broken && !priceMissing;
+    nights > 0 && realRooms.length > 0 && !broken && !priceMissing && !slaBad;
   const rows = existing ?? alreadySet[kind];
+  const shownSaved = existing ? [] : saved;
   /* Contract rules whose dates have not started - Inactive, in the
      contract's own table, and not "live" whatever the count says. */
   const dormant = rows.filter((row) => row.inactive).length;
@@ -475,6 +509,7 @@ export function BulkRangeOverlay({
       when: { en: whenLabel, ar: whenLabel },
       rooms: roomNames(realRooms),
       value: setting,
+      payload: statusPayload(),
     };
   };
 
@@ -501,6 +536,7 @@ export function BulkRangeOverlay({
             : kind === "stopSale" && setTo === "onRequest"
               ? "warning"
               : undefined,
+        payload: statusPayload(),
       },
     ]);
     setNote({ kind: "added", what: headline });
@@ -513,6 +549,16 @@ export function BulkRangeOverlay({
     Number(text.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[^0-9.]/g, ""));
 
   const confirm = async () => {
+    if (kind === "stopSale" && onApplyStatus) {
+      setApplying(true);
+      try {
+        await onApplyStatus(lines.flatMap((line) => (line.payload ? [line.payload] : [])));
+      } catch {
+        setApplying(false);
+        return;
+      }
+      setApplying(false);
+    }
     if (kind === "bulkRates" && onApplyRates && picked[0]) {
       setApplying(true);
       try {
@@ -1011,16 +1057,52 @@ export function BulkRangeOverlay({
                   </label>
                 ))}
               </RadioGroup>
-              <label className="mt-3 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary">
-                <Checkbox
-                  checked={everyContract}
-                  onCheckedChange={(v) => setEveryContract(v === true)}
-                />
-                {c.everyContract[k]}
-              </label>
-              <p className="mt-1 text-[11.5px] leading-4 text-text-quiet">
-                {c.everyContractHint[k]}
-              </p>
+              {slaAsked && (
+                <div className="mt-3 space-y-2 rounded-[10px] bg-surface-subtle p-3">
+                  <label className="flex flex-wrap items-center gap-2 text-[12.5px] text-text-primary">
+                    {liveGrid.slaLabel[k]}
+                    <Input
+                      inputMode="numeric"
+                      value={slaMinutes}
+                      onChange={(e) => setSlaMinutes(e.target.value)}
+                      className="h-9 w-20"
+                      aria-invalid={slaBad}
+                    />
+                    <span className="text-[11.5px] text-text-quiet">{liveGrid.slaHint[k]}</span>
+                  </label>
+                  <RadioGroup
+                    className="flex flex-wrap items-center gap-x-5 gap-y-2"
+                    value={expiryAction}
+                    onValueChange={(value) =>
+                      setExpiryAction(value as "auto_reject" | "escalate_to_hoteliana")
+                    }
+                  >
+                    {(["auto_reject", "escalate_to_hoteliana"] as const).map((value) => (
+                      <label
+                        key={value}
+                        className="flex cursor-pointer items-center gap-2 text-[12.5px] text-text-primary"
+                      >
+                        <RadioGroupItem value={value} />
+                        {liveGrid.expiry[value][k]}
+                      </label>
+                    ))}
+                  </RadioGroup>
+                </div>
+              )}
+              {!onApplyStatus && (
+                <>
+                  <label className="mt-3 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary">
+                    <Checkbox
+                      checked={everyContract}
+                      onCheckedChange={(v) => setEveryContract(v === true)}
+                    />
+                    {c.everyContract[k]}
+                  </label>
+                  <p className="mt-1 text-[11.5px] leading-4 text-text-quiet">
+                    {c.everyContractHint[k]}
+                  </p>
+                </>
+              )}
             </Section>
           )}
 
@@ -1316,8 +1398,12 @@ export function BulkRangeOverlay({
                               rooms: roomNames(realRooms)[k],
                               when: whenLabel,
                             }),
-                        c.bulletHeld[k],
-                        oneRange ? c.bulletPricesNow[k] : c.bulletDraft[k],
+                        onApplyStatus ? liveGrid.sellHeld[k] : c.bulletHeld[k],
+                        onApplyStatus
+                          ? liveGrid.sellNow[k]
+                          : oneRange
+                            ? c.bulletPricesNow[k]
+                            : c.bulletDraft[k],
                       ]
                   ).map((line) => (
                     <li
@@ -1358,21 +1444,21 @@ export function BulkRangeOverlay({
                 })
               : dormant > 0
                 ? fill(c.onThisContractSome[k], {
-                    n: rows.length + saved.length,
+                    n: rows.length + shownSaved.length,
                     inactive: howMany(dormant),
                   })
                 : unpublished > 0
                   ? fill(c.onThisContractDraft[k], {
-                      n: rows.length + saved.length,
+                      n: rows.length + shownSaved.length,
                       drafts: howMany(unpublished),
                     })
                   : fill(c.onThisContract[k], {
-                      n: rows.length + saved.length,
+                      n: rows.length + shownSaved.length,
                     })}
           </p>
           <div className="mt-3 space-y-2">
             {/* Anything added or saved in this session sits on top. */}
-            {[...lines, ...saved].map((line) => (
+            {[...lines, ...shownSaved].map((line) => (
               <div
                 key={line.id}
                 className={cn(
