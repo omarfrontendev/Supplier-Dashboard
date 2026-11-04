@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { endpoints } from "@/api/endpoints";
 import type {
   RateChangesData,
+  RatesContractDetail,
   RateContextData,
   RateOperation,
   RateSelection,
@@ -14,6 +15,19 @@ import type {
 const rateKeys = {
   targets: (contractId: number | undefined) => ["rates-availability", "rate-targets", contractId],
   context: (contractId: number | undefined) => ["rates-availability", "rates-context", contractId],
+};
+
+export const useRatesContractDetail = (contractId: number | undefined) => {
+  return useQuery({
+    queryKey: ["rates-availability", "contract-detail", contractId],
+    queryFn: async () => {
+      const response = await api.get<RatesEnvelope<RatesContractDetail>>(
+        endpoints.ratesAndAvailability.contractDetail(contractId!),
+      );
+      return response.data.data;
+    },
+    enabled: contractId !== undefined,
+  });
 };
 
 export const useRateTargets = (contractId: number | undefined) => {

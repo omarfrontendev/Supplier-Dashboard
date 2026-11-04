@@ -157,3 +157,66 @@ export interface RatesEnvelope<T> {
   message: string;
   data: T;
 }
+
+export interface RatesCancellationCharge {
+  kind: "free" | "nights" | "percent" | "fixed";
+  value?: number;
+}
+
+export interface RatesPoolNight {
+  stayDate: string;
+  capacity: number | null;
+  overbookingLimit: number;
+}
+
+export interface RatesInventoryPool {
+  id: number;
+  poolKey: string;
+  mode: "shared_pool" | "per_room_type" | "free_sale";
+  variationId: number | null;
+  nights: RatesPoolNight[];
+}
+
+export interface RatesInventoryCap {
+  variationId: number;
+  poolId: number;
+  nights: Array<{ stayDate: string; maxRooms: number }>;
+}
+
+export interface RatesContractDetail {
+  id: number;
+  hotelId: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  bookingType: "allotment_block" | "on_request";
+  pricingModel: "base_plus_supplements" | "fixed_per_room";
+  status: RatesContractStatus;
+  publicationStatus: "not_finalized" | "ready";
+  weekPricing: { mode: string; weekendDays: string[] } | null;
+  releasePolicy: {
+    type: "same_day" | "number_of_days";
+    daysBeforeCheckIn: number | null;
+    releaseTime: string;
+    afterReleaseAction: "stop_sale" | "on_request";
+  } | null;
+  bookingCutoff: { daysBeforeCheckIn: number; cutoffTime: string } | null;
+  restrictions: unknown[];
+  seasons: unknown[];
+  cancellationPolicy: {
+    tiers: Array<{ daysBefore: number; charge: RatesCancellationCharge }>;
+    noShow: RatesCancellationCharge;
+  } | null;
+  inventoryRules: {
+    mode: "shared_pool" | "per_room_type" | "free_sale";
+    roomsPerNight?: number;
+    whenSoldOut?: { action: string; overbookingLimitPerNight?: number };
+  } | null;
+  pricing: {
+    baseRoom?: { variationId: number; roomId: number; view: string; rate: RateAmount };
+    mealPlans?: Array<{ type: RatesMealPlan; pricingBasis: string; price: number }>;
+  } | null;
+  hotel: { id: number; nameEn: string | null; nameAr: string | null };
+  inventory: { pools: RatesInventoryPool[]; caps: RatesInventoryCap[] };
+}

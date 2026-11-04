@@ -58,10 +58,15 @@ import { useRatesHotels } from "@/api/modules/rates-availability/useRatesHotels"
 import { useRatesHotelContracts } from "@/api/modules/rates-availability/useRatesContracts";
 import {
   useRateTargets,
+  useRatesContractDetail,
   useRatesContext,
   useSaveRateOverrides,
 } from "@/api/modules/rates-availability/useRates";
-import type { RateTarget } from "@/api/modules/rates-availability/types";
+import type {
+  RateTarget,
+  RateTargetsData,
+  RatesContractDetail,
+} from "@/api/modules/rates-availability/types";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { notify } from "@/lib/notify";
 import {
@@ -152,6 +157,24 @@ function RateCalendarPage() {
   const targetsQuery = useRateTargets(pickedContract?.id);
   const rateTargets = targetsQuery.data;
   const live = rateTargets !== undefined && rateTargets.targets.length > 0;
+  const detail = useRatesContractDetail(pickedContract?.id).data;
+  const liveDetail = live && detail?.id === pickedContract?.id ? detail : undefined;
+  const livePools = liveDetail?.inventory.pools ?? [];
+  const nightsOf = (variationId: number | null) => {
+    const pool =
+      livePools.find((item) => item.variationId === variationId) ??
+      (variationId === null ? livePools[0] : undefined);
+    return new Map((pool?.nights ?? []).map((night) => [night.stayDate, night]));
+  };
+  const liveModel = liveDetail
+    ? liveDetail.bookingType === "on_request"
+      ? ("onRequest" as const)
+      : liveDetail.inventoryRules?.mode === "free_sale"
+        ? ("free" as const)
+        : liveDetail.inventoryRules?.mode === "per_room_type"
+          ? ("perRoom" as const)
+          : ("pool" as const)
+    : undefined;
   const fixedPrice = live ? rateTargets.pricingModel === "fixed_per_room" : Boolean(grid.fixedPrice);
 
   useEffect(() => {
@@ -205,6 +228,9 @@ function RateCalendarPage() {
             .filter(Boolean)
             .join(" · ");
         const supplement = nights[0]?.roomSupplement.amount ?? 0;
+        const roomNights = liveModel === "perRoom" ? nightsOf(target.variationId) : null;
+        const cap = liveDetail?.inventory.caps.find((item) => item.variationId === target.variationId);
+        const capByDay = new Map((cap?.nights ?? []).map((night) => [night.stayDate, night.maxRooms]));
         const meta = (lang: "en" | "ar") =>
           fill(
             (target.kind === "base"
@@ -229,8 +255,15 @@ function RateCalendarPage() {
           edited: monthDates.flatMap((day, index) =>
             byDay.get(day)?.source === "daily_override" ? [index + 1] : [],
           ),
-          inventoryLabel: "sold" as const,
-          inventory: monthDates.map(() => 0),
+          inventoryLabel: cap && !roomNights ? ("left" as const) : ("sold" as const),
+          ...(cap && !roomNights ? { cap: cap.nights[0]?.maxRooms ?? 0 } : {}),
+          inventory: monthDates.map((day) =>
+            roomNights
+              ? (roomNights.get(day)?.capacity ?? 0)
+              : cap
+                ? (capByDay.get(day) ?? 0)
+                : 0,
+          ),
           status: monthDates.map(() => "·"),
           release: monthDates.map(() => 0),
           target: {
@@ -277,9 +310,30 @@ function RateCalendarPage() {
   });
   const [visibleRooms, setVisibleRooms] = useState<string[]>(allRows.map((row) => row.name));
   const rowNames = allRows.map((row) => row.name).join("|");
+  const roomsKey = live ? `rates-calendar-rooms:${pickedContract!.id}` : null;
   useEffect(() => {
-    setVisibleRooms(rowNames ? rowNames.split("|") : []);
-  }, [rowNames]);
+    const names = rowNames ? rowNames.split("|") : [];
+    setVisibleRooms(names);
+    if (!roomsKey) return;
+    try {
+      const kept = JSON.parse(localStorage.getItem(roomsKey) ?? "null");
+      if (Array.isArray(kept)) setVisibleRooms(names.filter((name) => kept.includes(name)));
+    } catch {
+      return;
+    }
+  }, [rowNames, roomsKey]);
+  const pickRooms = (next: string[] | ((prev: string[]) => string[])) =>
+    setVisibleRooms((prev) => {
+      const value = typeof next === "function" ? next(prev) : next;
+      if (roomsKey) {
+        try {
+          localStorage.setItem(roomsKey, JSON.stringify(value));
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    });
   const [openMeals, setOpenMeals] = useState<string[]>([]);
   const [colourKey, setColourKey] = useState(false);
   const [threshold, setThreshold] = useState(4);
@@ -488,9 +542,22 @@ function RateCalendarPage() {
   );
   const group = calendarGroups.find((item) => item.id === priceGroup) ?? calendarGroups[0]!;
 
+  const liveLeft = liveDetail
+    ? termDates.map((day) => nightsOf(null).get(day)?.capacity ?? null).filter((left) => left !== null)
+    : [];
   const counts = {
     all: allRows.length,
-    ...(month.key === "2026-09" ? grid.counts : month.counts),
+    ...(liveDetail
+      ? {
+          soldOut: liveLeft.filter((left) => left === 0).length,
+          fewer: liveLeft.filter((left) => left > 0 && left <= threshold).length,
+          stopSale: 0,
+          onRequest: 0,
+          notPublished: 0,
+        }
+      : month.key === "2026-09"
+        ? grid.counts
+        : month.counts),
   };
 
   return (
@@ -542,7 +609,7 @@ function RateCalendarPage() {
             </Button>
           </Link>
         </Gated>
-        {grid.readOnly ? (
+        {live ? null : grid.readOnly ? (
           <StatusPill tone="neutral">{ar ? grid.publishStateAr : grid.publishState}</StatusPill>
         ) : (
           <Gated
@@ -637,9 +704,12 @@ function RateCalendarPage() {
         {/* UI 04.1 — the contract's terms read as one band under the pickers. */}
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-surface-subtle px-3 py-2.5">
           <span className="text-overline me-1.5 text-text-muted">{t.fromContract}</span>
-          {(ar ? grid.summaryAr : grid.summary)
+          {(liveDetail && rateTargets
+            ? contractTerms(liveDetail, rateTargets, k)
+            : (ar ? grid.summaryAr : grid.summary)
+          )
             .map((line, index, all) =>
-              index === all.length - 1 && !grid.readOnly
+              index === all.length - 1 && !grid.readOnly && !liveDetail
                 ? ar
                   ? month.seasonLineAr
                   : month.seasonLine
@@ -653,13 +723,23 @@ function RateCalendarPage() {
                 {line}
               </span>
             ))}
-          <Link
-            to="/rate-contracts/$contractId"
-            params={{ contractId: contract?.id ?? grid.key }}
-            className="px-1 text-xs font-medium text-text-primary hover:underline"
-          >
-            {t.openContract}
-          </Link>
+          {live ? (
+            <Link
+              to="/rate-contracts/$contractId/edit"
+              params={{ contractId: String(pickedContract!.id) }}
+              className="px-1 text-xs font-medium text-text-primary hover:underline"
+            >
+              {t.openContract}
+            </Link>
+          ) : (
+            <Link
+              to="/rate-contracts/$contractId"
+              params={{ contractId: contract?.id ?? grid.key }}
+              className="px-1 text-xs font-medium text-text-primary hover:underline"
+            >
+              {t.openContract}
+            </Link>
+          )}
         </div>
       </SectionCard>
 
@@ -732,7 +812,7 @@ function RateCalendarPage() {
               <CheckRow
                 checked={visibleRooms.length === allRows.length}
                 onChange={() =>
-                  setVisibleRooms(
+                  pickRooms(
                     visibleRooms.length === allRows.length ? [] : allRows.map((row) => row.name),
                   )
                 }
@@ -743,7 +823,7 @@ function RateCalendarPage() {
                   key={row.name}
                   checked={visibleRooms.includes(row.name)}
                   onChange={() =>
-                    setVisibleRooms((prev) =>
+                    pickRooms((prev) =>
                       prev.includes(row.name)
                         ? prev.filter((name) => name !== row.name)
                         : [...prev, row.name],
@@ -907,7 +987,7 @@ function RateCalendarPage() {
         </div>
       )}
 
-      {grid.counts.fewer > 0 && month.key === "2026-09" && !unpriced.length && (
+      {!live && grid.counts.fewer > 0 && month.key === "2026-09" && !unpriced.length && (
         <div className="mb-4 rounded-xl border border-status-info/25 bg-status-info-bg px-4 py-3">
           {/*
            * One row on a wide screen, as the frame draws it. On a phone
@@ -984,15 +1064,31 @@ function RateCalendarPage() {
 
       <RateGrid
         rows={rows}
-        show={live ? { ...show, inventory: false, status: false, release: false } : show}
+        show={live ? { ...show, inventory: show.inventory && liveDetail !== undefined, status: false, release: false } : show}
         compact={compact}
         hidePast={hidePast}
-        model={grid.model}
+        model={liveModel ?? grid.model}
         fixedPrice={fixedPrice}
         currency={rateTargets?.currency}
-        pool={grid.pool}
-        perRoomCaps={grid.perRoomCaps}
-        month={month}
+        pool={liveDetail ? liveDetail.inventoryRules?.roomsPerNight : grid.pool}
+        perRoomCaps={
+          liveDetail
+            ? Object.fromEntries(
+                allRows.map((row) => [
+                  row.name,
+                  row.target ? (nightsOf(row.target.variationId).values().next().value?.capacity ?? 0) : 0,
+                ]),
+              )
+            : grid.perRoomCaps
+        }
+        month={
+          liveDetail
+            ? {
+                ...month,
+                poolLeft: monthDates.map((day) => nightsOf(null).get(day)?.capacity ?? 0),
+              }
+            : month
+        }
         openMeals={openMeals}
         onOpenMeals={(room) =>
           setOpenMeals((prev) =>
@@ -1694,4 +1790,84 @@ function FilterChip({
       )}
     </button>
   );
+}
+
+function contractTerms(detail: RatesContractDetail, targets: RateTargetsData, k: "en" | "ar") {
+  const terms = liveGrid.terms;
+  const num = (value: number) => (k === "ar" ? arNum(value) : String(value));
+  const base = targets.targets.find((target) => target.kind === "base") ?? targets.targets[0];
+  const room = base
+    ? [
+        (k === "ar" ? base.roomNameAr : base.roomNameEn) || base.roomNameEn || base.roomNameAr,
+        liveGrid.views[base.view]?.[k] ?? base.view,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
+  const rate = detail.pricing?.baseRoom?.rate;
+  const pricing =
+    detail.pricingModel === "fixed_per_room"
+      ? terms.fixed[k]
+      : rate && "weekday" in rate
+        ? fill(terms.basePlus[k], {
+            room,
+            weekday: num(rate.weekday),
+            weekend: num(rate.weekend),
+            currency: detail.currency,
+          })
+        : fill(terms.basePlusFlat[k], {
+            room,
+            amount: num(rate && "amount" in rate ? rate.amount : 0),
+            currency: detail.currency,
+          });
+  const weekendDays = detail.weekPricing?.weekendDays ?? [];
+  const weekend =
+    detail.weekPricing?.mode === "weekday_weekend" && weekendDays.length
+      ? fill(terms.weekend[k], {
+          days: weekendDays.map((day) => terms.days[day]?.[k] ?? day).join(k === "ar" ? " و" : ", "),
+        })
+      : terms.sameEveryNight[k];
+  const rules = detail.inventoryRules;
+  const overbooking = rules?.whenSoldOut?.overbookingLimitPerNight;
+  const inventory =
+    detail.bookingType === "on_request"
+      ? terms.onRequest[k]
+      : rules?.mode === "free_sale"
+        ? terms.freeSale[k]
+        : rules?.mode === "per_room_type"
+          ? terms.perRoom[k]
+          : fill(terms.pool[k], { count: num(rules?.roomsPerNight ?? 0) }) +
+            (overbooking ? fill(terms.overbooking[k], { count: num(overbooking) }) : "");
+  const policy = detail.releasePolicy;
+  const release = !policy
+    ? terms.noRelease[k]
+    : policy.type === "same_day"
+      ? fill(terms.releaseSameDay[k], { time: policy.releaseTime })
+      : fill(terms.releaseDays[k], {
+          count: num(policy.daysBeforeCheckIn ?? 0),
+          time: policy.releaseTime,
+        });
+  const tier = detail.cancellationPolicy?.tiers[0];
+  const cancel = tier
+    ? fill(tier.charge.kind === "free" ? terms.cancelFree[k] : terms.cancelCharged[k], {
+        count: num(tier.daysBefore),
+      })
+    : null;
+  const restrictions = detail.restrictions.length
+    ? fill(terms.restrictions[k], { count: num(detail.restrictions.length) })
+    : terms.noRestrictions[k];
+  const day = (iso: string) => {
+    const on = new Date(`${iso}T00:00:00`);
+    const month = datePickerCopy[k].monthsShort[on.getMonth()];
+    return `${num(on.getDate())} ${month} ${num(on.getFullYear())}`;
+  };
+  return [
+    pricing,
+    weekend,
+    inventory,
+    release,
+    ...(cancel ? [cancel] : []),
+    restrictions,
+    fill(terms.term[k], { from: day(detail.startDate), to: day(detail.endDate) }),
+  ];
 }
