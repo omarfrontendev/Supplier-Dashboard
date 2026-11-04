@@ -1,0 +1,1558 @@
+﻿diff --git a/src/components/contracts/contract-builder.tsx b/src/components/contracts/contract-builder.tsx
+index fd404b1..b34a9c4 100644
+--- a/src/components/contracts/contract-builder.tsx
++++ b/src/components/contracts/contract-builder.tsx
+@@ -4,13 +4,21 @@ import { useBlocker, useNavigate } from "@tanstack/react-router";
+ import { AlertTriangle, Check, ChevronRight, Lock, Plus, Save } from "lucide-react";
+ import { IconModal } from "@/components/layout/overlay";
+ import { PageShell } from "@/components/layout/page-shell";
+ import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
+ import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
++import { useHotelContractFinalizationReview } from "@/api/modules/hotel-contract/useHotelContractFinalizationReview";
++import { useFinalizeHotelContract } from "@/api/modules/hotel-contract/useFinalizeHotelContract";
+ import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
+ import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
+-import { getApiErrorList } from "@/lib/api-error";
++import { getApiErrorList, getApiErrorMessage } from "@/lib/api-error";
++import type {
++  FinalizationApiErrorResponse,
++  FinalizationIssue,
++  FinalizeHotelContractRequest,
++  FinalizeHotelContractResult,
++} from "@/api/modules/hotel-contract/finalization-types";
+ import {
+   basicsReady,
+   childPricingChanged,
+   hasInactiveRestrictions,
+   hasChildPricing,
+@@ -71,21 +79,38 @@ import { ActivateDrawer } from "@/components/contracts/lifecycle-overlays";
+ import { CancellationDrawer, ReleaseDrawer } from "@/components/contracts/policy-overlays";
+ import { SeasonEditor, seasonNights as nightsIn } from "@/components/contracts/season-editor";
+ import { SeasonLegend, SeasonTimeline } from "@/components/contracts/season-timeline";
+ import { policyLines } from "@/components/contracts/contract-form/policies-summary";
+ import { seasonPage } from "@/lib/season-page-data";
+-import { WEEKDAY_NUMBER, type SeasonRule } from "@/store/features/contracts/types";
++import { effectivePrice, toAmount } from "@/store/features/contracts/contract-payload";
++import {
++  WEEKDAY_NUMBER,
++  type ChildRuleKey,
++  type SeasonRule,
++} from "@/store/features/contracts/types";
+ import { ChoiceRow, Section, Table } from "@/components/contracts/contract-parts";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { cn } from "@/lib/utils";
+ import { fill, useLanguage } from "@/lib/i18n";
+-import { notify, wait } from "@/lib/notify";
++import { notify } from "@/lib/notify";
+ import { usePortal } from "@/lib/portal-store";
+ import { MONTHS } from "@/lib/contract-data";
+ import type { InventoryModel, RoomView, SoldOutAction } from "@/store/features/contracts/types";
+ import { contractRoomLabel } from "@/lib/contract-room-label";
++import { formatAmount } from "@/components/contracts/contract-form/shared";
++
++interface FinalizationSubmissionSnapshot {
++  id: number;
++  body: FinalizeHotelContractRequest;
++  idempotencyKey: string;
++}
++
++type FinalizationError =
++  | { kind: "network" }
++  | { kind: "validation"; issues: FinalizationIssue[]; version?: number; detail?: string }
++  | { kind: "conflict" | "unavailable" | "permission" | "generic" | "crypto"; detail?: string };
+ 
+ /**
+  * The one-page supply-contract builder ΓÇö Figma UI 03.1 and its variants.
+  * Ten sections down the page, a sticky rail on the left and a live summary
+  * that fills in as the contract takes shape.
+@@ -100,21 +125,47 @@ export function ContractBuilder({
+   sourceId?: string;
+ }) {
+   const { c, lang } = useLanguage();
+   const t = c.builder;
+   const navigate = useNavigate();
+-  const { contracts, addContract } = usePortal();
++  const { contracts } = usePortal();
+   const source = contracts.find((x) => x.id === (contractId ?? sourceId));
+ 
+   const dispatch = useAppDispatch();
+   const draft = useContractDraft();
+   const { basics } = draft;
+   const sourceName = source?.name;
++  const [reviewOpen, setReviewOpen] = useState(false);
++  const [reviewId, setReviewId] = useState<number | null>(null);
++  const createdDraftRef = useRef<SupplierHotelContract | null>(null);
+   const savedId =
+     mode === "edit" && contractId && /^\d+$/.test(contractId) ? Number(contractId) : null;
+   const remote = useHotelContract(savedId);
+   const saved = remote.data ?? null;
++  const currentReviewId = savedId ?? saved?.id ?? reviewId;
++  const reviewQuery = useHotelContractFinalizationReview(reviewOpen ? currentReviewId : null);
++  const review = reviewQuery.isFetching || reviewQuery.isError ? undefined : reviewQuery.data;
++  const reviewResponseKey =
++    review && currentReviewId !== null
++      ? JSON.stringify([
++          currentReviewId,
++          reviewQuery.dataUpdatedAt,
++          review.version,
++          review.confirmation.text,
++          review.confirmation.version,
++        ])
++      : null;
++  const [acceptedReviewKey, setAcceptedReviewKey] = useState<string | null>(null);
++  const confirmationAccepted =
++    review !== undefined && reviewResponseKey !== null && acceptedReviewKey === reviewResponseKey;
++  const [submissionSnapshot, setSubmissionSnapshot] =
++    useState<FinalizationSubmissionSnapshot | null>(null);
++  const [finalizationError, setFinalizationError] = useState<FinalizationError | null>(null);
++  const [finalizationSuccess, setFinalizationSuccess] =
++    useState<FinalizeHotelContractResult | null>(null);
++  const finalizeMutation = useFinalizeHotelContract();
++  const finalizationInFlight = useRef(false);
+   const saveContract = useSaveHotelContract();
+   const savingDraft = saveContract.isPending;
+   const childMaxAge = useChildAgeLimit(basics.hotelId);
+   const loadedId = useRef<number | null>(null);
+   useEffect(() => {
+@@ -142,22 +193,21 @@ export function ContractBuilder({
+       setSelectedRoomDetailsLoading(loading);
+     },
+     [],
+   );
+   const allowLeave = useRef(false);
+-  const [saving, setSaving] = useState(false);
+   /* OV 03.2 ΓÇö the drawer that shows every section before it goes live. */
+-  const [reviewOpen, setReviewOpen] = useState(false);
+   /* OV 03.16 / 03.17 ΓÇö the two policy drawers. */
+   const [policy, setPolicy] = useState<"cancellation" | "release" | null>(null);
+   const [confirmNoPolicies, setConfirmNoPolicies] = useState(false);
+   const [editingSeason, setEditingSeason] = useState<SeasonRule | "new" | null>(null);
+ 
+   const onRequest = basics.bookingType === "on_request";
+   const hasPolicies = draft.policies.enabled;
+   const hasRestrictions = draft.restrictions.enabled;
+   const fixed = draft.pricingModel === "fixed_price";
++  const splitPricing = draft.weekPricing === "weekday_weekend";
+   const { inventory } = draft;
+   const f = t.form;
+   const term =
+     basics.startDate && basics.endDate
+       ? `${readableDay(basics.startDate, lang)} ΓÇô ${readableDay(basics.endDate, lang)}`
+@@ -373,11 +423,448 @@ export function ContractBuilder({
+     ? ((lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn || hotel.nameAr) ?? "")
+     : basics.hotelId
+       ? `#${basics.hotelId}`
+       : "";
+ 
+-  function openReview() {
++  const displayAmount = (amount: number | null | undefined) =>
++    amount === null || amount === undefined
++      ? t.summaryEmpty
++      : formatAmount(amount, lang, basics.currency);
++  const displayRate = (rate?: { amount?: number; weekday?: number; weekend?: number } | null) => {
++    if (splitPricing) {
++      const weekday = rate?.weekday ?? rate?.amount;
++      const weekend = rate?.weekend ?? rate?.amount;
++      return weekday === undefined || weekend === undefined
++        ? null
++        : `${displayAmount(weekday)} / ${displayAmount(weekend)}`;
++    }
++    const amount = rate?.amount ?? rate?.weekday ?? rate?.weekend;
++    return amount === undefined ? null : displayAmount(amount);
++  };
++  const roomName = (roomId: number, view: string | null) => {
++    const room = contractRoomLabel(
++      { id: roomId, roomSizeId: selectedRoomDetails[roomId]?.roomSizeId ?? null },
++      lang,
++    );
++    const viewLabel =
++      view && view in f.views
++        ? f.views[view as keyof typeof f.views]
++        : view && view !== "no_view"
++          ? view
++          : "";
++    return viewLabel ? `${room} ┬╖ ${viewLabel}` : room;
++  };
++  const resolvedPrice = (roomId: number, view: string) =>
++    review?.contract.resolvedRoomPrices.find((item) => item.roomId === roomId && item.view === view)
++      ?.price;
++  const formatConfiguredRate = (weekday: string, weekend: string) => {
++    const weekdayAmount = toAmount(weekday);
++    const weekendAmount = splitPricing ? toAmount(weekend) : weekdayAmount;
++    return splitPricing
++      ? `${displayAmount(weekdayAmount)} / ${displayAmount(weekendAmount)}`
++      : displayAmount(weekdayAmount);
++  };
++  const formatMealPlan = (plan: string) => {
++    const metadata = contractMetadata.data?.mealPlans.find((item) => item.value === plan);
++    if (metadata)
++      return lang === "ar"
++        ? metadata.labelAr || metadata.labelEn
++        : metadata.labelEn || metadata.labelAr;
++    return plan in f.meals ? f.meals[plan as keyof typeof f.meals] : plan;
++  };
++  const reviewRows = (() => {
++    const labels = t.sections;
++    const context = review
++      ? fill(t.reviewBusinessContext, {
++          date: readableDay(review.businessDate, lang),
++          timezone: review.timezone,
++          status:
++            review.targetStatus === "scheduled" ? t.reviewScheduledStatus : t.reviewActiveStatus,
++        })
++      : "";
++    const weekendDays = basics.weekendDays
++      .map((day) => f.days[day])
++      .join(lang === "ar" ? "╪î " : ", ");
++    const basicsValue = [
++      basics.name.trim(),
++      hotelName,
++      term,
++      basics.bookingType === "on_request" ? t.typeRequest : t.typeBlock,
++      basics.currency ?? "",
++      weekendDays,
++      context,
++    ]
++      .filter(Boolean)
++      .join(" ┬╖ ");
++
++    const baseRoomId = draft.baseSupplements.baseRoomId;
++    const baseRoomView =
++      baseRoomId === null
++        ? "no_view"
++        : (selectedRoomDetails[baseRoomId]?.view ?? saved?.pricing?.baseRoom?.view ?? "no_view");
++    const baseRate = review?.contract.pricing?.baseRoom?.rate ?? undefined;
++    const baseRoomValue = fixed
++      ? t.modelFixed
++      : [
++          t.modelSupplements,
++          baseRoomId === null ? "" : roomName(baseRoomId, baseRoomView),
++          displayRate(baseRate) ??
++            formatConfiguredRate(
++              draft.baseSupplements.weekdayBaseCost,
++              draft.baseSupplements.weekendBaseCost,
++            ),
++          splitPricing ? t.weekSplit : t.weekOne,
++        ]
++          .filter(Boolean)
++          .join(" ┬╖ ");
++
++    const roomValues = fixed
++      ? draft.fixedRooms.map((room) => {
++          const canonical = displayRate(
++            resolvedPrice(room.roomId, room.view) ??
++              review?.contract.pricing?.rooms.find(
++                (item) => item.roomId === room.roomId && item.view === room.view,
++              )?.rate,
++          );
++          return `${roomName(room.roomId, room.view)} ┬╖ ${
++            canonical ?? formatConfiguredRate(room.weekdayPrice, room.weekendPrice)
++          }`;
++        })
++      : [
++          ...(baseRoomId === null
++            ? []
++            : [
++                `${roomName(baseRoomId, baseRoomView)} ┬╖ ${
++                  displayRate(resolvedPrice(baseRoomId, baseRoomView)) ??
++                  formatConfiguredRate(
++                    draft.baseSupplements.weekdayBaseCost,
++                    draft.baseSupplements.weekendBaseCost,
++                  )
++                }`,
++              ]),
++          ...draft.baseSupplements.rooms
++            .filter(
++              (room) => room.roomId !== baseRoomId || (room.view ?? "no_view") !== baseRoomView,
++            )
++            .map((room) => {
++              const view = room.view ?? selectedRoomDetails[room.roomId]?.view ?? "no_view";
++              const baseWeekday = toAmount(draft.baseSupplements.weekdayBaseCost);
++              const baseWeekend = toAmount(draft.baseSupplements.weekendBaseCost);
++              const formWeekday = effectivePrice(
++                draft.baseSupplements.weekdayBaseCost,
++                room.supplement,
++              );
++              const formWeekend = effectivePrice(
++                draft.baseSupplements.weekendBaseCost,
++                room.supplement,
++              );
++              const canonical =
++                displayRate(resolvedPrice(room.roomId, view)) ??
++                displayRate(
++                  review?.contract.pricing?.rooms.find(
++                    (item) => item.roomId === room.roomId && item.view === view,
++                  )?.rate,
++                );
++              return `${roomName(room.roomId, view)} ┬╖ ${
++                canonical ??
++                (splitPricing
++                  ? `${displayAmount(formWeekday)} / ${displayAmount(formWeekend)}`
++                  : displayAmount(formWeekday))
++              }`;
++            }),
++        ];
++
++    const childValues = (Object.keys(draft.children) as ChildRuleKey[]).map((key) => {
++      const child = draft.children[key];
++      return `${f.children.rules[key]} ┬╖ ${fill(f.children.ageRange, {
++        from: child.ageFrom,
++        to: child.ageTo,
++      })} ┬╖ ${displayAmount(toAmount(child.price))}`;
++    });
++    const mealValues = fixed
++      ? [
++          ...new Map(
++            draft.fixedRooms.flatMap((room) =>
++              room.meals.map((meal) => {
++                const canonical = review?.contract.pricing?.rooms
++                  .find((item) => item.roomId === room.roomId && item.view === room.view)
++                  ?.mealPlans.find((item) => item.type === meal.plan);
++                return [
++                  meal.plan,
++                  `${formatMealPlan(meal.plan)} ┬╖ ${displayAmount(
++                    canonical?.price ?? toAmount(meal.price),
++                  )}`,
++                ];
++              }),
++            ),
++          ).values(),
++        ]
++      : Object.entries(draft.meals)
++          .filter(([, meal]) => meal.enabled)
++          .map(([plan, meal]) => {
++            const canonical = review?.contract.pricing?.mealPlans.find(
++              (item) => item.type === plan,
++            );
++            return `${formatMealPlan(plan)} ┬╖ ${displayAmount(
++              canonical?.price ?? toAmount(meal.price),
++            )} ┬╖ ${meal.basis === "per_person" ? f.mealsTable.perPerson : f.mealsTable.perRoom}`;
++          });
++    const childSummary = childValues.length > 0 ? childValues.join(" ┬╖ ") : f.policies.notSet;
++    const mealSummary = mealValues.length > 0 ? mealValues.join(" ┬╖ ") : f.policies.notSet;
++
++    const preview = review?.inventoryPreview;
++    const inventorySummary = preview
++      ? [
++          fill(t.reviewInventoryMetrics, {
++            nights: preview.nights,
++            mode:
++              preview.mode === "shared_pool"
++                ? t.invShared
++                : preview.mode === "per_room_type"
++                  ? t.invPerRoom
++                  : preview.mode === "free_sale"
++                    ? t.invFree
++                    : preview.mode,
++            pools: preview.poolCount,
++            poolNights: preview.poolNights,
++            capNights: preview.capNights,
++            records: preview.estimatedRecords,
++          }),
++          ...(() => {
++            const rules = preview.rules;
++            if (rules.mode === "free_sale") return [];
++            if (rules.mode === "shared_pool") {
++              const action =
++                rules.whenSoldOut.action === "stop_sale"
++                  ? t.soldOutStop
++                  : rules.whenSoldOut.action === "on_request"
++                    ? t.soldOutRequest
++                    : t.soldOutOver;
++              return [
++                fill(t.invNightsValue, { count: rules.roomsPerNight }),
++                action,
++                ...(rules.whenSoldOut.overbookingLimitPerNight === undefined
++                  ? []
++                  : [
++                      fill(t.reviewOverbooking, {
++                        count: rules.whenSoldOut.overbookingLimitPerNight,
++                      }),
++                    ]),
++                ...(rules.roomCaps ?? []).map((cap) =>
++                  fill(t.reviewCap, {
++                    room: roomName(cap.roomId, cap.view),
++                    count: cap.maxRoomsPerNight,
++                  }),
++                ),
++              ];
++            }
++            const action =
++              rules.whenSoldOut.action === "stop_sale"
++                ? t.soldOutStop
++                : rules.whenSoldOut.action === "on_request"
++                  ? t.soldOutRequest
++                  : t.soldOutOver;
++            return [
++              action,
++              ...rules.rooms.map((room) =>
++                [
++                  fill(t.reviewRoomStock, {
++                    room: roomName(room.roomId, room.view),
++                    count: room.roomsPerNight,
++                  }),
++                  ...(room.overbookingLimitPerNight === undefined
++                    ? []
++                    : [
++                        fill(t.reviewOverbooking, {
++                          count: room.overbookingLimitPerNight,
++                        }),
++                      ]),
++                ].join(" ┬╖ "),
++              ),
++            ];
++          })(),
++        ].join(" ┬╖ ")
++      : [
++          inventory.model === "shared"
++            ? t.invShared
++            : inventory.model === "perRoom"
++              ? t.invPerRoom
++              : t.invFree,
++          ...(inventory.model === "shared"
++            ? [fill(t.invNightsValue, { count: Number(inventory.roomsPerNight) || 0 })]
++            : []),
++        ].join(" ┬╖ ");
++
++    const seasonValues = seasons.map(
++      (season) =>
++        `${season.name} ┬╖ ${readableDay(season.startDate, lang)} ΓÇô ${readableDay(
++          season.endDate,
++          lang,
++        )}`,
++    );
++    const restrictionValues = draft.restrictions.enabled
++      ? draft.restrictions.rules.map(
++          (rule) =>
++            `${rule.roomId === null ? t.reviewAllRooms : roomName(rule.roomId, null)} ┬╖ ${readableDay(
++              rule.startDate,
++              lang,
++            )} ΓÇô ${readableDay(rule.endDate, lang)} ┬╖ ${fill(f.restrictions.minNights, {
++              count: Number(rule.minNights),
++            })} ┬╖ ${rule.active ? t.active : t.inactive}`,
++        )
++      : [];
++    const p = f.policies;
++    const policyValues = [
++      ...(draft.policies.enabled && draft.policies.cancellation
++        ? policyLines(draft.policies.cancellation, p, lang, basics.currency)
++        : []),
++      ...(draft.policies.enabled && draft.policies.release
++        ? [
++            draft.policies.release.period === "same_day"
++              ? fill(p.releaseSameDay, { time: draft.policies.release.time })
++              : fill(p.releaseDays, {
++                  days: draft.policies.release.days,
++                  time: draft.policies.release.time,
++                }),
++          ]
++        : []),
++      ...(onRequest ? [`${f.slaMinutes}: ${basics.slaMinutes}`] : []),
++      ...(review?.contract.bookingCutoff
++        ? [
++            fill(t.reviewCutoff, {
++              days: review.contract.bookingCutoff.daysBeforeCheckIn,
++              time: review.contract.bookingCutoff.cutoffTime,
++            }),
++          ]
++        : []),
++    ];
++
++    return [
++      { label: labels[0]!, value: basicsValue },
++      { label: labels[1]!, value: baseRoomValue },
++      { label: labels[2]!, value: roomValues.join(" ┬╖ ") || f.policies.notSet },
++      { label: labels[3]!, value: childSummary },
++      { label: labels[4]!, value: mealSummary },
++      { label: labels[5]!, value: inventorySummary },
++      { label: labels[6]!, value: seasonValues.join(" ┬╖ ") || f.policies.notSet },
++      {
++        label: labels[7]!,
++        value: restrictionValues.join(" ┬╖ ") || f.policies.notSet,
++      },
++      { label: labels[8]!, value: policyValues.join(" ┬╖ ") || f.policies.notSet },
++    ];
++  })();
++
++  async function sendFinalization(snapshot: FinalizationSubmissionSnapshot) {
++    if (finalizationInFlight.current) return;
++    finalizationInFlight.current = true;
++    setFinalizationError(null);
++    try {
++      const result = await finalizeMutation.mutateAsync(snapshot);
++      setSubmissionSnapshot(null);
++      setAcceptedReviewKey(null);
++      setFinalizationSuccess(result);
++    } catch (error) {
++      if (isAxiosError<FinalizationApiErrorResponse>(error)) {
++        const response = error.response;
++        if (!response) {
++          setFinalizationError({ kind: "network" });
++          return;
++        }
++
++        const detail = response.data?.message;
++        setSubmissionSnapshot(null);
++        if (response.status === 422) {
++          setAcceptedReviewKey(null);
++          setFinalizationError({
++            kind: "validation",
++            issues: response.data?.data?.issues ?? [],
++            ...(response.data?.data?.version === undefined
++              ? {}
++              : { version: response.data.data.version }),
++            ...(detail ? { detail } : {}),
++          });
++          await reviewQuery.refetch();
++          return;
++        }
++        if (response.status === 409) {
++          setAcceptedReviewKey(null);
++          setFinalizationError({ kind: "conflict", ...(detail ? { detail } : {}) });
++          await reviewQuery.refetch();
++          return;
++        }
++        if (response.status === 503) {
++          setFinalizationError({ kind: "unavailable", ...(detail ? { detail } : {}) });
++          return;
++        }
++        if (response.status === 403) {
++          setFinalizationError({ kind: "permission", ...(detail ? { detail } : {}) });
++          return;
++        }
++        setFinalizationError({ kind: "generic", ...(detail ? { detail } : {}) });
++        return;
++      }
++
++      setSubmissionSnapshot(null);
++      setFinalizationError({
++        kind: "generic",
++        ...(error instanceof Error ? { detail: error.message } : {}),
++      });
++    } finally {
++      finalizationInFlight.current = false;
++    }
++  }
++
++  function submitFinalization() {
++    if (
++      !review ||
++      reviewResponseKey === null ||
++      !confirmationAccepted ||
++      review.canFinalize !== true ||
++      review.issues.some((issue) => issue.severity === "error") ||
++      finalizeMutation.isPending ||
++      finalizationInFlight.current ||
++      finalizationSuccess ||
++      submissionSnapshot
++    ) {
++      return;
++    }
++    if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
++      setFinalizationError({ kind: "crypto" });
++      return;
++    }
++
++    let idempotencyKey: string;
++    try {
++      idempotencyKey = crypto.randomUUID();
++    } catch {
++      setFinalizationError({ kind: "crypto" });
++      return;
++    }
++
++    const snapshot: FinalizationSubmissionSnapshot = {
++      id: review.contractId,
++      body: {
++        expectedVersion: review.version,
++        confirmationAccepted: true,
++        confirmationVersion: review.confirmation.version,
++      },
++      idempotencyKey,
++    };
++    setSubmissionSnapshot(snapshot);
++    setFinalizationError(null);
++    setFinalizationSuccess(null);
++    void sendFinalization(snapshot);
++  }
++
++  function retryFinalization() {
++    if (finalizationError?.kind === "network" && submissionSnapshot) {
++      void sendFinalization(submissionSnapshot);
++    }
++  }
++
++  async function openReview() {
+     const issues = validateContract(draft, f.v, childMaxAge);
+     if (
+       !onRequest &&
+       (baseRoomViewMissing || !toInventoryRules(inventory, payloadInventoryVariations, true))
+     ) {
+@@ -386,19 +873,44 @@ export function ContractBuilder({
+     if (issues.length > 0) {
+       notify.error(fill(f.reviewBlocked, { count: issues.length, first: issues[0]!.message }));
+       jumpTo(issues[0]!.section);
+       return;
+     }
++    if (mode === "edit" && (savedId === null || remote.isLoading || remote.isError || !saved)) {
++      notify.error(f.loadFailed);
++      return;
++    }
++    if (!(await saveDraft(false, setReviewId))) return;
++    setAcceptedReviewKey(null);
++    setFinalizationSuccess(null);
++    if (!submissionSnapshot) setFinalizationError(null);
+     setReviewOpen(true);
+   }
++
++  function closeReview() {
++    if (finalizationInFlight.current || submissionSnapshot) return;
++    setReviewOpen(false);
++    setAcceptedReviewKey(null);
++    if (mode === "create" && reviewId !== null) {
++      allowLeave.current = true;
++      navigate({
++        to: "/rate-contracts/$contractId/edit",
++        params: { contractId: String(reviewId) },
++        replace: true,
++      });
++    }
++  }
+   function jumpTo(section: ContractSectionKey) {
+     document
+       .getElementById(`contract-section-${num(section)}`)
+       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+   }
+ 
+-  async function saveDraft(leaving = false): Promise<boolean> {
++  async function saveDraft(
++    leaving = false,
++    onSavedForReview?: (id: number) => void,
++  ): Promise<boolean> {
+     if (!basicsReady(draft)) {
+       notify.error(f.saveNeedsBasics);
+       jumpTo("basics");
+       return false;
+     }
+@@ -519,29 +1031,36 @@ export function ContractBuilder({
+         jumpTo("booking");
+         return false;
+       }
+     }
+ 
+-    let contract: SupplierHotelContract | null = saved;
++    let contract: SupplierHotelContract | null = saved ?? createdDraftRef.current;
+     let createdId: number | null = null;
+     try {
+       if (!contract) {
+         contract = await saveContract.mutateAsync({
+           id: null,
+           body: toCreateContractBody(draft, inventoryRules, basePricingRoomView),
+         });
+         createdId = contract.id;
++        createdDraftRef.current = contract;
++        setReviewId(contract.id);
+         if (hasInactiveRestrictions(draft)) {
+           contract = await saveContract.mutateAsync({
+             id: contract.id,
+             body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
+           });
++          createdDraftRef.current = contract;
+         }
+       } else {
+         const body = toUpdateContractBody(draft, contract, inventoryRules, basePricingRoomView);
+-        if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
++        if (body) {
++          contract = await saveContract.mutateAsync({ id: contract.id, body });
++          if (mode === "create") createdDraftRef.current = contract;
++        }
+       }
++      if (contract) onSavedForReview?.(contract.id);
+       if (contract === saved) {
+         if (saved && !sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)) {
+           notify.error(f.saveNeedsBasics);
+           return false;
+         }
+@@ -552,11 +1071,11 @@ export function ContractBuilder({
+       return true;
+     } catch (error) {
+       onSaveError(error instanceof Error ? error : new Error(String(error)), contract);
+       return false;
+     } finally {
+-      if (createdId !== null && !leaving) {
++      if (createdId !== null && !leaving && !onSavedForReview) {
+         loadedId.current = createdId;
+         allowLeave.current = true;
+         navigate({
+           to: "/rate-contracts/$contractId/edit",
+           params: { contractId: String(createdId) },
+@@ -635,46 +1154,32 @@ export function ContractBuilder({
+     } else {
+       leaveBlocker.reset?.();
+     }
+   }
+ 
+-  function activate() {
+-    setSaving(true);
+-    void (async () => {
+-      await wait(650);
+-      addContract({
+-        id: contractId ?? `SC-2027-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+-        hotelId: String(basics.hotelId),
+-        name: basics.name,
+-        nameAr: basics.name,
+-        dates: term,
+-        datesAr: term,
+-        period: term,
+-        periodAr: term,
+-        model: onRequest ? "onRequest" : "instant",
+-        rooms: contractRoomCount,
+-        state: "active",
+-        roomNames: [],
+-        allotment: inventoryQuantity,
+-        roomTypes: contractRoomCount,
+-        soldOut:
+-          inventory.soldOut === "stop"
+-            ? "stop"
+-            : inventory.soldOut === "request"
+-              ? "onRequest"
+-              : "overbooking",
+-        overbooking:
+-          inventory.model === "shared" ? Number(inventory.sharedOverbookingLimitPerNight) || 0 : 0,
+-        releaseDays: 3,
+-        version: "v1.0",
+-      });
+-      notify.success(t.activated);
+-      setSaving(false);
+-      allowLeave.current = true;
+-      navigate({ to: "/rate-contracts" });
+-    })();
+-  }
++  const finalizationMessages: Record<FinalizationError["kind"], string> = {
++    network: t.finalizationNetworkFailure,
++    validation: t.finalizationValidationFailure,
++    conflict: t.finalizationConflict,
++    unavailable: t.finalizationUnavailable,
++    permission: t.finalizationPermission,
++    generic: t.finalizationGenericFailure,
++    crypto: t.finalizationCryptoUnavailable,
++  };
++  const finalizationErrorForDrawer = finalizationError
++    ? {
++        message: finalizationMessages[finalizationError.kind],
++        ...("detail" in finalizationError && finalizationError.detail
++          ? { detail: finalizationError.detail }
++          : {}),
++        ...("issues" in finalizationError ? { issues: finalizationError.issues } : {}),
++        ...("version" in finalizationError && finalizationError.version !== undefined
++          ? { version: finalizationError.version }
++          : {}),
++        retryable: finalizationError.kind === "network",
++      }
++    : null;
+ 
+   return (
+     <PageShell>
+       <button
+         type="button"
+@@ -704,11 +1209,11 @@ export function ContractBuilder({
+             onClick={() => void saveDraft()}
+           >
+             <Save className="h-4 w-4" aria-hidden="true" />
+             {t.saveDraft}
+           </Button>
+-          <Button loading={saving} onClick={openReview}>
++          <Button loading={savingDraft} onClick={openReview}>
+             {t.reviewActivate}
+           </Button>
+         </div>
+       </header>
+ 
+@@ -1496,11 +2001,11 @@ export function ContractBuilder({
+               >
+                 {seasonsDone ? t.reviewReady : t.reviewLocked}
+               </p>
+               <Button
+                 variant={seasonsDone ? "default" : "outline"}
+-                loading={saving}
++                loading={savingDraft}
+                 onClick={openReview}
+               >
+                 {t.reviewActivate}
+               </Button>
+             </div>
+@@ -1581,16 +2086,38 @@ export function ContractBuilder({
+         />
+       )}
+ 
+       {reviewOpen && (
+         <ActivateDrawer
+-          working={saving}
+-          onClose={() => setReviewOpen(false)}
+-          onActivate={() => {
+-            setReviewOpen(false);
+-            activate();
++          rows={reviewRows}
++          loading={reviewQuery.isFetching}
++          loadingLabel={t.reviewLoading}
++          error={
++            reviewQuery.error ? getApiErrorMessage(reviewQuery.error, t.reviewLoadError) : null
++          }
++          retryLabel={f.retry}
++          onRetry={() => void reviewQuery.refetch()}
++          actionLabel={
++            review?.targetStatus === "scheduled"
++              ? t.reviewScheduleContract
++              : t.reviewActivateContract
++          }
++          review={review}
++          reviewKey={reviewResponseKey}
++          confirmationAccepted={confirmationAccepted}
++          onConfirmationChange={(accepted) => {
++            if (reviewResponseKey !== null) {
++              setAcceptedReviewKey(accepted ? reviewResponseKey : null);
++            }
+           }}
++          onFinalize={submitFinalization}
++          finalizationPending={finalizeMutation.isPending}
++          submissionBlocked={finalizationError?.kind === "crypto"}
++          finalizationError={finalizationErrorForDrawer}
++          onRetryFinalization={retryFinalization}
++          finalizationSuccess={finalizationSuccess}
++          onClose={closeReview}
+         />
+       )}
+ 
+       {leaveBlocker.status === "blocked" && (
+         <UnsavedOverlay
+diff --git a/src/components/contracts/lifecycle-overlays.tsx b/src/components/contracts/lifecycle-overlays.tsx
+index c8a16df..a2a6708 100644
+--- a/src/components/contracts/lifecycle-overlays.tsx
++++ b/src/components/contracts/lifecycle-overlays.tsx
+@@ -1,20 +1,17 @@
+ import { useState } from "react";
+-import {
+-  Check,
+-  ChevronRight,
+-  Clock3,
+-  History,
+-  Pencil,
+-  ShieldAlert,
+-  Undo2,
+-} from "lucide-react";
++import { Check, ChevronRight, Clock3, History, Pencil, ShieldAlert, Undo2 } from "lucide-react";
+ import { Drawer, IconModal } from "@/components/layout/overlay";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { useLanguage } from "@/lib/i18n";
+ import { cn } from "@/lib/utils";
++import type {
++  FinalizationIssue,
++  HotelContractFinalizationReview,
++  FinalizeHotelContractResult,
++} from "@/api/modules/hotel-contract/finalization-types";
+ import {
+   activateDrawer,
+   activityDrawer,
+   amendDialog,
+   answerDialog,
+@@ -30,27 +27,29 @@ const DRAWER_WIDTH = "640px";
+ /** The tick the two review drawers ask for before they go live. */
+ function Acknowledgement({
+   text,
+   on,
+   onToggle,
++  disabled = false,
+ }: {
+   text: string;
+   on: boolean;
+   onToggle: () => void;
++  disabled?: boolean;
+ }) {
+   return (
+     <button
+       type="button"
+       onClick={onToggle}
+-      className="flex w-full items-start gap-3 text-start"
++      disabled={disabled}
++      aria-pressed={on}
++      className="flex w-full items-start gap-3 text-start disabled:cursor-not-allowed disabled:opacity-70"
+     >
+       <span
+         className={cn(
+           "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+-          on
+-            ? "border-brand-deep bg-brand-deep text-text-inverse"
+-            : "border-border-strong"
++          on ? "border-brand-deep bg-brand-deep text-text-inverse" : "border-border-strong",
+         )}
+       >
+         {on && <Check className="h-3 w-3" aria-hidden="true" />}
+       </span>
+       <span className="text-[12.5px] leading-5 text-text-secondary">{text}</span>
+@@ -59,61 +58,281 @@ function Acknowledgement({
+ }
+ 
+ /** OV 03.2 / 03.2C / 03.2L ΓÇö every section at a glance, then activate. */
+ export function ActivateDrawer({
+   onClose,
+-  onActivate,
+-  working = false,
++  rows,
++  loading,
++  loadingLabel,
++  error,
++  retryLabel,
++  onRetry,
++  actionLabel,
++  review,
++  reviewKey,
++  confirmationAccepted,
++  onConfirmationChange,
++  onFinalize,
++  finalizationPending,
++  submissionBlocked,
++  finalizationError,
++  onRetryFinalization,
++  finalizationSuccess,
+ }: {
+   onClose: () => void;
+-  onActivate: () => void;
+-  working?: boolean;
++  rows: Array<{ label: string; value: string }>;
++  loading: boolean;
++  loadingLabel: string;
++  error: string | null;
++  retryLabel: string;
++  onRetry: () => void;
++  actionLabel: string;
++  review: HotelContractFinalizationReview | undefined;
++  reviewKey: string | null;
++  confirmationAccepted: boolean;
++  onConfirmationChange: (accepted: boolean) => void;
++  onFinalize: () => void;
++  finalizationPending: boolean;
++  submissionBlocked: boolean;
++  finalizationError: {
++    message: string;
++    detail?: string;
++    issues?: FinalizationIssue[];
++    version?: number;
++    retryable: boolean;
++  } | null;
++  onRetryFinalization: () => void;
++  finalizationSuccess: FinalizeHotelContractResult | null;
+ }) {
+-  const { lang } = useLanguage();
++  const { c, lang } = useLanguage();
+   const k = lang === "ar" ? "ar" : "en";
+   const d = activateDrawer;
+-  const [agreed, setAgreed] = useState(false);
++  const issueGroups = new Map<string, FinalizationIssue[]>();
++  const allIssues = [...(review?.issues ?? []), ...(finalizationError?.issues ?? [])];
++  for (const issue of allIssues) {
++    const group = issueGroups.get(issue.section);
++    if (group) group.push(issue);
++    else issueGroups.set(issue.section, [issue]);
++  }
++  const hasBlockingIssues = allIssues.some((issue) => issue.severity === "error");
++  const canContinue = Boolean(
++    review &&
++    !loading &&
++    !error &&
++    review.canFinalize === true &&
++    !hasBlockingIssues &&
++    confirmationAccepted,
++  );
++  const disabledReason = finalizationPending
++    ? c.builder.finalizationInProgress
++    : finalizationSuccess
++      ? c.builder.finalizationAlreadySucceeded
++      : finalizationError?.retryable
++        ? c.builder.finalizationRetryRequired
++        : submissionBlocked
++          ? finalizationError?.message
++          : loading
++            ? c.builder.reviewActionLoading
++            : error || !review
++              ? c.builder.reviewActionUnavailable
++              : hasBlockingIssues
++                ? c.builder.reviewActionResolveErrors
++                : !review.canFinalize
++                  ? c.builder.reviewActionNotAllowed
++                  : !confirmationAccepted
++                    ? c.builder.reviewActionAcceptConfirmation
++                    : undefined;
++  const sectionLabels: Record<string, string> = c.builder.reviewIssueSections;
+ 
+   return (
+     <Drawer
+       width={DRAWER_WIDTH}
+       overline={d.overline[k]}
+       title={d.title[k]}
+       meta={d.body[k]}
+       onClose={onClose}
+       footer={
+         <>
+-          <Button variant="outline" onClick={onClose}>
++          <Button
++            variant="outline"
++            onClick={onClose}
++            disabled={finalizationPending || finalizationError?.retryable === true}
++          >
+             {d.cancel[k]}
+           </Button>
+-          <Button disabled={!agreed} loading={working} onClick={onActivate}>
+-            {working ? d.working[k] : d.confirm[k]}
++          <Button
++            disabled={
++              !canContinue ||
++              finalizationPending ||
++              finalizationSuccess !== null ||
++              finalizationError?.retryable === true ||
++              submissionBlocked
++            }
++            reason={disabledReason}
++            onClick={onFinalize}
++          >
++            {finalizationPending ? c.builder.finalizationInProgress : actionLabel}
+           </Button>
+         </>
+       }
+     >
+       <div className="space-y-0">
+-        {d.rows.map((row) => (
+-          <div
+-            key={row.label.en}
+-            className="border-b border-border-subtle py-3 last:border-0"
+-          >
+-            <p className="text-[12.5px] font-medium text-text-primary">
+-              {row.label[k]}
+-            </p>
+-            <p className="mt-1 text-[12px] leading-5 text-text-muted">
+-              {row.value[k]}
+-            </p>
++        {rows.map((row) => (
++          <div key={row.label} className="border-b border-border-subtle py-3 last:border-0">
++            <p className="text-[12.5px] font-medium text-text-primary">{row.label}</p>
++            <p className="mt-1 text-[12px] leading-5 text-text-muted">{row.value || "ΓÇö"}</p>
+           </div>
+         ))}
+       </div>
++      {loading && <p className="mt-3 text-sm text-text-muted">{loadingLabel}</p>}
++      {error && (
++        <div className="mt-3 flex flex-wrap items-center gap-3">
++          <p className="text-sm text-status-danger">{error}</p>
++          <Button variant="outline" size="sm" onClick={onRetry} disabled={finalizationPending}>
++            {retryLabel}
++          </Button>
++        </div>
++      )}
++      {finalizationPending && (
++        <p className="mt-3 text-sm text-text-muted">{c.builder.finalizationInProgress}</p>
++      )}
++      {finalizationError && (
++        <div className="mt-3 space-y-2 rounded-xl border border-status-danger/25 bg-status-danger-bg p-3">
++          <p className="text-sm font-semibold text-status-danger">{finalizationError.message}</p>
++          {finalizationError.detail && (
++            <p className="text-sm leading-5 text-text-primary">{finalizationError.detail}</p>
++          )}
++          {finalizationError.version !== undefined && (
++            <p className="text-xs text-text-muted">
++              {c.builder.finalizationValidationVersion}: {finalizationError.version}
++            </p>
++          )}
++          {finalizationError.retryable && (
++            <Button
++              variant="outline"
++              size="sm"
++              onClick={onRetryFinalization}
++              disabled={finalizationPending}
++            >
++              {c.builder.finalizationRetry}
++            </Button>
++          )}
++        </div>
++      )}
++      {finalizationSuccess && (
++        <section className="mt-4 space-y-2 rounded-xl border border-status-success/25 bg-status-success-bg p-4">
++          <h3 className="text-sm font-semibold text-status-success">
++            {c.builder.finalizationSuccess}
++          </h3>
++          <p className="text-sm text-text-primary">
++            {finalizationSuccess.contract.name} ┬╖ {c.builder.finalizationStatus}:{" "}
++            {finalizationSuccess.contract.status}
++          </p>
++          <p className="text-xs text-text-secondary">
++            {c.builder.finalizationPublicationStatus}:{" "}
++            {finalizationSuccess.contract.publicationStatus}
++          </p>
++          {finalizationSuccess.contract.publication && (
++            <div className="text-xs leading-5 text-text-secondary">
++              <p>
++                {c.builder.finalizationPublicationId}: {finalizationSuccess.contract.publication.id}
++              </p>
++              <p>
++                {c.builder.finalizationTimezone}:{" "}
++                {finalizationSuccess.contract.publication.timezone}
++              </p>
++              <p>
++                {c.builder.finalizationAt}: {finalizationSuccess.contract.publication.finalizedAt}
++              </p>
++            </div>
++          )}
++          <p className="text-xs font-medium text-text-secondary">
++            {c.builder.finalizationGeneratedRecords}
++          </p>
++          <ul className="space-y-1 text-xs text-text-secondary">
++            {Object.entries(finalizationSuccess.generation).map(([category, count]) => (
++              <li key={category}>
++                {category}: {count}
++              </li>
++            ))}
++          </ul>
++        </section>
++      )}
++      {allIssues.length > 0 && (
++        <section className="mt-4 space-y-3" aria-labelledby="finalization-issues-heading">
++          <h3 id="finalization-issues-heading" className="text-sm font-semibold text-text-primary">
++            {c.builder.reviewIssuesHeading}
++          </h3>
++          {[...issueGroups.entries()].map(([section, issues]) => (
++            <div key={section} className="space-y-2">
++              <h4 className="text-[12.5px] font-medium text-text-secondary">
++                {sectionLabels[section] ??
++                  c.builder.reviewUnknownSection.replace("{section}", section)}
++              </h4>
++              {issues.map((issue, index) => {
++                const isError = issue.severity === "error";
++                const metadata = [
++                  `${c.builder.reviewIssueCode}: ${issue.code}`,
++                  `${c.builder.reviewIssueSection}: ${issue.section}`,
++                  `${c.builder.reviewIssuePath}: ${issue.path}`,
++                  ...(issue.entityId == null
++                    ? []
++                    : [`${c.builder.reviewIssueEntityId}: ${issue.entityId}`]),
++                ].join(" ┬╖ ");
++                return (
++                  <article
++                    key={`${issue.code}:${issue.path}:${issue.entityId ?? ""}:${index}`}
++                    className={cn(
++                      "rounded-xl border p-3",
++                      isError
++                        ? "border-status-danger/25 bg-status-danger-bg"
++                        : "border-status-warning/25 bg-status-warning-bg",
++                    )}
++                  >
++                    <p
++                      className={cn(
++                        "text-[12px] font-semibold",
++                        isError ? "text-status-danger" : "text-status-warning",
++                      )}
++                    >
++                      {isError ? c.builder.reviewIssueError : c.builder.reviewIssueWarning}
++                    </p>
++                    <p className="mt-1 text-[12.5px] leading-5 text-text-primary">
++                      {issue.message}
++                    </p>
++                    <p className="mt-1 break-words text-[11px] leading-4 text-text-muted">
++                      {metadata}
++                    </p>
++                  </article>
++                );
++              })}
++            </div>
++          ))}
++        </section>
++      )}
++      {review && !review.canFinalize && !hasBlockingIssues && (
++        <p className="mt-3 rounded-xl border border-status-warning/25 bg-status-warning-bg p-3 text-sm text-status-warning">
++          {c.builder.reviewCannotFinalize}
++        </p>
++      )}
+       <div className="mt-4">
+-        <Acknowledgement
+-          text={d.acknowledgement[k]}
+-          on={agreed}
+-          onToggle={() => setAgreed((prev) => !prev)}
+-        />
++        {review && reviewKey !== null ? (
++          <Acknowledgement
++            key={reviewKey}
++            text={review.confirmation.text}
++            on={confirmationAccepted}
++            onToggle={() => onConfirmationChange(!confirmationAccepted)}
++            disabled={finalizationPending || finalizationSuccess !== null}
++          />
++        ) : (
++          <Acknowledgement
++            text={c.builder.reviewConfirmationUnavailable}
++            on={false}
++            onToggle={() => undefined}
++            disabled
++          />
++        )}
+       </div>
+     </Drawer>
+   );
+ }
+ 
+@@ -165,13 +384,11 @@ export function PublishDrawer({
+                 {row.map((cell, index) => (
+                   <td
+                     key={index}
+                     className={cn(
+                       "py-2.5 pe-3 align-top",
+-                      index === 0
+-                        ? "font-medium text-text-primary"
+-                        : "text-text-secondary"
++                      index === 0 ? "font-medium text-text-primary" : "text-text-secondary",
+                     )}
+                   >
+                     {cell[k] || "ΓÇö"}
+                   </td>
+                 ))}
+@@ -226,11 +443,11 @@ export function ActivityDrawer({ onClose }: { onClose: () => void }) {
+                     key={index}
+                     className={cn(
+                       "py-2.5 pe-3",
+                       index === 0
+                         ? "font-data font-medium text-text-primary"
+-                        : "text-text-secondary"
++                        : "text-text-secondary",
+                     )}
+                   >
+                     {cell[k]}
+                   </td>
+                 ))}
+@@ -243,27 +460,19 @@ export function ActivityDrawer({ onClose }: { onClose: () => void }) {
+       <p className="text-overline mt-5 text-text-muted">{d.activityLabel[k]}</p>
+       <ol className="mt-2 space-y-3">
+         {d.activity.map((entry) => (
+           <li key={entry.meta.en} className="flex gap-3">
+             <div className="w-16 shrink-0">
+-              <p className="text-[12px] font-medium text-text-primary">
+-                {entry.day[k]}
+-              </p>
+-              <p className="font-data text-[11px] text-text-muted">
+-                {entry.time[k]}
+-              </p>
++              <p className="text-[12px] font-medium text-text-primary">{entry.day[k]}</p>
++              <p className="font-data text-[11px] text-text-muted">{entry.time[k]}</p>
+             </div>
+             <div className="min-w-0 border-s border-border-subtle ps-3">
+-              <p className="text-[12.5px] font-medium text-text-primary">
+-                {entry.title[k]}
+-              </p>
++              <p className="text-[12.5px] font-medium text-text-primary">{entry.title[k]}</p>
+               <p className="mt-0.5 text-[11.5px] leading-4 text-text-secondary">
+                 {entry.detail[k]}
+               </p>
+-              <p className="mt-0.5 text-[11px] text-text-muted">
+-                {entry.meta[k]}
+-              </p>
++              <p className="mt-0.5 text-[11px] text-text-muted">{entry.meta[k]}</p>
+             </div>
+           </li>
+         ))}
+       </ol>
+ 
+@@ -292,13 +501,11 @@ export function LifecycleDialogOverlay({
+   onClose: () => void;
+   onConfirm: () => void;
+ }) {
+   const { lang } = useLanguage();
+   const k = lang === "ar" ? "ar" : "en";
+-  const [reason, setReason] = useState(
+-    kind === "terminate" ? terminateReason.value[k] : ""
+-  );
++  const [reason, setReason] = useState(kind === "terminate" ? terminateReason.value[k] : "");
+   const [typed, setTyped] = useState("");
+   const needsTyped = kind === "terminate";
+ 
+   return (
+     <IconModal
+@@ -372,17 +579,11 @@ export function LifecycleDialogOverlay({
+     </IconModal>
+   );
+ }
+ 
+ /** OV 03.22 ΓÇö the amendment that makes v1.4. */
+-export function AmendOverlay({
+-  onClose,
+-  onStart,
+-}: {
+-  onClose: () => void;
+-  onStart: () => void;
+-}) {
++export function AmendOverlay({ onClose, onStart }: { onClose: () => void; onStart: () => void }) {
+   const { lang } = useLanguage();
+   const k = lang === "ar" ? "ar" : "en";
+   const d = amendDialog;
+ 
+   return (
+@@ -402,33 +603,27 @@ export function AmendOverlay({
+       }
+     >
+       <div className="grid gap-3 sm:grid-cols-2">
+         <div className="rounded-[10px] border border-border-subtle bg-surface-subtle px-3.5 py-3">
+           <p className="text-overline text-text-muted">{d.effectiveLabel[k]}</p>
+-          <p className="mt-1 text-[12.5px] font-medium text-text-primary">
+-            {d.effectiveValue[k]}
+-          </p>
++          <p className="mt-1 text-[12.5px] font-medium text-text-primary">{d.effectiveValue[k]}</p>
+           <p className="mt-1 text-[11px] text-text-muted">{d.effectiveHint[k]}</p>
+         </div>
+         <div className="rounded-[10px] border border-border-subtle bg-surface-subtle px-3.5 py-3">
+           <p className="text-overline text-text-muted">{d.changesLabel[k]}</p>
+-          <p className="mt-1 text-[12.5px] font-medium text-text-primary">
+-            {d.changesValue[k]}
+-          </p>
++          <p className="mt-1 text-[12.5px] font-medium text-text-primary">{d.changesValue[k]}</p>
+         </div>
+       </div>
+ 
+       <div className="space-y-1.5">
+         {d.fields.map((field) => (
+           <div
+             key={field.label.en}
+             className="flex items-center justify-between gap-3 border-b border-border-subtle py-2 last:border-0"
+           >
+             <span className="text-[12px] text-text-muted">{field.label[k]}</span>
+-            <span className="text-[12.5px] font-medium text-text-primary">
+-              {field.value[k]}
+-            </span>
++            <span className="text-[12.5px] font-medium text-text-primary">{field.value[k]}</span>
+           </div>
+         ))}
+       </div>
+ 
+       <div className="space-y-1.5 rounded-[12px] bg-surface-subtle px-3.5 py-3">
+@@ -448,17 +643,11 @@ export function AmendOverlay({
+     </IconModal>
+   );
+ }
+ 
+ /** OV 03.23R / R2 ΓÇö confirm or decline one request inside its SLA. */
+-export function AnswerOverlay({
+-  onClose,
+-  onSend,
+-}: {
+-  onClose: () => void;
+-  onSend: () => void;
+-}) {
++export function AnswerOverlay({ onClose, onSend }: { onClose: () => void; onSend: () => void }) {
+   const { lang } = useLanguage();
+   const k = lang === "ar" ? "ar" : "en";
+   const d = answerDialog;
+   const [decision, setDecision] = useState<"confirm" | "decline">("confirm");
+   const [reference, setReference] = useState("");
+@@ -478,13 +667,11 @@ export function AnswerOverlay({
+           <Button onClick={onSend}>{d.confirm[k]}</Button>
+         </>
+       }
+     >
+       <div>
+-        <p className="mb-1.5 text-sm font-medium text-text-primary">
+-          {d.decisionLabel[k]}
+-        </p>
++        <p className="mb-1.5 text-sm font-medium text-text-primary">{d.decisionLabel[k]}</p>
+         <div className="flex gap-2">
+           {(
+             [
+               ["confirm", d.confirmOption[k]],
+               ["decline", d.declineOption[k]],
+@@ -496,11 +683,11 @@ export function AnswerOverlay({
+               onClick={() => setDecision(value)}
+               className={cn(
+                 "rounded-lg border px-3.5 py-2 text-sm transition-colors",
+                 decision === value
+                   ? "border-brand-deep bg-primary-subtle font-medium text-text-primary"
+-                  : "border-border-default text-text-secondary hover:bg-surface-subtle"
++                  : "border-border-default text-text-secondary hover:bg-surface-subtle",
+               )}
+             >
+               {label}
+             </button>
+           ))}
+@@ -515,24 +702,20 @@ export function AnswerOverlay({
+           onChange={(event) => setReference(event.target.value)}
+         />
+       ) : (
+         <>
+           <div>
+-            <p className="mb-1.5 text-sm font-medium text-text-primary">
+-              {d.reasonLabel[k]}
+-            </p>
++            <p className="mb-1.5 text-sm font-medium text-text-primary">{d.reasonLabel[k]}</p>
+             <button
+               type="button"
+               className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-muted"
+             >
+               {d.reasonPlaceholder[k]}
+               <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
+             </button>
+           </div>
+-          <p className="text-[11.5px] leading-5 text-text-muted">
+-            {d.declineNote[k]}
+-          </p>
++          <p className="text-[11.5px] leading-5 text-text-muted">{d.declineNote[k]}</p>
+         </>
+       )}
+     </IconModal>
+   );
+ }
+diff --git a/src/lib/dict-contract.ts b/src/lib/dict-contract.ts
+index 4062f83..214a6ed 100644
+--- a/src/lib/dict-contract.ts
++++ b/src/lib/dict-contract.ts
+@@ -366,10 +366,75 @@ export const contractEn = {
+     reviewBody:
+       "A drawer shows every section at a glance. Confirming activates the contract immediately - Hoteliana does not approve contracts. Confirmed bookings are contractually binding.",
+     reviewReady: "All 9 sections complete ┬╖ Review & activate is the last step.",
+     reviewLocked:
+       "Complete every section to activate - seasons are optional. You can save a draft any time.",
++    reviewLoading: "Loading the latest contract reviewΓÇª",
++    reviewLoadError: "We couldn't load the latest contract review.",
++    reviewIssuesHeading: "Backend review issues",
++    reviewIssueError: "Error",
++    reviewIssueWarning: "Warning",
++    reviewIssueCode: "Code",
++    reviewIssueSection: "Section",
++    reviewIssuePath: "Path",
++    reviewIssueEntityId: "Entity ID",
++    reviewUnknownSection: "Other ({section})",
++    reviewIssueSections: {
++      basics: "Contract basics",
++      pricing: "Pricing model & base",
++      rooms: "Rooms",
++      children: "Extra children",
++      meals: "Meal plans",
++      inventory: "Inventory",
++      seasons: "Rate seasons",
++      restrictions: "Restrictions",
++      policies: "Policies",
++      booking: "Booking",
++    },
++    reviewCannotFinalize:
++      "The backend review currently does not allow this contract to be finalized.",
++    reviewConfirmationUnavailable: "Confirmation is unavailable until the latest review loads.",
++    reviewActionLoading: "Wait for the latest contract review to finish loading.",
++    reviewActionUnavailable: "A successful contract review is required.",
++    reviewActionResolveErrors: "Resolve all blocking errors before continuing.",
++    reviewActionNotAllowed: "The backend review does not allow this contract to be finalized.",
++    reviewActionAcceptConfirmation: "Accept the confirmation above to continue.",
++    finalizationInProgress: "Finalization in progressΓÇª",
++    finalizationSuccess: "Contract finalized successfully.",
++    finalizationNetworkFailure:
++      "The response could not be confirmed because of a network failure. Retry safely with the same submission.",
++    finalizationRetry: "Retry finalization",
++    finalizationValidationFailure: "The backend rejected finalization because validation failed.",
++    finalizationConflict:
++      "The contract changed or is no longer in a finalizable state. Review the latest contract details.",
++    finalizationUnavailable: "Finalization is temporarily unavailable. Please try again later.",
++    finalizationPermission: "You do not have permission to finalize this contract.",
++    finalizationGenericFailure: "The contract could not be finalized.",
++    finalizationCryptoUnavailable:
++      "Secure submission keys are unavailable in this browser. Finalization was not submitted.",
++    finalizationAlreadySucceeded: "This contract has already been finalized.",
++    finalizationRetryRequired:
++      "Retry the original submission before starting another finalization.",
++    finalizationValidationVersion: "Backend review version",
++    finalizationStatus: "Published status",
++    finalizationPublicationStatus: "Publication status",
++    finalizationPublicationId: "Publication ID",
++    finalizationTimezone: "Publication timezone",
++    finalizationAt: "Finalized at",
++    finalizationGeneratedRecords: "Generated records",
++    reviewActivateContract: "Activate contract",
++    reviewScheduleContract: "Schedule contract",
++    reviewActiveStatus: "Active",
++    reviewScheduledStatus: "Scheduled",
++    reviewBusinessContext: "Hotel-local date {date} ┬╖ {timezone} ┬╖ {status}",
++    reviewInventoryMetrics:
++      "{nights} nights ┬╖ {mode} ┬╖ {pools} pools ┬╖ {poolNights} pool-nights ┬╖ {capNights} cap-nights ┬╖ {records} estimated records",
++    reviewRoomStock: "{room} ┬╖ {count} rooms / night",
++    reviewCap: "{room} ┬╖ cap {count} / night",
++    reviewOverbooking: "+{count} overbooking / night",
++    reviewCutoff: "Booking cut-off ┬╖ {days} days before ┬╖ {time}",
++    reviewAllRooms: "All rooms",
+     invPerRoomHint: "Per room type \u00b7 each room type has its own number of rooms a night.",
+     invPerRoomNote:
+       "Each room type has its own number: Standard 20 \u00b7 Deluxe City View 12 \u00b7 Deluxe Partial Haram View 8. A deluxe booking never uses a standard room.",
+     invFreeHint:
+       "Free sale \u00b7 no fixed quantity - the hotel confirms each booking against its own stock.",
+@@ -1191,10 +1256,72 @@ export const contractAr: typeof contractEn = {
+     editRelease: "╪¬╪╣╪»┘è┘ä ╪º┘ä╪º╪│╪¬╪▒╪¼╪º╪╣ ┘ê╪º┘ä╪Ñ┘é┘ü╪º┘ä",
+     reviewBody:
+       "┘è╪╣╪▒╪╢ ┘ä┘ê╪¡ ╪¼╪º┘å╪¿┘è ┘â┘ä ┘é╪│┘à ┘ü┘è ┘ä┘à╪¡╪⌐. ╪º┘ä╪¬╪ú┘â┘è╪» ┘è┘ü╪╣┘æ┘ä ╪º┘ä╪╣┘é╪» ┘ü┘ê╪▒┘ï╪º - ┘ç┘ê╪¬┘è┘ä┘è╪º┘å╪º ┘ä╪º ╪¬╪╣╪¬┘à╪» ╪º┘ä╪╣┘é┘ê╪». ┘ê╪º┘ä╪¡╪¼┘ê╪▓╪º╪¬ ╪º┘ä┘à╪ñ┘â╪»╪⌐ ┘à┘ä╪▓┘à╪⌐ ╪¬╪╣╪º┘é╪»┘è┘ï╪º.",
+     reviewReady: "┘â┘ä ╪º┘ä╪ú┘é╪│╪º┘à ╪º┘ä╪¬╪│╪╣╪⌐ ┘à┘â╪¬┘à┘ä╪⌐ ┬╖ ╪º┘ä┘à╪▒╪º╪¼╪╣╪⌐ ┘ê╪º┘ä╪¬┘ü╪╣┘è┘ä ┘ç┘è ╪º┘ä╪«╪╖┘ê╪⌐ ╪º┘ä╪ú╪«┘è╪▒╪⌐.",
+     reviewLocked: "╪ú┘â┘à┘ä ┘â┘ä ┘é╪│┘à ┘ä╪¬┘ü╪╣┘æ┘ä ╪º┘ä╪╣┘é╪» - ╪º┘ä┘à┘ê╪º╪│┘à ╪º╪«╪¬┘è╪º╪▒┘è╪⌐. ┘ê┘è┘à┘â┘å┘â ╪¡┘ü╪╕ ┘à╪│┘ê╪»╪⌐ ┘ü┘è ╪ú┘è ┘ê┘é╪¬.",
++    reviewLoading: "╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä ╪ú╪¡╪»╪½ ┘à╪▒╪º╪¼╪╣╪⌐ ┘ä┘ä╪╣┘é╪»ΓÇª",
++    reviewLoadError: "╪¬╪╣╪░┘æ╪▒ ╪¬╪¡┘à┘è┘ä ╪ú╪¡╪»╪½ ┘à╪▒╪º╪¼╪╣╪⌐ ┘ä┘ä╪╣┘é╪».",
++    reviewIssuesHeading: "┘à┘ä╪º╪¡╪╕╪º╪¬ ┘à╪▒╪º╪¼╪╣╪⌐ ╪º┘ä╪«╪º╪»┘à",
++    reviewIssueError: "╪«╪╖╪ú",
++    reviewIssueWarning: "╪¬╪¡╪░┘è╪▒",
++    reviewIssueCode: "╪º┘ä╪▒┘à╪▓",
++    reviewIssueSection: "╪º┘ä┘é╪│┘à",
++    reviewIssuePath: "╪º┘ä┘à╪│╪º╪▒",
++    reviewIssueEntityId: "┘à╪╣╪▒┘æ┘ü ╪º┘ä╪╣┘å╪╡╪▒",
++    reviewUnknownSection: "╪ú╪«╪▒┘ë ({section})",
++    reviewIssueSections: {
++      basics: "╪ú╪│╪º╪│┘è╪º╪¬ ╪º┘ä╪╣┘é╪»",
++      pricing: "┘å┘à┘ê╪░╪¼ ╪º┘ä╪¬╪│╪╣┘è╪▒ ┘ê╪º┘ä╪ú╪│╪º╪│",
++      rooms: "╪º┘ä╪║╪▒┘ü",
++      children: "╪º┘ä╪ú╪╖┘ü╪º┘ä ╪º┘ä╪Ñ╪╢╪º┘ü┘è┘ê┘å",
++      meals: "╪«╪╖╪╖ ╪º┘ä┘ê╪¼╪¿╪º╪¬",
++      inventory: "╪º┘ä┘à╪«╪▓┘ê┘å",
++      seasons: "┘à┘ê╪º╪│┘à ╪º┘ä╪ú╪│╪╣╪º╪▒",
++      restrictions: "╪º┘ä┘é┘è┘ê╪»",
++      policies: "╪º┘ä╪│┘è╪º╪│╪º╪¬",
++      booking: "╪º┘ä╪¡╪¼╪▓",
++    },
++    reviewCannotFinalize: "┘à╪▒╪º╪¼╪╣╪⌐ ╪º┘ä╪«╪º╪»┘à ┘ä╪º ╪¬╪│┘à╪¡ ╪¡╪º┘ä┘è┘ï╪º ╪¿╪Ñ┘å┘ç╪º╪í ┘ç╪░╪º ╪º┘ä╪╣┘é╪».",
++    reviewConfirmationUnavailable: "╪º┘ä╪¬╪ú┘â┘è╪» ╪║┘è╪▒ ┘à╪¬╪º╪¡ ╪¡╪¬┘ë ┘è╪¬┘à ╪¬╪¡┘à┘è┘ä ╪ú╪¡╪»╪½ ┘à╪▒╪º╪¼╪╣╪⌐.",
++    reviewActionLoading: "╪º┘å╪¬╪╕╪▒ ╪¡╪¬┘ë ┘è┘â╪¬┘à┘ä ╪¬╪¡┘à┘è┘ä ╪ú╪¡╪»╪½ ┘à╪▒╪º╪¼╪╣╪⌐ ┘ä┘ä╪╣┘é╪».",
++    reviewActionUnavailable: "┘è┘ä╪▓┘à ╪¬╪¡┘à┘è┘ä ┘à╪▒╪º╪¼╪╣╪⌐ ┘å╪º╪¼╪¡╪⌐ ┘ä┘ä╪╣┘é╪».",
++    reviewActionResolveErrors: "╪╣╪º┘ä╪¼ ╪¼┘à┘è╪╣ ╪º┘ä╪ú╪«╪╖╪º╪í ╪º┘ä┘à╪º┘å╪╣╪⌐ ┘é╪¿┘ä ╪º┘ä┘à╪¬╪º╪¿╪╣╪⌐.",
++    reviewActionNotAllowed: "┘à╪▒╪º╪¼╪╣╪⌐ ╪º┘ä╪«╪º╪»┘à ┘ä╪º ╪¬╪│┘à╪¡ ╪¿╪Ñ┘å┘ç╪º╪í ┘ç╪░╪º ╪º┘ä╪╣┘é╪».",
++    reviewActionAcceptConfirmation: "╪º┘é╪¿┘ä ╪º┘ä╪¬╪ú┘â┘è╪» ╪ú╪╣┘ä╪º┘ç ┘ä┘ä┘à╪¬╪º╪¿╪╣╪⌐.",
++    finalizationInProgress: "╪¼╪º╪▒┘ì ╪Ñ┘å┘ç╪º╪í ╪º┘ä╪╣┘é╪»ΓÇª",
++    finalizationSuccess: "╪¬┘à ╪Ñ┘å┘ç╪º╪í ╪º┘ä╪╣┘é╪» ╪¿┘å╪¼╪º╪¡.",
++    finalizationNetworkFailure:
++      "╪¬╪╣╪░┘æ╪▒ ╪¬╪ú┘â┘è╪» ╪º┘ä╪º╪│╪¬╪¼╪º╪¿╪⌐ ╪¿╪│╪¿╪¿ ┘à╪┤┘â┘ä╪⌐ ┘ü┘è ╪º┘ä╪┤╪¿┘â╪⌐. ╪ú╪╣╪» ╪º┘ä┘à╪¡╪º┘ê┘ä╪⌐ ╪¿╪ú┘à╪º┘å ╪¿╪º╪│╪¬╪«╪»╪º┘à ╪º┘ä╪╖┘ä╪¿ ┘å┘ü╪│┘ç.",
++    finalizationRetry: "╪Ñ╪╣╪º╪»╪⌐ ┘à╪¡╪º┘ê┘ä╪⌐ ╪º┘ä╪Ñ┘å┘ç╪º╪í",
++    finalizationValidationFailure: "╪▒┘ü╪╢ ╪º┘ä╪«╪º╪»┘à ╪Ñ┘å┘ç╪º╪í ╪º┘ä╪╣┘é╪» ╪¿╪│╪¿╪¿ ┘ü╪┤┘ä ╪º┘ä╪¬╪¡┘é┘é.",
++    finalizationConflict: "╪¬╪║┘è┘æ╪▒ ╪º┘ä╪╣┘é╪» ╪ú┘ê ┘ä┘à ┘è╪╣╪» ╪¿╪º┘ä╪Ñ┘à┘â╪º┘å ╪Ñ┘å┘ç╪º╪ñ┘ç. ╪▒╪º╪¼╪╣ ╪ú╪¡╪»╪½ ╪¬┘ü╪º╪╡┘è┘ä ╪º┘ä╪╣┘é╪».",
++    finalizationUnavailable: "╪Ñ┘å┘ç╪º╪í ╪º┘ä╪╣┘é┘ê╪» ╪║┘è╪▒ ┘à╪¬╪º╪¡ ┘à╪ñ┘é╪¬┘ï╪º. ┘è┘Å╪▒╪¼┘ë ╪º┘ä┘à╪¡╪º┘ê┘ä╪⌐ ┘ä╪º╪¡┘é┘ï╪º.",
++    finalizationPermission: "┘ä┘è╪│ ┘ä╪»┘è┘â ╪╡┘ä╪º╪¡┘è╪⌐ ╪Ñ┘å┘ç╪º╪í ┘ç╪░╪º ╪º┘ä╪╣┘é╪».",
++    finalizationGenericFailure: "╪¬╪╣╪░┘æ╪▒ ╪Ñ┘å┘ç╪º╪í ╪º┘ä╪╣┘é╪».",
++    finalizationCryptoUnavailable:
++      "┘à┘ü╪º╪¬┘è╪¡ ╪º┘ä╪Ñ╪▒╪│╪º┘ä ╪º┘ä╪ó┘à┘å╪⌐ ╪║┘è╪▒ ┘à╪¬╪º╪¡╪⌐ ┘ü┘è ┘ç╪░╪º ╪º┘ä┘à╪¬╪╡┘ü╪¡. ┘ä┘à ┘è╪¬┘à ╪Ñ╪▒╪│╪º┘ä ╪╖┘ä╪¿ ╪º┘ä╪Ñ┘å┘ç╪º╪í.",
++    finalizationAlreadySucceeded: "╪¬┘à ╪Ñ┘å┘ç╪º╪í ┘ç╪░╪º ╪º┘ä╪╣┘é╪» ╪¿╪º┘ä┘ü╪╣┘ä.",
++    finalizationRetryRequired: "╪ú╪╣╪» ┘à╪¡╪º┘ê┘ä╪⌐ ╪º┘ä╪╖┘ä╪¿ ╪º┘ä╪ú╪╡┘ä┘è ┘é╪¿┘ä ╪¿╪»╪í ╪╣┘à┘ä┘è╪⌐ ╪Ñ┘å┘ç╪º╪í ╪ú╪«╪▒┘ë.",
++    finalizationValidationVersion: "╪Ñ╪╡╪»╪º╪▒ ┘à╪▒╪º╪¼╪╣╪⌐ ╪º┘ä╪«╪º╪»┘à",
++    finalizationStatus: "╪¡╪º┘ä╪⌐ ╪º┘ä┘å╪┤╪▒",
++    finalizationPublicationStatus: "╪¡╪º┘ä╪⌐ ╪º┘ä┘å╪┤╪▒",
++    finalizationPublicationId: "┘à╪╣╪▒┘æ┘ü ╪º┘ä┘å╪┤╪▒",
++    finalizationTimezone: "╪º┘ä┘à┘å╪╖┘é╪⌐ ╪º┘ä╪▓┘à┘å┘è╪⌐ ┘ä┘ä┘å╪┤╪▒",
++    finalizationAt: "┘ê┘é╪¬ ╪º┘ä╪Ñ┘å┘ç╪º╪í",
++    finalizationGeneratedRecords: "╪º┘ä╪│╪¼┘ä╪º╪¬ ╪º┘ä┘à┘å╪┤╪ú╪⌐",
++    reviewActivateContract: "╪¬┘ü╪╣┘è┘ä ╪º┘ä╪╣┘é╪»",
++    reviewScheduleContract: "╪¼╪»┘ê┘ä╪⌐ ╪º┘ä╪╣┘é╪»",
++    reviewActiveStatus: "┘å╪┤╪╖",
++    reviewScheduledStatus: "┘à╪¼╪»┘ê┘ä",
++    reviewBusinessContext: "╪¬╪º╪▒┘è╪« ╪º┘ä┘ü┘å╪»┘é ╪º┘ä┘à╪¡┘ä┘è {date} ┬╖ {timezone} ┬╖ {status}",
++    reviewInventoryMetrics:
++      "{nights} ┘ä┘è┘ä╪⌐ ┬╖ {mode} ┬╖ {pools} ┘à╪«╪▓┘ê┘å ┬╖ {poolNights} ┘ä┘è╪º┘ä┘è ┘à╪«╪▓┘ê┘å ┬╖ {capNights} ┘ä┘è╪º┘ä┘è ╪¿╪¡╪» ┬╖ {records} ╪│╪¼┘ä┘ï╪º ╪¬┘é╪»┘è╪▒┘è┘ï╪º",
++    reviewRoomStock: "{room} ┬╖ {count} ╪║╪▒┘ü╪⌐ / ┘ä┘è┘ä╪⌐",
++    reviewCap: "{room} ┬╖ ╪¡╪» {count} / ┘ä┘è┘ä╪⌐",
++    reviewOverbooking: "+{count} ╪¡╪¼╪▓ ╪▓╪º╪ª╪» / ┘ä┘è┘ä╪⌐",
++    reviewCutoff: "╪ó╪«╪▒ ┘ê┘é╪¬ ┘ä┘ä╪¡╪¼╪▓ ┬╖ ┘é╪¿┘ä {days} ┘è┘ê┘à┘ï╪º ┬╖ {time}",
++    reviewAllRooms: "┘â┘ä ╪º┘ä╪║╪▒┘ü",
+     invPerRoomHint:
+       "\u0644\u0643\u0644 \u0646\u0648\u0639 \u063a\u0631\u0641\u0629 \u00b7 \u0643\u0644 \u0646\u0648\u0639 \u0644\u0647 \u0639\u062f\u062f \u063a\u0631\u0641\u0647 \u0627\u0644\u062e\u0627\u0635 \u0644\u064a\u0644\u064b\u0627.",
+     invPerRoomNote:
+       "\u0643\u0644 \u0646\u0648\u0639 \u063a\u0631\u0641\u0629 \u0644\u0647 \u0639\u062f\u062f\u0647: \u0633\u062a\u0627\u0646\u062f\u0631\u062f \u0662\u0660 \u00b7 \u062f\u064a\u0644\u0648\u0643\u0633 \u0625\u0637\u0644\u0627\u0644\u0629 \u0627\u0644\u0645\u062f\u064a\u0646\u0629 \u0661\u0662 \u00b7 \u062f\u064a\u0644\u0648\u0643\u0633 \u0625\u0637\u0644\u0627\u0644\u0629 \u062c\u0632\u0626\u064a\u0629 \u0668. \u0648\u0644\u0627 \u064a\u0623\u062e\u0630 \u062d\u062c\u0632 \u062f\u064a\u0644\u0648\u0643\u0633 \u0645\u0646 \u063a\u0631\u0641 \u0633\u062a\u0627\u0646\u062f\u0631\u062f \u0623\u0628\u062f\u064b\u0627.",
+     invFreeHint:

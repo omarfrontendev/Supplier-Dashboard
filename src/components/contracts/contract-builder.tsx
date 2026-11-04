@@ -6,9 +6,17 @@ import { IconModal } from "@/components/layout/overlay";
 import { PageShell } from "@/components/layout/page-shell";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
 import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
+import { useHotelContractFinalizationReview } from "@/api/modules/hotel-contract/useHotelContractFinalizationReview";
+import { useFinalizeHotelContract } from "@/api/modules/hotel-contract/useFinalizeHotelContract";
 import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
-import { getApiErrorList } from "@/lib/api-error";
+import { getApiErrorList, getApiErrorMessage } from "@/lib/api-error";
+import type {
+  FinalizationApiErrorResponse,
+  FinalizationIssue,
+  FinalizeHotelContractRequest,
+  FinalizeHotelContractResult,
+} from "@/api/modules/hotel-contract/finalization-types";
 import {
   basicsReady,
   childPricingChanged,
@@ -73,17 +81,165 @@ import { SeasonEditor, seasonNights as nightsIn } from "@/components/contracts/s
 import { SeasonLegend, SeasonTimeline } from "@/components/contracts/season-timeline";
 import { policyLines } from "@/components/contracts/contract-form/policies-summary";
 import { seasonPage } from "@/lib/season-page-data";
-import { WEEKDAY_NUMBER, type SeasonRule } from "@/store/features/contracts/types";
+import { effectivePrice, toAmount } from "@/store/features/contracts/contract-payload";
+import {
+  WEEKDAY_NUMBER,
+  type ChildRuleKey,
+  type SeasonRule,
+} from "@/store/features/contracts/types";
 import { ChoiceRow, Section, Table } from "@/components/contracts/contract-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
-import { notify, wait } from "@/lib/notify";
+import { notify } from "@/lib/notify";
 import { usePortal } from "@/lib/portal-store";
 import { MONTHS } from "@/lib/contract-data";
 import type { InventoryModel, RoomView, SoldOutAction } from "@/store/features/contracts/types";
 import { contractRoomLabel } from "@/lib/contract-room-label";
+import { formatAmount } from "@/components/contracts/contract-form/shared";
+
+interface FinalizationSubmissionSnapshot {
+  status: "unresolved" | "completed";
+  contractId: number;
+  body: FinalizeHotelContractRequest;
+  idempotencyKey: string;
+}
+
+const FINALIZATION_SNAPSHOT_PREFIX = "hoteliana:contract-finalization:pending:v1:";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type StoredSnapshotResult =
+  | { kind: "empty" }
+  | { kind: "unresolved"; snapshot: FinalizationSubmissionSnapshot }
+  | { kind: "completed" }
+  | { kind: "invalid" }
+  | { kind: "unavailable" };
+
+function isFinalizationSubmissionSnapshot(value: unknown): value is FinalizationSubmissionSnapshot {
+  if (typeof value !== "object" || value === null) return false;
+  const snapshot = value as Record<string, unknown>;
+  if (
+    (snapshot["status"] !== "unresolved" && snapshot["status"] !== "completed") ||
+    !Number.isSafeInteger(snapshot["contractId"]) ||
+    (snapshot["contractId"] as number) <= 0 ||
+    typeof snapshot["idempotencyKey"] !== "string" ||
+    !UUID_PATTERN.test(snapshot["idempotencyKey"]) ||
+    typeof snapshot["body"] !== "object" ||
+    snapshot["body"] === null
+  ) {
+    return false;
+  }
+  const body = snapshot["body"] as Record<string, unknown>;
+  return (
+    Object.keys(body).sort().join(",") ===
+      ["confirmationAccepted", "confirmationVersion", "expectedVersion"].sort().join(",") &&
+    Number.isSafeInteger(body["expectedVersion"]) &&
+    (body["expectedVersion"] as number) > 0 &&
+    body["confirmationAccepted"] === true &&
+    typeof body["confirmationVersion"] === "string" &&
+    body["confirmationVersion"].length > 0
+  );
+}
+
+function snapshotStorageKey(contractId: number) {
+  return `${FINALIZATION_SNAPSHOT_PREFIX}${contractId}`;
+}
+
+function readStoredFinalizationSnapshot(): StoredSnapshotResult {
+  if (typeof window === "undefined") return { kind: "unavailable" };
+  try {
+    const storage = window.sessionStorage;
+    const keys: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.startsWith(FINALIZATION_SNAPSHOT_PREFIX)) keys.push(key);
+    }
+    if (keys.length === 0) return { kind: "empty" };
+
+    const snapshots: FinalizationSubmissionSnapshot[] = [];
+    let completed = false;
+    for (const key of keys) {
+      const raw = storage.getItem(key);
+      if (raw === null) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return { kind: "invalid" };
+      }
+      if (
+        !isFinalizationSubmissionSnapshot(parsed) ||
+        key !== snapshotStorageKey(parsed.contractId)
+      ) {
+        return { kind: "invalid" };
+      }
+      if (parsed.status === "completed") {
+        completed = true;
+        storage.removeItem(key);
+      } else {
+        snapshots.push(parsed);
+      }
+    }
+    if (snapshots.length > 1 || (completed && snapshots.length > 0)) {
+      return { kind: "invalid" };
+    }
+    return snapshots[0]
+      ? { kind: "unresolved", snapshot: snapshots[0] }
+      : completed
+        ? { kind: "completed" }
+        : { kind: "empty" };
+  } catch {
+    return { kind: "unavailable" };
+  }
+}
+
+function persistFinalizationSnapshot(snapshot: FinalizationSubmissionSnapshot) {
+  if (typeof window === "undefined") return false;
+  try {
+    window.sessionStorage.setItem(
+      snapshotStorageKey(snapshot.contractId),
+      JSON.stringify(snapshot),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function completeFinalizationSnapshot(snapshot: FinalizationSubmissionSnapshot) {
+  if (typeof window === "undefined") return false;
+  try {
+    const storage = window.sessionStorage;
+    let markedCompleted = false;
+    try {
+      storage.setItem(
+        snapshotStorageKey(snapshot.contractId),
+        JSON.stringify({ ...snapshot, status: "completed" }),
+      );
+      markedCompleted = true;
+    } catch {
+      // The definitive response is still handled in memory if storage is unavailable.
+    }
+    try {
+      storage.removeItem(snapshotStorageKey(snapshot.contractId));
+      return true;
+    } catch {
+      return markedCompleted;
+    }
+  } catch {
+    return false;
+  }
+}
+
+type FinalizationError =
+  | { kind: "network" }
+  | {
+      kind: "ambiguous" | "storage" | "invalidSnapshot" | "resolved";
+      detail?: string;
+    }
+  | { kind: "validation"; issues: FinalizationIssue[]; version?: number; detail?: string }
+  | { kind: "conflict" | "unavailable" | "permission" | "generic" | "crypto"; detail?: string };
 
 /**
  * The one-page supply-contract builder — Figma UI 03.1 and its variants.
@@ -102,17 +258,45 @@ export function ContractBuilder({
   const { c, lang } = useLanguage();
   const t = c.builder;
   const navigate = useNavigate();
-  const { contracts, addContract } = usePortal();
+  const { contracts } = usePortal();
   const source = contracts.find((x) => x.id === (contractId ?? sourceId));
 
   const dispatch = useAppDispatch();
   const draft = useContractDraft();
   const { basics } = draft;
   const sourceName = source?.name;
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewId, setReviewId] = useState<number | null>(null);
+  const createdDraftRef = useRef<SupplierHotelContract | null>(null);
   const savedId =
     mode === "edit" && contractId && /^\d+$/.test(contractId) ? Number(contractId) : null;
   const remote = useHotelContract(savedId);
   const saved = remote.data ?? null;
+  const currentReviewId = savedId ?? saved?.id ?? reviewId;
+  const reviewQuery = useHotelContractFinalizationReview(reviewOpen ? currentReviewId : null);
+  const review = reviewQuery.isFetching || reviewQuery.isError ? undefined : reviewQuery.data;
+  const reviewResponseKey =
+    review && currentReviewId !== null
+      ? JSON.stringify([
+          currentReviewId,
+          reviewQuery.dataUpdatedAt,
+          review.version,
+          review.confirmation.text,
+          review.confirmation.version,
+        ])
+      : null;
+  const [acceptedReviewKey, setAcceptedReviewKey] = useState<string | null>(null);
+  const confirmationAccepted =
+    review !== undefined && reviewResponseKey !== null && acceptedReviewKey === reviewResponseKey;
+  const [submissionSnapshot, setSubmissionSnapshot] =
+    useState<FinalizationSubmissionSnapshot | null>(null);
+  const [snapshotStorageReady, setSnapshotStorageReady] = useState(false);
+  const [snapshotStorageBlocked, setSnapshotStorageBlocked] = useState(false);
+  const [finalizationError, setFinalizationError] = useState<FinalizationError | null>(null);
+  const [finalizationSuccess, setFinalizationSuccess] =
+    useState<FinalizeHotelContractResult | null>(null);
+  const finalizeMutation = useFinalizeHotelContract();
+  const finalizationInFlight = useRef(false);
   const saveContract = useSaveHotelContract();
   const savingDraft = saveContract.isPending;
   const childMaxAge = useChildAgeLimit(basics.hotelId);
@@ -144,9 +328,40 @@ export function ContractBuilder({
     [],
   );
   const allowLeave = useRef(false);
-  const [saving, setSaving] = useState(false);
+  const snapshotRestoreAttempted = useRef(false);
+  useEffect(() => {
+    if (snapshotRestoreAttempted.current) return;
+    snapshotRestoreAttempted.current = true;
+    const stored = readStoredFinalizationSnapshot();
+    setSnapshotStorageReady(true);
+
+    if (stored.kind === "unresolved") {
+      setSubmissionSnapshot(stored.snapshot);
+      setFinalizationError({ kind: "network" });
+      setReviewId(stored.snapshot.contractId);
+      setReviewOpen(true);
+      if (savedId !== stored.snapshot.contractId) {
+        allowLeave.current = true;
+        navigate({
+          to: "/rate-contracts/$contractId/edit",
+          params: { contractId: String(stored.snapshot.contractId) },
+          replace: true,
+        });
+      }
+      return;
+    }
+
+    if (stored.kind === "completed") {
+      setFinalizationError({ kind: "resolved" });
+    } else if (stored.kind === "invalid") {
+      setSnapshotStorageBlocked(true);
+      setFinalizationError({ kind: "invalidSnapshot" });
+    } else if (stored.kind === "unavailable") {
+      setSnapshotStorageBlocked(true);
+      setFinalizationError({ kind: "storage" });
+    }
+  }, [navigate, savedId]);
   /* OV 03.2 — the drawer that shows every section before it goes live. */
-  const [reviewOpen, setReviewOpen] = useState(false);
   /* OV 03.16 / 03.17 — the two policy drawers. */
   const [policy, setPolicy] = useState<"cancellation" | "release" | null>(null);
   const [confirmNoPolicies, setConfirmNoPolicies] = useState(false);
@@ -156,6 +371,7 @@ export function ContractBuilder({
   const hasPolicies = draft.policies.enabled;
   const hasRestrictions = draft.restrictions.enabled;
   const fixed = draft.pricingModel === "fixed_price";
+  const splitPricing = draft.weekPricing === "weekday_weekend";
   const { inventory } = draft;
   const f = t.form;
   const term =
@@ -375,7 +591,491 @@ export function ContractBuilder({
       ? `#${basics.hotelId}`
       : "";
 
-  function openReview() {
+  const displayAmount = (amount: number | null | undefined) =>
+    amount === null || amount === undefined
+      ? t.summaryEmpty
+      : formatAmount(amount, lang, basics.currency);
+  const displayRate = (rate?: { amount?: number; weekday?: number; weekend?: number } | null) => {
+    if (splitPricing) {
+      const weekday = rate?.weekday ?? rate?.amount;
+      const weekend = rate?.weekend ?? rate?.amount;
+      return weekday === undefined || weekend === undefined
+        ? null
+        : `${displayAmount(weekday)} / ${displayAmount(weekend)}`;
+    }
+    const amount = rate?.amount ?? rate?.weekday ?? rate?.weekend;
+    return amount === undefined ? null : displayAmount(amount);
+  };
+  const roomName = (roomId: number, view: string | null) => {
+    const room = contractRoomLabel(
+      { id: roomId, roomSizeId: selectedRoomDetails[roomId]?.roomSizeId ?? null },
+      lang,
+    );
+    const viewLabel =
+      view && view in f.views
+        ? f.views[view as keyof typeof f.views]
+        : view && view !== "no_view"
+          ? view
+          : "";
+    return viewLabel ? `${room} · ${viewLabel}` : room;
+  };
+  const resolvedPrice = (roomId: number, view: string) =>
+    review?.contract.resolvedRoomPrices.find((item) => item.roomId === roomId && item.view === view)
+      ?.price;
+  const formatConfiguredRate = (weekday: string, weekend: string) => {
+    const weekdayAmount = toAmount(weekday);
+    const weekendAmount = splitPricing ? toAmount(weekend) : weekdayAmount;
+    return splitPricing
+      ? `${displayAmount(weekdayAmount)} / ${displayAmount(weekendAmount)}`
+      : displayAmount(weekdayAmount);
+  };
+  const formatMealPlan = (plan: string) => {
+    const metadata = contractMetadata.data?.mealPlans.find((item) => item.value === plan);
+    if (metadata)
+      return lang === "ar"
+        ? metadata.labelAr || metadata.labelEn
+        : metadata.labelEn || metadata.labelAr;
+    return plan in f.meals ? f.meals[plan as keyof typeof f.meals] : plan;
+  };
+  const reviewRows = (() => {
+    const labels = t.sections;
+    const context = review
+      ? fill(t.reviewBusinessContext, {
+          date: readableDay(review.businessDate, lang),
+          timezone: review.timezone,
+          status:
+            review.targetStatus === "scheduled" ? t.reviewScheduledStatus : t.reviewActiveStatus,
+        })
+      : "";
+    const weekendDays = basics.weekendDays
+      .map((day) => f.days[day])
+      .join(lang === "ar" ? "، " : ", ");
+    const basicsValue = [
+      basics.name.trim(),
+      hotelName,
+      term,
+      basics.bookingType === "on_request" ? t.typeRequest : t.typeBlock,
+      basics.currency ?? "",
+      weekendDays,
+      context,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const baseRoomId = draft.baseSupplements.baseRoomId;
+    const baseRoomView =
+      baseRoomId === null
+        ? "no_view"
+        : (selectedRoomDetails[baseRoomId]?.view ?? saved?.pricing?.baseRoom?.view ?? "no_view");
+    const baseRate = review?.contract.pricing?.baseRoom?.rate ?? undefined;
+    const baseRoomValue = fixed
+      ? t.modelFixed
+      : [
+          t.modelSupplements,
+          baseRoomId === null ? "" : roomName(baseRoomId, baseRoomView),
+          displayRate(baseRate) ??
+            formatConfiguredRate(
+              draft.baseSupplements.weekdayBaseCost,
+              draft.baseSupplements.weekendBaseCost,
+            ),
+          splitPricing ? t.weekSplit : t.weekOne,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+    const roomValues = fixed
+      ? draft.fixedRooms.map((room) => {
+          const canonical = displayRate(
+            resolvedPrice(room.roomId, room.view) ??
+              review?.contract.pricing?.rooms.find(
+                (item) => item.roomId === room.roomId && item.view === room.view,
+              )?.rate,
+          );
+          return `${roomName(room.roomId, room.view)} · ${
+            canonical ?? formatConfiguredRate(room.weekdayPrice, room.weekendPrice)
+          }`;
+        })
+      : [
+          ...(baseRoomId === null
+            ? []
+            : [
+                `${roomName(baseRoomId, baseRoomView)} · ${
+                  displayRate(resolvedPrice(baseRoomId, baseRoomView)) ??
+                  formatConfiguredRate(
+                    draft.baseSupplements.weekdayBaseCost,
+                    draft.baseSupplements.weekendBaseCost,
+                  )
+                }`,
+              ]),
+          ...draft.baseSupplements.rooms
+            .filter(
+              (room) => room.roomId !== baseRoomId || (room.view ?? "no_view") !== baseRoomView,
+            )
+            .map((room) => {
+              const view = room.view ?? selectedRoomDetails[room.roomId]?.view ?? "no_view";
+              const baseWeekday = toAmount(draft.baseSupplements.weekdayBaseCost);
+              const baseWeekend = toAmount(draft.baseSupplements.weekendBaseCost);
+              const formWeekday = effectivePrice(
+                draft.baseSupplements.weekdayBaseCost,
+                room.supplement,
+              );
+              const formWeekend = effectivePrice(
+                draft.baseSupplements.weekendBaseCost,
+                room.supplement,
+              );
+              const canonical =
+                displayRate(resolvedPrice(room.roomId, view)) ??
+                displayRate(
+                  review?.contract.pricing?.rooms.find(
+                    (item) => item.roomId === room.roomId && item.view === view,
+                  )?.rate,
+                );
+              return `${roomName(room.roomId, view)} · ${
+                canonical ??
+                (splitPricing
+                  ? `${displayAmount(formWeekday)} / ${displayAmount(formWeekend)}`
+                  : displayAmount(formWeekday))
+              }`;
+            }),
+        ];
+
+    const childValues = (Object.keys(draft.children) as ChildRuleKey[]).map((key) => {
+      const child = draft.children[key];
+      return `${f.children.rules[key]} · ${fill(f.children.ageRange, {
+        from: child.ageFrom,
+        to: child.ageTo,
+      })} · ${displayAmount(toAmount(child.price))}`;
+    });
+    const mealValues = fixed
+      ? [
+          ...new Map(
+            draft.fixedRooms.flatMap((room) =>
+              room.meals.map((meal) => {
+                const canonical = review?.contract.pricing?.rooms
+                  .find((item) => item.roomId === room.roomId && item.view === room.view)
+                  ?.mealPlans.find((item) => item.type === meal.plan);
+                return [
+                  meal.plan,
+                  `${formatMealPlan(meal.plan)} · ${displayAmount(
+                    canonical?.price ?? toAmount(meal.price),
+                  )}`,
+                ];
+              }),
+            ),
+          ).values(),
+        ]
+      : Object.entries(draft.meals)
+          .filter(([, meal]) => meal.enabled)
+          .map(([plan, meal]) => {
+            const canonical = review?.contract.pricing?.mealPlans.find(
+              (item) => item.type === plan,
+            );
+            return `${formatMealPlan(plan)} · ${displayAmount(
+              canonical?.price ?? toAmount(meal.price),
+            )} · ${meal.basis === "per_person" ? f.mealsTable.perPerson : f.mealsTable.perRoom}`;
+          });
+    const childSummary = childValues.length > 0 ? childValues.join(" · ") : f.policies.notSet;
+    const mealSummary = mealValues.length > 0 ? mealValues.join(" · ") : f.policies.notSet;
+
+    const preview = review?.inventoryPreview;
+    const inventorySummary = preview
+      ? [
+          fill(t.reviewInventoryMetrics, {
+            nights: preview.nights,
+            mode:
+              preview.mode === "shared_pool"
+                ? t.invShared
+                : preview.mode === "per_room_type"
+                  ? t.invPerRoom
+                  : preview.mode === "free_sale"
+                    ? t.invFree
+                    : preview.mode,
+            pools: preview.poolCount,
+            poolNights: preview.poolNights,
+            capNights: preview.capNights,
+            records: preview.estimatedRecords,
+          }),
+          ...(() => {
+            const rules = preview.rules;
+            if (rules.mode === "free_sale") return [];
+            if (rules.mode === "shared_pool") {
+              const action =
+                rules.whenSoldOut.action === "stop_sale"
+                  ? t.soldOutStop
+                  : rules.whenSoldOut.action === "on_request"
+                    ? t.soldOutRequest
+                    : t.soldOutOver;
+              return [
+                fill(t.invNightsValue, { count: rules.roomsPerNight }),
+                action,
+                ...(rules.whenSoldOut.overbookingLimitPerNight === undefined
+                  ? []
+                  : [
+                      fill(t.reviewOverbooking, {
+                        count: rules.whenSoldOut.overbookingLimitPerNight,
+                      }),
+                    ]),
+                ...(rules.roomCaps ?? []).map((cap) =>
+                  fill(t.reviewCap, {
+                    room: roomName(cap.roomId, cap.view),
+                    count: cap.maxRoomsPerNight,
+                  }),
+                ),
+              ];
+            }
+            const action =
+              rules.whenSoldOut.action === "stop_sale"
+                ? t.soldOutStop
+                : rules.whenSoldOut.action === "on_request"
+                  ? t.soldOutRequest
+                  : t.soldOutOver;
+            return [
+              action,
+              ...rules.rooms.map((room) =>
+                [
+                  fill(t.reviewRoomStock, {
+                    room: roomName(room.roomId, room.view),
+                    count: room.roomsPerNight,
+                  }),
+                  ...(room.overbookingLimitPerNight === undefined
+                    ? []
+                    : [
+                        fill(t.reviewOverbooking, {
+                          count: room.overbookingLimitPerNight,
+                        }),
+                      ]),
+                ].join(" · "),
+              ),
+            ];
+          })(),
+        ].join(" · ")
+      : [
+          inventory.model === "shared"
+            ? t.invShared
+            : inventory.model === "perRoom"
+              ? t.invPerRoom
+              : t.invFree,
+          ...(inventory.model === "shared"
+            ? [fill(t.invNightsValue, { count: Number(inventory.roomsPerNight) || 0 })]
+            : []),
+        ].join(" · ");
+
+    const seasonValues = seasons.map(
+      (season) =>
+        `${season.name} · ${readableDay(season.startDate, lang)} – ${readableDay(
+          season.endDate,
+          lang,
+        )}`,
+    );
+    const restrictionValues = draft.restrictions.enabled
+      ? draft.restrictions.rules.map(
+          (rule) =>
+            `${rule.roomId === null ? t.reviewAllRooms : roomName(rule.roomId, null)} · ${readableDay(
+              rule.startDate,
+              lang,
+            )} – ${readableDay(rule.endDate, lang)} · ${fill(f.restrictions.minNights, {
+              count: Number(rule.minNights),
+            })} · ${rule.active ? t.active : t.inactive}`,
+        )
+      : [];
+    const p = f.policies;
+    const policyValues = [
+      ...(draft.policies.enabled && draft.policies.cancellation
+        ? policyLines(draft.policies.cancellation, p, lang, basics.currency)
+        : []),
+      ...(draft.policies.enabled && draft.policies.release
+        ? [
+            draft.policies.release.period === "same_day"
+              ? fill(p.releaseSameDay, { time: draft.policies.release.time })
+              : fill(p.releaseDays, {
+                  days: draft.policies.release.days,
+                  time: draft.policies.release.time,
+                }),
+          ]
+        : []),
+      ...(onRequest ? [`${f.slaMinutes}: ${basics.slaMinutes}`] : []),
+      ...(review?.contract.bookingCutoff
+        ? [
+            fill(t.reviewCutoff, {
+              days: review.contract.bookingCutoff.daysBeforeCheckIn,
+              time: review.contract.bookingCutoff.cutoffTime,
+            }),
+          ]
+        : []),
+    ];
+
+    return [
+      { label: labels[0]!, value: basicsValue },
+      { label: labels[1]!, value: baseRoomValue },
+      { label: labels[2]!, value: roomValues.join(" · ") || f.policies.notSet },
+      { label: labels[3]!, value: childSummary },
+      { label: labels[4]!, value: mealSummary },
+      { label: labels[5]!, value: inventorySummary },
+      { label: labels[6]!, value: seasonValues.join(" · ") || f.policies.notSet },
+      {
+        label: labels[7]!,
+        value: restrictionValues.join(" · ") || f.policies.notSet,
+      },
+      { label: labels[8]!, value: policyValues.join(" · ") || f.policies.notSet },
+    ];
+  })();
+
+  async function sendFinalization(snapshot: FinalizationSubmissionSnapshot) {
+    if (finalizationInFlight.current) return;
+    finalizationInFlight.current = true;
+    setFinalizationError(null);
+    try {
+      const result = await finalizeMutation.mutateAsync({
+        id: snapshot.contractId,
+        body: snapshot.body,
+        idempotencyKey: snapshot.idempotencyKey,
+      });
+      const cleanupSucceeded = completeFinalizationSnapshot(snapshot);
+      setSubmissionSnapshot(null);
+      setSnapshotStorageBlocked(!cleanupSucceeded);
+      setAcceptedReviewKey(null);
+      setFinalizationSuccess(result);
+      if (!cleanupSucceeded) setFinalizationError({ kind: "storage" });
+    } catch (error) {
+      if (isAxiosError<FinalizationApiErrorResponse>(error)) {
+        const response = error.response;
+        if (!response) {
+          setFinalizationError({ kind: "network" });
+          return;
+        }
+
+        const detail = response.data?.message;
+        const cleanupSucceeded = completeFinalizationSnapshot(snapshot);
+        setSubmissionSnapshot(null);
+        setSnapshotStorageBlocked(!cleanupSucceeded);
+        if (response.status === 422) {
+          setAcceptedReviewKey(null);
+          setFinalizationError({
+            kind: "validation",
+            issues: response.data?.data?.issues ?? [],
+            ...(response.data?.data?.version === undefined
+              ? {}
+              : { version: response.data.data.version }),
+            ...(detail ? { detail } : {}),
+          });
+          await reviewQuery.refetch();
+          return;
+        }
+        if (response.status === 409) {
+          setAcceptedReviewKey(null);
+          setFinalizationError({ kind: "conflict", ...(detail ? { detail } : {}) });
+          await reviewQuery.refetch();
+          return;
+        }
+        if (response.status === 503) {
+          setFinalizationError({ kind: "unavailable", ...(detail ? { detail } : {}) });
+          return;
+        }
+        if (response.status === 403) {
+          setFinalizationError({ kind: "permission", ...(detail ? { detail } : {}) });
+          return;
+        }
+        setFinalizationError({ kind: "generic", ...(detail ? { detail } : {}) });
+        return;
+      }
+
+      setFinalizationError({
+        kind: "ambiguous",
+        ...(error instanceof Error ? { detail: error.message } : {}),
+      });
+    } finally {
+      finalizationInFlight.current = false;
+    }
+  }
+
+  function submitFinalization() {
+    if (
+      !review ||
+      reviewResponseKey === null ||
+      !confirmationAccepted ||
+      !snapshotStorageReady ||
+      snapshotStorageBlocked ||
+      review.canFinalize !== true ||
+      review.issues.some((issue) => issue.severity === "error") ||
+      finalizeMutation.isPending ||
+      finalizationInFlight.current ||
+      finalizationSuccess ||
+      submissionSnapshot
+    ) {
+      return;
+    }
+    const stored = readStoredFinalizationSnapshot();
+    if (stored.kind === "unresolved") {
+      setSubmissionSnapshot(stored.snapshot);
+      setFinalizationError({ kind: "network" });
+      setReviewId(stored.snapshot.contractId);
+      setReviewOpen(true);
+      return;
+    }
+    if (stored.kind === "invalid" || stored.kind === "unavailable") {
+      setSnapshotStorageBlocked(true);
+      setFinalizationError({
+        kind: stored.kind === "invalid" ? "invalidSnapshot" : "storage",
+      });
+      return;
+    }
+    if (stored.kind === "completed") {
+      setFinalizationError({ kind: "resolved" });
+      return;
+    }
+    if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
+      setFinalizationError({ kind: "crypto" });
+      return;
+    }
+
+    let idempotencyKey: string;
+    try {
+      idempotencyKey = crypto.randomUUID();
+    } catch {
+      setFinalizationError({ kind: "crypto" });
+      return;
+    }
+
+    const snapshot: FinalizationSubmissionSnapshot = {
+      status: "unresolved",
+      contractId: review.contractId,
+      body: {
+        expectedVersion: review.version,
+        confirmationAccepted: true,
+        confirmationVersion: review.confirmation.version,
+      },
+      idempotencyKey,
+    };
+    if (!persistFinalizationSnapshot(snapshot)) {
+      setSnapshotStorageBlocked(true);
+      setFinalizationError({ kind: "storage" });
+      return;
+    }
+    setSubmissionSnapshot(snapshot);
+    setFinalizationError(null);
+    setFinalizationSuccess(null);
+    void sendFinalization(snapshot);
+  }
+
+  function retryFinalization() {
+    if (
+      (finalizationError?.kind === "network" || finalizationError?.kind === "ambiguous") &&
+      submissionSnapshot?.status === "unresolved" &&
+      !snapshotStorageBlocked
+    ) {
+      void sendFinalization(submissionSnapshot);
+    }
+  }
+
+  async function openReview() {
+    if (submissionSnapshot) {
+      if (currentReviewId !== submissionSnapshot.contractId) {
+        setFinalizationError({ kind: "network" });
+        return;
+      }
+      setReviewOpen(true);
+      return;
+    }
     const issues = validateContract(draft, f.v, childMaxAge);
     if (
       !onRequest &&
@@ -388,7 +1088,41 @@ export function ContractBuilder({
       jumpTo(issues[0]!.section);
       return;
     }
+    if (mode === "edit" && (savedId === null || remote.isLoading || remote.isError || !saved)) {
+      notify.error(f.loadFailed);
+      return;
+    }
+    if (!(await saveDraft(false, setReviewId))) return;
+    setAcceptedReviewKey(null);
+    setFinalizationSuccess(null);
+    if (!submissionSnapshot) setFinalizationError(null);
     setReviewOpen(true);
+  }
+
+  function closeReview() {
+    if (finalizationInFlight.current) return;
+    setReviewOpen(false);
+    setAcceptedReviewKey(null);
+    if (mode === "create" && reviewId !== null) {
+      allowLeave.current = true;
+      navigate({
+        to: "/rate-contracts/$contractId/edit",
+        params: { contractId: String(reviewId) },
+        replace: true,
+      });
+    }
+  }
+  function openPendingContract() {
+    if (!submissionSnapshot) return;
+    setReviewId(submissionSnapshot.contractId);
+    setReviewOpen(true);
+    if (savedId === submissionSnapshot.contractId) return;
+    allowLeave.current = true;
+    navigate({
+      to: "/rate-contracts/$contractId/edit",
+      params: { contractId: String(submissionSnapshot.contractId) },
+      replace: true,
+    });
   }
   function jumpTo(section: ContractSectionKey) {
     document
@@ -396,7 +1130,10 @@ export function ContractBuilder({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function saveDraft(leaving = false): Promise<boolean> {
+  async function saveDraft(
+    leaving = false,
+    onSavedForReview?: (id: number) => void,
+  ): Promise<boolean> {
     if (!basicsReady(draft)) {
       notify.error(f.saveNeedsBasics);
       jumpTo("basics");
@@ -521,7 +1258,7 @@ export function ContractBuilder({
       }
     }
 
-    let contract: SupplierHotelContract | null = saved;
+    let contract: SupplierHotelContract | null = saved ?? createdDraftRef.current;
     let createdId: number | null = null;
     try {
       if (!contract) {
@@ -530,16 +1267,23 @@ export function ContractBuilder({
           body: toCreateContractBody(draft, inventoryRules, basePricingRoomView),
         });
         createdId = contract.id;
+        createdDraftRef.current = contract;
+        setReviewId(contract.id);
         if (hasInactiveRestrictions(draft)) {
           contract = await saveContract.mutateAsync({
             id: contract.id,
             body: { expectedVersion: contract.version, restrictions: toRestrictions(draft) },
           });
+          createdDraftRef.current = contract;
         }
       } else {
         const body = toUpdateContractBody(draft, contract, inventoryRules, basePricingRoomView);
-        if (body) contract = await saveContract.mutateAsync({ id: contract.id, body });
+        if (body) {
+          contract = await saveContract.mutateAsync({ id: contract.id, body });
+          if (mode === "create") createdDraftRef.current = contract;
+        }
       }
+      if (contract) onSavedForReview?.(contract.id);
       if (contract === saved) {
         if (saved && !sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)) {
           notify.error(f.saveNeedsBasics);
@@ -554,7 +1298,7 @@ export function ContractBuilder({
       onSaveError(error instanceof Error ? error : new Error(String(error)), contract);
       return false;
     } finally {
-      if (createdId !== null && !leaving) {
+      if (createdId !== null && !leaving && !onSavedForReview) {
         loadedId.current = createdId;
         allowLeave.current = true;
         navigate({
@@ -637,45 +1381,88 @@ export function ContractBuilder({
     }
   }
 
-  function activate() {
-    setSaving(true);
-    void (async () => {
-      await wait(650);
-      addContract({
-        id: contractId ?? `SC-2027-${String(Math.floor(Math.random() * 9000) + 1000)}`,
-        hotelId: String(basics.hotelId),
-        name: basics.name,
-        nameAr: basics.name,
-        dates: term,
-        datesAr: term,
-        period: term,
-        periodAr: term,
-        model: onRequest ? "onRequest" : "instant",
-        rooms: contractRoomCount,
-        state: "active",
-        roomNames: [],
-        allotment: inventoryQuantity,
-        roomTypes: contractRoomCount,
-        soldOut:
-          inventory.soldOut === "stop"
-            ? "stop"
-            : inventory.soldOut === "request"
-              ? "onRequest"
-              : "overbooking",
-        overbooking:
-          inventory.model === "shared" ? Number(inventory.sharedOverbookingLimitPerNight) || 0 : 0,
-        releaseDays: 3,
-        version: "v1.0",
-      });
-      notify.success(t.activated);
-      setSaving(false);
-      allowLeave.current = true;
-      navigate({ to: "/rate-contracts" });
-    })();
-  }
+  const finalizationMessages: Record<FinalizationError["kind"], string> = {
+    network: t.finalizationNetworkFailure,
+    ambiguous: t.finalizationOutcomeUnknown,
+    storage: t.finalizationStorageError,
+    invalidSnapshot: t.finalizationInvalidSnapshot,
+    resolved: t.finalizationResolvedAfterRefresh,
+    validation: t.finalizationValidationFailure,
+    conflict: t.finalizationConflict,
+    unavailable: t.finalizationUnavailable,
+    permission: t.finalizationPermission,
+    generic: t.finalizationGenericFailure,
+    crypto: t.finalizationCryptoUnavailable,
+  };
+  const finalizationErrorForDrawer = finalizationError
+    ? {
+        message: finalizationMessages[finalizationError.kind],
+        ...("detail" in finalizationError && finalizationError.detail
+          ? { detail: finalizationError.detail }
+          : {}),
+        ...("issues" in finalizationError ? { issues: finalizationError.issues } : {}),
+        ...("version" in finalizationError && finalizationError.version !== undefined
+          ? { version: finalizationError.version }
+          : {}),
+        retryable:
+          (finalizationError.kind === "network" || finalizationError.kind === "ambiguous") &&
+          submissionSnapshot?.status === "unresolved" &&
+          submissionSnapshot.contractId === currentReviewId &&
+          !snapshotStorageBlocked,
+      }
+    : null;
+  const pendingOutcomeUnknown = Boolean(
+    submissionSnapshot &&
+    (finalizationError?.kind === "network" || finalizationError?.kind === "ambiguous"),
+  );
+  const submissionBlockedMessage = (() => {
+    if (!snapshotStorageReady) return t.finalizationStorageError;
+    if (snapshotStorageBlocked) {
+      return finalizationError?.kind === "invalidSnapshot"
+        ? t.finalizationInvalidSnapshot
+        : t.finalizationStorageError;
+    }
+    if (submissionSnapshot) {
+      return submissionSnapshot.contractId === currentReviewId
+        ? t.finalizationOutcomeUnknown
+        : t.finalizationOtherContractPending;
+    }
+    return finalizationError?.kind === "crypto" ? t.finalizationCryptoUnavailable : null;
+  })();
+  const finalizationSubmissionBlocked = Boolean(
+    !snapshotStorageReady ||
+    snapshotStorageBlocked ||
+    submissionSnapshot ||
+    finalizationError?.kind === "crypto",
+  );
 
   return (
     <PageShell>
+      {pendingOutcomeUnknown && !reviewOpen && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/25 bg-status-warning-bg p-4"
+        >
+          <p className="text-sm text-text-primary">{t.finalizationOutcomeUnknown}</p>
+          {submissionSnapshot?.contractId === currentReviewId ? (
+            <Button variant="outline" size="sm" onClick={retryFinalization}>
+              {t.finalizationRetry}
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={openPendingContract}>
+              {t.finalizationOpenPendingContract}
+            </Button>
+          )}
+        </div>
+      )}
+      {snapshotStorageBlocked && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl border border-status-danger/25 bg-status-danger-bg p-4 text-sm text-status-danger"
+        >
+          {submissionBlockedMessage}
+        </div>
+      )}
       <button
         type="button"
         onClick={() => navigate({ to: "/rate-contracts" })}
@@ -706,7 +1493,7 @@ export function ContractBuilder({
             <Save className="h-4 w-4" aria-hidden="true" />
             {t.saveDraft}
           </Button>
-          <Button loading={saving} onClick={openReview}>
+          <Button loading={savingDraft} onClick={openReview}>
             {t.reviewActivate}
           </Button>
         </div>
@@ -1498,7 +2285,7 @@ export function ContractBuilder({
               </p>
               <Button
                 variant={seasonsDone ? "default" : "outline"}
-                loading={saving}
+                loading={savingDraft}
                 onClick={openReview}
               >
                 {t.reviewActivate}
@@ -1583,12 +2370,35 @@ export function ContractBuilder({
 
       {reviewOpen && (
         <ActivateDrawer
-          working={saving}
-          onClose={() => setReviewOpen(false)}
-          onActivate={() => {
-            setReviewOpen(false);
-            activate();
+          rows={reviewRows}
+          loading={reviewQuery.isFetching}
+          loadingLabel={t.reviewLoading}
+          error={
+            reviewQuery.error ? getApiErrorMessage(reviewQuery.error, t.reviewLoadError) : null
+          }
+          retryLabel={f.retry}
+          onRetry={() => void reviewQuery.refetch()}
+          actionLabel={
+            review?.targetStatus === "scheduled"
+              ? t.reviewScheduleContract
+              : t.reviewActivateContract
+          }
+          review={review}
+          reviewKey={reviewResponseKey}
+          confirmationAccepted={confirmationAccepted}
+          onConfirmationChange={(accepted) => {
+            if (reviewResponseKey !== null) {
+              setAcceptedReviewKey(accepted ? reviewResponseKey : null);
+            }
           }}
+          onFinalize={submitFinalization}
+          finalizationPending={finalizeMutation.isPending}
+          submissionBlocked={finalizationSubmissionBlocked}
+          submissionBlockedMessage={submissionBlockedMessage}
+          finalizationError={finalizationErrorForDrawer}
+          onRetryFinalization={retryFinalization}
+          finalizationSuccess={finalizationSuccess}
+          onClose={closeReview}
         />
       )}
 

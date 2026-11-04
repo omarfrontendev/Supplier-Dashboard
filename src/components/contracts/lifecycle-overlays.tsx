@@ -1,18 +1,15 @@
 import { useState } from "react";
-import {
-  Check,
-  ChevronRight,
-  Clock3,
-  History,
-  Pencil,
-  ShieldAlert,
-  Undo2,
-} from "lucide-react";
+import { Check, ChevronRight, Clock3, History, Pencil, ShieldAlert, Undo2 } from "lucide-react";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import type {
+  FinalizationIssue,
+  HotelContractFinalizationReview,
+  FinalizeHotelContractResult,
+} from "@/api/modules/hotel-contract/finalization-types";
 import {
   activateDrawer,
   activityDrawer,
@@ -32,23 +29,25 @@ function Acknowledgement({
   text,
   on,
   onToggle,
+  disabled = false,
 }: {
   text: string;
   on: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-start gap-3 text-start"
+      disabled={disabled}
+      aria-pressed={on}
+      className="flex w-full items-start gap-3 text-start disabled:cursor-not-allowed disabled:opacity-70"
     >
       <span
         className={cn(
           "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-          on
-            ? "border-brand-deep bg-brand-deep text-text-inverse"
-            : "border-border-strong"
+          on ? "border-brand-deep bg-brand-deep text-text-inverse" : "border-border-strong",
         )}
       >
         {on && <Check className="h-3 w-3" aria-hidden="true" />}
@@ -61,17 +60,90 @@ function Acknowledgement({
 /** OV 03.2 / 03.2C / 03.2L — every section at a glance, then activate. */
 export function ActivateDrawer({
   onClose,
-  onActivate,
-  working = false,
+  rows,
+  loading,
+  loadingLabel,
+  error,
+  retryLabel,
+  onRetry,
+  actionLabel,
+  review,
+  reviewKey,
+  confirmationAccepted,
+  onConfirmationChange,
+  onFinalize,
+  finalizationPending,
+  submissionBlocked,
+  submissionBlockedMessage,
+  finalizationError,
+  onRetryFinalization,
+  finalizationSuccess,
 }: {
   onClose: () => void;
-  onActivate: () => void;
-  working?: boolean;
+  rows: Array<{ label: string; value: string }>;
+  loading: boolean;
+  loadingLabel: string;
+  error: string | null;
+  retryLabel: string;
+  onRetry: () => void;
+  actionLabel: string;
+  review: HotelContractFinalizationReview | undefined;
+  reviewKey: string | null;
+  confirmationAccepted: boolean;
+  onConfirmationChange: (accepted: boolean) => void;
+  onFinalize: () => void;
+  finalizationPending: boolean;
+  submissionBlocked: boolean;
+  submissionBlockedMessage: string | null;
+  finalizationError: {
+    message: string;
+    detail?: string;
+    issues?: FinalizationIssue[];
+    version?: number;
+    retryable: boolean;
+  } | null;
+  onRetryFinalization: () => void;
+  finalizationSuccess: FinalizeHotelContractResult | null;
 }) {
-  const { lang } = useLanguage();
+  const { c, lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const d = activateDrawer;
-  const [agreed, setAgreed] = useState(false);
+  const issueGroups = new Map<string, FinalizationIssue[]>();
+  const allIssues = [...(review?.issues ?? []), ...(finalizationError?.issues ?? [])];
+  for (const issue of allIssues) {
+    const group = issueGroups.get(issue.section);
+    if (group) group.push(issue);
+    else issueGroups.set(issue.section, [issue]);
+  }
+  const hasBlockingIssues = allIssues.some((issue) => issue.severity === "error");
+  const canContinue = Boolean(
+    review &&
+    !loading &&
+    !error &&
+    review.canFinalize === true &&
+    !hasBlockingIssues &&
+    confirmationAccepted,
+  );
+  const disabledReason = finalizationPending
+    ? c.builder.finalizationInProgress
+    : finalizationSuccess
+      ? c.builder.finalizationAlreadySucceeded
+      : finalizationError?.retryable
+        ? c.builder.finalizationRetryRequired
+        : submissionBlocked
+          ? submissionBlockedMessage
+          : loading
+            ? c.builder.reviewActionLoading
+            : error || !review
+              ? c.builder.reviewActionUnavailable
+              : hasBlockingIssues
+                ? c.builder.reviewActionResolveErrors
+                : !review.canFinalize
+                  ? c.builder.reviewActionNotAllowed
+                  : !confirmationAccepted
+                    ? c.builder.reviewActionAcceptConfirmation
+                    : undefined;
+  const sectionLabels: Record<string, string> = c.builder.reviewIssueSections;
 
   return (
     <Drawer
@@ -82,36 +154,181 @@ export function ActivateDrawer({
       onClose={onClose}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={finalizationPending}>
             {d.cancel[k]}
           </Button>
-          <Button disabled={!agreed} loading={working} onClick={onActivate}>
-            {working ? d.working[k] : d.confirm[k]}
+          <Button
+            disabled={
+              !canContinue ||
+              finalizationPending ||
+              finalizationSuccess !== null ||
+              finalizationError?.retryable === true ||
+              submissionBlocked
+            }
+            reason={disabledReason ?? undefined}
+            onClick={onFinalize}
+          >
+            {finalizationPending ? c.builder.finalizationInProgress : actionLabel}
           </Button>
         </>
       }
     >
       <div className="space-y-0">
-        {d.rows.map((row) => (
-          <div
-            key={row.label.en}
-            className="border-b border-border-subtle py-3 last:border-0"
-          >
-            <p className="text-[12.5px] font-medium text-text-primary">
-              {row.label[k]}
-            </p>
-            <p className="mt-1 text-[12px] leading-5 text-text-muted">
-              {row.value[k]}
-            </p>
+        {rows.map((row) => (
+          <div key={row.label} className="border-b border-border-subtle py-3 last:border-0">
+            <p className="text-[12.5px] font-medium text-text-primary">{row.label}</p>
+            <p className="mt-1 text-[12px] leading-5 text-text-muted">{row.value || "—"}</p>
           </div>
         ))}
       </div>
+      {loading && <p className="mt-3 text-sm text-text-muted">{loadingLabel}</p>}
+      {error && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <p className="text-sm text-status-danger">{error}</p>
+          <Button variant="outline" size="sm" onClick={onRetry} disabled={finalizationPending}>
+            {retryLabel}
+          </Button>
+        </div>
+      )}
+      {finalizationPending && (
+        <p className="mt-3 text-sm text-text-muted">{c.builder.finalizationInProgress}</p>
+      )}
+      {finalizationError && (
+        <div className="mt-3 space-y-2 rounded-xl border border-status-danger/25 bg-status-danger-bg p-3">
+          <p className="text-sm font-semibold text-status-danger">{finalizationError.message}</p>
+          {finalizationError.detail && (
+            <p className="text-sm leading-5 text-text-primary">{finalizationError.detail}</p>
+          )}
+          {finalizationError.version !== undefined && (
+            <p className="text-xs text-text-muted">
+              {c.builder.finalizationValidationVersion}: {finalizationError.version}
+            </p>
+          )}
+          {finalizationError.retryable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetryFinalization}
+              disabled={finalizationPending}
+            >
+              {c.builder.finalizationRetry}
+            </Button>
+          )}
+        </div>
+      )}
+      {finalizationSuccess && (
+        <section className="mt-4 space-y-2 rounded-xl border border-status-success/25 bg-status-success-bg p-4">
+          <h3 className="text-sm font-semibold text-status-success">
+            {c.builder.finalizationSuccess}
+          </h3>
+          <p className="text-sm text-text-primary">
+            {finalizationSuccess.contract.name} · {c.builder.finalizationStatus}:{" "}
+            {finalizationSuccess.contract.status}
+          </p>
+          <p className="text-xs text-text-secondary">
+            {c.builder.finalizationPublicationStatus}:{" "}
+            {finalizationSuccess.contract.publicationStatus}
+          </p>
+          {finalizationSuccess.contract.publication && (
+            <div className="text-xs leading-5 text-text-secondary">
+              <p>
+                {c.builder.finalizationPublicationId}: {finalizationSuccess.contract.publication.id}
+              </p>
+              <p>
+                {c.builder.finalizationTimezone}:{" "}
+                {finalizationSuccess.contract.publication.timezone}
+              </p>
+              <p>
+                {c.builder.finalizationAt}: {finalizationSuccess.contract.publication.finalizedAt}
+              </p>
+            </div>
+          )}
+          <p className="text-xs font-medium text-text-secondary">
+            {c.builder.finalizationGeneratedRecords}
+          </p>
+          <ul className="space-y-1 text-xs text-text-secondary">
+            {Object.entries(finalizationSuccess.generation).map(([category, count]) => (
+              <li key={category}>
+                {category}: {count}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {allIssues.length > 0 && (
+        <section className="mt-4 space-y-3" aria-labelledby="finalization-issues-heading">
+          <h3 id="finalization-issues-heading" className="text-sm font-semibold text-text-primary">
+            {c.builder.reviewIssuesHeading}
+          </h3>
+          {[...issueGroups.entries()].map(([section, issues]) => (
+            <div key={section} className="space-y-2">
+              <h4 className="text-[12.5px] font-medium text-text-secondary">
+                {sectionLabels[section] ??
+                  c.builder.reviewUnknownSection.replace("{section}", section)}
+              </h4>
+              {issues.map((issue, index) => {
+                const isError = issue.severity === "error";
+                const metadata = [
+                  `${c.builder.reviewIssueCode}: ${issue.code}`,
+                  `${c.builder.reviewIssueSection}: ${issue.section}`,
+                  `${c.builder.reviewIssuePath}: ${issue.path}`,
+                  ...(issue.entityId == null
+                    ? []
+                    : [`${c.builder.reviewIssueEntityId}: ${issue.entityId}`]),
+                ].join(" · ");
+                return (
+                  <article
+                    key={`${issue.code}:${issue.path}:${issue.entityId ?? ""}:${index}`}
+                    className={cn(
+                      "rounded-xl border p-3",
+                      isError
+                        ? "border-status-danger/25 bg-status-danger-bg"
+                        : "border-status-warning/25 bg-status-warning-bg",
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-[12px] font-semibold",
+                        isError ? "text-status-danger" : "text-status-warning",
+                      )}
+                    >
+                      {isError ? c.builder.reviewIssueError : c.builder.reviewIssueWarning}
+                    </p>
+                    <p className="mt-1 text-[12.5px] leading-5 text-text-primary">
+                      {issue.message}
+                    </p>
+                    <p className="mt-1 break-words text-[11px] leading-4 text-text-muted">
+                      {metadata}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+          ))}
+        </section>
+      )}
+      {review && !review.canFinalize && !hasBlockingIssues && (
+        <p className="mt-3 rounded-xl border border-status-warning/25 bg-status-warning-bg p-3 text-sm text-status-warning">
+          {c.builder.reviewCannotFinalize}
+        </p>
+      )}
       <div className="mt-4">
-        <Acknowledgement
-          text={d.acknowledgement[k]}
-          on={agreed}
-          onToggle={() => setAgreed((prev) => !prev)}
-        />
+        {review && reviewKey !== null ? (
+          <Acknowledgement
+            key={reviewKey}
+            text={review.confirmation.text}
+            on={confirmationAccepted}
+            onToggle={() => onConfirmationChange(!confirmationAccepted)}
+            disabled={finalizationPending || finalizationSuccess !== null}
+          />
+        ) : (
+          <Acknowledgement
+            text={c.builder.reviewConfirmationUnavailable}
+            on={false}
+            onToggle={() => undefined}
+            disabled
+          />
+        )}
       </div>
     </Drawer>
   );
@@ -167,9 +384,7 @@ export function PublishDrawer({
                     key={index}
                     className={cn(
                       "py-2.5 pe-3 align-top",
-                      index === 0
-                        ? "font-medium text-text-primary"
-                        : "text-text-secondary"
+                      index === 0 ? "font-medium text-text-primary" : "text-text-secondary",
                     )}
                   >
                     {cell[k] || "—"}
@@ -228,7 +443,7 @@ export function ActivityDrawer({ onClose }: { onClose: () => void }) {
                       "py-2.5 pe-3",
                       index === 0
                         ? "font-data font-medium text-text-primary"
-                        : "text-text-secondary"
+                        : "text-text-secondary",
                     )}
                   >
                     {cell[k]}
@@ -245,23 +460,15 @@ export function ActivityDrawer({ onClose }: { onClose: () => void }) {
         {d.activity.map((entry) => (
           <li key={entry.meta.en} className="flex gap-3">
             <div className="w-16 shrink-0">
-              <p className="text-[12px] font-medium text-text-primary">
-                {entry.day[k]}
-              </p>
-              <p className="font-data text-[11px] text-text-muted">
-                {entry.time[k]}
-              </p>
+              <p className="text-[12px] font-medium text-text-primary">{entry.day[k]}</p>
+              <p className="font-data text-[11px] text-text-muted">{entry.time[k]}</p>
             </div>
             <div className="min-w-0 border-s border-border-subtle ps-3">
-              <p className="text-[12.5px] font-medium text-text-primary">
-                {entry.title[k]}
-              </p>
+              <p className="text-[12.5px] font-medium text-text-primary">{entry.title[k]}</p>
               <p className="mt-0.5 text-[11.5px] leading-4 text-text-secondary">
                 {entry.detail[k]}
               </p>
-              <p className="mt-0.5 text-[11px] text-text-muted">
-                {entry.meta[k]}
-              </p>
+              <p className="mt-0.5 text-[11px] text-text-muted">{entry.meta[k]}</p>
             </div>
           </li>
         ))}
@@ -294,9 +501,7 @@ export function LifecycleDialogOverlay({
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
-  const [reason, setReason] = useState(
-    kind === "terminate" ? terminateReason.value[k] : ""
-  );
+  const [reason, setReason] = useState(kind === "terminate" ? terminateReason.value[k] : "");
   const [typed, setTyped] = useState("");
   const needsTyped = kind === "terminate";
 
@@ -374,13 +579,7 @@ export function LifecycleDialogOverlay({
 }
 
 /** OV 03.22 — the amendment that makes v1.4. */
-export function AmendOverlay({
-  onClose,
-  onStart,
-}: {
-  onClose: () => void;
-  onStart: () => void;
-}) {
+export function AmendOverlay({ onClose, onStart }: { onClose: () => void; onStart: () => void }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const d = amendDialog;
@@ -404,16 +603,12 @@ export function AmendOverlay({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-[10px] border border-border-subtle bg-surface-subtle px-3.5 py-3">
           <p className="text-overline text-text-muted">{d.effectiveLabel[k]}</p>
-          <p className="mt-1 text-[12.5px] font-medium text-text-primary">
-            {d.effectiveValue[k]}
-          </p>
+          <p className="mt-1 text-[12.5px] font-medium text-text-primary">{d.effectiveValue[k]}</p>
           <p className="mt-1 text-[11px] text-text-muted">{d.effectiveHint[k]}</p>
         </div>
         <div className="rounded-[10px] border border-border-subtle bg-surface-subtle px-3.5 py-3">
           <p className="text-overline text-text-muted">{d.changesLabel[k]}</p>
-          <p className="mt-1 text-[12.5px] font-medium text-text-primary">
-            {d.changesValue[k]}
-          </p>
+          <p className="mt-1 text-[12.5px] font-medium text-text-primary">{d.changesValue[k]}</p>
         </div>
       </div>
 
@@ -424,9 +619,7 @@ export function AmendOverlay({
             className="flex items-center justify-between gap-3 border-b border-border-subtle py-2 last:border-0"
           >
             <span className="text-[12px] text-text-muted">{field.label[k]}</span>
-            <span className="text-[12.5px] font-medium text-text-primary">
-              {field.value[k]}
-            </span>
+            <span className="text-[12.5px] font-medium text-text-primary">{field.value[k]}</span>
           </div>
         ))}
       </div>
@@ -450,13 +643,7 @@ export function AmendOverlay({
 }
 
 /** OV 03.23R / R2 — confirm or decline one request inside its SLA. */
-export function AnswerOverlay({
-  onClose,
-  onSend,
-}: {
-  onClose: () => void;
-  onSend: () => void;
-}) {
+export function AnswerOverlay({ onClose, onSend }: { onClose: () => void; onSend: () => void }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const d = answerDialog;
@@ -480,9 +667,7 @@ export function AnswerOverlay({
       }
     >
       <div>
-        <p className="mb-1.5 text-sm font-medium text-text-primary">
-          {d.decisionLabel[k]}
-        </p>
+        <p className="mb-1.5 text-sm font-medium text-text-primary">{d.decisionLabel[k]}</p>
         <div className="flex gap-2">
           {(
             [
@@ -498,7 +683,7 @@ export function AnswerOverlay({
                 "rounded-lg border px-3.5 py-2 text-sm transition-colors",
                 decision === value
                   ? "border-brand-deep bg-primary-subtle font-medium text-text-primary"
-                  : "border-border-default text-text-secondary hover:bg-surface-subtle"
+                  : "border-border-default text-text-secondary hover:bg-surface-subtle",
               )}
             >
               {label}
@@ -517,9 +702,7 @@ export function AnswerOverlay({
       ) : (
         <>
           <div>
-            <p className="mb-1.5 text-sm font-medium text-text-primary">
-              {d.reasonLabel[k]}
-            </p>
+            <p className="mb-1.5 text-sm font-medium text-text-primary">{d.reasonLabel[k]}</p>
             <button
               type="button"
               className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-default px-3 text-start text-sm text-text-muted"
@@ -528,9 +711,7 @@ export function AnswerOverlay({
               <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
             </button>
           </div>
-          <p className="text-[11.5px] leading-5 text-text-muted">
-            {d.declineNote[k]}
-          </p>
+          <p className="text-[11.5px] leading-5 text-text-muted">{d.declineNote[k]}</p>
         </>
       )}
     </IconModal>
