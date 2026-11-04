@@ -82,6 +82,17 @@ const supplierHotelContracts = {
   finalize: (id: number) => `/hotel-contracts/${id}/finalize`,
 };
 
+const ratesAndAvailability = {
+  hotels: "/ratesandavailability/hotels",
+  contracts: "/ratesandavailability/contracts",
+  hotelContracts: (hotelId: number) => `/ratesandavailability/contracts/${hotelId}`,
+  rateTargets: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-targets`,
+  ratesContext: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rates/context`,
+  rateOverridesPreview: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/rate-overrides/preview`,
+  rateOverrides: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-overrides`,
+};
+
 export const endpoints = {
   auth,
   team,
@@ -93,4 +104,5 @@ export const endpoints = {
   amenities,
   notifications,
   supplierHotelContracts,
+  ratesAndAvailability,
 };

@@ -119,12 +119,23 @@ export function BulkRangeOverlay({
   contract,
   onClose,
   onEditContract,
+  roomOptions,
+  onApplyRates,
 }: {
   kind: BulkKind;
   /** The contract this is scoped to, printed as the overline. */
   contract: string;
   onClose: () => void;
   onEditContract?: (() => void) | undefined;
+  roomOptions?: Bi[] | undefined;
+  onApplyRates?:
+    | ((value: {
+        range: DayRange;
+        weekdays: number[];
+        rooms: string[];
+        rate: { amount: number } | { weekday: number; weekend: number };
+      }) => Promise<void>)
+    | undefined;
 }) {
   const { lang, dir } = useLanguage();
   const k: Lang = lang === "ar" ? "ar" : "en";
@@ -300,9 +311,10 @@ export function BulkRangeOverlay({
   const broken = releaseTooMany || priceRed;
 
   /** The rooms the change reaches, once "all rooms" is resolved. */
-  const realRooms = rooms.includes(bulkRooms[0]!.en)
-    ? bulkRooms.slice(1)
-    : bulkRooms.filter((room) => rooms.includes(room.en));
+  const roomList = roomOptions ? [bulkRooms[0]!, ...roomOptions] : bulkRooms;
+  const realRooms = rooms.includes(roomList[0]!.en)
+    ? roomList.slice(1)
+    : roomList.filter((room) => rooms.includes(room.en));
   const roomNames = (list: Bi[]) => ({
     en: list.map((r) => r.en).join(", "),
     ar: list.map((r) => r.ar).join("، "),
@@ -490,7 +502,29 @@ export function BulkRangeOverlay({
     clearForm();
   };
 
-  const confirm = () => {
+  const [applying, setApplying] = useState(false);
+  const amountOf = (text: string) =>
+    Number(text.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[^0-9.]/g, ""));
+
+  const confirm = async () => {
+    if (kind === "bulkRates" && onApplyRates && picked[0]) {
+      setApplying(true);
+      try {
+        await onApplyRates({
+          range: picked[0].range,
+          weekdays: days,
+          rooms: realRooms.map((room) => room.en),
+          rate:
+            priceMode === "apart"
+              ? { weekday: amountOf(weekdayPrice), weekend: amountOf(weekendPrice) }
+              : { amount: amountOf(weekdayPrice) },
+        });
+      } catch {
+        setApplying(false);
+        return;
+      }
+      setApplying(false);
+    }
     setSaved(lines);
     setNote({
       kind: atOnce ? "applied" : "drafted",
@@ -526,7 +560,7 @@ export function BulkRangeOverlay({
               <span className="text-[12px] text-text-quiet">
                 {atOnce ? c.appliesNow[k] : c.savedAsDraft[k]}
               </span>
-              <Button onClick={confirm}>
+              <Button disabled={applying} onClick={() => void confirm()}>
                 {atOnce ? c.confirmApply[k] : c.saveAllDraft[k]}
               </Button>
             </div>
@@ -832,7 +866,7 @@ export function BulkRangeOverlay({
 
           <Section label={c.rooms[k]}>
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-              {bulkRooms.map((room) => (
+              {roomList.map((room) => (
                 <label
                   key={room.en}
                   className="flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary"
@@ -912,6 +946,7 @@ export function BulkRangeOverlay({
           )}
 
           {kind === "bulkRates" &&
+            !onApplyRates &&
             (
               [
                 [c.mealPlans[k], mealRows],

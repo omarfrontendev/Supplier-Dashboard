@@ -52,6 +52,8 @@ export interface GridRow {
   /** "SS" stop sale, "RQ" on request, "·" nothing. */
   status: string[];
   release: number[];
+  target?: { variationId: number; mealPlan?: string };
+  edited?: number[];
 }
 
 const W = [
@@ -830,6 +832,10 @@ export function windowFor(fromKey: string, toKey: string): GridMonth {
  * label, the season - has to ask for it rather than treat the column index
  * as a day of the month, which is only true for whole months.
  */
+export function withCurrency(text: string, currency: string | undefined) {
+  return currency ? text.replace(/SAR|ر\.س/g, currency) : text;
+}
+
 export function dateOfNight(month: GridMonth, night: number): Date {
   if (month.key.includes("..")) {
     const from = month.key.split("..")[0]!;

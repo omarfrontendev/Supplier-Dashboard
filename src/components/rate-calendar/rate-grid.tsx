@@ -11,6 +11,7 @@ import {
   type GridMonth,
   type GridRow,
   type InventoryModel,
+  withCurrency,
 } from "@/lib/rate-grid-data";
 
 export type GridRowKind = "rate" | "inventory" | "status" | "restrictions" | "release";
@@ -60,7 +61,9 @@ export function RateGrid({
   onOpenNight,
   onOpenStatus,
   onOpenPool,
+  currency,
 }: {
+  currency?: string | undefined;
   rows?: GridRow[];
   show: Record<GridRowKind, boolean>;
   compact?: boolean;
@@ -215,7 +218,7 @@ export function RateGrid({
                 "border-b border-border-subtle ps-3.5 pe-2.5 py-2 align-middle text-start text-[10px] font-medium leading-[13px] text-text-secondary"
               )}
             >
-              {t.roomNight}
+              {withCurrency(t.roomNight, currency)}
             </th>
             {nights.map((night) => (
               <th
@@ -432,7 +435,7 @@ function RoomBlock({
             <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">
               {fixedPrice ? t.rateRowFixed : t.rateRow}
             </span>
-            {!fixedPrice && (
+            {!fixedPrice && !row.target && (
               <button
                 type="button"
                 onClick={() => onOpenMeals?.(row.name)}
@@ -670,5 +673,6 @@ const CONTRACT_RELEASE_DAYS = 3;
 
 /** UI 04.1 — a rate that no longer matches the contract's base is marked. */
 function changedRate(row: GridRow, night: number, month: GridMonth) {
+  if (row.edited) return row.edited.includes(night);
   return row.base === true && month.editedNights.includes(night);
 }

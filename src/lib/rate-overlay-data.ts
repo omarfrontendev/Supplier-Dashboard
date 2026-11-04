@@ -546,101 +546,47 @@ export const monthPicker = {
 };
 
 /** OV 04.9 / 04.9B — the contracts this hotel holds. */
-export interface PickerRow {
-  title: Bi;
-  meta: Bi;
-  /** An ended contract is only listed when they are included. */
-  ended?: boolean;
-}
-
 export const contractPicker = {
-  overline: t("Al Noor Makkah Hotel", "فندق النور مكة"),
   title: t("Choose contract", "اختيار العقد"),
   includeEnded: t("Include ended contracts", "تضمين العقود المنتهية"),
-  rows: [
-    {
-      title: t(
-        "HTL-2026-0142 · Makkah Annual Block",
-        "HTL-2026-0142 · حصة مكة السنوية"
-      ),
-      meta: t(
-        "Active · Base + supplements · Allotment · shared pool 50",
-        "نشط · أساس + فروق · حصة · مخزون مشترك ٥٠"
-      ),
-    },
-    {
-      title: t(
-        "HTL-2026-0148 · Makkah Rooms Block",
-        "HTL-2026-0148 · حصة غرف مكة"
-      ),
-      meta: t(
-        "Active · Base + supplements · Allotment · a number per room type",
-        "نشط · أساس + فروق · حصة · عدد لكل نوع غرفة"
-      ),
-    },
-    {
-      title: t("HTL-2026-0155 · Al Noor Fixed", "HTL-2026-0155 · النور الثابت"),
-      meta: t(
-        "Active · Fixed price · Allotment · shared pool 30",
-        "نشط · سعر ثابت · حصة · مخزون مشترك ٣٠"
-      ),
-    },
-    {
-      title: t(
-        "HTL-2026-0160 · Al Noor Open Sale",
-        "HTL-2026-0160 · النور البيع الحر"
-      ),
-      meta: t(
-        "Active · Base + supplements · Free sale · no quantity",
-        "نشط · أساس + فروق · بيع حر · بلا كمية"
-      ),
-    },
-    {
-      title: t(
-        "HTL-2026-0171 · Al Noor On Request",
-        "HTL-2026-0171 · النور عند الطلب"
-      ),
-      meta: t(
-        "Active · Base + supplements · On Request · answer within 2 h",
-        "نشط · أساس + فروق · عند الطلب · الرد خلال ساعتين"
-      ),
-    },
-    {
-      title: t("HTL-2026-0133 · Ramadan Block", "HTL-2026-0133 · حصة رمضان"),
-      meta: t(
-        "Scheduled · starts 18 Feb 2027 · Base + supplements · Allotment",
-        "مجدول · يبدأ ١٨ فبراير ٢٠٢٧ · أساس + فروق · حصة"
-      ),
-    },
-    {
-      title: t(
-        "HTL-2026-0091 · Al Noor Summer Block",
-        "HTL-2026-0091 · حصة النور الصيفية"
-      ),
-      meta: t("Ended 19 Sep 2026 · read only", "انتهى ١٩ سبتمبر ٢٠٢٦ · للقراءة فقط"),
-      ended: true,
-    },
-  ] as PickerRow[],
+  loading: t("Loading contracts…", "جارٍ تحميل العقود…"),
+  error: t("We couldn't load the contracts.", "تعذّر تحميل العقود."),
+  empty: t("No contracts for this hotel yet.", "لا توجد عقود لهذا الفندق بعد."),
+  emptyActive: t(
+    "No current contracts. Tick Include ended contracts to see the rest.",
+    "لا توجد عقود حالية. فعّل تضمين العقود المنتهية لترى البقية."
+  ),
+  pickHotelFirst: t("Pick a hotel first", "اختر فندقًا أولًا"),
+  status: {
+    draft: t("Draft", "مسودة"),
+    active: t("Active", "نشط"),
+    paused: t("Paused", "موقوف مؤقتًا"),
+    terminated: t("Terminated", "منتهٍ بالإلغاء"),
+    scheduled: t("Scheduled", "مجدول"),
+    expired: t("Expired", "منتهٍ"),
+  },
+  model: {
+    base_plus_supplements: t("Base + supplements", "أساس + فروق"),
+    fixed_per_room: t("Fixed price", "سعر ثابت"),
+  },
+  booking: {
+    allotment_block: t("Allotment", "حصة"),
+    on_request: t("On Request", "عند الطلب"),
+  },
 };
 
 /** OV 04.10 — the hotels this account is linked to. */
 export const hotelPicker = {
   overline: t("Your linked hotels", "فنادقك المرتبطة"),
   title: t("Choose hotel", "اختيار الفندق"),
-  rows: [
-    {
-      title: t("Al Noor Makkah Hotel", "فندق النور مكة"),
-      meta: t("6 contracts", "٦ عقود"),
-    },
-    {
-      title: t("Address Jabal Omar Makkah", "أدرس جبل عمر مكة"),
-      meta: t("2 contracts", "عقدان"),
-    },
-    {
-      title: t("Abeer Al Aziziyah Hotel", "فندق عبير العزيزية"),
-      meta: t("1 contract", "عقد واحد"),
-    },
-  ] as PickerRow[],
+  loading: t("Loading hotels…", "جارٍ تحميل الفنادق…"),
+  error: t("We couldn't load your hotels.", "تعذّر تحميل فنادقك."),
+  retry: t("Try again", "حاول مجددًا"),
+  empty: t(
+    "No hotels to show yet. A hotel appears here once your link to it is approved.",
+    "لا توجد فنادق بعد. يظهر الفندق هنا بعد اعتماد ربطك به."
+  ),
+  stars: t("{n}-star", "{n} نجوم"),
 };
 
 /** OV 04.11 — the grid as a file. */
@@ -1049,3 +995,35 @@ export const bulkRatesFixed = {
 
 /** BR-03-96 / OV 04.6I — the lowest this room may be sold for. */
 export const sellingFloor = 420;
+
+export const liveGrid = {
+  base: t("BASE · {currency}", "الأساس · {currency}"),
+  supplement: t("+{amount} on base · {currency}", "+{amount} على الأساس · {currency}"),
+  fixed: t("fixed price · {currency}", "سعر ثابت · {currency}"),
+  saved: t("Prices saved", "تم حفظ الأسعار"),
+  restored: t("Back to the contract price", "عاد السعر إلى سعر العقد"),
+  notEligible: t(
+    "This contract isn't published yet, so its prices can't be changed.",
+    "هذا العقد غير منشور بعد، لذلك لا يمكن تغيير أسعاره.",
+  ),
+  meals: {
+    room_only: t("Room only", "الغرفة فقط"),
+    bed_and_breakfast: t("Bed & breakfast", "إفطار"),
+    half_board: t("Half board", "نصف إقامة"),
+    full_board: t("Full board", "إقامة كاملة"),
+    iftar_and_suhoor: t("Iftar & suhoor", "إفطار وسحور"),
+  },
+  views: {
+    sea: t("Sea view", "إطلالة البحر"),
+    city: t("City view", "إطلالة المدينة"),
+    garden: t("Garden view", "إطلالة الحديقة"),
+    pool: t("Pool view", "إطلالة المسبح"),
+    mountain: t("Mountain view", "إطلالة الجبل"),
+    courtyard: t("Courtyard view", "إطلالة الفناء"),
+    street: t("Street view", "إطلالة الشارع"),
+    landmark: t("Landmark view", "إطلالة المعلم"),
+    haram: t("Haram view", "إطلالة الحرم"),
+    partial_haram: t("Partial Haram view", "إطلالة جزئية على الحرم"),
+    no_view: t("No view", "بدون إطلالة"),
+  } as Record<string, Bi>,
+};

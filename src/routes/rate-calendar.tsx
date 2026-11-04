@@ -38,7 +38,6 @@ import { winLines } from "@/lib/win-list-data";
 import { BulkRangeOverlay } from "@/components/rate-calendar/bulk-range-overlay";
 import { Gated } from "@/components/system/permission-gate";
 import { fill, useLanguage } from "@/lib/i18n";
-import { hotels } from "@/lib/demo-data";
 import {
   calendarGroups,
   groupRate,
@@ -47,7 +46,24 @@ import {
   type CalendarGroupId,
 } from "@/lib/nationality-calendar";
 import { usePortal } from "@/lib/portal-store";
-import { arNum, monthPicker, selectionBar } from "@/lib/rate-overlay-data";
+import {
+  arNum,
+  contractPicker,
+  hotelPicker,
+  liveGrid,
+  monthPicker,
+  selectionBar,
+} from "@/lib/rate-overlay-data";
+import { useRatesHotels } from "@/api/modules/rates-availability/useRatesHotels";
+import { useRatesHotelContracts } from "@/api/modules/rates-availability/useRatesContracts";
+import {
+  useRateTargets,
+  useRatesContext,
+  useSaveRateOverrides,
+} from "@/api/modules/rates-availability/useRates";
+import type { RateTarget } from "@/api/modules/rates-availability/types";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { notify } from "@/lib/notify";
 import {
   WEEKEND_DAYS,
   fixedPriceRows,
@@ -56,6 +72,7 @@ import {
   gridRows,
   dateOfNight,
   rowsForMonth,
+  type GridRow,
   seasonOf,
   windowFor,
 } from "@/lib/rate-grid-data";
@@ -119,13 +136,119 @@ function RateCalendarPage() {
   const [span, setSpan] = useState(() => wholeMonth(grid.month ?? "2026-09"));
   const month = windowFor(span.start, span.end);
   const holdsNothing = grid.model === "free" || grid.model === "onRequest";
-  const monthRows = grid.fixedPrice
-    ? fixedPriceRows
-    : month.key === "2026-09"
-      ? gridRows
-      : rowsForMonth(month);
+  const hotelsQuery = useRatesHotels();
+  const ratesHotels = hotelsQuery.data ?? [];
+  const [hotelId, setHotelId] = useState<number | null>(null);
+  const pickedHotel = ratesHotels.find((item) => item.id === hotelId) ?? ratesHotels[0];
+  const contractsQuery = useRatesHotelContracts(pickedHotel?.id);
+  const hotelContracts = contractsQuery.data ?? [];
+  const [contractId, setContractId] = useState<number | null>(null);
+  const [includeEnded, setIncludeEnded] = useState(false);
+  const shownContracts = hotelContracts.filter(
+    (item) => includeEnded || (item.status !== "expired" && item.status !== "terminated"),
+  );
+  const pickedContract =
+    shownContracts.find((item) => item.id === contractId) ?? shownContracts[0];
+  const targetsQuery = useRateTargets(pickedContract?.id);
+  const rateTargets = targetsQuery.data;
+  const live = rateTargets !== undefined && rateTargets.targets.length > 0;
+  const fixedPrice = live ? rateTargets.pricingModel === "fixed_per_room" : Boolean(grid.fixedPrice);
+
+  useEffect(() => {
+    if (!pickedContract) return;
+    const end = wholeMonth(pickedContract.startDate.slice(0, 7)).end;
+    setSpan({
+      start: pickedContract.startDate,
+      end: end < pickedContract.endDate ? end : pickedContract.endDate,
+    });
+  }, [pickedContract?.id]);
+
+  const monthDates = Array.from({ length: month.base.length }, (_, index) =>
+    isoDay(dateOfNight(month, index + 1)),
+  );
+  const termDates = rateTargets
+    ? monthDates.filter((day) => day >= rateTargets.startDate && day <= rateTargets.endDate)
+    : [];
+  const contextQuery = useRatesContext(
+    pickedContract?.id,
+    live && termDates.length
+      ? {
+          targets: rateTargets.targets.map((target) => ({
+            variationId: target.variationId,
+            ...(target.mealPlan ? { mealPlan: target.mealPlan } : {}),
+          })),
+          startDate: termDates[0]!,
+          endDate: termDates[termDates.length - 1]!,
+        }
+      : null,
+  );
+  const saveRates = useSaveRateOverrides(pickedContract?.id);
+  const liveRows: GridRow[] = live
+    ? rateTargets.targets.map((target) => {
+        const nights = (contextQuery.data?.nights ?? []).filter(
+          (night) =>
+            night.variationId === target.variationId &&
+            (night.mealPlan ?? undefined) === target.mealPlan,
+        );
+        const byDay = new Map(nights.map((night) => [night.stayDate, night]));
+        const view = liveGrid.views[target.view];
+        const meal = target.mealPlan ? liveGrid.meals[target.mealPlan] : undefined;
+        const name = (lang: "en" | "ar") =>
+          [
+            (lang === "ar" ? target.roomNameAr : target.roomNameEn) ||
+              target.roomNameEn ||
+              target.roomNameAr ||
+              `#${target.roomId}`,
+            meal?.[lang],
+            view?.[lang] ?? target.view,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+        const supplement = nights[0]?.roomSupplement.amount ?? 0;
+        const meta = (lang: "en" | "ar") =>
+          fill(
+            (target.kind === "base"
+              ? liveGrid.base
+              : fixedPrice
+                ? liveGrid.fixed
+                : liveGrid.supplement)[lang],
+            {
+              currency: rateTargets.currency,
+              amount: lang === "ar" ? arNum(supplement) : String(supplement),
+            },
+          );
+        return {
+          name: name("en"),
+          nameAr: name("ar"),
+          meta: meta("en"),
+          metaAr: meta("ar"),
+          base: target.kind === "base",
+          supplement,
+          guests: 2,
+          rate: monthDates.map((day) => byDay.get(day)?.roomAmount ?? 0),
+          edited: monthDates.flatMap((day, index) =>
+            byDay.get(day)?.source === "daily_override" ? [index + 1] : [],
+          ),
+          inventoryLabel: "sold" as const,
+          inventory: monthDates.map(() => 0),
+          status: monthDates.map(() => "·"),
+          release: monthDates.map(() => 0),
+          target: {
+            variationId: target.variationId,
+            ...(target.mealPlan ? { mealPlan: target.mealPlan } : {}),
+          },
+        };
+      })
+    : [];
+  const monthRows = live
+    ? liveRows
+    : grid.fixedPrice
+      ? fixedPriceRows
+      : month.key === "2026-09"
+        ? gridRows
+        : rowsForMonth(month);
   // UI 04.1U — priced rooms first, the ones with no rate underneath them.
-  const unpriced = grid.unpriced ?? [];
+  const unpriced = live ? [] : (grid.unpriced ?? []);
   const allRows = unpriced.length
     ? [
         ...monthRows.filter((row) => !unpriced.includes(row.name)),
@@ -144,7 +267,6 @@ function RateCalendarPage() {
   const contract =
     contracts.find((item) => item.id === grid.key) ??
     contracts.find((item) => item.state === "active");
-  const hotel = hotels.find((item) => item.id === contract?.hotelId) ?? hotels[0];
 
   const [show, setShow] = useState<Record<GridRowKind, boolean>>({
     rate: true,
@@ -154,6 +276,10 @@ function RateCalendarPage() {
     release: true,
   });
   const [visibleRooms, setVisibleRooms] = useState<string[]>(allRows.map((row) => row.name));
+  const rowNames = allRows.map((row) => row.name).join("|");
+  useEffect(() => {
+    setVisibleRooms(rowNames ? rowNames.split("|") : []);
+  }, [rowNames]);
   const [openMeals, setOpenMeals] = useState<string[]>([]);
   const [colourKey, setColourKey] = useState(false);
   const [threshold, setThreshold] = useState(4);
@@ -164,7 +290,16 @@ function RateCalendarPage() {
   const [selectCells, setSelectCells] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [filter, setFilter] = useState("all");
-  const [includeEnded, setIncludeEnded] = useState(false);
+  const hotelLabel = pickedHotel
+    ? (ar ? pickedHotel.nameAr : pickedHotel.nameEn) || pickedHotel.nameEn || pickedHotel.nameAr || ""
+    : hotelsQuery.isPending
+      ? hotelPicker.loading[k]
+      : "";
+  const contractLabel = pickedContract
+    ? pickedContract.name
+    : contractsQuery.isFetching
+      ? contractPicker.loading[k]
+      : "";
   /* OV 04.1A / 04.2 / 04.3 / 04.4 / 04.5 / 04.6 — one overlay at a time. */
   const [overlay, setOverlay] = useState<
     | "bulk"
@@ -219,6 +354,11 @@ function RateCalendarPage() {
   /** UI 04.1VS — the rooms and the nights the picked cells cover. */
   const pickedRooms = [...new Set(selected.map((key) => key.split("|")[0]!))];
   const pickedNights = selected.map((key) => Number(key.split("|")[1])).sort((a, b) => a - b);
+  const nightRow = allRows.find((row) => row.name === (pickedRooms[0] ?? nightCell?.room));
+  const pickedTargets = () =>
+    allRows
+      .filter((row) => (pickedRooms.length ? pickedRooms : [nightCell?.room]).includes(row.name))
+      .flatMap((row) => (row.target ? [row.target as RateTarget] : []));
   /*
    * OV 04.6H / 04.6N - what the nights being priced already carry, read
    * off the month itself rather than assumed: which of them were edited,
@@ -375,13 +515,19 @@ function RateCalendarPage() {
         <div className="min-w-0 flex-1 basis-60">
           <p className="text-overline text-text-muted">
             {fill(t.meta, {
-              hotel: ar ? grid.hotelAr : grid.hotel,
-              id: grid.ref,
+              hotel: live ? hotelLabel : ar ? grid.hotelAr : grid.hotel,
+              id: live ? `#${pickedContract!.id}` : grid.ref,
             })}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-3">
             <h1 className="text-[28px] font-semibold leading-7 text-text-primary">{t.title}</h1>
-            <StatusPill status={grid.status}>{ar ? grid.statusAr : grid.status}</StatusPill>
+            {live ? (
+              <StatusPill status={contractPicker.status[pickedContract!.status].en}>
+                {contractPicker.status[pickedContract!.status][k]}
+              </StatusPill>
+            ) : (
+              <StatusPill status={grid.status}>{ar ? grid.statusAr : grid.status}</StatusPill>
+            )}
           </div>
         </div>
         {/* Flow 04-W - the Win list, with this week's open lines. */}
@@ -456,12 +602,12 @@ function RateCalendarPage() {
           {/* OV 04.10 / 04.9 / 04.8 - each field opens the frame behind it. */}
           <PickerField
             label={t.hotel}
-            value={(ar ? hotel?.nameAr : hotel?.nameEn) ?? ""}
+            value={hotelLabel}
             onClick={() => setOverlay("hotel")}
           />
           <PickerField
             label={t.contract}
-            value={`${grid.ref} · ${ar ? grid.nameAr : grid.name}`}
+            value={contractLabel}
             onClick={() => setOverlay("contract")}
           />
           <DayField
@@ -838,11 +984,12 @@ function RateCalendarPage() {
 
       <RateGrid
         rows={rows}
-        show={show}
+        show={live ? { ...show, inventory: false, status: false, release: false } : show}
         compact={compact}
         hidePast={hidePast}
         model={grid.model}
-        fixedPrice={Boolean(grid.fixedPrice)}
+        fixedPrice={fixedPrice}
+        currency={rateTargets?.currency}
         pool={grid.pool}
         perRoomCaps={grid.perRoomCaps}
         month={month}
@@ -930,7 +1077,37 @@ function RateCalendarPage() {
         overlay === "restrictions") && (
         <BulkRangeOverlay
           kind={overlay === "bulk" ? "bulkRates" : overlay}
-          contract={(ar ? grid.nameAr : grid.name).toUpperCase()}
+          contract={(live ? pickedContract!.name : ar ? grid.nameAr : grid.name).toUpperCase()}
+          {...(live && overlay === "bulk"
+            ? {
+                roomOptions: allRows.map((row) => ({ en: row.name, ar: row.nameAr })),
+                onApplyRates: async (value) => {
+                  if (!rateTargets.eligible) {
+                    notify.error(liveGrid.notEligible[k]);
+                    throw new Error("not eligible");
+                  }
+                  try {
+                    await saveRates.mutateAsync([
+                      {
+                        action: "set",
+                        basis: fixedPrice ? "selected_room_total" : "base_plus_room_supplement",
+                        rate: value.rate,
+                        targets: allRows
+                          .filter((row) => value.rooms.includes(row.name))
+                          .flatMap((row) => (row.target ? [row.target as RateTarget] : [])),
+                        startDate: value.range.start,
+                        endDate: value.range.end ?? value.range.start,
+                        ...(value.weekdays.length < 7 ? { weekdays: value.weekdays } : {}),
+                      },
+                    ]);
+                    notify.success(liveGrid.saved[k]);
+                  } catch (error) {
+                    notify.error(getApiErrorMessage(error));
+                    throw error;
+                  }
+                },
+              }
+            : {})}
           onClose={() => setOverlay(null)}
           onEditContract={() => {
             setOverlay(null);
@@ -954,7 +1131,7 @@ function RateCalendarPage() {
            * picked in its own field.
            */
           nights={Math.max(overlayNights.length, 1)}
-          fixed={Boolean(grid.fixedPrice)}
+          fixed={fixedPrice}
           /* The field's own pick, mapped back onto the nights on screen. */
           onNights={(range) => {
             const from = dateOf(range.start);
@@ -969,9 +1146,29 @@ function RateCalendarPage() {
               setSelected([]);
             }
           }}
-          {...(overlayNights.length === 1
-            ? { current: month.base[(overlayNights[0] ?? 1) - 1] ?? 0 }
-            : {})}
+          {...(live && nightRow
+            ? {
+                current:
+                  nightRow.rate[
+                    (overlayNights.find((night) =>
+                      overlayNights.length === 1
+                        ? true
+                        : WEEKEND_DAYS.includes(dateOfNight(month, night).getDay()),
+                    ) ?? overlayNights[0] ?? 1) - 1
+                  ] ?? 0,
+                currentWeekday:
+                  nightRow.rate[
+                    (overlayNights.find(
+                      (night) => !WEEKEND_DAYS.includes(dateOfNight(month, night).getDay()),
+                    ) ?? overlayNights[0] ?? 1) - 1
+                  ] ?? 0,
+              }
+            : overlayNights.length === 1
+              ? { current: month.base[(overlayNights[0] ?? 1) - 1] ?? 0 }
+              : {})}
+          saving={saveRates.isPending}
+          currency={rateTargets?.currency}
+          {...(live && !rateTargets.eligible ? { saveBlocked: liveGrid.notEligible[k] } : {})}
           {...(nightSeason
             ? {
                 season: nightSeason,
@@ -985,7 +1182,34 @@ function RateCalendarPage() {
             setOverlay(null);
             setTypedNights(null);
           }}
-          onSave={() => {
+          onSave={(value) => {
+            if (live) {
+              const targets = pickedTargets();
+              saveRates.mutate(
+                [
+                  {
+                    action: "set",
+                    basis: "selected_room_total",
+                    rate: value.rate,
+                    targets,
+                    dates: overlayNights
+                      .map((night) => dateOfNight(month, night))
+                      .filter((date) => value.weekdays.includes(date.getDay()))
+                      .map(isoDay),
+                  },
+                ],
+                {
+                  onSuccess: () => {
+                    notify.success(liveGrid.saved[k]);
+                    setOverlay(null);
+                    setTypedNights(null);
+                    setSelected([]);
+                  },
+                  onError: (error) => notify.error(getApiErrorMessage(error)),
+                },
+              );
+              return;
+            }
             setOverlay(null);
             setTypedNights(null);
             setSelected([]);
@@ -997,6 +1221,29 @@ function RateCalendarPage() {
               },
             });
           }}
+          {...(live
+            ? {
+                onUndo: () =>
+                  saveRates.mutate(
+                    [
+                      {
+                        action: "remove",
+                        targets: pickedTargets(),
+                        dates: overlayNights.map((night) => isoDay(dateOfNight(month, night))),
+                      },
+                    ],
+                    {
+                      onSuccess: () => {
+                        notify.success(liveGrid.restored[k]);
+                        setOverlay(null);
+                        setTypedNights(null);
+                        setSelected([]);
+                      },
+                      onError: (error) => notify.error(getApiErrorMessage(error)),
+                    },
+                  ),
+              }
+            : {})}
           onBreakdown={() => setOverlay("pool")}
           onStatus={() => setOverlay("status")}
         />
@@ -1006,12 +1253,25 @@ function RateCalendarPage() {
         <NightStatusOverlay
           room={nightCell ? (ar ? nightCell.roomAr : nightCell.room) : undefined}
           date={nightDate}
-          fixed={Boolean(grid.fixedPrice)}
+          fixed={fixedPrice}
           onClose={() => setOverlay(null)}
         />
       )}
 
-      {overlay === "hotel" && <HotelPickerOverlay onClose={() => setOverlay(null)} />}
+      {overlay === "hotel" && (
+        <HotelPickerOverlay
+          hotels={ratesHotels}
+          loading={hotelsQuery.isPending}
+          error={hotelsQuery.isError}
+          onRetry={() => void hotelsQuery.refetch()}
+          value={pickedHotel?.id ?? null}
+          onPick={(id) => {
+            if (id !== pickedHotel?.id) setContractId(null);
+            setHotelId(id);
+          }}
+          onClose={() => setOverlay(null)}
+        />
+      )}
 
       {overlay === "prices" && (
         <PricesForOverlay
@@ -1024,15 +1284,15 @@ function RateCalendarPage() {
 
       {overlay === "contract" && (
         <ContractPickerOverlay
-          value={gridContracts.findIndex((item) => item.key === grid.key)}
-          onPick={(index) =>
-            navigate({
-              to: "/rate-calendar",
-              search: {
-                contract: gridContracts[index]?.key ?? gridContracts[0]!.key,
-              },
-            })
-          }
+          hotelName={hotelLabel}
+          contracts={hotelContracts}
+          loading={contractsQuery.isPending && pickedHotel !== undefined}
+          error={contractsQuery.isError}
+          onRetry={() => void contractsQuery.refetch()}
+          value={pickedContract?.id ?? null}
+          includeEnded={includeEnded}
+          onIncludeEnded={setIncludeEnded}
+          onPick={setContractId}
           onClose={() => setOverlay(null)}
         />
       )}
@@ -1056,7 +1316,7 @@ function RateCalendarPage() {
       {overlay === "pool" && (
         <PoolBreakdownOverlay
           date={nightDate}
-          fixed={Boolean(grid.fixedPrice)}
+          fixed={fixedPrice}
           onClose={() => setOverlay(null)}
         />
       )}
@@ -1091,6 +1351,11 @@ function Chip({
 
 /** A field that looks like a Select but opens the frame's own picker. */
 /** The whole of a yyyy-mm month, which is what the grid opens on. */
+function isoDay(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function wholeMonth(key: string) {
   const [year, month] = key.split("-").map(Number);
   const last = new Date(year ?? 2026, month ?? 1, 0).getDate();

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, FileText, Info, Lock, Pencil } from "lucide-react";
+import type {
+  RatesContract,
+  RatesContractStatus,
+  RatesHotel,
+} from "@/api/modules/rates-availability/types";
+import { withCurrency } from "@/lib/rate-grid-data";
 import {
   counted,
   countedOf,
@@ -1721,6 +1727,7 @@ export function OneNightOverlay({
   nights = 1,
   fixed = false,
   current,
+  currentWeekday,
   season,
   seasonPrice,
   summary,
@@ -1728,6 +1735,10 @@ export function OneNightOverlay({
   already,
   onClose,
   onSave,
+  saving = false,
+  saveBlocked,
+  onUndo,
+  currency,
   onBreakdown,
   onStatus,
   onNights,
@@ -1744,6 +1755,7 @@ export function OneNightOverlay({
   fixed?: boolean;
   /** What this night is priced at now, which is what the box opens on. */
   current?: number | undefined;
+  currentWeekday?: number | undefined;
   /** OV 04.6N / 04.6G — the season these nights sit in, if any. */
   season?: { en: string; ar: string } | undefined;
   /** What the season charges, which replaces the contract in the hints. */
@@ -1777,7 +1789,16 @@ export function OneNightOverlay({
     | undefined;
   onClose: () => void;
   /** UI 04.1W — a saved night leaves the page holding a draft. */
-  onSave?: (() => void) | undefined;
+  onSave?:
+    | ((value: {
+        rate: { amount: number } | { weekday: number; weekend: number };
+        weekdays: number[];
+      }) => void)
+    | undefined;
+  saving?: boolean | undefined;
+  saveBlocked?: string | undefined;
+  onUndo?: (() => void) | undefined;
+  currency?: string | undefined;
   onBreakdown?: (() => void) | undefined;
   onStatus?: (() => void) | undefined;
   /**
@@ -1798,7 +1819,9 @@ export function OneNightOverlay({
      price inside a season, the contract's outside one - not on a constant. */
   const start = current ?? (fixed ? f.fixedValue : c.priceValue);
   const [price, setPrice] = useState(k === "ar" ? arNum(start) : String(start));
-  const [weekdayPrice, setWeekdayPrice] = useState(k === "ar" ? arNum(400) : "400");
+  const [weekdayPrice, setWeekdayPrice] = useState(
+    k === "ar" ? arNum(currentWeekday ?? 400) : String(currentWeekday ?? 400)
+  );
   const [view, setView] = useState<"night" | "supplements">("night");
   const [perNight, setPerNight] = useState<Record<string, string>>({});
   const [split, setSplit] = useState(false);
@@ -1839,11 +1862,13 @@ export function OneNightOverlay({
    * ٧٤٠ into nothing, and the overlay then refused to save a price it
    * had filled in itself.
    */
-  const priced = Number(
-    price.replace(/[٠-٩]/g, (d) =>
-      String(d.charCodeAt(0) - 0x0660)
-    ).replace(/[^0-9]/g, "")
-  );
+  const amountOf = (text: string) =>
+    Number(
+      text.replace(/[٠-٩]/g, (d) =>
+        String(d.charCodeAt(0) - 0x0660)
+      ).replace(/[^0-9]/g, "")
+    );
+  const priced = amountOf(price);
   /*
    * OV 04.6J / 04.6M - a nought and a blank both stop the save, and they
    * are not the same thing. Typing 0 is someone saying the night is free,
@@ -1993,7 +2018,8 @@ export function OneNightOverlay({
             <>
               <button
                 type="button"
-                onClick={onClose}
+                disabled={saving}
+                onClick={onUndo ?? onClose}
                 className="text-[12.5px] font-medium text-status-danger hover:underline"
               >
                 {c.undo[k]}
@@ -2007,7 +2033,20 @@ export function OneNightOverlay({
           <Button variant="outline" onClick={onClose}>
             {c.cancel[k]}
           </Button>
-          <Button disabled={missing} onClick={onSave ?? onClose}>
+          <Button
+            disabled={missing || saving || saveBlocked !== undefined}
+            title={saveBlocked}
+            onClick={() =>
+              onSave
+                ? onSave({
+                    rate: twoBoxes
+                      ? { weekday: amountOf(weekdayPrice), weekend: priced }
+                      : { amount: priced },
+                    weekdays: days,
+                  })
+                : onClose()
+            }
+          >
             {/* The button says how many nights it is about to write. */}
             {many ? fill(f.saveMany[k], { count }) : c.saveOne[k]}
           </Button>
@@ -2175,9 +2214,12 @@ export function OneNightOverlay({
         {twoBoxes && (
           <div>
             <FieldLabel>
-              {fill(fixed ? f.fixedWeekday[k] : c.weekdaysPrice[k], {
-                nights: counted(weekdayNights, nightsWord, k),
-              })}
+              {withCurrency(
+                fill(fixed ? f.fixedWeekday[k] : c.weekdaysPrice[k], {
+                  nights: counted(weekdayNights, nightsWord, k),
+                }),
+                currency
+              )}
             </FieldLabel>
             <Box value={weekdayPrice} onChange={setWeekdayPrice} />
             <p className="mt-1.5 text-[11.5px] text-text-quiet">
@@ -2189,21 +2231,24 @@ export function OneNightOverlay({
         )}
         <div>
           <FieldLabel>
-            {!many
-              ? fixed
-                ? f.fixedLabel[k]
-                : c.priceLabel[k]
-              : twoBoxes
-                ? fill(fixed ? f.fixedWeekend[k] : c.weekendPriceLabel[k], {
-                    nights: counted(weekendNights, nightsWord, k),
-                  })
-                : uniform
-                  ? (uniform === "weekend"
-                      ? f.perNightWeekend
-                      : f.perNightWeekday)[k]
-                  : fill(c.pricePerNight[k], {
-                      nights: counted(nights, nightsWord, k),
-                    })}
+            {withCurrency(
+              !many
+                ? fixed
+                  ? f.fixedLabel[k]
+                  : c.priceLabel[k]
+                : twoBoxes
+                  ? fill(fixed ? f.fixedWeekend[k] : c.weekendPriceLabel[k], {
+                      nights: counted(weekendNights, nightsWord, k),
+                    })
+                  : uniform
+                    ? (uniform === "weekend"
+                        ? f.perNightWeekend
+                        : f.perNightWeekday)[k]
+                    : fill(c.pricePerNight[k], {
+                        nights: counted(nights, nightsWord, k),
+                      }),
+              currency
+            )}
           </FieldLabel>
           <Box
             value={price}
@@ -2721,47 +2766,124 @@ export function PricesForOverlay({
   );
 }
 
+function PickerState({
+  loading,
+  error,
+  empty,
+  loadingText,
+  errorText,
+  emptyText,
+  onRetry,
+}: {
+  loading: boolean;
+  error: boolean;
+  empty: boolean;
+  loadingText: string;
+  errorText: string;
+  emptyText: string;
+  onRetry: () => void;
+}) {
+  const { lang } = useLanguage();
+  const k = lang === "ar" ? "ar" : "en";
+  if (loading) {
+    return <p className="py-3 text-[12.5px] text-text-muted">{loadingText}</p>;
+  }
+  if (error) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 py-3">
+        <p className="text-[12.5px] text-status-danger">{errorText}</p>
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          {hotelPicker.retry[k]}
+        </Button>
+      </div>
+    );
+  }
+  if (empty) {
+    return <p className="py-3 text-[12.5px] text-text-muted">{emptyText}</p>;
+  }
+  return null;
+}
+
+const ENDED_STATUSES: RatesContractStatus[] = ["expired", "terminated"];
+
 export function ContractPickerOverlay({
-  value = 0,
+  hotelName,
+  contracts,
+  loading,
+  error,
+  onRetry,
+  value,
+  includeEnded,
+  onIncludeEnded,
   onPick,
   onClose,
 }: {
-  value?: number;
-  onPick?: ((index: number) => void) | undefined;
+  hotelName: string;
+  contracts: RatesContract[];
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+  value: number | null;
+  includeEnded: boolean;
+  onIncludeEnded: (next: boolean) => void;
+  onPick: (id: number) => void;
   onClose: () => void;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = contractPicker;
-  const [picked, setPicked] = useState(value);
-  const [ended, setEnded] = useState(false);
-  const rows = c.rows.filter((row) => ended || !row.ended);
+  const rows = contracts.filter(
+    (contract) => includeEnded || !ENDED_STATUSES.includes(contract.status),
+  );
+  const date = (value: string) =>
+    new Intl.DateTimeFormat(k === "ar" ? "ar-EG" : "en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(value));
 
   return (
     <IconModal
       width="660px"
-      overline={c.overline[k]}
+      overline={hotelName}
       title={c.title[k]}
       onClose={onClose}
     >
-      <div className="space-y-2">
-        {rows.map((row, index) => (
-          <PickerCard
-            key={row.title.en}
-            title={row.title[k]}
-            meta={row.meta[k]}
-            picked={index === picked}
-            onClick={() => {
-              setPicked(index);
-              onPick?.(index);
-              onClose();
-            }}
-          />
-        ))}
-      </div>
+      <PickerState
+        loading={loading}
+        error={error}
+        empty={rows.length === 0}
+        loadingText={c.loading[k]}
+        errorText={c.error[k]}
+        emptyText={contracts.length === 0 ? c.empty[k] : c.emptyActive[k]}
+        onRetry={onRetry}
+      />
+      {!loading && !error && rows.length > 0 && (
+        <div className="space-y-2">
+          {rows.map((contract) => (
+            <PickerCard
+              key={contract.id}
+              title={contract.name}
+              meta={[
+                c.status[contract.status][k],
+                `${date(contract.startDate)} – ${date(contract.endDate)}`,
+                c.model[contract.pricingModel][k],
+                c.booking[contract.bookingType][k],
+                contract.currency,
+              ].join(" · ")}
+              picked={contract.id === value}
+              onClick={() => {
+                onPick(contract.id);
+                onClose();
+              }}
+            />
+          ))}
+        </div>
+      )}
       <Check
-        checked={ended}
-        onChange={() => setEnded(!ended)}
+        checked={includeEnded}
+        onChange={() => onIncludeEnded(!includeEnded)}
         label={c.includeEnded[k]}
       />
     </IconModal>
@@ -2770,12 +2892,20 @@ export function ContractPickerOverlay({
 
 /** OV 04.10 — the hotels this account is linked to. */
 export function HotelPickerOverlay({
-  value = 0,
+  hotels,
+  loading,
+  error,
+  onRetry,
+  value,
   onPick,
   onClose,
 }: {
-  value?: number;
-  onPick?: ((index: number) => void) | undefined;
+  hotels: RatesHotel[];
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+  value: number | null;
+  onPick: (id: number) => void;
   onClose: () => void;
 }) {
   const { lang } = useLanguage();
@@ -2789,20 +2919,36 @@ export function HotelPickerOverlay({
       title={c.title[k]}
       onClose={onClose}
     >
-      <div className="space-y-2">
-        {c.rows.map((row, index) => (
-          <PickerCard
-            key={row.title.en}
-            title={row.title[k]}
-            meta={row.meta[k]}
-            picked={index === value}
-            onClick={() => {
-              onPick?.(index);
-              onClose();
-            }}
-          />
-        ))}
-      </div>
+      <PickerState
+        loading={loading}
+        error={error}
+        empty={hotels.length === 0}
+        loadingText={c.loading[k]}
+        errorText={c.error[k]}
+        emptyText={c.empty[k]}
+        onRetry={onRetry}
+      />
+      {!loading && !error && hotels.length > 0 && (
+        <div className="space-y-2">
+          {hotels.map((hotel) => (
+            <PickerCard
+              key={hotel.id}
+              title={(k === "ar" ? hotel.nameAr : hotel.nameEn) || hotel.nameEn || hotel.nameAr || ""}
+              meta={[
+                hotel.city,
+                hotel.starRating ? fill(c.stars[k], { n: hotel.starRating }) : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              picked={hotel.id === value}
+              onClick={() => {
+                onPick(hotel.id);
+                onClose();
+              }}
+            />
+          ))}
+        </div>
+      )}
     </IconModal>
   );
 }
