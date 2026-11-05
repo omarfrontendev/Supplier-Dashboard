@@ -64,7 +64,9 @@ export function RateGrid({
   currency,
   fade,
   weekendDays = WEEKEND_DAYS,
+  poolNote,
 }: {
+  poolNote?: string | undefined;
   weekendDays?: number[];
   currency?: string | undefined;
   fade?: ((night: number, room?: string) => boolean) | undefined;
@@ -292,7 +294,7 @@ export function RateGrid({
                   {t.poolTitle}
                 </span>
                 <span className="block text-[10px] leading-[13px] tracking-[-0.04em] text-text-muted">
-                  {t.poolMeta.replace("50", String(pool ?? 50))}
+                  {poolNote ?? t.poolMeta.replace("50", String(pool ?? 50))}
                 </span>
               </th>
               <td colSpan={nights.length} />
@@ -673,7 +675,7 @@ function RoomBlock({
             )}
           </th>
           {nights.map((night) => {
-            const value = month.minNights[night - 1] ?? "";
+            const value = (row.minNights ?? month.minNights)[night - 1] ?? "";
             return (
               <td
                 key={night}
@@ -683,12 +685,18 @@ function RoomBlock({
                   isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg",
-                  value === "no in"
+                  value === "no in" || value === "no out"
                     ? "bg-status-warning-bg font-semibold text-status-warning"
                     : "text-text-secondary"
                 )}
               >
-                {value === "no in" ? t.noCheckIn : figure(value, ar)}
+                {value === "no in"
+                  ? t.noCheckIn
+                  : value === "no out"
+                    ? t.noCheckOut
+                    : value === "-"
+                      ? "—"
+                      : figure(value, ar)}
               </td>
             );
           })}

@@ -106,6 +106,7 @@ export const contractEn = {
     /** UI 04.1T / H / J — a month a restriction never reaches. */
     noRuleMonth: "no rule this month",
     noCheckIn: "no in",
+    noCheckOut: "no out",
     releaseRow: "Release · days",
     selectedCells: "{count} selected",
     clearSelection: "Clear",
@@ -1015,6 +1016,7 @@ export const contractAr: typeof contractEn = {
     minNights: "أقل عدد ليالٍ",
     noRuleMonth: "لا قاعدة هذا الشهر",
     noCheckIn: "لا وصول",
+    noCheckOut: "لا مغادرة",
     releaseRow: "الاسترجاع · أيام",
     selectedCells: "{count} محددة",
     clearSelection: "مسح",

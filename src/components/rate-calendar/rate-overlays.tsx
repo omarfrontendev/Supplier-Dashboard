@@ -1811,7 +1811,20 @@ export function OneNightOverlay({
   onBreakdown,
   onStatus,
   onNights,
+  live,
+  weekendNames,
 }: {
+  weekendNames?: { en: string; ar: string } | undefined;
+  live?:
+    | {
+        contract: { weekday: number; weekend: number } | { amount: number } | null;
+        supplements: Array<{ label: string; value: string }>;
+        pool: string;
+        status: string;
+        minNights: string;
+        release: string;
+      }
+    | undefined;
   room?: string | undefined;
   date?: string | undefined;
   /** The base room says so on its overline. */
@@ -1884,6 +1897,20 @@ export function OneNightOverlay({
   const f = oneNightStates;
   const many = nights > 1;
   const count = k === "ar" ? arNum(nights) : nights;
+  const wk = (text: string) =>
+    weekendNames
+      ? text.replace("Thu, Fri", weekendNames.en).replace("الخميس والجمعة", weekendNames.ar)
+      : text;
+  const contractWeekday = live?.contract
+    ? "weekday" in live.contract
+      ? live.contract.weekday
+      : live.contract.amount
+    : 400;
+  const contractWeekend = live?.contract
+    ? "weekend" in live.contract
+      ? live.contract.weekend
+      : live.contract.amount
+    : 500;
   /* The box opens on what the night actually costs today - the season's
      price inside a season, the contract's outside one - not on a constant. */
   const start = current ?? (fixed ? f.fixedValue : c.priceValue);
@@ -1891,6 +1918,13 @@ export function OneNightOverlay({
   const [weekdayPrice, setWeekdayPrice] = useState(
     k === "ar" ? arNum(currentWeekday ?? 400) : String(currentWeekday ?? 400)
   );
+  const [typed, setTyped] = useState(false);
+  useEffect(() => {
+    if (typed || current === undefined) return;
+    setPrice(k === "ar" ? arNum(current) : String(current));
+    if (currentWeekday !== undefined)
+      setWeekdayPrice(k === "ar" ? arNum(currentWeekday) : String(currentWeekday));
+  }, [current, currentWeekday]);
   const [view, setView] = useState<"night" | "supplements">("night");
   const [perNight, setPerNight] = useState<Record<string, string>>({});
   const [split, setSplit] = useState(false);
@@ -2185,7 +2219,7 @@ export function OneNightOverlay({
                   season: season[k],
                 })
               : weekend
-                ? c.weekendNightHint[k]
+                ? wk(c.weekendNightHint[k])
                 : c.weekdayNightHint[k]}
         </p>
 
@@ -2290,7 +2324,13 @@ export function OneNightOverlay({
                 currency
               )}
             </FieldLabel>
-            <Box value={weekdayPrice} onChange={setWeekdayPrice} />
+            <Box
+              value={weekdayPrice}
+              onChange={(next) => {
+                setTyped(true);
+                setWeekdayPrice(next);
+              }}
+            />
             <p className="mt-1.5 text-[11.5px] text-text-quiet">
               {fill(c.contractIs[k], {
                 price: k === "ar" ? arNum(fixed ? 490 : 400) : fixed ? "490" : "400",
@@ -2321,7 +2361,10 @@ export function OneNightOverlay({
           </FieldLabel>
           <Box
             value={price}
-            onChange={setPrice}
+            onChange={(next) => {
+              setTyped(true);
+              setPrice(next);
+            }}
             className={cn(!missing && "border-brand-deep")}
             invalid={missing}
           />
@@ -2354,19 +2397,19 @@ export function OneNightOverlay({
                   : many
                     ? apart
                       ? fill(c.contractIs[k], {
-                          price: k === "ar" ? arNum(500) : "500",
+                          price: k === "ar" ? arNum(contractWeekend) : String(contractWeekend),
                         })
                       : fill(c.contractBoth[k], {
-                          weekday: k === "ar" ? arNum(400) : "400",
-                          weekend: k === "ar" ? arNum(500) : "500",
+                          weekday: k === "ar" ? arNum(contractWeekday) : String(contractWeekday),
+                          weekend: k === "ar" ? arNum(contractWeekend) : String(contractWeekend),
                         })
                     : /* A weekday night is compared with the weekday
                          contract price, not with the weekend's. */
                       fill(c.contractIs[k], {
                         price:
                           k === "ar"
-                            ? arNum(weekend ? 500 : 400)
-                            : String(weekend ? 500 : 400),
+                            ? arNum(weekend ? contractWeekend : contractWeekday)
+                            : String(weekend ? contractWeekend : contractWeekday),
                       })}
             </p>
           )}
@@ -2566,8 +2609,21 @@ export function OneNightOverlay({
         </Alarm>
       )}
 
+      {!fixed && live && live.supplements.length > 0 && (
+        <Panel>
+          <PanelRow head>
+            <span className="min-w-0 flex-1 text-[12px] text-text-primary">
+              {c.supplementsLabel[k]}
+            </span>
+          </PanelRow>
+          {live.supplements.map((line) => (
+            <SummaryRow key={line.label} label={line.label} value={line.value} />
+          ))}
+        </Panel>
+      )}
+
       {/* A fixed-price line has no supplements to carry. */}
-      {!fixed && (
+      {!fixed && !live && (
         <Panel>
           <PanelRow head>
             <span className="min-w-0 flex-1 text-[12px] text-text-primary">
@@ -2612,6 +2668,26 @@ export function OneNightOverlay({
         </Panel>
       )}
 
+      {live && (
+        <Panel>
+          <SummaryRow
+            label={c.poolLabel[k]}
+            value={live.pool}
+            action={c.breakdown[k]}
+            onAction={onBreakdown}
+          />
+          <SummaryRow
+            label={c.statusLabel[k]}
+            value={live.status}
+            action={c.change[k]}
+            onAction={onStatus}
+          />
+          <SummaryRow label={c.minNightsLabel[k]} value={live.minNights} />
+          <SummaryRow label={c.releaseLabel[k]} value={live.release} />
+        </Panel>
+      )}
+
+      {!live && (
       <Panel>
         <SummaryRow
           label={c.poolLabel[k]}
@@ -2637,6 +2713,7 @@ export function OneNightOverlay({
           tone="warning"
         />
       </Panel>
+      )}
     </IconModal>
   );
 }
@@ -2646,16 +2723,68 @@ export function PoolBreakdownOverlay({
   date,
   fixed = false,
   onClose,
+  live,
 }: {
   date?: string | undefined;
   /** A fixed-price contract caps priced lines, not room types. */
   fixed?: boolean;
   onClose: () => void;
+  live?: {
+    capacity: number | null;
+    overbooking: number;
+    caps: Array<{ room: { en: string; ar: string }; max: number }>;
+  };
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = poolBreakdown;
   const f = oneNightStates;
+  const num = (value: number) => (k === "ar" ? arNum(value) : String(value));
+
+  if (live) {
+    return (
+      <IconModal
+        width="660px"
+        overline={c.overline[k]}
+        title={date ?? c.title[k]}
+        body={
+          live.capacity === null
+            ? liveGrid.noStock[k]
+            : fill(liveGrid.poolBody[k], { count: num(live.capacity) })
+        }
+        onClose={onClose}
+        footer={
+          <Button variant="outline" onClick={onClose}>
+            {c.close[k]}
+          </Button>
+        }
+      >
+        <Panel>
+          <SummaryRow
+            label={liveGrid.poolRooms[k]}
+            value={live.capacity === null ? liveGrid.noStock[k] : num(live.capacity)}
+          />
+          <SummaryRow
+            label={liveGrid.poolOverbooking[k]}
+            value={live.overbooking ? `+${num(live.overbooking)}` : liveGrid.poolNone[k]}
+          />
+          <SummaryRow
+            label={liveGrid.poolCapped[k]}
+            value={
+              live.caps.length
+                ? live.caps
+                    .map((cap) => fill(liveGrid.poolCapLine[k], { room: cap.room[k], count: num(cap.max) }))
+                    .join(k === "ar" ? "، " : ", ")
+                : liveGrid.poolNone[k]
+            }
+          />
+        </Panel>
+        <p className="rounded-[10px] border border-border-subtle bg-surface-subtle px-3.5 py-3 text-[12px] leading-5 text-text-secondary">
+          {liveGrid.poolNoBookings[k]}
+        </p>
+      </IconModal>
+    );
+  }
 
   return (
     <IconModal

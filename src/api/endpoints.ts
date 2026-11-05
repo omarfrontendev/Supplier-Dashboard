@@ -95,6 +95,8 @@ const ratesAndAvailability = {
   rateOverridesPreview: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/rate-overrides/preview`,
   rateOverrides: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-overrides`,
+  restrictionsContext: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/restrictions/context`,
   sellControlTargets: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/sell-control-targets`,
   sellControlsContext: (contractId: number) =>

@@ -362,3 +362,21 @@ export interface SupplementsContextData {
   eligible: boolean;
   nights: SupplementNight[];
 }
+
+export interface RestrictionCell {
+  variationId: number;
+  stayDate: string;
+  restrictions: {
+    minNights: number;
+    checkIn: "open" | "closed";
+    checkOut: "open" | "closed";
+  };
+}
+
+export interface RestrictionsContextData {
+  contractId: number;
+  eligible: boolean;
+  restrictionsRevision: number;
+  weekendDays: string[];
+  cells: RestrictionCell[];
+}
