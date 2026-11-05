@@ -63,7 +63,9 @@ export function RateGrid({
   onOpenPool,
   currency,
   fade,
+  weekendDays = WEEKEND_DAYS,
 }: {
+  weekendDays?: number[];
   currency?: string | undefined;
   fade?: ((night: number, room?: string) => boolean) | undefined;
   rows?: GridRow[];
@@ -98,7 +100,7 @@ export function RateGrid({
     (night) => !hidePast || !month.today || night >= month.today
   );
   const weekdayOf = (night: number) => (month.firstWeekday + night - 1) % 7;
-  const isWeekend = (night: number) => WEEKEND_DAYS.includes(weekdayOf(night));
+  const isWeekend = (night: number) => weekendDays.includes(weekdayOf(night));
 
   // UI 04.1 - a night is a 38x26 cell; the row padding holds the rest.
   const cell = compact ? "h-5 min-w-[34px]" : "h-[26px] min-w-[34px]";
@@ -331,7 +333,7 @@ export function RateGrid({
                       <span
                         className={cn(
                           "font-data flex h-[18px] w-8 items-center justify-center rounded-[5px] text-[10.5px] font-semibold",
-                          isPast(night)
+                          isPast(night) || left < 0
                             ? "bg-surface-subtle text-cell-past-text"
                             : left === 0
                               ? "bg-status-danger-bg text-status-danger"
@@ -340,7 +342,7 @@ export function RateGrid({
                                 : "bg-status-success-bg text-status-success"
                         )}
                       >
-                        {left}
+                        {left < 0 ? "—" : left}
                       </span>
                     </button>
                   </td>

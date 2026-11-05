@@ -3,6 +3,7 @@ import { CalendarDays, FileText, Info, Lock, Pencil, Search } from "lucide-react
 import type {
   RatesContract,
   RatesContractStatus,
+  RatesCountry,
   RatesHotel,
 } from "@/api/modules/rates-availability/types";
 import { withCurrency } from "@/lib/rate-grid-data";
@@ -3060,7 +3061,9 @@ export function HotelPickerOverlay({
   value,
   onPick,
   onClose,
+  countries = [],
 }: {
+  countries?: RatesCountry[];
   hotels: RatesHotel[];
   loading: boolean;
   error: boolean;
@@ -3074,7 +3077,10 @@ export function HotelPickerOverlay({
   const c = hotelPicker;
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const rows = matching(hotels, query, (hotel) => [hotel.nameEn, hotel.nameAr, hotel.city]);
+  const [country, setCountry] = useState<string | null>(null);
+  const rows = matching(hotels, query, (hotel) => [hotel.nameEn, hotel.nameAr, hotel.city]).filter(
+    (hotel) => !country || hotel.countryCode === country,
+  );
   const pages = Math.max(1, Math.ceil(rows.length / PICKER_PAGE));
   const pageRows = rows.slice((Math.min(page, pages) - 1) * PICKER_PAGE, Math.min(page, pages) * PICKER_PAGE);
 
@@ -3095,13 +3101,38 @@ export function HotelPickerOverlay({
           }}
         />
       )}
+      {!loading && !error && countries.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {[null, ...countries.map((item) => item.code)].map((code) => {
+            const item = countries.find((entry) => entry.code === code);
+            return (
+              <button
+                key={code ?? "all"}
+                type="button"
+                onClick={() => {
+                  setCountry(code);
+                  setPage(1);
+                }}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  country === code
+                    ? "border-brand-deep bg-primary-subtle text-brand-deep"
+                    : "border-border-subtle text-text-secondary hover:border-border-default",
+                )}
+              >
+                {item ? (k === "ar" ? item.nameAr : item.nameEn) : liveGrid.allCountries[k]}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <PickerState
         loading={loading}
         error={error}
         empty={rows.length === 0}
         loadingText={c.loading[k]}
         errorText={c.error[k]}
-        emptyText={query && hotels.length > 0 ? pickerSearch.noMatch[k] : c.empty[k]}
+        emptyText={(query || country) && hotels.length > 0 ? pickerSearch.noMatch[k] : c.empty[k]}
         onRetry={onRetry}
       />
       {!loading && !error && rows.length > 0 && (

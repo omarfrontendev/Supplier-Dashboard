@@ -217,6 +217,11 @@ export interface RatesContractDetail {
     baseRoom?: { variationId: number; roomId: number; view: string; rate: RateAmount };
     mealPlans?: Array<{ type: RatesMealPlan; pricingBasis: string; price: number }>;
   } | null;
+  resolvedRoomPrices?: Array<{
+    variationId: number;
+    mealPlan?: RatesMealPlan | null;
+    price: RateAmount | null;
+  }>;
   hotel: { id: number; nameEn: string | null; nameAr: string | null };
   inventory: { pools: RatesInventoryPool[]; caps: RatesInventoryCap[] };
 }
@@ -324,4 +329,14 @@ export interface SellControlChangesData {
   }>;
   counts: { cells: number; nights: number; rooms: number };
   replacedRuleIds: number[];
+}
+
+export interface RatesCountry {
+  code: string;
+  nameEn: string;
+  nameAr: string;
+}
+
+export interface RatesMetadataData {
+  countries: RatesCountry[];
 }

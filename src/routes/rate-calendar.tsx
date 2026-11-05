@@ -55,6 +55,7 @@ import {
   selectionBar,
 } from "@/lib/rate-overlay-data";
 import { useRatesHotels } from "@/api/modules/rates-availability/useRatesHotels";
+import { useRatesMetadata } from "@/api/modules/rates-availability/useRatesMetadata";
 import {
   useSaveSellControls,
   useSellControlTargets,
@@ -132,6 +133,7 @@ export const Route = createFileRoute("/rate-calendar")({
 });
 
 /** OV 04.4 / 04.5 / 04.6 name the weekday in full the way the frames do. */
+const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_AR = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
@@ -154,6 +156,7 @@ function RateCalendarPage() {
   const month = windowFor(span.start, span.end);
   const holdsNothing = grid.model === "free" || grid.model === "onRequest";
   const hotelsQuery = useRatesHotels();
+  const metadataQuery = useRatesMetadata();
   const ratesHotels = hotelsQuery.data ?? [];
   const [hotelId, setHotelId] = useState<number | null>(null);
   const pickedHotel = ratesHotels.find((item) => item.id === hotelId) ?? ratesHotels[0];
@@ -169,6 +172,11 @@ function RateCalendarPage() {
   const targetsQuery = useRateTargets(pickedContract?.id);
   const rateTargets = targetsQuery.data;
   const live = rateTargets !== undefined && rateTargets.targets.length > 0;
+  const weekendDays = live
+    ? (rateTargets.weekendDays ?? [])
+        .map((day) => DAY_NAMES.indexOf(day.toLowerCase()))
+        .filter((day) => day >= 0)
+    : WEEKEND_DAYS;
   const detail = useRatesContractDetail(pickedContract?.id).data;
   const liveDetail = live && detail?.id === pickedContract?.id ? detail : undefined;
   const livePools = liveDetail?.inventory.pools ?? [];
@@ -218,6 +226,17 @@ function RateCalendarPage() {
       : null,
   );
   const saveRates = useSaveRateOverrides(pickedContract?.id);
+  const seasonDays = new Set(
+    (contextQuery.data?.nights ?? [])
+      .filter((night) => night.source === "season")
+      .map((night) => night.stayDate),
+  ).size;
+  const liveSeason = {
+    seasonBand: seasonDays ? fill(liveGrid.seasonNights.en, { count: seasonDays }) : null,
+    seasonBandAr: seasonDays ? fill(liveGrid.seasonNights.ar, { count: arNum(seasonDays) }) : null,
+    seasonHint: null,
+    seasonHintAr: null,
+  };
   const sellQuery = useSellControlsContext(
     pickedContract?.id,
     live && termDates.length
@@ -252,18 +271,41 @@ function RateCalendarPage() {
         const roomNights = liveModel === "perRoom" ? nightsOf(target.variationId) : null;
         const cap = liveDetail?.inventory.caps.find((item) => item.variationId === target.variationId);
         const capByDay = new Map((cap?.nights ?? []).map((night) => [night.stayDate, night.maxRooms]));
-        const meta = (lang: "en" | "ar") =>
-          fill(
-            (target.kind === "base"
-              ? liveGrid.base
+        const contractPrice = liveDetail?.resolvedRoomPrices?.find(
+          (item) =>
+            item.variationId === target.variationId &&
+            (!target.mealPlan || !item.mealPlan || item.mealPlan === target.mealPlan),
+        )?.price;
+        const meta = (lang: "en" | "ar") => {
+          const num = (value: number) => (lang === "ar" ? arNum(value) : String(value));
+          if (!liveDetail)
+            return fill(
+              (target.kind === "base"
+                ? liveGrid.base
+                : fixedPrice
+                  ? liveGrid.fixed
+                  : liveGrid.supplement)[lang],
+              { currency: rateTargets.currency, amount: num(supplement) },
+            );
+          const lead =
+            target.kind === "base"
+              ? liveGrid.baseLine[lang]
               : fixedPrice
-                ? liveGrid.fixed
-                : liveGrid.supplement)[lang],
-            {
-              currency: rateTargets.currency,
-              amount: lang === "ar" ? arNum(supplement) : String(supplement),
-            },
-          );
+                ? liveGrid.fixedLine[lang]
+                : fill(liveGrid.supplementLine[lang], { amount: num(supplement) });
+          const price = contractPrice
+            ? "weekday" in contractPrice
+              ? fill(liveGrid.weekdayWeekend[lang], {
+                  weekday: num(contractPrice.weekday),
+                  weekend: num(contractPrice.weekend),
+                })
+              : fill(liveGrid.everyNight[lang], { amount: num(contractPrice.amount) })
+            : null;
+          const capped = cap?.nights[0]
+            ? fill(liveGrid.cappedAt[lang], { count: num(cap.nights[0].maxRooms) })
+            : null;
+          return [lead, price, capped].filter(Boolean).join(" · ");
+        };
         return {
           name: name("en"),
           nameAr: name("ar"),
@@ -425,7 +467,7 @@ function RateCalendarPage() {
    * "Fri 1 5 – –" when it was treated as one.
    */
   const nightOn = nightCell ? dateOfNight(month, nightCell.night) : null;
-  const nightWeekend = nightOn ? WEEKEND_DAYS.includes(nightOn.getDay()) : false;
+  const nightWeekend = nightOn ? weekendDays.includes(nightOn.getDay()) : false;
   const nightDate = nightOn
     ? ar
       ? `${DAY_AR[nightOn.getDay()]} ${arNum(nightOn.getDate())} ${
@@ -489,14 +531,14 @@ function RateCalendarPage() {
         const year = ar ? arNum(last.getFullYear()) : String(last.getFullYear());
         const weekend = overlayNights
           .map((night) => dateOfNight(month, night))
-          .filter((date) => WEEKEND_DAYS.includes(date.getDay()))
+          .filter((date) => weekendDays.includes(date.getDay()))
           .map((date) =>
             ar ? `${DAY_AR[date.getDay()]} ${day(date)}` : `${DAY_EN[date.getDay()]} ${day(date)}`,
           );
         /* OV 04.6L - the weekday is named too, not only counted. */
         const weekdayList = overlayNights
           .map((night) => dateOfNight(month, night))
-          .filter((date) => !WEEKEND_DAYS.includes(date.getDay()))
+          .filter((date) => !weekendDays.includes(date.getDay()))
           .map((date) =>
             ar ? `${DAY_AR[date.getDay()]} ${day(date)}` : `${DAY_EN[date.getDay()]} ${day(date)}`,
           );
@@ -570,7 +612,7 @@ function RateCalendarPage() {
             ...row,
             rate: row.rate.map((value, index) => {
               const on = dateOfNight(month, index + 1);
-              return groupRate(priceGroup, row.name, on, WEEKEND_DAYS.includes(on.getDay()), value);
+              return groupRate(priceGroup, row.name, on, weekendDays.includes(on.getDay()), value);
             }),
           },
     );
@@ -990,9 +1032,16 @@ function RateCalendarPage() {
             label={t.from}
             value={span.start}
             span={span}
+            weekend={weekendDays}
             onPick={(next) => setSpan(next)}
           />
-          <DayField label={t.to} value={span.end} span={span} onPick={(next) => setSpan(next)} />
+          <DayField
+            label={t.to}
+            value={span.end}
+            span={span}
+            weekend={weekendDays}
+            onPick={(next) => setSpan(next)}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1181,6 +1230,7 @@ function RateCalendarPage() {
         model={gridModel}
         fixedPrice={fixedPrice}
         currency={rateTargets?.currency}
+        weekendDays={weekendDays}
         pool={liveDetail ? liveDetail.inventoryRules?.roomsPerNight : grid.pool}
         perRoomCaps={
           liveDetail
@@ -1196,7 +1246,8 @@ function RateCalendarPage() {
           liveDetail
             ? {
                 ...month,
-                poolLeft: monthDates.map((day) => nightsOf(null).get(day)?.capacity ?? 0),
+                poolLeft: monthDates.map((day) => nightsOf(null).get(day)?.capacity ?? -1),
+                ...liveSeason,
               }
             : month
         }
@@ -1241,13 +1292,25 @@ function RateCalendarPage() {
       <div className="mt-5 rounded-xl border border-border-subtle bg-surface-subtle p-4">
         <p className="text-overline text-text-muted">{t.goodToKnow}</p>
         <ul className="mt-2 space-y-1.5">
-          {[
-            ...(ar ? grid.legendAr : grid.legend),
-            /* UI 04.1T / H / J — a season month says where its price comes from. */
-            ...((ar ? month.legendLineAr : month.legendLine)
-              ? [(ar ? month.legendLineAr : month.legendLine) as string]
-              : []),
-          ].map((line) => (
+          {(liveDetail && rateTargets
+            ? [
+                fill(liveGrid.knowPrices[k], { currency: rateTargets.currency }),
+                fill(liveGrid.knowWeekend[k], {
+                  days: weekendDays
+                    .map((day) => liveGrid.terms.days[DAY_NAMES[day]!]?.[k] ?? "")
+                    .join(ar ? " و" : ", "),
+                }),
+                contractTerms(liveDetail, rateTargets, k)[3]!,
+                liveGrid.knowEdited[k],
+              ]
+            : [
+                ...(ar ? grid.legendAr : grid.legend),
+                /* UI 04.1T / H / J — a season month says where its price comes from. */
+                ...((ar ? month.legendLineAr : month.legendLine)
+                  ? [(ar ? month.legendLineAr : month.legendLine) as string]
+                  : []),
+              ]
+          ).map((line) => (
             <li key={line} className="text-xs leading-5 text-text-secondary">
               •&nbsp;&nbsp;{line}
             </li>
@@ -1440,13 +1503,13 @@ function RateCalendarPage() {
                     (overlayNights.find((night) =>
                       overlayNights.length === 1
                         ? true
-                        : WEEKEND_DAYS.includes(dateOfNight(month, night).getDay()),
+                        : weekendDays.includes(dateOfNight(month, night).getDay()),
                     ) ?? overlayNights[0] ?? 1) - 1
                   ] ?? 0,
                 currentWeekday:
                   nightRow.rate[
                     (overlayNights.find(
-                      (night) => !WEEKEND_DAYS.includes(dateOfNight(month, night).getDay()),
+                      (night) => !weekendDays.includes(dateOfNight(month, night).getDay()),
                     ) ?? overlayNights[0] ?? 1) - 1
                   ] ?? 0,
               }
@@ -1584,6 +1647,7 @@ function RateCalendarPage() {
 
       {overlay === "hotel" && (
         <HotelPickerOverlay
+          countries={metadataQuery.data?.countries ?? []}
           hotels={ratesHotels}
           loading={hotelsQuery.isPending}
           error={hotelsQuery.isError}
@@ -1740,11 +1804,13 @@ export function DayField({
   value,
   span,
   onPick,
+  weekend,
 }: {
   label: string;
   value: string;
   span: { start: string; end: string };
   onPick: (next: { start: string; end: string }) => void;
+  weekend?: number[] | undefined;
 }) {
   const { lang } = useLanguage();
   const t = datePickerCopy[lang === "ar" ? "ar" : "en"];
@@ -1819,6 +1885,7 @@ export function DayField({
           <div className="absolute z-50 mt-2 w-[393px] max-w-[calc(100vw-2rem)] start-0">
             <DatePicker
               className="w-full"
+              {...(weekend ? { weekend } : {})}
               value={{
                 start: span.start,
                 end: span.end || span.start,
