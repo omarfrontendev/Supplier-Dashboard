@@ -106,6 +106,13 @@ export const bulkRooms: Bi[] = [
 
 export interface AlreadySet {
   id?: string;
+  edit?: {
+    ruleId: number;
+    status: "stopSale" | "onRequest";
+    ranges: Array<{ start: string; end: string }>;
+    rooms: string[];
+    allRooms: boolean;
+  };
   when: Bi;
   rooms: Bi;
   /** The right-hand value: what this row sets. */

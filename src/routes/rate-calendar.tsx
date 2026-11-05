@@ -1493,8 +1493,36 @@ function RateCalendarPage() {
                         .flatMap((row) => (row.target ? [row.target.variationId] : [])),
                     ),
                   ];
-                  const operations: SellControlOperation[] = lines.flatMap((line) =>
-                    line.ranges.map((range) => {
+                  const operations: SellControlOperation[] = lines.flatMap((line): SellControlOperation[] => {
+                    if (line.ruleId !== undefined) {
+                      if (line.status === "openSale")
+                        return [{ action: "remove" as const, ruleId: line.ruleId }];
+                      const dates = [
+                        ...new Set(
+                          line.ranges.flatMap((range) => {
+                            const out: string[] = [];
+                            const day = new Date(`${range.start}T00:00:00`);
+                            const last = new Date(`${range.end ?? range.start}T00:00:00`);
+                            while (day <= last) {
+                              if (line.weekdays.includes(day.getDay())) out.push(isoDay(day));
+                              day.setDate(day.getDate() + 1);
+                            }
+                            return out;
+                          }),
+                        ),
+                      ].sort();
+                      return [
+                        {
+                          action: "edit" as const,
+                          ruleId: line.ruleId,
+                          status: line.status === "stopSale" ? ("stop_sale" as const) : ("on_request" as const),
+                          ...(line.allRooms ? { allRooms: true as const } : { variationIds: ids(line.rooms) }),
+                          dates,
+                          ...(line.sla ? { onRequestSettings: line.sla } : {}),
+                        },
+                      ];
+                    }
+                    return line.ranges.map((range) => {
                       const scope = {
                         ...(line.allRooms ? { allRooms: true as const } : { variationIds: ids(line.rooms) }),
                         startDate: range.start,
@@ -1509,8 +1537,8 @@ function RateCalendarPage() {
                             ...scope,
                             ...(line.sla ? { onRequestSettings: line.sla } : {}),
                           };
-                    }),
-                  );
+                    });
+                  });
                   try {
                     await saveSell.mutateAsync(operations);
                     notify.success(liveGrid.sellSaved[k]);
@@ -2368,8 +2396,30 @@ function sellRuleRows(rules: SellControlRule[], rows: GridRow[]): AlreadySet[] {
       const dates = rule.cells.map((cell) => cell.stayDate);
       const ids = rule.cells.map((cell) => cell.variationId);
       const value = rule.status === "stop_sale" ? liveGrid.stopSaleValue : liveGrid.onRequestValue;
+      const uniqueIds = [...new Set(ids)];
+      const allIds = [
+        ...new Set(rows.flatMap((row) => (row.target ? [row.target.variationId] : []))),
+      ];
+      const runs: string[][] = [];
+      for (const day of [...new Set(dates)].sort()) {
+        const last = runs[runs.length - 1];
+        const next = last ? new Date(`${last[last.length - 1]}T00:00:00`) : null;
+        next?.setDate(next.getDate() + 1);
+        if (last && next && isoDay(next) === day) last.push(day);
+        else runs.push([day]);
+      }
       return {
         id: String(rule.id),
+        edit: {
+          ruleId: rule.id,
+          status: rule.status === "stop_sale" ? ("stopSale" as const) : ("onRequest" as const),
+          ranges: runs.map((run) => ({ start: run[0]!, end: run[run.length - 1]! })),
+          rooms: uniqueIds.flatMap((id) => {
+            const row = rows.find((item) => item.target?.variationId === id);
+            return row ? [row.name] : [];
+          }),
+          allRooms: allIds.length > 0 && allIds.every((id) => uniqueIds.includes(id)),
+        },
         when: { en: segments(dates, "en"), ar: segments(dates, "ar") },
         rooms: { en: names(ids, "en"), ar: names(ids, "ar") },
         value: { en: value.en, ar: value.ar },

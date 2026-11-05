@@ -1053,6 +1053,11 @@ export const liveGrid = {
     escalate_to_hoteliana: t("No answer: pass it to Hoteliana", "بلا رد: تحويله إلى Hoteliana"),
   },
   sellSaved: t("Sell status saved", "تم حفظ حالة البيع"),
+  editing: t("Editing", "قيد التعديل"),
+  editingHint: t(
+    "Change the nights, rooms or status, then press + Add and Review & save.",
+    "غيّر الليالي أو الغرف أو الحالة، ثم اضغط + إضافة ثم راجع واحفظ.",
+  ),
   sellHeld: t(
     "Prices and rooms held stay as they are. Confirmed bookings are not touched.",
     "الأسعار والغرف المحجوزة تبقى كما هي. والحجوزات المؤكدة لا تُمس.",

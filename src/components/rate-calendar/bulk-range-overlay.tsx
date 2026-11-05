@@ -84,6 +84,7 @@ interface Line {
 }
 
 export interface StatusPayload {
+  ruleId?: number | undefined;
   status: "stopSale" | "openSale" | "onRequest";
   ranges: DayRange[];
   weekdays: number[];
@@ -191,6 +192,7 @@ export function BulkRangeOverlay({
   const [supplements, setSupplements] = useState<Record<string, string>>({});
   /* Stop sale */
   const [setTo, setSetTo] = useState("stopSale");
+  const [editingRule, setEditingRule] = useState<number | null>(null);
   const [everyContract, setEveryContract] = useState(false);
   const [slaMinutes, setSlaMinutes] = useState("30");
   const [expiryAction, setExpiryAction] = useState<"auto_reject" | "escalate_to_hoteliana">(
@@ -305,6 +307,8 @@ export function BulkRangeOverlay({
     const start = dateOf(item.range.start);
     const end = dateOf(item.range.end ?? item.range.start);
     const same = start.getMonth() === end.getMonth();
+    if (start.getTime() === end.getTime())
+      return `${n(end.getDate())} ${dp.monthsShort[end.getMonth()]} ${year(end.getFullYear())}`;
     const left = same
       ? n(start.getDate())
       : `${n(start.getDate())} ${dp.monthsShort[start.getMonth()]}`;
@@ -464,6 +468,7 @@ export function BulkRangeOverlay({
   const statusPayload = (): StatusPayload | undefined =>
     kind === "stopSale" && onApplyStatus
       ? {
+          ...(editingRule !== null ? { ruleId: editingRule } : {}),
           status: setTo as StatusPayload["status"],
           ranges: picked.map((item) => item.range),
           weekdays: days,
@@ -497,6 +502,7 @@ export function BulkRangeOverlay({
     setSupplements({});
     setMinNights("");
     setEveryContract(false);
+    setEditingRule(null);
   };
 
   const lineNow = (): Line => {
@@ -780,6 +786,20 @@ export function BulkRangeOverlay({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-5">
+          {editingRule !== null && (
+            <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-brand-deep/30 bg-primary-subtle px-3.5 py-2.5">
+              <p className="min-w-0 flex-1 text-[12px] leading-5 text-text-primary">
+                {liveGrid.editingHint[k]}
+              </p>
+              <button
+                type="button"
+                onClick={clearForm}
+                className="text-[11.5px] font-medium text-text-link hover:underline"
+              >
+                {c.cancel[k]}
+              </button>
+            </div>
+          )}
           <Section label={c.nights[k]}>
             <div className="relative flex flex-wrap items-center gap-2">
               <button
@@ -1557,7 +1577,10 @@ export function BulkRangeOverlay({
             {rows.map((row) => (
               <div
                 key={row.id ?? row.when.en}
-                className="rounded-[10px] bg-surface-default p-3"
+                className={cn(
+                  "rounded-[10px] bg-surface-default p-3",
+                  row.edit && row.edit.ruleId === editingRule && "ring-1 ring-brand-deep",
+                )}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-[12.5px] font-semibold text-text-primary">
@@ -1604,13 +1627,40 @@ export function BulkRangeOverlay({
                     </>
                   ) : (
                     <>
-                      <StatusPill tone={row.draft ? "warning" : "success"}>
-                        {row.draft ? c.newDraft[k] : c.live[k]}
+                      <StatusPill
+                        tone={
+                          row.edit && row.edit.ruleId === editingRule
+                            ? "warning"
+                            : row.draft
+                              ? "warning"
+                              : "success"
+                        }
+                      >
+                        {row.edit && row.edit.ruleId === editingRule
+                          ? liveGrid.editing[k]
+                          : row.draft
+                            ? c.newDraft[k]
+                            : c.live[k]}
                       </StatusPill>
                       <span className="flex items-center gap-3 text-[11.5px] font-medium">
-                        {!onRemoveExisting && (
+                        {(!onRemoveExisting || row.edit) && (
                           <button
                             type="button"
+                            onClick={() => {
+                              const rule = row.edit;
+                              if (!rule) return;
+                              setPicked(
+                                rule.ranges.map((range, index) => ({
+                                  id: `E-${rule.ruleId}-${index}`,
+                                  range,
+                                  nights: nightsIn(range),
+                                })),
+                              );
+                              setRooms(rule.allRooms ? [roomList[0]!.en] : rule.rooms);
+                              setSetTo(rule.status);
+                              setDays([0, 1, 2, 3, 4, 5, 6]);
+                              setEditingRule(rule.ruleId);
+                            }}
                             className="text-text-link hover:underline"
                           >
                             {c.edit[k]}
