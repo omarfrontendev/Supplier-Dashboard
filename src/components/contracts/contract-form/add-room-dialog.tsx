@@ -240,12 +240,12 @@ export function AddRoomDialog({
                     ) : (
                       <ChoiceRow
                         key="basis"
-                        value={meal?.basis ?? "per_person"}
+                        value={meal?.basis ?? "per_room"}
                         disabled={!meal}
                         onChange={(basis) => editMeal(option.value, { basis: basis as MealBasis })}
                         options={[
                           { value: "per_room", label: t.perRoom },
-                          { value: "per_person", label: t.perPerson },
+                          // { value: "per_person", label: t.perPerson },
                         ]}
                       />
                     ),
