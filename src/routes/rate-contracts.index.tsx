@@ -930,7 +930,7 @@ function RateContractsPage() {
       </section>
       {Boolean(filtered?.length) && (
         <p className="mt-3 text-xs text-text-muted">
-          {fill(t.showing, { shown: filtered?.length, total: contracts.length })}
+          {fill(t.showing, { shown: filtered?.length, total: data?.meta?.total })}
         </p>
       )}
       <p className="mt-4 text-xs leading-5 text-text-muted">
