@@ -1134,6 +1134,7 @@ export function ContractBuilder({
     leaving = false,
     onSavedForReview?: (id: number) => void,
   ): Promise<boolean> {
+
     if (!basicsReady(draft)) {
       notify.error(f.saveNeedsBasics);
       jumpTo("basics");

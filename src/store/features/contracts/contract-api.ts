@@ -414,7 +414,7 @@ export function pricingFromDraft(
     const roomPairs: ContractBasePricing["rooms"] = [];
     for (const room of rooms) {
       const view = room.view ?? "no_view";
-      if (room.roomId === baseRoomId && view === baseRoomView) continue;
+      // if (room.roomId === baseRoomId && view === baseRoomView) continue;
       const supplement = toAmount(room.supplement);
       if (supplement === null) return null;
       roomPairs.push({ roomId: room.roomId, view, supplement });
@@ -613,6 +613,9 @@ export function toCreateContractBody(
   inventoryRules?: ContractInventoryRules | null,
   baseRoomView?: string,
 ): CreateHotelContractBody {
+
+  console.log("draft", draft);
+
   const { basics } = draft;
   const pricing = pricingFromDraft(draft, baseRoomView);
   const childPricing = hasChildPricing(draft) ? toChildPricing(draft) : null;

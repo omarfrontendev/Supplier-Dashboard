@@ -18,6 +18,7 @@ export const useSaveHotelContract = () => {
 
   return useMutation({
     mutationFn: async ({ id, body }: SaveContractInput) => {
+
       const response =
         id === null
           ? await api.post<SupplierHotelContractResponse>(
