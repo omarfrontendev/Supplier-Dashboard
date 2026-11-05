@@ -742,7 +742,7 @@ function RateCalendarPage() {
       )}
 
       <SectionCard className="mb-5" bodyClassName="p-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[230px_300px_170px_170px_190px_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[260px_340px_210px_minmax(0,1fr)]">
           {/* OV 04.10 / 04.9 / 04.8 - each field opens the frame behind it. */}
           <PickerField
             label={t.hotel}
@@ -754,13 +754,6 @@ function RateCalendarPage() {
             value={contractLabel}
             onClick={() => setOverlay("contract")}
           />
-          <DayField
-            label={t.from}
-            value={span.start}
-            span={span}
-            onPick={(next) => setSpan(next)}
-          />
-          <DayField label={t.to} value={span.end} span={span} onPick={(next) => setSpan(next)} />
           {/* OV 04.1PN - the field that opens the nationality menu. */}
           <PickerField
             label={pricesForCopy.label[k]}
@@ -991,6 +984,16 @@ function RateCalendarPage() {
         </div>
 
         <div className="my-4 h-px bg-border-subtle" aria-hidden="true" />
+
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-[repeat(2,minmax(0,1fr))]">
+          <DayField
+            label={t.from}
+            value={span.start}
+            span={span}
+            onPick={(next) => setSpan(next)}
+          />
+          <DayField label={t.to} value={span.end} span={span} onPick={(next) => setSpan(next)} />
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {(

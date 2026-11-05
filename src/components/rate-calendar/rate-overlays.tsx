@@ -19,6 +19,7 @@ import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
+import { DateField } from "@/components/ui/date-field";
 import {
   DatePicker,
   dateOf,
@@ -2936,10 +2937,14 @@ export function ContractPickerOverlay({
   const c = contractPicker;
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [dates, setDates] = useState<{ start: string; end: string } | null>(null);
   const shown = contracts.filter(
     (contract) => includeEnded || !ENDED_STATUSES.includes(contract.status),
   );
-  const rows = matching(shown, query, (contract) => [contract.name, String(contract.id)]);
+  const rows = matching(shown, query, (contract) => [contract.name, String(contract.id)]).filter(
+    (contract) =>
+      !dates || (contract.startDate.slice(0, 10) <= dates.end && contract.endDate.slice(0, 10) >= dates.start),
+  );
   const pages = Math.max(1, Math.ceil(rows.length / PICKER_PAGE));
   const pageRows = rows.slice((Math.min(page, pages) - 1) * PICKER_PAGE, Math.min(page, pages) * PICKER_PAGE);
   const date = (value: string) =>
@@ -2958,14 +2963,40 @@ export function ContractPickerOverlay({
       onClose={onClose}
     >
       {!loading && !error && shown.length > 0 && (
-        <PickerSearch
-          value={query}
-          placeholder={pickerSearch.contracts[k]}
-          onChange={(next) => {
-            setQuery(next);
-            setPage(1);
-          }}
-        />
+        <>
+          <PickerSearch
+            value={query}
+            placeholder={pickerSearch.contracts[k]}
+            onChange={(next) => {
+              setQuery(next);
+              setPage(1);
+            }}
+          />
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <DateField
+              mode="range"
+              className="min-w-0 flex-1"
+              value={dates ? { start: dates.start, end: dates.end } : { start: "", end: null }}
+              placeholder={pickerSearch.dates[k]}
+              onChange={(next) => {
+                setDates(next);
+                setPage(1);
+              }}
+            />
+            {dates && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDates(null);
+                  setPage(1);
+                }}
+                className="px-1 text-xs font-medium text-text-link hover:underline"
+              >
+                {pickerSearch.clearDates[k]}
+              </button>
+            )}
+          </div>
+        </>
       )}
       <PickerState
         loading={loading}
@@ -2974,7 +3005,7 @@ export function ContractPickerOverlay({
         loadingText={c.loading[k]}
         errorText={c.error[k]}
         emptyText={
-          query && shown.length > 0
+          (query || dates) && shown.length > 0
             ? pickerSearch.noMatch[k]
             : contracts.length === 0
               ? c.empty[k]

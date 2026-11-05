@@ -580,6 +580,8 @@ export const pickerSearch = {
   hotels: t("Search hotels by name or city", "ابحث عن فندق بالاسم أو المدينة"),
   contracts: t("Search contracts by name or number", "ابحث عن عقد بالاسم أو الرقم"),
   noMatch: t("Nothing matches your search.", "لا توجد نتائج مطابقة."),
+  dates: t("Contracts active between… (From - To)", "عقود سارية بين… (من - إلى)"),
+  clearDates: t("Clear dates", "مسح التواريخ"),
 };
 
 export const hotelPicker = {
