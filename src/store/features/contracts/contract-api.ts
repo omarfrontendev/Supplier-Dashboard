@@ -614,8 +614,6 @@ export function toCreateContractBody(
   baseRoomView?: string,
 ): CreateHotelContractBody {
 
-  console.log("draft", draft);
-
   const { basics } = draft;
   const pricing = pricingFromDraft(draft, baseRoomView);
   const childPricing = hasChildPricing(draft) ? toChildPricing(draft) : null;
