@@ -340,3 +340,25 @@ export interface RatesCountry {
 export interface RatesMetadataData {
   countries: RatesCountry[];
 }
+
+export interface SupplementMeal {
+  type: Exclude<RatesMealPlan, "room_only">;
+  enabled: boolean;
+  price: number | null;
+  pricingBasis: "per_person" | "per_room" | null;
+  source: string;
+  dailyOverride: unknown;
+}
+
+export interface SupplementNight {
+  variationId: number;
+  stayDate: string;
+  currency: string;
+  meals: SupplementMeal[];
+}
+
+export interface SupplementsContextData {
+  ratesRevision: number;
+  eligible: boolean;
+  nights: SupplementNight[];
+}

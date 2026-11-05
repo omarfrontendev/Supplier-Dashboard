@@ -1026,6 +1026,16 @@ export const liveGrid = {
     "الخلية المنقّطة لها سعر خاص بتلك الليلة. اضغط عليها لتغييره أو لإرجاع سعر العقد.",
   ),
   allCountries: t("All countries", "كل الدول"),
+  plusMealsLive: t("+ meals ({meals})", "+ الوجبات ({meals})"),
+  mealShort: {
+    bed_and_breakfast: t("B&B", "إفطار"),
+    half_board: t("HB", "نصف إقامة"),
+    full_board: t("FB", "إقامة كاملة"),
+    iftar_and_suhoor: t("Iftar & suhoor", "إفطار وسحور"),
+  } as Record<string, Bi>,
+  mealFor: t("{meal} · for {guests} guests", "{meal} · لـ{guests} ضيوف"),
+  mealPerPerson: t("room + {price} × {guests} · from the contract", "الغرفة + {price} × {guests} · من العقد"),
+  mealPerRoom: t("room + {price} per room · from the contract", "الغرفة + {price} للغرفة · من العقد"),
   saved: t("Prices saved", "تم حفظ الأسعار"),
   restored: t("Back to the contract price", "عاد السعر إلى سعر العقد"),
   notEligible: t(

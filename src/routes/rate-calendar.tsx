@@ -68,6 +68,7 @@ import {
   useRateOverrides,
   useRatesContractDetail,
   useRatesContext,
+  useSupplementsContext,
   useSaveRateOverrides,
 } from "@/api/modules/rates-availability/useRates";
 import type { AlreadySet } from "@/lib/bulk-range-data";
@@ -225,6 +226,18 @@ function RateCalendarPage() {
         }
       : null,
   );
+  const supplementsQuery = useSupplementsContext(
+    pickedContract?.id,
+    live && !fixedPrice && termDates.length
+      ? {
+          targets: [...new Set(rateTargets.targets.map((target) => target.variationId))].map(
+            (variationId) => ({ variationId }),
+          ),
+          startDate: termDates[0]!,
+          endDate: termDates[termDates.length - 1]!,
+        }
+      : null,
+  );
   const saveRates = useSaveRateOverrides(pickedContract?.id);
   const seasonDays = new Set(
     (contextQuery.data?.nights ?? [])
@@ -246,6 +259,51 @@ function RateCalendarPage() {
   const sellAt = new Map(
     (sellQuery.data?.cells ?? []).map((cell) => [`${cell.variationId}|${cell.stayDate}`, cell.override]),
   );
+  const liveMeals = (variationId: number, days: string[], rates: number[]) => {
+    const nights = (supplementsQuery.data?.nights ?? []).filter(
+      (night) => night.variationId === variationId,
+    );
+    if (!nights.length) return {};
+    const byDay = new Map(nights.map((night) => [night.stayDate, night]));
+    const types = [
+      ...new Set(nights.flatMap((night) => night.meals.filter((meal) => meal.enabled).map((meal) => meal.type))),
+    ];
+    if (!types.length) return {};
+    const guests = 2;
+    const short = (lang: "en" | "ar") =>
+      types.map((type) => liveGrid.mealShort[type]?.[lang] ?? type).join(lang === "ar" ? "، " : ", ");
+    return {
+      mealLabel: {
+        en: fill(liveGrid.plusMealsLive.en, { meals: short("en") }),
+        ar: fill(liveGrid.plusMealsLive.ar, { meals: short("ar") }),
+      },
+      meals: types.map((type) => {
+        const first = nights.flatMap((night) => night.meals).find((meal) => meal.type === type && meal.enabled);
+        const price = first?.price ?? 0;
+        const perPerson = first?.pricingBasis !== "per_room";
+        const name = (lang: "en" | "ar") =>
+          fill(liveGrid.mealFor[lang], {
+            meal: liveGrid.meals[type]?.[lang] ?? type,
+            guests: lang === "ar" ? arNum(guests) : guests,
+          });
+        const meta = (lang: "en" | "ar") =>
+          fill((perPerson ? liveGrid.mealPerPerson : liveGrid.mealPerRoom)[lang], {
+            price: lang === "ar" ? arNum(price) : price,
+            guests: lang === "ar" ? arNum(guests) : guests,
+          });
+        return {
+          key: type,
+          name: { en: name("en"), ar: name("ar") },
+          meta: { en: meta("en"), ar: meta("ar") },
+          totals: days.map((day, index) => {
+            const meal = byDay.get(day)?.meals.find((item) => item.type === type);
+            if (!meal?.enabled || meal.price === null) return null;
+            return (rates[index] ?? 0) + (meal.pricingBasis === "per_room" ? meal.price : meal.price * guests);
+          }),
+        };
+      }),
+    };
+  };
   const liveRows: GridRow[] = live
     ? rateTargets.targets.map((target) => {
         const nights = (contextQuery.data?.nights ?? []).filter(
@@ -317,6 +375,11 @@ function RateCalendarPage() {
           rate: monthDates.map((day) => byDay.get(day)?.roomAmount ?? 0),
           edited: monthDates.flatMap((day, index) =>
             byDay.get(day)?.source === "daily_override" ? [index + 1] : [],
+          ),
+          ...liveMeals(
+            target.variationId,
+            monthDates,
+            monthDates.map((day) => byDay.get(day)?.roomAmount ?? 0),
           ),
           inventoryLabel: cap && !roomNights ? ("left" as const) : ("sold" as const),
           ...(cap && !roomNights ? { cap: cap.nights[0]?.maxRooms ?? 0 } : {}),

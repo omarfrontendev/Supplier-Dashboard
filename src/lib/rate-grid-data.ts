@@ -54,6 +54,13 @@ export interface GridRow {
   release: number[];
   target?: { variationId: number; mealPlan?: string };
   edited?: number[];
+  mealLabel?: { en: string; ar: string };
+  meals?: Array<{
+    key: string;
+    name: { en: string; ar: string };
+    meta: { en: string; ar: string };
+    totals: Array<number | null>;
+  }>;
 }
 
 const W = [

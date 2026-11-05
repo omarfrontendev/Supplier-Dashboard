@@ -7,6 +7,7 @@ import type {
   RateChangesData,
   RatesContractDetail,
   RateOverridesData,
+  SupplementsContextData,
   RateContextData,
   RateOperation,
   RateSelection,
@@ -67,6 +68,23 @@ export const useRatesContext = (contractId: number | undefined, selection: RateS
     queryFn: async () => {
       const response = await api.post<RatesEnvelope<RateContextData>>(
         endpoints.ratesAndAvailability.ratesContext(contractId!),
+        selection,
+      );
+      return response.data.data;
+    },
+    enabled: contractId !== undefined && selection !== null && selection.targets.length > 0,
+  });
+};
+
+export const useSupplementsContext = (
+  contractId: number | undefined,
+  selection: RateSelection | null,
+) => {
+  return useQuery({
+    queryKey: [...rateKeys.context(contractId), "supplements", selection],
+    queryFn: async () => {
+      const response = await api.post<RatesEnvelope<SupplementsContextData>>(
+        endpoints.ratesAndAvailability.supplementsContext(contractId!),
         selection,
       );
       return response.data.data;

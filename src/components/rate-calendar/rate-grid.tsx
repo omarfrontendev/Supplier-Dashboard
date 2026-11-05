@@ -449,13 +449,19 @@ function RoomBlock({
             <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">
               {fixedPrice ? t.rateRowFixed : t.rateRow}
             </span>
-            {!fixedPrice && !row.target && (
+            {!fixedPrice && (!row.target || row.mealLabel) && (
               <button
                 type="button"
                 onClick={() => onOpenMeals?.(row.name)}
                 className="block text-[10px] leading-[13px] tracking-[-0.04em] text-text-link hover:underline"
               >
-                {mealsOpen ? t.hideMeals : t.plusMeals}
+                {mealsOpen
+                  ? t.hideMeals
+                  : row.mealLabel
+                    ? ar
+                      ? row.mealLabel.ar
+                      : row.mealLabel.en
+                    : t.plusMeals}
               </button>
             )}
           </th>
@@ -496,6 +502,39 @@ function RoomBlock({
       )}
 
       {mealsOpen &&
+        row.target &&
+        (row.meals ?? []).map((line) => (
+          <tr key={line.key} className="border-t border-border-subtle">
+            <th className={cn(labelClass, "ps-3.5 pe-2.5 py-1.5 text-start")}>
+              <span className="block text-[11px] text-text-secondary">
+                {ar ? line.name.ar : line.name.en}
+              </span>
+              <span className="mt-0.5 block text-[10px] text-text-muted">
+                {ar ? line.meta.ar : line.meta.en}
+              </span>
+            </th>
+            {nights.map((night) => {
+              const total = line.totals[night - 1];
+              return (
+                <td
+                  key={night}
+                  className={cn(
+                    "font-data border-s border-border-subtle px-1 py-1.5 text-center text-[11px] text-text-secondary",
+                    fade?.(night, row.name) && "opacity-30",
+                    isWeekend(night)
+                      ? "bg-cell-weekend-bg"
+                      : isPast(night) && "bg-cell-past-bg"
+                  )}
+                >
+                  {total === null || total === undefined ? "—" : figure(total, ar)}
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+
+      {mealsOpen &&
+        !row.target &&
         MEAL_LINES.map((line) => (
           <tr key={line.name} className="border-t border-border-subtle">
             <th className={cn(labelClass, "ps-3.5 pe-2.5 py-1.5 text-start")}>

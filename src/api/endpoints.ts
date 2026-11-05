@@ -90,6 +90,8 @@ const ratesAndAvailability = {
   metadata: "/ratesandavailability/metadata",
   rateTargets: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-targets`,
   ratesContext: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rates/context`,
+  supplementsContext: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/supplements/context`,
   rateOverridesPreview: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/rate-overrides/preview`,
   rateOverrides: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-overrides`,
