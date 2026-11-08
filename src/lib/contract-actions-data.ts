@@ -117,6 +117,11 @@ export const contractActionCopy = {
     "تغيّر هذا العقد. أُعيد تحميل القائمة - راجعه وحاول مرة أخرى.",
   ),
   failed: t("That didn't work. Try again.", "تعذّر ذلك. حاول مرة أخرى."),
+  alreadyDeleted: t("This draft was already deleted.", "تم حذف هذه المسودة من قبل."),
+  deleteUnknown: t(
+    "We couldn't confirm the deletion. The list was reloaded - check it before trying again.",
+    "تعذّر تأكيد الحذف. أُعيد تحميل القائمة - راجعها قبل المحاولة مرة أخرى.",
+  ),
   cancel: t("Cancel", "إلغاء"),
 };
 

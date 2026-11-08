@@ -110,6 +110,16 @@ function ContractDecision({
             onClose();
             return;
           }
+          if (action === "delete" && error.response?.status === 404) {
+            notify.info(c.alreadyDeleted[k]);
+            onClose();
+            return;
+          }
+          if (action === "delete" && !error.response) {
+            notify.warning(c.deleteUnknown[k]);
+            onClose();
+            return;
+          }
           notify.error(getApiErrorMessage(error, c.failed[k]));
         },
       },

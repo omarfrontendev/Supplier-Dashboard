@@ -44,6 +44,7 @@ const useContractMutation = <TInput extends { id: number }, TResult>(
     void queryClient.invalidateQueries({ queryKey: hotelContractKey(id), exact: true });
     void queryClient.invalidateQueries({ queryKey: ["hotel-contracts"], exact: false });
     void queryClient.invalidateQueries({ queryKey: hotelContractActivityKey(id), exact: false });
+    void queryClient.invalidateQueries({ queryKey: ["rates-availability", "contracts"] });
   };
 
   return useMutation<TResult, ActionError, TInput>({
@@ -51,7 +52,8 @@ const useContractMutation = <TInput extends { id: number }, TResult>(
     retry: false,
     onSuccess: (_result, { id }) => refresh(id),
     onError: (error, { id }) => {
-      if (error.response?.status === 409) refresh(id);
+      const status = error.response?.status;
+      if (status === undefined || status === 404 || status === 409) refresh(id);
     },
   });
 };
