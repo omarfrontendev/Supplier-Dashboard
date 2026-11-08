@@ -503,7 +503,6 @@ export const contractEn = {
       hotel: "Hotel",
       hotelLocked: "The hotel can't change once the draft is saved.",
       modelLocked: "The pricing model can't change once the draft is saved.",
-      currencyLocked: "The currency can't change once room prices are saved.",
       saveNeedsBasics: "Fill the hotel, name, dates and currency to save the draft.",
       pricingClearUnsupported:
         "The API does not support clearing saved room pricing. Your changes are kept.",
@@ -1417,7 +1416,6 @@ export const contractAr: typeof contractEn = {
       hotel: "الفندق",
       hotelLocked: "لا يمكن تغيير الفندق بعد حفظ المسودة.",
       modelLocked: "لا يمكن تغيير نموذج التسعير بعد حفظ المسودة.",
-      currencyLocked: "لا يمكن تغيير العملة بعد حفظ أسعار الغرف.",
       saveNeedsBasics: "أكمل الفندق والاسم والتواريخ والعملة لحفظ المسودة.",
       pricingClearUnsupported:
         "لا تدعم الواجهة البرمجية حذف تسعير الغرف المحفوظ. تم الاحتفاظ بتعديلاتك.",
