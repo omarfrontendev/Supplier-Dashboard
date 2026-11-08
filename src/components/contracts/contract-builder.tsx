@@ -1368,7 +1368,8 @@ export function ContractBuilder({
       ? !sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)
       : Boolean(basics.hotelId || basics.name.trim() || basics.startDate || basics.currency));
   const leaveBlocker = useBlocker({
-    shouldBlockFn: () => !allowLeave.current && hasUnsaved,
+    shouldBlockFn: ({ current, next }) =>
+      current.pathname !== next.pathname && !allowLeave.current && hasUnsaved,
     enableBeforeUnload: () => !allowLeave.current && hasUnsaved,
     withResolver: true,
   });
