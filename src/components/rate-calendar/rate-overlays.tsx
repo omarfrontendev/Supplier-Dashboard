@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, FileText, Info, Lock, Pencil, Search } from "lucide-react";
 import type {
+  RateChangesData,
+  RateSource,
   RatesContract,
   RatesContractStatus,
   RatesCountry,
   RatesHotel,
+  RatesMealPlan,
 } from "@/api/modules/rates-availability/types";
 import { withCurrency } from "@/lib/rate-grid-data";
 import {
@@ -1783,6 +1786,179 @@ function SummaryRow({
   );
 }
 
+/* ------------------------------------------- live rate review (guide p.3) */
+
+/** Copy for the rate preview the supplier reviews before a rate change is saved. */
+export const rateReviewCopy = {
+  title: { en: "Review price changes", ar: "راجع تغييرات الأسعار" },
+  body: {
+    en: "This is what the change does to each night. Nothing is saved until you confirm.",
+    ar: "هذا ما يفعله التغيير بكل ليلة. لا يُحفظ شيء حتى تؤكد.",
+  },
+  impact: { en: "What will change", ar: "ما الذي سيتغير" },
+  counts: {
+    en: "{affected} room-nights affected · {replaced} already overridden · {removed} overrides removed",
+    ar: "{affected} ليلة-غرفة متأثرة · {replaced} معدّلة مسبقًا · {removed} تعديلات تُزال",
+  },
+  colRoom: { en: "Room", ar: "الغرفة" },
+  colNight: { en: "Night", ar: "الليلة" },
+  colNow: { en: "Now", ar: "الآن" },
+  colAfter: { en: "After saving", ar: "بعد الحفظ" },
+  showingFirst: {
+    en: "Showing the first {shown} of {total} nights.",
+    ar: "يظهر أول {shown} من {total} ليلة.",
+  },
+  noNights: { en: "No nights are affected.", ar: "لا توجد ليالٍ متأثرة." },
+  previewing: { en: "Checking the change…", ar: "جارٍ التحقق من التغيير…" },
+  previewFailed: { en: "Could not check this change.", ar: "تعذّر التحقق من هذا التغيير." },
+  retry: { en: "Try again", ar: "أعد المحاولة" },
+  stale: {
+    en: "Prices on this contract changed since you reviewed. The figures below are fresh - check them and confirm again.",
+    ar: "تغيّرت أسعار هذا العقد منذ مراجعتك. الأرقام أدناه محدّثة - راجعها ثم أكّد مرة أخرى.",
+  },
+  back: { en: "Back", ar: "رجوع" },
+  confirm: { en: "Confirm and save", ar: "أكّد واحفظ" },
+  removeLine: { en: "Remove daily price", ar: "إزالة السعر اليومي" },
+  removeValue: { en: "Back to the season or contract price", ar: "العودة إلى سعر الموسم أو العقد" },
+  sources: {
+    daily_override: { en: "Daily price", ar: "سعر يومي" },
+    season: { en: "Season", ar: "الموسم" },
+    contract: { en: "Contract", ar: "العقد" },
+  } as Record<RateSource, Bi>,
+} as const;
+
+const RATE_REVIEW_MAX_ROWS = 60;
+
+/**
+ * Guide p.3 - the preview response as the supplier reviews it: the counts,
+ * then each night's current roomAmount/source beside proposedAmount/proposedSource.
+ */
+export function RateReviewPanel({
+  data,
+  loading,
+  error,
+  stale,
+  onRetry,
+  currency,
+  roomName,
+}: {
+  data: RateChangesData | null;
+  loading: boolean;
+  error: string | null;
+  stale: boolean;
+  onRetry: () => void;
+  currency?: string | undefined;
+  roomName: (variationId: number, mealPlan: RatesMealPlan | null) => Bi;
+}) {
+  const { lang } = useLanguage();
+  const k = lang === "ar" ? "ar" : "en";
+  const r = rateReviewCopy;
+  const num = (value: number) => (k === "ar" ? arNum(value) : String(value));
+  const money = (value: number) => `${num(value)}${currency ? ` ${currency}` : ""}`;
+  const night = (iso: string) => {
+    const on = new Date(`${iso}T00:00:00`);
+    return `${datePickerCopy[k].daysShort[on.getDay()]} ${num(on.getDate())} ${
+      datePickerCopy[k].monthsShort[on.getMonth()]
+    } ${num(on.getFullYear())}`;
+  };
+  return (
+    <>
+      {stale && (
+        <div className="mt-3 rounded-xl bg-[#fdf0d9] p-3.5 text-[12px] leading-5 text-[#8a5a00]">
+          {r.stale[k]}
+        </div>
+      )}
+      {loading ? (
+        <p className="mt-3 text-[12px] text-text-quiet">{r.previewing[k]}</p>
+      ) : error ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-status-danger-bg p-3.5">
+          <p className="text-[12px] text-status-danger">{error}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-[12px] font-medium text-text-link hover:underline"
+          >
+            {r.retry[k]}
+          </button>
+        </div>
+      ) : data ? (
+        <section className="mt-3 rounded-xl border border-border-subtle p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-text-quiet">
+            {r.impact[k]}
+          </p>
+          <p className="mt-1 text-[12.5px] font-semibold text-text-primary">
+            {fill(r.counts[k], {
+              affected: num(data.affectedCount),
+              replaced: num(data.replacedCount),
+              removed: num(data.removedCount),
+            })}
+          </p>
+          {data.nights.length === 0 ? (
+            <p className="mt-2 text-[12px] text-text-body">{r.noNights[k]}</p>
+          ) : (
+            <>
+              <div className="mt-2 max-h-[280px] overflow-auto">
+                <table className="w-full min-w-[560px] text-[11.5px]">
+                  <thead className="sticky top-0 bg-surface-default">
+                    <tr className="text-[10.5px] text-text-quiet">
+                      {[r.colRoom, r.colNight, r.colNow, r.colAfter].map((col) => (
+                        <th key={col.en} className="py-1 pe-2 text-start font-semibold">
+                          {col[k]}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.nights.slice(0, RATE_REVIEW_MAX_ROWS).map((item) => (
+                      <tr
+                        key={`${item.variationId}|${item.mealPlan ?? ""}|${item.stayDate}`}
+                        className="border-t border-border-subtle align-top"
+                      >
+                        <td className="py-1 pe-2 text-text-primary">
+                          {roomName(item.variationId, item.mealPlan)[k]}
+                        </td>
+                        <td className="whitespace-nowrap py-1 pe-2">{night(item.stayDate)}</td>
+                        <td className="py-1 pe-2 text-text-quiet">
+                          {money(item.roomAmount)}
+                          <span className="block text-[10.5px]">
+                            {r.sources[item.source]?.[k] ?? item.source}
+                          </span>
+                        </td>
+                        <td className="py-1 pe-2 font-medium text-text-primary">
+                          {money(item.proposedAmount)}
+                          <span className="block text-[10.5px] font-normal text-text-quiet">
+                            {r.sources[item.proposedSource]?.[k] ?? item.proposedSource}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {data.nights.length > RATE_REVIEW_MAX_ROWS && (
+                <p className="mt-1 text-[11px] text-text-quiet">
+                  {fill(r.showingFirst[k], {
+                    shown: num(RATE_REVIEW_MAX_ROWS),
+                    total: num(data.nights.length),
+                  })}
+                </p>
+              )}
+            </>
+          )}
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+/** The single/multi-day review: the preview of the operations, and nothing saved yet. */
+export interface RateReviewState {
+  data: RateChangesData | null;
+  loading: boolean;
+  error: string | null;
+  stale: boolean;
+}
+
 /**
  * OV 04.5 and its family — the whole of one night, or of a run of them:
  * the price, the supplements it carries, and the rules that govern it.
@@ -1813,7 +1989,21 @@ export function OneNightOverlay({
   onNights,
   live,
   weekendNames,
+  review,
+  reviewRoomName,
+  onConfirmReview,
+  onBackFromReview,
+  onRetryReview,
 }: {
+  /**
+   * Live: set while the supplier reviews the backend preview of this change.
+   * Save and Undo only preview; onConfirmReview is the save.
+   */
+  review?: RateReviewState | undefined;
+  reviewRoomName?: ((variationId: number, mealPlan: RatesMealPlan | null) => Bi) | undefined;
+  onConfirmReview?: (() => void) | undefined;
+  onBackFromReview?: (() => void) | undefined;
+  onRetryReview?: (() => void) | undefined;
   weekendNames?: { en: string; ar: string } | undefined;
   live?:
     | {
@@ -1992,6 +2182,46 @@ export function OneNightOverlay({
     : room
       ? `${room}${base ? ` · ${c.baseTag[k]}` : ""}`
       : c.overline[k];
+
+  /* Guide p.3 - the preview is the review screen; only Confirm saves. The
+     form's own state stays as it was, so Back returns to it unchanged. */
+  if (review) {
+    const r = rateReviewCopy;
+    return (
+      <IconModal
+        width="660px"
+        overline={overline}
+        title={r.title[k]}
+        body={r.body[k]}
+        onClose={onClose}
+        footer={
+          <Actions lead={<span className="text-[11.5px] text-text-muted">{c.draftNote[k]}</span>}>
+            <Button variant="outline" disabled={saving} onClick={onBackFromReview ?? onClose}>
+              {r.back[k]}
+            </Button>
+            <Button
+              disabled={saving || review.loading || review.data === null}
+              onClick={onConfirmReview}
+            >
+              {r.confirm[k]}
+            </Button>
+          </Actions>
+        }
+      >
+        <RateReviewPanel
+          data={review.data}
+          loading={review.loading}
+          error={review.error}
+          stale={review.stale}
+          onRetry={onRetryReview ?? (() => undefined)}
+          currency={currency}
+          roomName={
+            reviewRoomName ?? ((variationId) => ({ en: `#${variationId}`, ar: `#${variationId}` }))
+          }
+        />
+      </IconModal>
+    );
+  }
 
   /** OV 04.5E — this room's supplements, for these nights only. */
   if (view === "supplements") {

@@ -152,6 +152,16 @@ export interface RateChangesData {
   nights: Array<RateNight & { action: "set" | "remove"; proposedAmount: number; proposedSource: RateSource }>;
 }
 
+/**
+ * Guide p.3 - PUT rate-overrides body. expectedRevision is the ratesRevision
+ * from the latest preview (never contract expectedVersion), and operations are
+ * exactly the ones that preview reviewed.
+ */
+export interface SaveRateOverridesBody {
+  expectedRevision: number;
+  operations: RateOperation[];
+}
+
 export interface RatesEnvelope<T> {
   status: "success";
   message: string;

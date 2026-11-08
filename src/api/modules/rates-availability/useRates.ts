@@ -13,12 +13,33 @@ import type {
   RateSelection,
   RateTargetsData,
   RatesEnvelope,
+  SaveRateOverridesBody,
 } from "./types";
 
 const rateKeys = {
   targets: (contractId: number | undefined) => ["rates-availability", "rate-targets", contractId],
   context: (contractId: number | undefined) => ["rates-availability", "rates-context", contractId],
   overrides: (contractId: number | undefined) => ["rates-availability", "rate-overrides", contractId],
+};
+
+/* ---------------------------------------------------------------- services */
+
+/** Guide p.3 - validates and reviews the operations; nothing is saved. */
+export const previewRateOverrides = async (contractId: number, operations: RateOperation[]) => {
+  const response = await api.post<RatesEnvelope<RateChangesData>>(
+    endpoints.ratesAndAvailability.rateOverridesPreview(contractId),
+    { operations },
+  );
+  return response.data.data;
+};
+
+/** Guide p.3 - atomically saves the reviewed operations; the body is sent as given. */
+export const saveRateOverrides = async (contractId: number, body: SaveRateOverridesBody) => {
+  const response = await api.put<RatesEnvelope<RateChangesData>>(
+    endpoints.ratesAndAvailability.rateOverrides(contractId),
+    body,
+  );
+  return response.data.data;
 };
 
 export const useRateOverrides = (contractId: number | undefined, enabled = true) => {
@@ -93,6 +114,39 @@ export const useSupplementsContext = (
   });
 };
 
+/**
+ * Preview only (guide p.3): returns ratesRevision, nights[] with
+ * proposedAmount/proposedSource, affectedCount, replacedCount and removedCount.
+ * Keep the operations sent here and the returned ratesRevision for the save.
+ */
+export const usePreviewRateOverrides = (contractId: number | undefined) => {
+  return useMutation({
+    mutationFn: (operations: RateOperation[]) => previewRateOverrides(contractId!, operations),
+  });
+};
+
+/**
+ * Saves exactly the reviewed operations with the ratesRevision their preview
+ * returned. Never previews internally and never retries: a 409 refreshes
+ * everything and the caller must preview again and let the supplier review.
+ */
+export const useSaveReviewedRateOverrides = (contractId: number | undefined) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SaveRateOverridesBody) => saveRateOverrides(contractId!, body),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: rateKeys.context(contractId) });
+      void queryClient.invalidateQueries({ queryKey: rateKeys.targets(contractId) });
+      void queryClient.invalidateQueries({ queryKey: rateKeys.overrides(contractId) });
+    },
+  });
+};
+
+/**
+ * Legacy: previews and saves in one step, with no supplier review in between.
+ * Kept unchanged for current callers until the UI moves to
+ * usePreviewRateOverrides + useSaveReviewedRateOverrides.
+ */
 export const useSaveRateOverrides = (contractId: number | undefined) => {
   const queryClient = useQueryClient();
   return useMutation({

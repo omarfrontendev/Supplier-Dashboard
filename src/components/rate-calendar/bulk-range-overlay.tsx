@@ -79,6 +79,9 @@ import {
   type NightChecks,
 } from "@/lib/restriction-format";
 import type {
+  RateChangesData,
+  RateOperation,
+  RatesMealPlan,
   ReleaseChangesData,
   ReleaseOperation,
   ReleaseTiming,
@@ -87,6 +90,7 @@ import type {
   RestrictionScope,
 } from "@/api/modules/rates-availability/types";
 import { ReleasePreview } from "@/components/rate-calendar/release-live";
+import { RateReviewPanel, rateReviewCopy } from "@/components/rate-calendar/rate-overlays";
 import {
   createReleaseOperation,
   isReleaseDays,
@@ -149,6 +153,30 @@ export interface LiveReleaseProps {
   save: (operations: ReleaseOperation[], expectedRevision: number) => Promise<"saved" | "stale">;
 }
 
+/** What the live Bulk rates form hands over to be turned into operations. */
+export interface RateApplyValue {
+  range: DayRange;
+  weekdays: number[];
+  rooms: string[];
+  rate: { amount: number } | { weekday: number; weekend: number };
+}
+
+/**
+ * The live Bulk rates overlay (guide p.3): operations are built by the page,
+ * previewed for review, and saved exactly as reviewed with that preview's
+ * ratesRevision.
+ */
+export interface LiveRatesProps {
+  currency: string;
+  operationsFor: (value: RateApplyValue) => RateOperation[];
+  /** A row of the existing-overrides list as remove operations; null when it cannot be read. */
+  removeOperationsFor: (row: AlreadySet) => RateOperation[] | null;
+  roomName: (variationId: number, mealPlan: RatesMealPlan | null) => Bi;
+  preview: (operations: RateOperation[]) => Promise<RateChangesData>;
+  /** "stale" when ratesRevision moved on: the overlay previews again and waits for review. */
+  save: (operations: RateOperation[], expectedRevision: number) => Promise<"saved" | "stale">;
+}
+
 const isoOf = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate(),
@@ -180,6 +208,8 @@ interface Line {
   restrictions?: RestrictionOperation[] | undefined;
   /** Live release: the operations this line stages. */
   release?: ReleaseOperation[] | undefined;
+  /** Live bulk rates: the operations this line stages. */
+  rates?: RateOperation[] | undefined;
   ruleId?: number | undefined;
 }
 
@@ -239,6 +269,7 @@ export function BulkRangeOverlay({
   needsSla = false,
   liveRestrictions,
   liveRelease,
+  liveRates,
 }: {
   kind: BulkKind;
   /** The contract this is scoped to, printed as the overline. */
@@ -260,9 +291,11 @@ export function BulkRangeOverlay({
   needsSla?: boolean;
   liveRestrictions?: LiveRestrictionsProps | undefined;
   liveRelease?: LiveReleaseProps | undefined;
+  liveRates?: LiveRatesProps | undefined;
 }) {
   const live = kind === "restrictions" ? liveRestrictions : undefined;
   const liveRel = kind === "release" ? liveRelease : undefined;
+  const liveRt = kind === "bulkRates" ? liveRates : undefined;
   const { lang, dir } = useLanguage();
   const k: Lang = lang === "ar" ? "ar" : "en";
   const ar = k === "ar";
@@ -333,6 +366,12 @@ export function BulkRangeOverlay({
   const [releasePreview, setReleasePreview] = useState<{
     data: ReleaseChangesData;
     operations: ReleaseOperation[];
+    key: string;
+  } | null>(null);
+  /* The rate preview, kept with the exact operations it was run for. */
+  const [ratePreview, setRatePreview] = useState<{
+    data: RateChangesData;
+    operations: RateOperation[];
     key: string;
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -788,6 +827,20 @@ export function BulkRangeOverlay({
     setEditingRule(null);
   };
 
+  /* Live bulk rates: the page builds the operations from exactly what the form holds. */
+  const rateOperations = (): RateOperation[] | undefined =>
+    liveRt && picked[0]
+      ? liveRt.operationsFor({
+          range: picked[0].range,
+          weekdays: days,
+          rooms: realRooms.map((room) => room.en),
+          rate:
+            priceMode === "apart"
+              ? { weekday: amountOf(weekdayPrice), weekend: amountOf(weekendPrice) }
+              : { amount: amountOf(weekdayPrice) },
+        })
+      : undefined;
+
   const lineNow = (): Line => {
     const detail = (key: Lang) =>
       `${whenLabel} · ${roomNames(realRooms)[key]}`;
@@ -800,6 +853,7 @@ export function BulkRangeOverlay({
       value: setting,
       payload: statusPayload(),
       restrictions: restrictionOperations(),
+      rates: rateOperations(),
       ...(live && editingRule !== null ? { ruleId: editingRule } : {}),
     };
   };
@@ -917,6 +971,10 @@ export function BulkRangeOverlay({
             : releaseCheck.issues[0]
               ? lrel.issues[releaseCheck.issues[0].code]
               : null;
+  /* Live bulk rates: the staged batch, and its preview only while it still matches it. */
+  const stagedRates = lines.flatMap((line) => line.rates ?? []);
+  const stagedRatesKey = JSON.stringify(stagedRates);
+  const currentRatePreview = ratePreview && ratePreview.key === stagedRatesKey ? ratePreview : null;
   const batchIssue: Bi | null = restrictionBatchIssue ?? releaseBatchIssue;
   const unknownOwnership =
     (batchUsage?.unknownRuleIds.length ?? 0) > 0 || releaseUnknown.length > 0;
@@ -933,6 +991,25 @@ export function BulkRangeOverlay({
     }
   };
   const runPreview = async () => {
+    if (liveRt) {
+      const run = ++previewRun.current;
+      setRatePreview(null);
+      setPreviewError(null);
+      if (stagedRates.length === 0) return;
+      const operations = stagedRates;
+      const key = stagedRatesKey;
+      setPreviewing(true);
+      try {
+        const data = await liveRt.preview(operations);
+        if (run === previewRun.current) setRatePreview({ data, operations, key });
+      } catch (error) {
+        if (run === previewRun.current)
+          setPreviewError(getApiErrorMessage(error, rateReviewCopy.previewFailed[k]));
+      } finally {
+        if (run === previewRun.current) setPreviewing(false);
+      }
+      return;
+    }
     if (liveRel) {
       const run = ++previewRun.current;
       setReleasePreview(null);
@@ -970,13 +1047,35 @@ export function BulkRangeOverlay({
   };
   /* Entering review, or changing the list while in it, needs a fresh preview. */
   useEffect(() => {
-    if ((!live && !liveRel) || !reviewing) return;
+    if ((!live && !liveRel && !liveRt) || !reviewing) return;
     setStale(false);
     void runPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewing, lines]);
 
   const confirm = async () => {
+    if (liveRt) {
+      /* Exactly the previewed batch, with the ratesRevision that preview returned. */
+      if (!currentRatePreview) return;
+      setApplying(true);
+      let outcome: "saved" | "stale";
+      try {
+        outcome = await liveRt.save(
+          currentRatePreview.operations,
+          currentRatePreview.data.ratesRevision,
+        );
+      } catch {
+        setApplying(false);
+        return;
+      }
+      setApplying(false);
+      if (outcome === "stale") {
+        /* Never retried silently: preview again and wait for another review. */
+        await runPreview();
+        setStale(true);
+        return;
+      }
+    }
     if (liveRel) {
       /* Exactly the previewed batch, with the releaseRevision that preview returned. */
       if (!currentReleasePreview || releaseBatchIssue) return;
@@ -1084,6 +1183,7 @@ export function BulkRangeOverlay({
               <Button
                 disabled={
                   applying ||
+                  (liveRt !== undefined && (previewing || !currentRatePreview)) ||
                   (live !== undefined && (previewing || !preview || batchIssue !== null)) ||
                   (liveRel !== undefined &&
                     (previewing || !currentReleasePreview || batchIssue !== null))
@@ -1131,6 +1231,18 @@ export function BulkRangeOverlay({
             </div>
           ))}
         </div>
+
+        {liveRt && (
+          <RateReviewPanel
+            data={currentRatePreview?.data ?? null}
+            loading={previewing}
+            error={previewError}
+            stale={stale}
+            onRetry={() => void runPreview()}
+            currency={liveRt.currency}
+            roomName={liveRt.roomName}
+          />
+        )}
 
         {live && (
           <>
@@ -1585,6 +1697,7 @@ export function BulkRangeOverlay({
 
           {kind === "bulkRates" &&
             !onApplyRates &&
+            !liveRt &&
             (
               [
                 [c.mealPlans[k], mealRows],
@@ -2292,7 +2405,7 @@ export function BulkRangeOverlay({
                             : c.live[k]}
                       </StatusPill>
                       <span className="flex items-center gap-3 text-[11.5px] font-medium">
-                        {(!onRemoveExisting || row.edit) &&
+                        {((!onRemoveExisting && !liveRt) || row.edit) &&
                           /* An edit that cannot rebuild the rule exactly is not offered; Remove stays. */
                           !(live && row.restriction?.lockedReason) &&
                           !(liveRel && row.release) && (
@@ -2407,6 +2520,28 @@ export function BulkRangeOverlay({
                               ]);
                               if (editingRule === seed.ruleId) clearForm();
                               setNote({ kind: "added", what });
+                              return;
+                            }
+                            if (liveRt) {
+                              /* Same remove operations as before, now previewed and confirmed. */
+                              const operations = liveRt.removeOperationsFor(row);
+                              if (!operations) return;
+                              setLines([
+                                {
+                                  id: `L-${Date.now()}`,
+                                  what: rateReviewCopy.removeLine,
+                                  detail: {
+                                    en: `${row.when.en} · ${row.rooms.en}`,
+                                    ar: `${row.when.ar} · ${row.rooms.ar}`,
+                                  },
+                                  when: row.when,
+                                  rooms: row.rooms,
+                                  value: rateReviewCopy.removeValue,
+                                  tone: "danger",
+                                  rates: operations,
+                                },
+                              ]);
+                              setReviewing(true);
                               return;
                             }
                             if (!onRemoveExisting) return;

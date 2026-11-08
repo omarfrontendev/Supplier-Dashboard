@@ -30,6 +30,8 @@ import {
   OneNightOverlay,
   PoolBreakdownOverlay,
   PricesForOverlay,
+  rateReviewCopy,
+  type RateReviewState,
 } from "@/components/rate-calendar/rate-overlays";
 import { ColourKeyDialog, ThresholdDialog } from "@/components/rate-calendar/colour-key";
 import { RateGrid, type GridRowKind } from "@/components/rate-calendar/rate-grid";
@@ -101,7 +103,8 @@ import {
   useRatesContractDetail,
   useRatesContext,
   useSupplementsContext,
-  useSaveRateOverrides,
+  usePreviewRateOverrides,
+  useSaveReviewedRateOverrides,
 } from "@/api/modules/rates-availability/useRates";
 import type { AlreadySet } from "@/lib/bulk-range-data";
 import type {
@@ -111,9 +114,11 @@ import type {
   SellControlSla,
   SellControlOperation,
   SellControlRule,
+  RateOperation,
   RateOverrideRow,
   RateTarget,
   RateTargetsData,
+  RatesMealPlan,
   RatesContract,
   RatesContractDetail,
   RatesHotel,
@@ -355,7 +360,9 @@ function RateCalendarPage() {
         }
       : null,
   );
-  const saveRates = useSaveRateOverrides(pickedContract?.id);
+  /* Guide p.3: preview is the review screen; only the supplier's confirm saves. */
+  const previewRates = usePreviewRateOverrides(pickedContract?.id);
+  const saveReviewedRates = useSaveReviewedRateOverrides(pickedContract?.id);
   const sellQuery = useSellControlsContext(
     pickedContract?.id,
     live && termDates.length
@@ -771,6 +778,85 @@ function RateCalendarPage() {
     allRows
       .filter((row) => (pickedRooms.length ? pickedRooms : [nightCell?.room]).includes(row.name))
       .flatMap((row) => (row.target ? [row.target as RateTarget] : []));
+
+  /* Room + View (+ offer) name for a preview night, from the live rows. */
+  const rateRoomName = (variationId: number, mealPlan: RatesMealPlan | null) => {
+    const row = allRows.find(
+      (item) =>
+        item.target?.variationId === variationId && (item.target.mealPlan ?? null) === mealPlan,
+    );
+    return row
+      ? { en: row.name, ar: row.nameAr }
+      : { en: `#${variationId}`, ar: `#${variationId}` };
+  };
+  const isConflict = (error: unknown) =>
+    (error as { response?: { status?: number } }).response?.status === 409;
+  const allRemovals = (operations: RateOperation[]) =>
+    operations.every((operation) => operation.action === "remove");
+
+  /*
+   * Single/multi-day review (guide p.3): the operations exactly as built,
+   * with the preview that was run for them. Save and Undo only preview;
+   * the confirm saves these operations with this preview's ratesRevision.
+   */
+  const [nightReview, setNightReview] = useState<
+    (RateReviewState & { operations: RateOperation[] }) | null
+  >(null);
+  const nightReviewRun = useRef(0);
+  const previewNightRates = async (operations: RateOperation[], stale = false) => {
+    const run = ++nightReviewRun.current;
+    setNightReview({ operations, data: null, loading: true, error: null, stale });
+    try {
+      const data = await previewRates.mutateAsync(operations);
+      if (run === nightReviewRun.current)
+        setNightReview({ operations, data, loading: false, error: null, stale });
+    } catch (error) {
+      if (run === nightReviewRun.current)
+        setNightReview({
+          operations,
+          data: null,
+          loading: false,
+          error: getApiErrorMessage(error, rateReviewCopy.previewFailed[k]),
+          stale,
+        });
+    }
+  };
+  const closeNightReview = () => {
+    nightReviewRun.current += 1;
+    setNightReview(null);
+  };
+  const confirmNightRates = () => {
+    const review = nightReview;
+    if (!review?.data || review.loading) return;
+    const { operations } = review;
+    /* The review this save belongs to. If it is closed while the PUT is in
+       flight, the request still completes and the hook still refreshes, but
+       its outcome no longer touches the overlay or starts a new preview. */
+    const run = nightReviewRun.current;
+    saveReviewedRates.mutate(
+      { expectedRevision: review.data.ratesRevision, operations },
+      {
+        onSuccess: () => {
+          if (run !== nightReviewRun.current) return;
+          notify.success(allRemovals(operations) ? liveGrid.restored[k] : liveGrid.saved[k]);
+          closeNightReview();
+          setOverlay(null);
+          setTypedNights(null);
+          setSelected([]);
+        },
+        onError: (error) => {
+          if (run !== nightReviewRun.current) return;
+          if (isConflict(error)) {
+            /* 409: the hook refreshed the data; preview again and wait for another review. */
+            notify.error(rateReviewCopy.stale[k]);
+            void previewNightRates(operations, true);
+            return;
+          }
+          notify.error(getApiErrorMessage(error));
+        },
+      },
+    );
+  };
   /*
    * OV 04.6H / 04.6N - what the nights being priced already carry, read
    * off the month itself rather than assumed: which of them were edited,
@@ -1735,11 +1821,28 @@ function RateCalendarPage() {
             ? {
                 roomOptions: allRows.map((row) => ({ en: row.name, ar: row.nameAr })),
                 existing: overrideRuns(overridesQuery.data ?? [], allRows, rateTargets.currency),
-                onRemoveExisting: async (row) => {
-                  const run = row.id ? JSON.parse(row.id) : null;
-                  if (!run) return;
-                  try {
-                    await saveRates.mutateAsync([
+                liveRates: {
+                  currency: rateTargets.currency,
+                  roomName: rateRoomName,
+                  /* The same set operation as before; only now it is previewed and confirmed. */
+                  operationsFor: (value) => [
+                    {
+                      action: "set",
+                      basis: fixedPrice ? "selected_room_total" : "base_plus_room_supplement",
+                      rate: value.rate,
+                      targets: allRows
+                        .filter((row) => value.rooms.includes(row.name))
+                        .flatMap((row) => (row.target ? [row.target as RateTarget] : [])),
+                      startDate: value.range.start,
+                      endDate: value.range.end ?? value.range.start,
+                      ...(value.weekdays.length < 7 ? { weekdays: value.weekdays } : {}),
+                    },
+                  ],
+                  /* The same remove operation as before: no rate, no basis, offer meal plan kept. */
+                  removeOperationsFor: (row) => {
+                    const run = row.id ? JSON.parse(row.id) : null;
+                    if (!run) return null;
+                    return [
                       {
                         action: "remove",
                         targets: [
@@ -1750,36 +1853,29 @@ function RateCalendarPage() {
                         ],
                         dates: run.dates,
                       },
-                    ]);
-                    notify.success(liveGrid.restored[k]);
-                  } catch (error) {
-                    notify.error(getApiErrorMessage(error));
-                  }
-                },
-                onApplyRates: async (value) => {
-                  if (!rateTargets.eligible) {
-                    notify.error(liveGrid.notEligible[k]);
-                    throw new Error("not eligible");
-                  }
-                  try {
-                    await saveRates.mutateAsync([
-                      {
-                        action: "set",
-                        basis: fixedPrice ? "selected_room_total" : "base_plus_room_supplement",
-                        rate: value.rate,
-                        targets: allRows
-                          .filter((row) => value.rooms.includes(row.name))
-                          .flatMap((row) => (row.target ? [row.target as RateTarget] : [])),
-                        startDate: value.range.start,
-                        endDate: value.range.end ?? value.range.start,
-                        ...(value.weekdays.length < 7 ? { weekdays: value.weekdays } : {}),
-                      },
-                    ]);
-                    notify.success(liveGrid.saved[k]);
-                  } catch (error) {
-                    notify.error(getApiErrorMessage(error));
-                    throw error;
-                  }
+                    ];
+                  },
+                  preview: (operations) => previewRates.mutateAsync(operations),
+                  save: async (operations, expectedRevision) => {
+                    const removal = allRemovals(operations);
+                    if (!removal && !rateTargets.eligible) {
+                      notify.error(liveGrid.notEligible[k]);
+                      throw new Error("not eligible");
+                    }
+                    try {
+                      await saveReviewedRates.mutateAsync({ expectedRevision, operations });
+                      notify.success(removal ? liveGrid.restored[k] : liveGrid.saved[k]);
+                      return "saved" as const;
+                    } catch (error) {
+                      /* 409: refreshed by the hook; the overlay previews again for review. */
+                      if (isConflict(error)) {
+                        notify.error(rateReviewCopy.stale[k]);
+                        return "stale" as const;
+                      }
+                      notify.error(getApiErrorMessage(error));
+                      throw error;
+                    }
+                  },
                 },
               }
             : {})}
@@ -2065,8 +2161,18 @@ function RateCalendarPage() {
             : overlayNights.length === 1
               ? { current: month.base[(overlayNights[0] ?? 1) - 1] ?? 0 }
               : {})}
-          saving={saveRates.isPending}
+          saving={saveReviewedRates.isPending || Boolean(nightReview?.loading)}
           currency={rateTargets?.currency}
+          {...(live && nightReview
+            ? {
+                review: nightReview,
+                reviewRoomName: rateRoomName,
+                onConfirmReview: confirmNightRates,
+                onBackFromReview: closeNightReview,
+                onRetryReview: () =>
+                  void previewNightRates(nightReview.operations, nightReview.stale),
+              }
+            : {})}
           {...(live && nightRow?.target && liveDetail ? { live: nightFacts(nightRow) } : {})}
           {...(live
             ? {
@@ -2091,35 +2197,25 @@ function RateCalendarPage() {
           {...(namedSpans.length > 1 ? { spans: namedSpans } : {})}
           already={already}
           onClose={() => {
+            closeNightReview();
             setOverlay(null);
             setTypedNights(null);
           }}
           onSave={(value) => {
             if (live) {
-              const targets = pickedTargets();
-              saveRates.mutate(
-                [
-                  {
-                    action: "set",
-                    basis: "selected_room_total",
-                    rate: value.rate,
-                    targets,
-                    dates: overlayNights
-                      .map((night) => dateOfNight(month, night))
-                      .filter((date) => value.weekdays.includes(date.getDay()))
-                      .map(isoDay),
-                  },
-                ],
+              /* Built exactly as before; previewed for review, saved only on confirm. */
+              void previewNightRates([
                 {
-                  onSuccess: () => {
-                    notify.success(liveGrid.saved[k]);
-                    setOverlay(null);
-                    setTypedNights(null);
-                    setSelected([]);
-                  },
-                  onError: (error) => notify.error(getApiErrorMessage(error)),
+                  action: "set",
+                  basis: "selected_room_total",
+                  rate: value.rate,
+                  targets: pickedTargets(),
+                  dates: overlayNights
+                    .map((night) => dateOfNight(month, night))
+                    .filter((date) => value.weekdays.includes(date.getDay()))
+                    .map(isoDay),
                 },
-              );
+              ]);
               return;
             }
             setOverlay(null);
@@ -2135,25 +2231,15 @@ function RateCalendarPage() {
           }}
           {...(live
             ? {
+                /* The same remove operation as before, previewed for review first. */
                 onUndo: () =>
-                  saveRates.mutate(
-                    [
-                      {
-                        action: "remove",
-                        targets: pickedTargets(),
-                        dates: overlayNights.map((night) => isoDay(dateOfNight(month, night))),
-                      },
-                    ],
+                  void previewNightRates([
                     {
-                      onSuccess: () => {
-                        notify.success(liveGrid.restored[k]);
-                        setOverlay(null);
-                        setTypedNights(null);
-                        setSelected([]);
-                      },
-                      onError: (error) => notify.error(getApiErrorMessage(error)),
+                      action: "remove",
+                      targets: pickedTargets(),
+                      dates: overlayNights.map((night) => isoDay(dateOfNight(month, night))),
                     },
-                  ),
+                  ]),
               }
             : {})}
           onBreakdown={() => setOverlay("pool")}
