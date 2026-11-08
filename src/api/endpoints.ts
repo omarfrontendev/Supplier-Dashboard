@@ -89,21 +89,36 @@ const ratesAndAvailability = {
   contractDetail: (contractId: number) => `/ratesandavailability/${contractId}`,
   metadata: "/ratesandavailability/metadata",
   rateTargets: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-targets`,
-  ratesContext: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rates/context`,
+  ratesContext: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/rates/context`,
   supplementsContext: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/supplements/context`,
   rateOverridesPreview: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/rate-overrides/preview`,
-  rateOverrides: (contractId: number) => `/ratesandavailability/contracts/${contractId}/rate-overrides`,
+  rateOverrides: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/rate-overrides`,
+  restrictionTargets: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/restriction-targets`,
   restrictionsContext: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/restrictions/context`,
+  restrictionOverridesPreview: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/restriction-overrides/preview`,
+  restrictionOverrides: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/restriction-overrides`,
   sellControlTargets: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/sell-control-targets`,
   sellControlsContext: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/sell-controls/context`,
   sellControlsPreview: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/sell-controls/preview`,
-  sellControls: (contractId: number) => `/ratesandavailability/contracts/${contractId}/sell-controls`,
+  sellControls: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/sell-controls`,
+};
+
+const ratesAvailability = {
+  metadata: "/ratesandavailability/metadata",
+  hotels: "/ratesandavailability/hotels",
+  contracts: (hotelId: string) => `/ratesandavailability/contracts/${hotelId}`,
 };
 
 export const endpoints = {
@@ -118,4 +133,5 @@ export const endpoints = {
   notifications,
   supplierHotelContracts,
   ratesAndAvailability,
+  ratesAvailability,
 };

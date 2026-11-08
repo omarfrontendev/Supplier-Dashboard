@@ -113,6 +113,23 @@ export interface AlreadySet {
     rooms: string[];
     allRooms: boolean;
   };
+  /** A live restriction override: what Edit puts back in the form. */
+  restriction?: {
+    ruleId: number;
+    ranges: Array<{ start: string; end: string }>;
+    rooms: string[];
+    allRooms: boolean;
+    minNights: string;
+    appliesOn: "every" | "weekend";
+    /** Check-in / check-out per remaining night, keyed YYYY-MM-DD; absent = inherits. */
+    checks: Record<string, { in?: "open" | "closed"; out?: "open" | "closed" }>;
+    /** Remaining nonpast owned cells ("variationId|date"), from the overrides list. */
+    ownedCells: string[];
+    /** Set when an edit could not rebuild the rule exactly; Remove stays available. */
+    lockedReason?: Bi;
+  };
+  /** A short line under the rooms, e.g. a rule hidden by a more specific one. */
+  note?: Bi;
   when: Bi;
   rooms: Bi;
   /** The right-hand value: what this row sets. */

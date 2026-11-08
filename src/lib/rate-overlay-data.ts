@@ -548,6 +548,7 @@ export const monthPicker = {
 /** OV 04.9 / 04.9B — the contracts this hotel holds. */
 export const contractPicker = {
   title: t("Choose contract", "اختيار العقد"),
+  placeholder: t("Select Contract", "اختر العقد"),
   includeEnded: t("Include ended contracts", "تضمين العقود المنتهية"),
   loading: t("Loading contracts…", "جارٍ تحميل العقود…"),
   error: t("We couldn't load the contracts.", "تعذّر تحميل العقود."),
@@ -587,6 +588,7 @@ export const pickerSearch = {
 export const hotelPicker = {
   overline: t("Your linked hotels", "فنادقك المرتبطة"),
   title: t("Choose hotel", "اختيار الفندق"),
+  placeholder: t("Select Hotel", "اختر الفندق"),
   loading: t("Loading hotels…", "جارٍ تحميل الفنادق…"),
   error: t("We couldn't load your hotels.", "تعذّر تحميل فنادقك."),
   retry: t("Try again", "حاول مجددًا"),
@@ -1015,6 +1017,12 @@ export const liveGrid = {
   everyNight: t("{amount} a night", "{amount} في الليلة"),
   cappedAt: t("capped at {count} a night", "بحد أقصى {count} في الليلة"),
   noStock: t("No stock yet", "لا مخزون بعد"),
+  seasonsLoading: t("Loading seasons…", "جارٍ تحميل المواسم…"),
+  seasonsError: t("We couldn't load this contract's seasons.", "تعذّر تحميل مواسم هذا العقد."),
+  roomsPickContract: t("Pick a contract to see its rooms.", "اختر عقدًا لعرض غرفه."),
+  roomsLoading: t("Loading rooms…", "جارٍ تحميل الغرف…"),
+  roomsError: t("We couldn't load this contract's rooms.", "تعذّر تحميل غرف هذا العقد."),
+  roomsEmpty: t("This contract has no rooms yet.", "لا توجد غرف في هذا العقد بعد."),
   seasonNights: t("Season price on {count} of these nights", "سعر الموسم في {count} من هذه الليالي"),
   knowPrices: t(
     "Prices are the room only, per night, in {currency}.",
@@ -1155,4 +1163,195 @@ export const liveGrid = {
     partial_haram: t("Partial Haram view", "إطلالة جزئية على الحرم"),
     no_view: t("No view", "بدون إطلالة"),
   } as Record<string, Bi>,
+};
+
+/** Manage date-specific booking restrictions - live copy for the Restrictions overlay. */
+export const liveRestrictions = {
+  sources: {
+    room_override: t("Room override", "استثناء للغرفة"),
+    all_rooms_override: t("All-rooms override", "استثناء لكل الغرف"),
+    contract: t("Contract", "العقد"),
+    default: t("Default", "الافتراضي"),
+  },
+  open: t("Open", "مفتوح"),
+  closed: t("Closed", "مغلق"),
+  inherit: t("Inherit", "موروث"),
+  nightsValue: t("{n} nights", "{n} ليالٍ"),
+  noMinimumValue: t("No minimum", "بلا حدّ أدنى"),
+
+  /* The form. */
+  minLabel: t("Minimum nights (0-365)", "أقل عدد ليالٍ (٠-٣٦٥)"),
+  minHint: t(
+    "Leave blank to keep the inherited minimum. 0 removes the minimum on these nights.",
+    "اتركه فارغًا لإبقاء الحد الأدنى الموروث. و٠ يلغي الحد الأدنى في هذه الليالي.",
+  ),
+  minInvalid: t("Enter a whole number from 0 to 365.", "أدخل رقمًا صحيحًا من ٠ إلى ٣٦٥."),
+  weekendIs: t(
+    "Weekend on this contract: {days}. Check-in and check-out below are not limited by it.",
+    "نهاية الأسبوع في هذا العقد: {days}. ولا تتقيد أيام الوصول والمغادرة أدناه بها.",
+  ),
+  checkLead: t(
+    "Every picked night keeps its current check-in and check-out until you change it. These are not limited by the minimum stay's weekend setting.",
+    "كل ليلة مختارة تبقى على وصولها ومغادرتها الحاليين حتى تغيّرها. ولا تتقيد بإعداد نهاية الأسبوع للحد الأدنى للإقامة.",
+  ),
+  legendInherit: t("inherits (no change)", "موروث (بلا تغيير)"),
+  legendOpen: t("open (overrides a closure)", "مفتوح (يتجاوز الإغلاق)"),
+  legendClosed: t("closed", "مغلق"),
+  legendTap: t(
+    "· Tap a chip to cycle Inherit → Closed → Open, or a weekday name to close that column",
+    "· اضغط على الشارة للتنقل بين موروث ← مغلق ← مفتوح، أو على اسم اليوم لإغلاق العمود",
+  ),
+  editingHint: t(
+    "Editing replaces this rule's nights, rooms and values. Change them, then press + Add and Review & save.",
+    "التعديل يستبدل ليالي هذه القاعدة وغرفها وقيمها. غيّرها ثم اضغط + أضف ثم راجع واحفظ.",
+  ),
+
+  /* Why Add is shut. */
+  nothingSet: t(
+    "Set a minimum stay or at least one check-in / check-out weekday.",
+    "اضبط حدًّا أدنى للإقامة أو يومًا واحدًا على الأقل للوصول أو المغادرة.",
+  ),
+  noMatch: t(
+    "None of these settings falls on a picked night. Pick nights that include the weekdays or weekend you set.",
+    "لا يقع أي من هذه الإعدادات على ليلة مختارة. اختر ليالي تشمل الأيام أو نهاية الأسبوع التي ضبطتها.",
+  ),
+  minNoMatch: t(
+    "The weekend-only minimum stay falls on none of the picked nights. Pick a weekend night or apply it every day.",
+    "الحد الأدنى لنهاية الأسبوع لا يقع على أي ليلة مختارة. اختر ليلة من نهاية الأسبوع أو طبّقه كل يوم.",
+  ),
+  editNotUniform: t(
+    "An edit keeps one rule, so every night of the same weekday needs the same check-in and check-out. Make them match, or remove this rule and add new ones for night-by-night changes.",
+    "التعديل يُبقي قاعدة واحدة، لذا يلزم أن يكون للوصول والمغادرة نفس الحالة في كل ليلة من اليوم نفسه. وحّدها، أو احذف هذه القاعدة وأضف قواعد جديدة للتغييرات ليلة بليلة.",
+  ),
+  addTooManyNights: t(
+    "One change can cover at most 366 nights. Pick fewer nights.",
+    "التغيير الواحد يغطي ٣٦٦ ليلة على الأكثر. اختر ليالي أقل.",
+  ),
+  splitNote: t(
+    "Night-by-night choices are saved as {count} rules: one for the minimum stay and one per set of nights with the same check-in / check-out.",
+    "تُحفظ الاختيارات ليلة بليلة كـ{count} قواعد: واحدة للحد الأدنى وواحدة لكل مجموعة ليالٍ لها نفس الوصول / المغادرة.",
+  ),
+  limitOperations: t(
+    "This list has {n} changes to send; the limit is 100. Save part of it first.",
+    "تحتوي هذه القائمة على {n} تغييرًا؛ والحد ١٠٠. احفظ جزءًا منها أولًا.",
+  ),
+  limitDates: t(
+    "This list affects {n} distinct nights, including nights cleared by edits and removals; the limit is 366.",
+    "تمس هذه القائمة {n} ليلة مختلفة، بما فيها الليالي التي يزيلها التعديل والحذف؛ والحد ٣٦٦.",
+  ),
+  limitCells: t(
+    "This list affects {n} room-nights, including room-nights cleared by edits and removals; the limit is 10,000.",
+    "تمس هذه القائمة {n} ليلة-غرفة، بما فيها ما يزيله التعديل والحذف؛ والحد ١٠٬٠٠٠.",
+  ),
+  unknownRules: t(
+    "The current nights of rules {ids} are not loaded, so the size of this change cannot be checked. Reload the rules; if a rule is gone, take its change out of the list.",
+    "ليالي القواعد {ids} الحالية غير محمّلة، فلا يمكن فحص حجم هذا التغيير. أعد تحميل القواعد؛ وإن اختفت قاعدة فاحذف تغييرها من القائمة.",
+  ),
+  reloadRules: t("Reload rules", "أعد تحميل القواعد"),
+  editLocked: t(
+    "Edit unavailable: {reason} You can still remove it.",
+    "التعديل غير متاح: {reason} ويمكنك حذفها.",
+  ),
+  lockedMinValues: t(
+    "its nights now carry different minimum stays.",
+    "لياليها تحمل الآن حدودًا دنيا مختلفة.",
+  ),
+  lockedShape: t(
+    "after later changes, its remaining nights, rooms and values no longer form one rule, so an edit would change nights it does not own.",
+    "بعد تغييرات لاحقة، لم تعد لياليها وغرفها وقيمها المتبقية تشكّل قاعدة واحدة، فالتعديل سيغيّر ليالي لا تملكها.",
+  ),
+  pastNights: t(
+    "Past nights are read-only. Pick tonight or later in the hotel's time zone.",
+    "الليالي الماضية للقراءة فقط. اختر الليلة أو ما بعدها بتوقيت الفندق.",
+  ),
+  notEligible: t(
+    "This contract cannot take restriction changes right now (it must be published and active, scheduled or paused).",
+    "لا يقبل هذا العقد تغييرات القيود الآن (يجب أن يكون منشورًا ونشطًا أو مجدولًا أو موقوفًا مؤقتًا).",
+  ),
+
+  /* Rule summaries. */
+  minLine: t("Min {n} nights", "حد أدنى {n} ليالٍ"),
+  minWeekendLine: t("Min {n} nights on weekends", "حد أدنى {n} ليالٍ في نهاية الأسبوع"),
+  minZeroLine: t("No minimum stay", "بلا حد أدنى للإقامة"),
+  inClosedLine: t("Check-in closed {days}", "الوصول مغلق {days}"),
+  inOpenLine: t("Check-in open {days}", "الوصول مفتوح {days}"),
+  outClosedLine: t("Check-out closed {days}", "المغادرة مغلقة {days}"),
+  outOpenLine: t("Check-out open {days}", "المغادرة مفتوحة {days}"),
+  removeLine: t("Remove rule #{id}", "حذف القاعدة #{id}"),
+  removeValue: t("Remove", "حذف"),
+  staged: t("In your list", "في قائمتك"),
+  allRooms: t("All rooms", "كل الغرف"),
+  roomLayer: t("Room-specific", "خاصة بالغرف"),
+  allRoomsLayer: t("All-rooms rule", "قاعدة لكل الغرف"),
+  shadowedNote: t(
+    "Hidden on some nights by a more specific room rule.",
+    "مخفية في بعض الليالي بقاعدة أخص للغرفة.",
+  ),
+
+  /* What will happen. */
+  bulletUntouched: t(
+    "Contract restrictions and confirmed bookings are not touched.",
+    "قيود العقد والحجوزات المؤكدة لا تُمس.",
+  ),
+  bulletExpires: t(
+    "Saved straight after review. It ends on its own after its last night, and the contract rule applies again.",
+    "يُحفظ مباشرة بعد المراجعة. وينتهي تلقائيًا بعد آخر ليلة له، فتعود قاعدة العقد للسريان.",
+  ),
+  bulletPriority: t(
+    "Room-specific rules beat all-rooms rules, which beat the contract.",
+    "القواعد الخاصة بالغرف تتقدم على قواعد كل الغرف، وهذه تتقدم على العقد.",
+  ),
+
+  /* The effective panel. */
+  effectiveTitle: t("WHAT APPLIES NOW", "ما يسري الآن"),
+  effectiveLead: t(
+    "Current rules on the picked nights and rooms, and where each value comes from.",
+    "القواعد الحالية على الليالي والغرف المختارة، ومصدر كل قيمة.",
+  ),
+  loading: t("Loading…", "جارٍ التحميل…"),
+  loadFailed: t("Could not load the current rules.", "تعذّر تحميل القواعد الحالية."),
+  tooMany: t(
+    "Pick 366 nights or fewer to see what applies now.",
+    "اختر ٣٦٦ ليلة أو أقل لترى ما يسري الآن.",
+  ),
+  colRoom: t("Room", "الغرفة"),
+  colNight: t("Night", "الليلة"),
+  colMin: t("Min stay", "أقل إقامة"),
+  colIn: t("Check-in", "الوصول"),
+  colOut: t("Check-out", "المغادرة"),
+  colBefore: t("Before", "قبل"),
+  colAfter: t("After", "بعد"),
+  showingFirst: t(
+    "Showing the first {shown} of {total} room-nights.",
+    "يُعرض أول {shown} من {total} ليلة-غرفة.",
+  ),
+
+  /* Review. */
+  previewing: t("Checking the impact…", "جارٍ فحص الأثر…"),
+  previewFailed: t("Could not check these changes.", "تعذّر فحص هذه التغييرات."),
+  retry: t("Check again", "افحص مجددًا"),
+  impactTitle: t("IMPACT", "الأثر"),
+  counts: t(
+    "{cells} room-nights · {nights} nights · {rooms} rooms",
+    "{cells} ليلة-غرفة · {nights} ليالٍ · {rooms} غرف",
+  ),
+  replaces: t("Replaces rules: {ids}", "يستبدل القواعد: {ids}"),
+  changedTitle: t("BEFORE / AFTER", "قبل / بعد"),
+  noEffectiveChange: t(
+    "No effective value changes. The touched nights already carry these values or a more specific rule wins on them.",
+    "لا تتغير أي قيمة سارية. فالليالي المعنية تحمل هذه القيم أصلًا أو تتقدم عليها قاعدة أخص.",
+  ),
+  takesEffectBody: t(
+    "New bookings follow these rules as soon as you save. Contract restrictions and confirmed bookings are not touched.",
+    "تتبع الحجوزات الجديدة هذه القواعد فور الحفظ. وقيود العقد والحجوزات المؤكدة لا تُمس.",
+  ),
+  appliedBody: t(
+    "New bookings follow these rules now. The grid and the list on the right are refreshed.",
+    "تتبع الحجوزات الجديدة هذه القواعد الآن. وتم تحديث الجدول والقائمة على اليمين.",
+  ),
+  stale: t(
+    "Restrictions on this contract changed since you checked. The latest rules are loaded and the impact was checked again - review it before saving.",
+    "تغيّرت القيود على هذا العقد منذ فحصك. حُمّلت أحدث القواعد وأُعيد فحص الأثر - راجعه قبل الحفظ.",
+  ),
+  saved: t("Restrictions saved", "تم حفظ القيود"),
 };

@@ -183,6 +183,15 @@ export interface RatesInventoryCap {
   nights: Array<{ stayDate: string; maxRooms: number }>;
 }
 
+/** A season as the contract details return it. */
+export interface RatesSeason {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  color: string;
+}
+
 export interface RatesContractDetail {
   id: number;
   hotelId: number;
@@ -203,7 +212,7 @@ export interface RatesContractDetail {
   } | null;
   bookingCutoff: { daysBeforeCheckIn: number; cutoffTime: string } | null;
   restrictions: unknown[];
-  seasons: unknown[];
+  seasons: RatesSeason[];
   cancellationPolicy: {
     tiers: Array<{ daysBefore: number; charge: RatesCancellationCharge }>;
     noShow: RatesCancellationCharge;
@@ -363,20 +372,129 @@ export interface SupplementsContextData {
   nights: SupplementNight[];
 }
 
+/* ------------------------------------------------ restriction overrides */
+
+/** Guide p.11 - same selection rules as sell controls: variationIds OR allRooms, dates OR range. */
+export type RestrictionScope = SellControlScope;
+
+export type RestrictionStatus = "open" | "closed";
+export type RestrictionAppliesOn = "every_day" | "weekend_days";
+export type RestrictionField = "minNights" | "checkIn" | "checkOut";
+export type RestrictionSource = "room_override" | "all_rooms_override" | "contract" | "default";
+
+export interface RestrictionFieldSource {
+  source: RestrictionSource;
+  /** Empty for default. Contract and operational rule IDs belong to different sources. */
+  ruleIds: number[];
+}
+
+export interface RestrictionValues {
+  minNights: number;
+  checkIn: RestrictionStatus;
+  checkOut: RestrictionStatus;
+  fieldSources?: Record<RestrictionField, RestrictionFieldSource>;
+}
+
 export interface RestrictionCell {
   variationId: number;
   stayDate: string;
-  restrictions: {
-    minNights: number;
-    checkIn: "open" | "closed";
-    checkOut: "open" | "closed";
-  };
+  restrictions: RestrictionValues;
+}
+
+/** Contract restriction rule, read-only here (same shape as the contract's own restrictions). */
+export interface RestrictionInheritedRule {
+  id: number;
+  roomId: number | null;
+  appliesFrom: string;
+  appliesTo: string;
+  minNights: number;
+  appliesOn: RestrictionAppliesOn;
+  restrictedCheckinDays: number[];
+  restrictedCheckoutDays: number[];
+  isActive: boolean;
+}
+
+export interface RestrictionTargetsData {
+  contractId: number;
+  timezone: string | null;
+  eligible: boolean;
+  /** Configured contract weekend; the backend falls back to Thursday/Friday when unset. */
+  weekendDays: string[];
+  inheritedRules: RestrictionInheritedRule[];
+  restrictionsRevision: number;
+  targets: Array<{ variationId: number; roomId: number; view: string }>;
 }
 
 export interface RestrictionsContextData {
   contractId: number;
+  timezone: string | null;
   eligible: boolean;
   restrictionsRevision: number;
   weekendDays: string[];
+  inheritedRules: RestrictionInheritedRule[];
   cells: RestrictionCell[];
+}
+
+/** One remaining owned field of a rule. value: minimum nights, or 0 = Open / 1 = Closed. */
+export interface RestrictionRuleCell {
+  variationId: number;
+  stayDate: string;
+  field: RestrictionField;
+  value: number;
+  layer: string;
+  ruleId: number;
+  status: "effective" | "shadowed" | "historical";
+}
+
+export interface RestrictionRule {
+  id: number;
+  live: boolean;
+  cells: RestrictionRuleCell[];
+  [key: string]: unknown;
+}
+
+export interface RestrictionOverridesListData {
+  contractId: number;
+  restrictionsRevision: number;
+  rules: RestrictionRule[];
+  inheritedRules: RestrictionInheritedRule[];
+  meta: RatesPageMeta;
+  emptyState: "no_restriction_overrides" | null;
+}
+
+export interface RestrictionWeekdayGroup {
+  weekdays: number[];
+  status: RestrictionStatus;
+}
+
+/** Omitted fields inherit; never send null or empty arrays. */
+export interface RestrictionDefinition {
+  minimumStay?: { minNights: number; appliesOn: RestrictionAppliesOn };
+  checkIn?: RestrictionWeekdayGroup[];
+  checkOut?: RestrictionWeekdayGroup[];
+}
+
+export type RestrictionOperation =
+  | (RestrictionScope & RestrictionDefinition & { action: "create" })
+  | (RestrictionScope & RestrictionDefinition & { action: "edit"; ruleId: number })
+  | { action: "remove"; ruleId: number };
+
+export interface RestrictionChange {
+  variationId: number;
+  stayDate: string;
+  before: RestrictionValues;
+  after: RestrictionValues;
+}
+
+export interface RestrictionChangesData {
+  contractId: number;
+  restrictionsRevision: number;
+  changes: RestrictionChange[];
+  counts: { cells: number; nights: number; rooms: number };
+  replacedRuleIds: number[];
+}
+
+export interface SaveRestrictionOverridesBody {
+  expectedRevision: number;
+  operations: RestrictionOperation[];
 }

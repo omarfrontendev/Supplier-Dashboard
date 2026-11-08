@@ -19,7 +19,7 @@
  * editing it here would be editing the contract by the back door.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,11 +56,62 @@ import {
   type AlreadySet,
   type BulkKind,
 } from "@/lib/bulk-range-data";
-import { liveGrid, oneNight } from "@/lib/rate-overlay-data";
+import { liveGrid, liveRestrictions as lr, oneNight } from "@/lib/rate-overlay-data";
 import { panelMotion, scrimMotion, useDismiss } from "@/components/layout/overlay";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
+import {
+  RestrictionEffective,
+  RestrictionPreview,
+} from "@/components/rate-calendar/restriction-live";
+import {
+  dayName,
+  describeRestriction,
+  planRestrictionOperations,
+  RESTRICTION_LIMITS,
+  restrictionBatchUsage,
+  summarizeChecks,
+  type NightChecks,
+} from "@/lib/restriction-format";
+import type {
+  RestrictionChangesData,
+  RestrictionOperation,
+  RestrictionScope,
+} from "@/api/modules/rates-availability/types";
 
 type Lang = "en" | "ar";
+
+/** The live Restrictions overlay: everything it reads and writes goes through these. */
+export interface LiveRestrictionsProps {
+  contractId: number;
+  /** Contract weekend (0 = Sunday), already resolved with the backend's Thu/Fri fallback. */
+  weekendDays: number[];
+  eligible: boolean;
+  /** Today in the hotel's published time zone, YYYY-MM-DD. */
+  today: string;
+  variationIds: (rooms: string[]) => number[];
+  /** Every configured Room/View on the contract, from restriction targets: what All rooms expands to. */
+  allVariationIds: number[];
+  /** A live rule's remaining nonpast owned cells from the overrides list; undefined when not loaded. */
+  ownedCellsOf: (ruleId: number) => string[] | undefined;
+  /** Refetch the overrides list. */
+  reloadRules: () => Promise<unknown>;
+  roomName: (variationId: number) => Bi;
+  preview: (operations: RestrictionOperation[]) => Promise<RestrictionChangesData>;
+  /** "stale" when the revision moved on: the overlay previews again and waits for review. */
+  save: (
+    operations: RestrictionOperation[],
+    expectedRevision: number,
+  ) => Promise<"saved" | "stale">;
+}
+
+const isoOf = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+/* The calendar keys nights the way CheckDays does. */
+const calendarKey = (date: Date) =>
+  `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 
 /** A range of nights the picker handed back, kept with its own count. */
 interface Picked {
@@ -81,6 +132,9 @@ interface Line {
   value: Bi;
   tone?: "danger" | "warning" | undefined;
   payload?: StatusPayload | undefined;
+  /** Live restrictions: the operations this line stages, and the rule it edits or removes. */
+  restrictions?: RestrictionOperation[] | undefined;
+  ruleId?: number | undefined;
 }
 
 export interface StatusPayload {
@@ -137,6 +191,7 @@ export function BulkRangeOverlay({
   onRemoveExisting,
   onApplyStatus,
   needsSla = false,
+  liveRestrictions,
 }: {
   kind: BulkKind;
   /** The contract this is scoped to, printed as the overline. */
@@ -156,7 +211,9 @@ export function BulkRangeOverlay({
   onRemoveExisting?: ((row: AlreadySet) => Promise<void>) | undefined;
   onApplyStatus?: ((lines: StatusPayload[]) => Promise<void>) | undefined;
   needsSla?: boolean;
+  liveRestrictions?: LiveRestrictionsProps | undefined;
 }) {
+  const live = kind === "restrictions" ? liveRestrictions : undefined;
   const { lang, dir } = useLanguage();
   const k: Lang = lang === "ar" ? "ar" : "en";
   const ar = k === "ar";
@@ -219,6 +276,14 @@ export function BulkRangeOverlay({
   const [shut, setShut] = useState<Record<string, { in?: boolean; out?: boolean }>>(
     {}
   );
+  /* Live: check-in / check-out are weekday groups, Inherit when unset. */
+  /* Live: check-in / check-out per picked night, keyed like the calendar; absent = Inherit. */
+  const [nightChecks, setNightChecks] = useState<Record<string, NightChecks>>({});
+  const [preview, setPreview] = useState<RestrictionChangesData | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const previewRun = useRef(0);
 
   /* --------------------------------------------------------- the list */
   const [lines, setLines] = useState<Line[]>([]);
@@ -258,7 +323,7 @@ export function BulkRangeOverlay({
 
   /* --------------------------------------------------- what is picked */
   const nights = picked.reduce((sum, item) => sum + item.nights, 0);
-  const weekendDays = [4, 5];
+  const weekendDays = live?.weekendDays ?? [4, 5];
   const weekendNights = useMemo(() => {
     const out: string[] = [];
     for (const item of picked) {
@@ -360,8 +425,89 @@ export function BulkRangeOverlay({
     ? reach.reduce((sum, item) => sum + item.has.length, 0)
     : realRooms.length;
 
+  /* ------------------------------------------- live restriction operation */
+  const allRoomsPicked = rooms.includes(roomList[0]!.en);
+  const pickedIsos = [...new Set(pickedDates.map(isoOf))].sort();
+  const minText = minNights.trim();
+  const minValid = minText === "" || (/^\d+$/.test(minText) && Number(minText) <= 365);
+  /* Omitted fields inherit: only what was set goes in, never null or []. */
+  const minimumStay =
+    minText !== "" && minValid
+      ? {
+          minNights: Number(minText),
+          appliesOn: appliesOn === "weekend" ? ("weekend_days" as const) : ("every_day" as const),
+        }
+      : undefined;
+  /* Check-in / check-out follow the calendar on every picked night; appliesOn never filters them. */
+  const checksByIso = new Map(
+    pickedDates.map((date) => [isoOf(date), nightChecks[calendarKey(date)] ?? {}]),
+  );
+  const checksOf = (iso: string): NightChecks => checksByIso.get(iso) ?? {};
+  const restrictionTarget = ():
+    | { allRooms: true }
+    | { variationIds: number[] }
+    | null => {
+    if (!live) return null;
+    if (allRoomsPicked) return { allRooms: true };
+    const ids = live.variationIds(realRooms.map((room) => room.en));
+    return ids.length ? { variationIds: ids } : null;
+  };
+  const pickedRange =
+    picked.length === 1
+      ? {
+          startDate: picked[0]!.range.start,
+          endDate: picked[0]!.range.end ?? picked[0]!.range.start,
+        }
+      : null;
+  /** The selection as one scope, for reading what applies now. */
+  const restrictionScope = (): RestrictionScope | null => {
+    const target = restrictionTarget();
+    if (!target || pickedIsos.length === 0) return null;
+    return pickedRange ? { ...target, ...pickedRange } : { ...target, dates: pickedIsos };
+  };
+  const restrictionPlan = (() => {
+    const target = restrictionTarget();
+    if (!live || !target || pickedIsos.length === 0) return null;
+    return planRestrictionOperations({
+      isoDates: pickedIsos,
+      checksOf,
+      target,
+      range: pickedRange,
+      minimumStay,
+      editRuleId: editingRule,
+    });
+  })();
+  const restrictionIssue: Bi | null = (() => {
+    if (!live || nights === 0 || realRooms.length === 0) return null;
+    if (!live.eligible) return lr.notEligible;
+    if (pickedIsos.some((day) => day < live.today)) return lr.pastNights;
+    if (pickedIsos.length > RESTRICTION_LIMITS.dates) return lr.addTooManyNights;
+    if (!minValid) return lr.minInvalid;
+    if (!restrictionPlan) return null;
+    if (!restrictionPlan.ok) {
+      return restrictionPlan.reason === "editNotUniform" ? lr.editNotUniform : lr.nothingSet;
+    }
+    /* Each operation must land on a picked night: a weekend-only minimum on
+       its own operation needs a picked weekend night. */
+    const anyChecks = pickedIsos.some((iso) => checksOf(iso).in || checksOf(iso).out);
+    const weekendMiss =
+      minimumStay?.appliesOn === "weekend_days" &&
+      !pickedDates.some((date) => weekendDays.includes(date.getDay()));
+    if (weekendMiss && (restrictionPlan.split || !anyChecks)) return lr.minNoMatch;
+    return null;
+  })();
+  const restrictionOperations = (): RestrictionOperation[] | undefined =>
+    restrictionPlan?.ok ? restrictionPlan.operations : undefined;
+
   /** What this overlay is setting, as the list will name it. */
   const setting: Bi = (() => {
+    if (live) {
+      const definition = { ...(minimumStay ? { minimumStay } : {}), ...summarizeChecks(pickedIsos, checksOf) };
+      return {
+        en: describeRestriction(definition, "en") || c.restrictionsTitle.en,
+        ar: describeRestriction(definition, "ar") || c.restrictionsTitle.ar,
+      };
+    }
     if (kind === "bulkRates") return c.newPrice;
     if (kind === "stopSale") {
       return setTo === "stopSale"
@@ -478,7 +624,13 @@ export function BulkRangeOverlay({
         }
       : undefined;
   const canAdd =
-    nights > 0 && realRooms.length > 0 && !broken && !priceMissing && !slaBad;
+    nights > 0 &&
+    realRooms.length > 0 &&
+    !broken &&
+    !priceMissing &&
+    !slaBad &&
+    !restrictionIssue &&
+    (!live || restrictionPlan?.ok === true);
   const rows = existing ?? alreadySet[kind];
   const shownSaved = existing ? [] : saved;
   /* Contract rules whose dates have not started - Inactive, in the
@@ -491,7 +643,8 @@ export function BulkRangeOverlay({
   const howMany = (value: number) =>
     k === "ar" ? counted(value, rulesWord, "ar") : String(value);
   const labels = ar ? c.weekdaysAr : c.weekdays;
-  const atOnce = appliesAtOnce[kind];
+  /* Live restrictions save as soon as they are confirmed: no draft step. */
+  const atOnce = appliesAtOnce[kind] || Boolean(live);
 
   const clearForm = () => {
     setPicked([]);
@@ -501,6 +654,10 @@ export function BulkRangeOverlay({
     setPriceTouched(false);
     setSupplements({});
     setMinNights("");
+    if (live) {
+      setAppliesOn("every");
+      setNightChecks({});
+    }
     setEveryContract(false);
     setEditingRule(null);
   };
@@ -516,6 +673,8 @@ export function BulkRangeOverlay({
       rooms: roomNames(realRooms),
       value: setting,
       payload: statusPayload(),
+      restrictions: restrictionOperations(),
+      ...(live && editingRule !== null ? { ruleId: editingRule } : {}),
     };
   };
 
@@ -525,10 +684,17 @@ export function BulkRangeOverlay({
   };
 
   const add = () => {
+    /* A night-by-night create is saved as several rules: the line says so. */
+    const splitInto =
+      live && restrictionPlan?.ok && restrictionPlan.split ? restrictionPlan.operations.length : 0;
     const detail = (key: Lang) =>
-      `${whenLabel} · ${roomNames(realRooms)[key]}`;
+      `${whenLabel} · ${roomNames(realRooms)[key]}${
+        splitInto ? ` · ${fill(lr.splitNote[key], { count: n(splitInto) })}` : ""
+      }`;
+    const editing = live && editingRule !== null ? editingRule : undefined;
     setLines((current) => [
-      ...current,
+      /* One staged change per live rule: a newer edit replaces the older one. */
+      ...current.filter((line) => editing === undefined || line.ruleId !== editing),
       {
         id: `L-${Date.now()}`,
         what: headline,
@@ -543,6 +709,8 @@ export function BulkRangeOverlay({
               ? "warning"
               : undefined,
         payload: statusPayload(),
+        restrictions: restrictionOperations(),
+        ruleId: editing,
       },
     ]);
     setNote({ kind: "added", what: headline });
@@ -554,7 +722,90 @@ export function BulkRangeOverlay({
   const amountOf = (text: string) =>
     Number(text.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[^0-9.]/g, ""));
 
+  /* The exact batch that is previewed is the batch that is saved. */
+  const stagedOperations = lines.flatMap((line) => line.restrictions ?? []);
+  /* Pre-review limits over the whole batch. Old ownership comes from the list; an
+     unknown rule blocks review rather than counting as zero. Preview stays authoritative. */
+  const batchUsage = live
+    ? restrictionBatchUsage(stagedOperations, live.allVariationIds, live.ownedCellsOf)
+    : null;
+  const batchIssue: Bi | null = !batchUsage
+    ? null
+    : batchUsage.unknownRuleIds.length
+      ? {
+          en: fill(lr.unknownRules.en, { ids: batchUsage.unknownRuleIds.map((id) => `#${id}`).join(", ") }),
+          ar: fill(lr.unknownRules.ar, { ids: batchUsage.unknownRuleIds.map((id) => `#${id}`).join("، ") }),
+        }
+      : batchUsage.operations > RESTRICTION_LIMITS.operations
+        ? {
+            en: fill(lr.limitOperations.en, { n: String(batchUsage.operations) }),
+            ar: fill(lr.limitOperations.ar, { n: n(batchUsage.operations) }),
+          }
+        : batchUsage.dates > RESTRICTION_LIMITS.dates
+          ? {
+              en: fill(lr.limitDates.en, { n: String(batchUsage.dates) }),
+              ar: fill(lr.limitDates.ar, { n: n(batchUsage.dates) }),
+            }
+          : batchUsage.cells > RESTRICTION_LIMITS.cells
+            ? {
+                en: fill(lr.limitCells.en, { n: String(batchUsage.cells) }),
+                ar: fill(lr.limitCells.ar, { n: n(batchUsage.cells) }),
+              }
+            : null;
+  const [reloading, setReloading] = useState(false);
+  const reloadRules = async () => {
+    if (!live) return;
+    setReloading(true);
+    try {
+      await live.reloadRules();
+    } finally {
+      setReloading(false);
+    }
+  };
+  const runPreview = async () => {
+    if (!live) return;
+    const run = ++previewRun.current;
+    setPreview(null);
+    setPreviewError(null);
+    if (stagedOperations.length === 0) return;
+    setPreviewing(true);
+    try {
+      const data = await live.preview(stagedOperations);
+      if (run === previewRun.current) setPreview(data);
+    } catch (error) {
+      if (run === previewRun.current) setPreviewError(getApiErrorMessage(error, lr.previewFailed[k]));
+    } finally {
+      if (run === previewRun.current) setPreviewing(false);
+    }
+  };
+  /* Entering review, or changing the list while in it, needs a fresh preview. */
+  useEffect(() => {
+    if (!live || !reviewing) return;
+    setStale(false);
+    void runPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewing, lines]);
+
   const confirm = async () => {
+    if (live) {
+      if (!preview) return;
+      setApplying(true);
+      let outcome: "saved" | "stale";
+      try {
+        outcome = await live.save(stagedOperations, preview.restrictionsRevision);
+      } catch {
+        setApplying(false);
+        return;
+      }
+      setApplying(false);
+      if (outcome === "stale") {
+        /* Never retried silently: preview again and wait for another review. */
+        await runPreview();
+        setStale(true);
+        return;
+      }
+      setEditingRule(null);
+    }
     if (kind === "stopSale" && onApplyStatus) {
       setApplying(true);
       try {
@@ -618,7 +869,13 @@ export function BulkRangeOverlay({
               <span className="text-[12px] text-text-quiet">
                 {atOnce ? c.appliesNow[k] : c.savedAsDraft[k]}
               </span>
-              <Button disabled={applying} onClick={() => void confirm()}>
+              <Button
+                disabled={
+                  applying ||
+                  (live !== undefined && (previewing || !preview || batchIssue !== null))
+                }
+                onClick={() => void confirm()}
+              >
                 {atOnce ? c.confirmApply[k] : c.saveAllDraft[k]}
               </Button>
             </div>
@@ -661,6 +918,41 @@ export function BulkRangeOverlay({
           ))}
         </div>
 
+        {live && (
+          <>
+            {batchIssue && (
+              <BatchIssue
+                text={batchIssue[k]}
+                unknown={(batchUsage?.unknownRuleIds.length ?? 0) > 0}
+                reloading={reloading}
+                onReload={() => void reloadRules()}
+                reloadLabel={lr.reloadRules[k]}
+              />
+            )}
+            {stale && (
+              <div className="mt-3 rounded-xl bg-[#fdf0d9] p-3.5 text-[12px] leading-5 text-[#8a5a00]">
+                {lr.stale[k]}
+              </div>
+            )}
+            {previewing ? (
+              <p className="mt-3 text-[12px] text-text-quiet">{lr.previewing[k]}</p>
+            ) : previewError ? (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-status-danger-bg p-3.5">
+                <p className="text-[12px] text-status-danger">{previewError}</p>
+                <button
+                  type="button"
+                  onClick={() => void runPreview()}
+                  className="text-[12px] font-medium text-text-link hover:underline"
+                >
+                  {lr.retry[k]}
+                </button>
+              </div>
+            ) : preview ? (
+              <RestrictionPreview data={preview} roomName={live.roomName} k={k} />
+            ) : null}
+          </>
+        )}
+
         {/* The one place the four overlays part company. */}
         <div
           className={cn(
@@ -674,7 +966,9 @@ export function BulkRangeOverlay({
           <p className="mt-0.5 text-[12px] leading-5 text-text-body">
             {oneRange
               ? c.pricesTakeEffectBody[k]
-              : atOnce
+              : live
+                ? lr.takesEffectBody[k]
+                : atOnce
                 ? c.takesEffectBody[k]
                 : c.savedDraftBandBody[k]}
           </p>
@@ -721,9 +1015,20 @@ export function BulkRangeOverlay({
                   {canAdd ? c.pressAddFirst[k] : c.nothingYet[k]}
                 </span>
               )}
+              {batchIssue && lines.length > 0 && (
+                <BatchIssue
+                  text={batchIssue[k]}
+                  unknown={(batchUsage?.unknownRuleIds.length ?? 0) > 0}
+                  reloading={reloading}
+                  onReload={() => void reloadRules()}
+                  reloadLabel={lr.reloadRules[k]}
+                />
+              )}
               <Button
-                disabled={lines.length === 0}
-                reason={lines.length === 0 ? c.nothingYet[k] : undefined}
+                disabled={lines.length === 0 || batchIssue !== null}
+                reason={
+                  lines.length === 0 ? c.nothingYet[k] : batchIssue ? batchIssue[k] : undefined
+                }
                 onClick={() => setReviewing(true)}
               >
                 {lines.length === 0
@@ -762,7 +1067,9 @@ export function BulkRangeOverlay({
                   : note.kind === "applied"
                     ? oneRange
                       ? c.pricesAppliedBody[k]
-                      : c.appliedBody[k]
+                      : live
+                        ? lr.appliedBody[k]
+                        : c.appliedBody[k]
                     : c.draftedBody[k]}
               </p>
             )}
@@ -789,7 +1096,7 @@ export function BulkRangeOverlay({
           {editingRule !== null && (
             <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-brand-deep/30 bg-primary-subtle px-3.5 py-2.5">
               <p className="min-w-0 flex-1 text-[12px] leading-5 text-text-primary">
-                {liveGrid.editingHint[k]}
+                {live ? lr.editingHint[k] : liveGrid.editingHint[k]}
               </p>
               <button
                 type="button"
@@ -1196,14 +1503,15 @@ export function BulkRangeOverlay({
               <Section label={c.stayRules[k]}>
                 <div>
                   <Input
-                    label={c.minimumNights[k]}
+                    label={live ? lr.minLabel[k] : c.minimumNights[k]}
                     className="w-[196px]"
                     inputMode="numeric"
                     value={minNights}
                     onChange={(e) => setMinNights(e.target.value)}
+                    {...(live && !minValid ? { error: lr.minInvalid[k] } : {})}
                   />
                   <p className="mt-1 text-[11.5px] text-text-quiet">
-                    {c.noMinimum[k]}
+                    {live ? lr.minHint[k] : c.noMinimum[k]}
                   </p>
                 </div>
 
@@ -1235,7 +1543,13 @@ export function BulkRangeOverlay({
                   ))}
                 </div>
                 <p className="mt-1.5 max-w-[668px] text-[11.5px] leading-4 text-text-quiet">
-                  {c.appliesOnHint[k]}
+                  {live
+                    ? fill(lr.weekendIs[k], {
+                        days: weekendDays
+                          .map((day) => dayName(day, k))
+                          .join(ar ? "، " : ", "),
+                      })
+                    : c.appliesOnHint[k]}
                 </p>
               </Section>
 
@@ -1250,11 +1564,37 @@ export function BulkRangeOverlay({
                 ) : (
                   <>
                     <p className="text-[12px] text-text-body">
-                      {c.checkDaysLead[k]}
+                      {live ? lr.checkLead[k] : c.checkDaysLead[k]}
                     </p>
                     <CheckDays
                       dates={pickedDates}
-                      covered={covered}
+                      /* Live: every picked night, whatever the minimum stay's weekend setting. */
+                      covered={live ? () => true : covered}
+                      tri={
+                        live
+                          ? {
+                              states: nightChecks,
+                              onSet: (keys, what, value) =>
+                                setNightChecks((current) => {
+                                  const next = { ...current };
+                                  for (const key of keys) {
+                                    const night = { ...next[key] };
+                                    if (value) night[what] = value;
+                                    else delete night[what];
+                                    if (night.in || night.out) next[key] = night;
+                                    else delete next[key];
+                                  }
+                                  return next;
+                                }),
+                              copy: {
+                                legendInherit: lr.legendInherit,
+                                legendOpen: lr.legendOpen,
+                                legendClosed: lr.legendClosed,
+                                legendTap: lr.legendTap,
+                              },
+                            }
+                          : undefined
+                      }
                       shut={shut}
                       onToggle={(keys: string[], what: "in" | "out") =>
                         setShut((current) => {
@@ -1280,6 +1620,16 @@ export function BulkRangeOverlay({
                   </>
                 )}
               </Section>
+
+              {live && nights > 0 && realRooms.length > 0 && (
+                <RestrictionEffective
+                  contractId={live.contractId}
+                  scope={restrictionScope()}
+                  tooMany={pickedIsos.length > RESTRICTION_LIMITS.dates}
+                  roomName={live.roomName}
+                  k={k}
+                />
+              )}
             </>
           )}
 
@@ -1343,6 +1693,10 @@ export function BulkRangeOverlay({
               <p className="mt-1 text-[12px] leading-5 text-status-danger">
                 {c.fixRed[k]}
               </p>
+            ) : restrictionIssue ? (
+              <p className="mt-1 text-[12px] leading-5 text-status-danger">
+                {restrictionIssue[k]}
+              </p>
             ) : canAdd ? (
               <>
                 <p
@@ -1363,7 +1717,9 @@ export function BulkRangeOverlay({
                   </p>
                 )}
                 <ul className="mt-1 space-y-0.5">
-                  {(kind === "restrictions"
+                  {(live
+                    ? [lr.bulletPriority[k], lr.bulletUntouched[k], lr.bulletExpires[k]]
+                    : kind === "restrictions"
                     ? [
                         /* OV 04.BXF - which nights lost an arrival or a
                            departure, named; then what happens after them,
@@ -1602,8 +1958,20 @@ export function BulkRangeOverlay({
                 <p className="mt-0.5 text-[11px] text-text-body">
                   {row.rooms[k]}
                 </p>
+                {row.note && (
+                  <p className="mt-0.5 text-[11px] text-text-quiet">{row.note[k]}</p>
+                )}
+                {live && row.restriction?.lockedReason && (
+                  <p className="mt-0.5 text-[11px] leading-4 text-status-warning">
+                    {fill(lr.editLocked[k], { reason: row.restriction.lockedReason[k] })}
+                  </p>
+                )}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  {row.fromContract ? (
+                  {live &&
+                  row.restriction &&
+                  lines.some((line) => line.ruleId === row.restriction?.ruleId) ? (
+                    <StatusPill tone="warning">{lr.staged[k]}</StatusPill>
+                  ) : row.fromContract ? (
                     <>
                       <span className="flex flex-wrap items-center gap-1.5">
                         <StatusPill tone="neutral">
@@ -1643,10 +2011,36 @@ export function BulkRangeOverlay({
                             : c.live[k]}
                       </StatusPill>
                       <span className="flex items-center gap-3 text-[11.5px] font-medium">
-                        {(!onRemoveExisting || row.edit) && (
+                        {(!onRemoveExisting || row.edit) &&
+                          /* An edit that cannot rebuild the rule exactly is not offered; Remove stays. */
+                          !(live && row.restriction?.lockedReason) && (
                           <button
                             type="button"
                             onClick={() => {
+                              const seed = row.restriction;
+                              if (live && seed) {
+                                setPicked(
+                                  seed.ranges.map((range, index) => ({
+                                    id: `E-${seed.ruleId}-${index}`,
+                                    range,
+                                    nights: nightsIn(range),
+                                  })),
+                                );
+                                setRooms(seed.allRooms ? [roomList[0]!.en] : seed.rooms);
+                                setMinNights(seed.minNights);
+                                setAppliesOn(seed.appliesOn);
+                                /* Each remaining night exactly as the rule owns it. */
+                                setNightChecks(
+                                  Object.fromEntries(
+                                    Object.entries(seed.checks).map(([iso, checks]) => [
+                                      calendarKey(new Date(`${iso}T00:00:00`)),
+                                      checks,
+                                    ]),
+                                  ),
+                                );
+                                setEditingRule(seed.ruleId);
+                                return;
+                              }
                               const rule = row.edit;
                               if (!rule) return;
                               setPicked(
@@ -1670,6 +2064,34 @@ export function BulkRangeOverlay({
                           type="button"
                           disabled={removing === (row.id ?? row.when.en)}
                           onClick={async () => {
+                            const seed = row.restriction;
+                            if (live && seed) {
+                              /* Staged like everything else: remove takes only action and ruleId. */
+                              const what = {
+                                en: fill(lr.removeLine.en, { id: String(seed.ruleId) }),
+                                ar: fill(lr.removeLine.ar, { id: String(seed.ruleId) }),
+                              };
+                              setLines((current) => [
+                                ...current.filter((line) => line.ruleId !== seed.ruleId),
+                                {
+                                  id: `L-${Date.now()}`,
+                                  what,
+                                  detail: {
+                                    en: `${row.when.en} · ${row.rooms.en}`,
+                                    ar: `${row.when.ar} · ${row.rooms.ar}`,
+                                  },
+                                  when: row.when,
+                                  rooms: row.rooms,
+                                  value: lr.removeValue,
+                                  tone: "danger",
+                                  restrictions: [{ action: "remove", ruleId: seed.ruleId }],
+                                  ruleId: seed.ruleId,
+                                },
+                              ]);
+                              if (editingRule === seed.ruleId) clearForm();
+                              setNote({ kind: "added", what });
+                              return;
+                            }
                             if (!onRemoveExisting) return;
                             setRemoving(row.id ?? row.when.en);
                             try {
@@ -1707,6 +2129,37 @@ export function BulkRangeOverlay({
         </div>
       )}
     </Shell>
+  );
+}
+
+/** Why Review & save is shut for live restrictions, with Reload when old scope is unknown. */
+function BatchIssue({
+  text,
+  unknown,
+  reloading,
+  onReload,
+  reloadLabel,
+}: {
+  text: string;
+  unknown: boolean;
+  reloading: boolean;
+  onReload: () => void;
+  reloadLabel: string;
+}) {
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl bg-status-danger-bg p-3.5">
+      <p className="min-w-0 flex-1 text-[12px] leading-5 text-status-danger">{text}</p>
+      {unknown && (
+        <button
+          type="button"
+          disabled={reloading}
+          onClick={onReload}
+          className="text-[12px] font-medium text-text-link hover:underline disabled:opacity-50"
+        >
+          {reloadLabel}
+        </button>
+      )}
+    </div>
   );
 }
 

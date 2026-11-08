@@ -23,6 +23,33 @@ import { cn } from "@/lib/utils";
 const COLUMNS = [6, 0, 1, 2, 3, 4, 5];
 
 type Shut = Record<string, { in?: boolean; out?: boolean }>;
+type Tri = "open" | "closed";
+
+/**
+ * Live contracts: three states per side - Inherit (neutral, nothing sent),
+ * Open and Closed (both sent explicitly). Same calendar, same chips.
+ */
+export interface TriStateChecks {
+  states: Record<string, { in?: Tri; out?: Tri }>;
+  onSet: (keys: string[], what: "in" | "out", value: Tri | undefined) => void;
+  copy: {
+    legendInherit: { en: string; ar: string };
+    legendOpen: { en: string; ar: string };
+    legendClosed: { en: string; ar: string };
+    legendTap: { en: string; ar: string };
+  };
+}
+
+/** Tap order: Inherit -> Closed -> Open -> Inherit. Closing is the usual intent. */
+const nextTri = (value: Tri | undefined): Tri | undefined =>
+  value === undefined ? "closed" : value === "closed" ? "open" : undefined;
+
+const chipTone = (value: Tri | undefined) =>
+  value === "closed"
+    ? "bg-status-danger-bg text-status-danger"
+    : value === "open"
+      ? "bg-[#e3f4e8] text-[#1d6b3f]"
+      : "border border-dashed border-border-default bg-surface-subtle text-text-muted";
 
 export function CheckDays({
   dates,
@@ -35,7 +62,9 @@ export function CheckDays({
   n,
   year,
   dayKey,
+  tri,
 }: {
+  tri?: TriStateChecks | undefined;
   dates: Date[];
   covered: (date: Date) => boolean;
   shut: Shut;
@@ -89,7 +118,12 @@ export function CheckDays({
                     key={weekday}
                     type="button"
                     disabled={keys.length === 0}
-                    onClick={() => onToggle(keys, "in")}
+                    onClick={() => {
+                      if (!tri) return onToggle(keys, "in");
+                      /* The column closes together; once all closed, it inherits again. */
+                      const allClosed = keys.every((key) => tri.states[key]?.in === "closed");
+                      tri.onSet(keys, "in", allClosed ? undefined : "closed");
+                    }}
                     title={(k === "ar" ? c.calWeekdaysAr : c.calWeekdays)[column]}
                     className={cn(
                       "px-1 pb-1 text-center text-[11px] font-medium",
@@ -129,7 +163,39 @@ export function CheckDays({
                       >
                         {n(day)}
                       </span>
-                      {inRule && (
+                      {inRule && tri && (
+                        <>
+                          {(
+                            [
+                              ["in", c.inTag[k]],
+                              ["out", c.outTag[k]],
+                            ] as Array<["in" | "out", string]>
+                          ).map(([what, label]) => {
+                            const value = tri.states[key]?.[what];
+                            return (
+                              <button
+                                key={what}
+                                type="button"
+                                aria-label={`${label}: ${
+                                  value === "closed"
+                                    ? tri.copy.legendClosed[k]
+                                    : value === "open"
+                                      ? tri.copy.legendOpen[k]
+                                      : tri.copy.legendInherit[k]
+                                }`}
+                                onClick={() => tri.onSet([key], what, nextTri(value))}
+                                className={cn(
+                                  "rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium transition-colors",
+                                  chipTone(value),
+                                )}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                      {inRule && !tri && (
                         <>
                           {(
                             [
@@ -163,6 +229,23 @@ export function CheckDays({
         );
       })}
 
+      {tri ? (
+        <p className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-text-body">
+          <span className={cn("rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium", chipTone(undefined))}>
+            {c.inTag[k]}
+          </span>
+          {tri.copy.legendInherit[k]}
+          <span className={cn("ms-1.5 rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium", chipTone("open"))}>
+            {c.inTag[k]}
+          </span>
+          {tri.copy.legendOpen[k]}
+          <span className={cn("ms-1.5 rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium", chipTone("closed"))}>
+            {c.inTag[k]}
+          </span>
+          {tri.copy.legendClosed[k]}
+          <span className="ms-1 text-text-quiet">{tri.copy.legendTap[k]}</span>
+        </p>
+      ) : (
       <p className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-text-body">
         <span className="rounded-[5px] bg-[#e3f4e8] px-1.5 py-0.5 text-[10.5px] font-medium text-[#1d6b3f]">
           {c.inTag[k]}
@@ -174,6 +257,7 @@ export function CheckDays({
         {c.legendClosed[k]}
         <span className="ms-1 text-text-quiet">{c.legendTap[k]}</span>
       </p>
+      )}
     </div>
   );
 }

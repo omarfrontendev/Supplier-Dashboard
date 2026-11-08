@@ -65,7 +65,13 @@ export function RateGrid({
   fade,
   weekendDays = WEEKEND_DAYS,
   poolNote,
+  nightSeasons,
+  seasonNote,
 }: {
+  /** The contract's season on each night (index = night - 1), or null. */
+  nightSeasons?: Array<{ name: string; color: string } | null> | undefined;
+  /** Said in the season row instead of seasons, e.g. while they load. */
+  seasonNote?: string | undefined;
   poolNote?: string | undefined;
   weekendDays?: number[];
   currency?: string | undefined;
@@ -103,6 +109,20 @@ export function RateGrid({
   );
   const weekdayOf = (night: number) => (month.firstWeekday + night - 1) % 7;
   const isWeekend = (night: number) => weekendDays.includes(weekdayOf(night));
+  // Consecutive visible nights in the same season share one cell.
+  const seasonRuns =
+    nightSeasons && !seasonNote && nights.some((night) => nightSeasons[night - 1])
+      ? nights.reduce<
+          Array<{ start: number; length: number; season: { name: string; color: string } | null }>
+        >((runs, night) => {
+          const season = nightSeasons[night - 1] ?? null;
+          const last = runs[runs.length - 1];
+          if (last && last.season === season) last.length += 1;
+          else runs.push({ start: night, length: 1, season });
+          return runs;
+        }, [])
+      : null;
+  const seasonBand = nightSeasons ? null : month.seasonBand;
 
   // UI 04.1 - a night is a 38x26 cell; the row padding holds the rest.
   const cell = compact ? "h-5 min-w-[34px]" : "h-[26px] min-w-[34px]";
@@ -268,23 +288,42 @@ export function RateGrid({
                 {t.season}
               </span>
             </th>
-            <td colSpan={nights.length} className="ps-2 pe-1 py-1">
-              {!month.seasonBand && (
-                <span className="block text-[9px] font-medium leading-[11px] text-text-muted">
-                  {t.noSeason}
-                </span>
-              )}
-              {month.seasonBand && (
-                <div className="rounded bg-primary-subtle px-2 py-1 text-[10px] font-medium text-brand-deep">
-                  {ar ? month.seasonBandAr : month.seasonBand}
-                </div>
-              )}
-              {month.seasonBand && month.seasonHint && (
-                <p className="mt-1 px-2 text-[10px] text-text-muted">
-                  {ar ? month.seasonHintAr : month.seasonHint}
-                </p>
-              )}
-            </td>
+            {seasonRuns ? (
+              seasonRuns.map((run) => (
+                <td key={run.start} colSpan={run.length} className="px-0.5 py-1">
+                  {run.season && (
+                    <div
+                      title={run.season.name}
+                      className="truncate rounded border-s-[3px] px-2 py-1 text-[10px] font-medium text-text-primary"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${run.season.color} 18%, transparent)`,
+                        borderColor: run.season.color,
+                      }}
+                    >
+                      {run.season.name}
+                    </div>
+                  )}
+                </td>
+              ))
+            ) : (
+              <td colSpan={nights.length} className="ps-2 pe-1 py-1">
+                {!seasonBand && (
+                  <span className="block text-[9px] font-medium leading-[11px] text-text-muted">
+                    {seasonNote ?? t.noSeason}
+                  </span>
+                )}
+                {seasonBand && (
+                  <div className="rounded bg-primary-subtle px-2 py-1 text-[10px] font-medium text-brand-deep">
+                    {ar ? month.seasonBandAr : seasonBand}
+                  </div>
+                )}
+                {seasonBand && month.seasonHint && (
+                  <p className="mt-1 px-2 text-[10px] text-text-muted">
+                    {ar ? month.seasonHintAr : month.seasonHint}
+                  </p>
+                )}
+              </td>
+            )}
           </tr>
 
           {model === "pool" && (

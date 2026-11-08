@@ -3004,14 +3004,6 @@ function PickerState({
 
 const ENDED_STATUSES: RatesContractStatus[] = ["expired", "terminated"];
 
-const PICKER_PAGE = 6;
-
-function matching<T>(items: T[], query: string, fields: (item: T) => Array<string | null>) {
-  const words = query.trim().toLowerCase();
-  if (!words) return items;
-  return items.filter((item) => fields(item).some((field) => field?.toLowerCase().includes(words)));
-}
-
 function PickerSearch({
   value,
   placeholder,
@@ -3050,6 +3042,12 @@ export function ContractPickerOverlay({
   onIncludeEnded,
   onPick,
   onClose,
+  search,
+  searchActive,
+  onSearch,
+  page,
+  totalPages,
+  onPageChange,
 }: {
   hotelName: string;
   contracts: RatesContract[];
@@ -3061,22 +3059,28 @@ export function ContractPickerOverlay({
   onIncludeEnded: (next: boolean) => void;
   onPick: (id: number) => void;
   onClose: () => void;
+  /** Search and paging are done by the backend; `contracts` is one server page. */
+  search: string;
+  searchActive: boolean;
+  onSearch: (next: string) => void;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = contractPicker;
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [dates, setDates] = useState<{ start: string; end: string } | null>(null);
   const shown = contracts.filter(
     (contract) => includeEnded || !ENDED_STATUSES.includes(contract.status),
   );
-  const rows = matching(shown, query, (contract) => [contract.name, String(contract.id)]).filter(
+  const pageRows = shown.filter(
     (contract) =>
       !dates || (contract.startDate.slice(0, 10) <= dates.end && contract.endDate.slice(0, 10) >= dates.start),
   );
-  const pages = Math.max(1, Math.ceil(rows.length / PICKER_PAGE));
-  const pageRows = rows.slice((Math.min(page, pages) - 1) * PICKER_PAGE, Math.min(page, pages) * PICKER_PAGE);
+  const rows = pageRows;
+  const pages = Math.max(1, totalPages);
+  const setPage = onPageChange;
   const date = (value: string) =>
     new Intl.DateTimeFormat(k === "ar" ? "ar-EG" : "en-GB", {
       day: "numeric",
@@ -3092,15 +3096,12 @@ export function ContractPickerOverlay({
       title={c.title[k]}
       onClose={onClose}
     >
-      {!loading && !error && shown.length > 0 && (
+      {!error && (searchActive || (!loading && shown.length > 0)) && (
         <>
           <PickerSearch
-            value={query}
+            value={search}
             placeholder={pickerSearch.contracts[k]}
-            onChange={(next) => {
-              setQuery(next);
-              setPage(1);
-            }}
+            onChange={onSearch}
           />
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <DateField
@@ -3135,7 +3136,7 @@ export function ContractPickerOverlay({
         loadingText={c.loading[k]}
         errorText={c.error[k]}
         emptyText={
-          (query || dates) && shown.length > 0
+          searchActive || (dates && shown.length > 0)
             ? pickerSearch.noMatch[k]
             : contracts.length === 0
               ? c.empty[k]
@@ -3191,6 +3192,12 @@ export function HotelPickerOverlay({
   onPick,
   onClose,
   countries = [],
+  search,
+  searchActive,
+  onSearch,
+  page,
+  totalPages,
+  onPageChange,
 }: {
   countries?: RatesCountry[];
   hotels: RatesHotel[];
@@ -3200,18 +3207,22 @@ export function HotelPickerOverlay({
   value: number | null;
   onPick: (id: number) => void;
   onClose: () => void;
+  /** Search and paging are done by the backend; `hotels` is one server page. */
+  search: string;
+  searchActive: boolean;
+  onSearch: (next: string) => void;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = hotelPicker;
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [country, setCountry] = useState<string | null>(null);
-  const rows = matching(hotels, query, (hotel) => [hotel.nameEn, hotel.nameAr, hotel.city]).filter(
-    (hotel) => !country || hotel.countryCode === country,
-  );
-  const pages = Math.max(1, Math.ceil(rows.length / PICKER_PAGE));
-  const pageRows = rows.slice((Math.min(page, pages) - 1) * PICKER_PAGE, Math.min(page, pages) * PICKER_PAGE);
+  const rows = hotels.filter((hotel) => !country || hotel.countryCode === country);
+  const pageRows = rows;
+  const pages = Math.max(1, totalPages);
+  const setPage = onPageChange;
 
   return (
     <IconModal
@@ -3220,15 +3231,8 @@ export function HotelPickerOverlay({
       title={c.title[k]}
       onClose={onClose}
     >
-      {!loading && !error && hotels.length > 0 && (
-        <PickerSearch
-          value={query}
-          placeholder={pickerSearch.hotels[k]}
-          onChange={(next) => {
-            setQuery(next);
-            setPage(1);
-          }}
-        />
+      {!error && (searchActive || (!loading && hotels.length > 0)) && (
+        <PickerSearch value={search} placeholder={pickerSearch.hotels[k]} onChange={onSearch} />
       )}
       {!loading && !error && countries.length > 1 && (
         <div className="mb-3 flex flex-wrap gap-2">
@@ -3261,7 +3265,9 @@ export function HotelPickerOverlay({
         empty={rows.length === 0}
         loadingText={c.loading[k]}
         errorText={c.error[k]}
-        emptyText={(query || country) && hotels.length > 0 ? pickerSearch.noMatch[k] : c.empty[k]}
+        emptyText={
+          searchActive || (country && hotels.length > 0) ? pickerSearch.noMatch[k] : c.empty[k]
+        }
         onRetry={onRetry}
       />
       {!loading && !error && rows.length > 0 && (
