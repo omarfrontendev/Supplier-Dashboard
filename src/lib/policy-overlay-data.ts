@@ -78,7 +78,7 @@ export const cancellationDrawer = {
   keepEditing: t("Keep editing", "متابعة التعديل"),
   discard: t("Discard changes", "تجاهل التعديلات"),
   cancel: t("Cancel", "إلغاء"),
-  confirm: t("Save policy", "حفظ السياسة"),
+  confirm: t("Add Cancellation policy", "إضافة سياسة الإلغاء"),
 };
 
 export const releaseDrawer = {
