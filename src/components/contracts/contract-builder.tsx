@@ -576,7 +576,10 @@ export function ContractBuilder({
   }));
   const seasonChanges = (season: SeasonRule) => {
     const changes = [
-      ...(Object.values(season.childPrices).some((price) => price.trim() !== "")
+      ...((Object.keys(season.childPrices) as ChildRuleKey[]).some((key) => {
+        const price = toAmount(season.childPrices[key]);
+        return price !== null && price !== toAmount(draft.children[key].price);
+      })
         ? [t.changesChildren]
         : []),
       ...(season.cancellation ? [t.changesPolicy] : []),
