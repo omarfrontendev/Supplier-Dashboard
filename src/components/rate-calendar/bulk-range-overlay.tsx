@@ -267,6 +267,7 @@ export function BulkRangeOverlay({
   onRemoveExisting,
   onApplyStatus,
   needsSla = false,
+  slaReady = true,
   liveRestrictions,
   liveRelease,
   liveRates,
@@ -289,6 +290,8 @@ export function BulkRangeOverlay({
   onRemoveExisting?: ((row: AlreadySet) => Promise<void>) | undefined;
   onApplyStatus?: ((lines: StatusPayload[]) => Promise<void>) | undefined;
   needsSla?: boolean;
+  /** False until the contract's SLA settings have loaded: On Request cannot be staged. */
+  slaReady?: boolean;
   liveRestrictions?: LiveRestrictionsProps | undefined;
   liveRelease?: LiveReleaseProps | undefined;
   liveRates?: LiveRatesProps | undefined;
@@ -792,6 +795,7 @@ export function BulkRangeOverlay({
     !broken &&
     !priceMissing &&
     !slaBad &&
+    !(Boolean(onApplyStatus) && setTo === "onRequest" && !slaReady) &&
     !restrictionIssue &&
     (!live || restrictionPlan?.ok === true) &&
     !releaseIssue &&
@@ -824,6 +828,8 @@ export function BulkRangeOverlay({
       setNightChecks({});
     }
     setEveryContract(false);
+    setSlaMinutes("30");
+    setExpiryAction("auto_reject");
     setEditingRule(null);
   };
 
@@ -2447,6 +2453,8 @@ export function BulkRangeOverlay({
                               );
                               setRooms(rule.allRooms ? [roomList[0]!.en] : rule.rooms);
                               setSetTo(rule.status);
+                              setSlaMinutes(String(rule.sla?.slaMinutes ?? 30));
+                              setExpiryAction(rule.sla?.expiryAction ?? "auto_reject");
                               setDays([0, 1, 2, 3, 4, 5, 6]);
                               setEditingRule(rule.ruleId);
                             }}
