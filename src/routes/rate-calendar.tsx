@@ -653,6 +653,14 @@ function RateCalendarPage() {
   );
   const sellRules = useSellControls(pickedContract?.id, live && overlay === "stopSale");
   const saveSell = useSaveSellControls(pickedContract?.id);
+  /* Unknown contract SLA is never "no SLA": On Request waits for loaded targets. */
+  const sellSlaReady = sellTargets.isSuccess;
+  const contractSla = sellTargets.data?.onRequestSettings ?? null;
+  const sellNotReady = () => {
+    if (sellSlaReady) return false;
+    if (sellTargets.isError) notify.error(getApiErrorMessage(sellTargets.error));
+    return true;
+  };
   const restrictionsOpen = live && overlay === "restrictions";
   const restrictionTargets = useRestrictionTargets(
     restrictionsOpen ? pickedContract?.id : undefined,
@@ -1889,7 +1897,8 @@ function RateCalendarPage() {
                       ) === index,
                   )
                   .map((row) => ({ en: row.name, ar: row.nameAr })),
-                needsSla: !sellTargets.data?.onRequestSettings,
+                needsSla: sellSlaReady && !contractSla,
+                slaReady: sellSlaReady,
                 existing: sellRuleRows(sellRules.data ?? [], allRows),
                 onRemoveExisting: async (row) => {
                   try {
@@ -1900,6 +1909,7 @@ function RateCalendarPage() {
                   }
                 },
                 onApplyStatus: async (lines) => {
+                  if (sellNotReady()) throw new Error("sell-control targets not loaded");
                   if (!sellTargets.data?.eligible) {
                     notify.error(liveGrid.notEligible[k]);
                     throw new Error("not eligible");
@@ -1942,7 +1952,9 @@ function RateCalendarPage() {
                               ? { allRooms: true as const }
                               : { variationIds: ids(line.rooms) }),
                             dates,
-                            ...(line.sla ? { onRequestSettings: line.sla } : {}),
+                            ...(line.sla && line.status === "onRequest" && !contractSla
+                              ? { onRequestSettings: line.sla }
+                              : {}),
                           },
                         ];
                       }
@@ -1964,7 +1976,9 @@ function RateCalendarPage() {
                                   ? ("stop_sale" as const)
                                   : ("on_request" as const),
                               ...scope,
-                              ...(line.sla ? { onRequestSettings: line.sla } : {}),
+                              ...(line.sla && line.status === "onRequest" && !contractSla
+                                ? { onRequestSettings: line.sla }
+                                : {}),
                             };
                       });
                     },
@@ -2261,9 +2275,10 @@ function RateCalendarPage() {
                     : nightRow.status[nightCell.night - 1] === "RQ"
                       ? ("request" as const)
                       : ("open" as const),
-                needsSla: !sellTargets.data?.onRequestSettings,
-                saving: saveSell.isPending,
+                needsSla: sellSlaReady && !contractSla,
+                saving: saveSell.isPending || sellTargets.isPending,
                 onApply: (state, sla) => {
+                  if (sellNotReady()) return;
                   const scope = {
                     variationIds: [nightRow.target!.variationId],
                     dates: [isoDay(dateOfNight(month, nightCell.night))],
@@ -2276,7 +2291,9 @@ function RateCalendarPage() {
                             action: "create",
                             status: state === "stop" ? "stop_sale" : "on_request",
                             ...scope,
-                            ...(sla ? { onRequestSettings: sla } : {}),
+                            ...(sla && state === "request" && !contractSla
+                              ? { onRequestSettings: sla }
+                              : {}),
                           },
                     ],
                     {
@@ -3059,6 +3076,9 @@ function sellRuleRows(rules: SellControlRule[], rows: GridRow[]): AlreadySet[] {
             return row ? [row.name] : [];
           }),
           allRooms: allIds.length > 0 && allIds.every((id) => uniqueIds.includes(id)),
+          ...(rule.status === "on_request" && rule.onRequestSettings
+            ? { sla: rule.onRequestSettings }
+            : {}),
         },
         when: { en: segments(dates, "en"), ar: segments(dates, "ar") },
         rooms: { en: names(ids, "en"), ar: names(ids, "ar") },

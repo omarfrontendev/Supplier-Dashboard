@@ -112,6 +112,8 @@ export interface AlreadySet {
     ranges: Array<{ start: string; end: string }>;
     rooms: string[];
     allRooms: boolean;
+    /** The rule's own saved On Request SLA, put back in the form on Edit. */
+    sla?: { slaMinutes: number; expiryAction: "auto_reject" | "escalate_to_hoteliana" };
   };
   /** A live restriction override: what Edit puts back in the form. */
   restriction?: {
