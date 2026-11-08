@@ -314,6 +314,8 @@ export type UpdateHotelContractBody = Partial<
   >
 > & {
   expectedVersion: number;
+  hotelId?: number;
+  pricingModel?: CreateHotelContractBody["pricingModel"];
   restrictions?: ContractRestrictionInput[];
   cancellationPolicy?: ContractCancellationPolicy | null;
   onRequestSettings?: ContractOnRequestSettings | null;

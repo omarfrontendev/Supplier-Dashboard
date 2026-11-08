@@ -1203,16 +1203,6 @@ export function ContractBuilder({
       }
     }
 
-    if (
-      saved &&
-      draft.pricingModel !==
-        (saved.pricingModel === "fixed_per_room" ? "fixed_price" : "base_supplements")
-    ) {
-      notify.error(f.modelLocked);
-      jumpTo("pricing");
-      return false;
-    }
-
     const pricingNeedsWrite = saved ? pricingChanged(draft, saved) : hasPricingInput(draft);
     if (pricingNeedsWrite && saved?.pricing && !hasPricingInput(draft)) {
       notify.error(f.pricingClearUnsupported);
@@ -1625,7 +1615,6 @@ export function ContractBuilder({
             done={sectionDone("basics")}
           >
             <BasicsFields
-              locked={saved !== null}
               currencyLocked={saved !== null && hasRoomPricing(saved)}
             />
             {!basicsDone && (
@@ -1644,7 +1633,7 @@ export function ContractBuilder({
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            <PricingFields modelLocked={saved !== null} />
+            <PricingFields />
           </Section>
 
           {/* 3 — Rooms */}

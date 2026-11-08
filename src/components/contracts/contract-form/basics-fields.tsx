@@ -10,7 +10,7 @@ import { readableDay } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { fill, useLanguage } from "@/lib/i18n";
 import { currencyPanel, weekendPanel } from "@/lib/contract-overlay-data";
-import { updateBasics } from "@/store/features/contracts/contract-draft.slice";
+import { clearRoomSelections, updateBasics } from "@/store/features/contracts/contract-draft.slice";
 import {
   CONTRACT_CURRENCIES,
   CONTRACT_NAME_MAX,
@@ -168,6 +168,9 @@ export function BasicsFields({
           onClose={() => setPicker(null)}
           onConfirm={(picked) => {
             setPickedHotel(picked);
+            if (basics.hotelId !== null && basics.hotelId !== picked.id) {
+              dispatch(clearRoomSelections());
+            }
             dispatch(updateBasics({ hotelId: picked.id }));
             setPicker(null);
           }}

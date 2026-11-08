@@ -645,12 +645,16 @@ const MUTABLE_FIELDS = ["name", "startDate", "endDate", "currency", "bookingType
 
 type MutableField = (typeof MUTABLE_FIELDS)[number];
 
+const EDITABLE_FIELDS = [...MUTABLE_FIELDS, "hotelId", "pricingModel"] as const;
+
+type EditableField = (typeof EDITABLE_FIELDS)[number];
+
 export function changedContractFields(
   draft: ContractDraftState,
   contract: SupplierHotelContract,
-): MutableField[] {
+): EditableField[] {
   const next = toCreateContractBody(draft);
-  return MUTABLE_FIELDS.filter((field) => next[field] !== contract[field]);
+  return EDITABLE_FIELDS.filter((field) => next[field] !== contract[field]);
 }
 
 export function toUpdateContractBody(
@@ -666,10 +670,7 @@ export function toUpdateContractBody(
   const cancellation = cancellationChanged(draft, contract);
   const release = releasePolicyChanged(draft, contract);
   const onRequestSettings = requestSettingsChanged(draft, contract);
-  const savedPricingModel =
-    contract.pricingModel === "fixed_per_room" ? "fixed_price" : "base_supplements";
   const pricing =
-    draft.pricingModel === savedPricingModel &&
     pricingChanged(draft, contract) &&
     next.pricing !== undefined &&
     contract.pricingStatus !== "incomplete";

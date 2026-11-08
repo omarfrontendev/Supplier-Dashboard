@@ -164,6 +164,13 @@ export const contractDraftSlice = createSlice({
       state.meals = emptyMeals();
     },
 
+    clearRoomSelections: (state) => {
+      state.baseSupplements = emptyBaseSupplements();
+      state.fixedRooms = [];
+      state.roomVariationsEdited = true;
+      state.meals = emptyMeals();
+    },
+
     setWeekPricing: (state, action: PayloadAction<WeekPricing>) => {
       state.weekPricing = action.payload;
       if (action.payload === "one_price") {
@@ -381,6 +388,7 @@ export const {
   loadContract,
   updateBasics,
   setPricingModel,
+  clearRoomSelections,
   setWeekPricing,
   updateInventory,
   setInventoryRoomCap,
