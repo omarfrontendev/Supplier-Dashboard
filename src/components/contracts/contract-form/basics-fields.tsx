@@ -134,17 +134,22 @@ export function BasicsFields({
           placeholder={t.termPh}
           onClick={() => setPicker("term")}
         />
-        <FieldButton
-          label={f.currency}
-          value={
-            basics.currency
-              ? (f.currencies[basics.currency as ContractCurrency] ?? basics.currency)
-              : ""
-          }
-          placeholder={f.currencyPh}
-          onClick={() => setPicker("currency")}
-          locked={currencyLocked}
-        />
+        <div>
+          <FieldButton
+            label={f.currency}
+            value={
+              basics.currency
+                ? (f.currencies[basics.currency as ContractCurrency] ?? basics.currency)
+                : ""
+            }
+            placeholder={f.currencyPh}
+            onClick={() => setPicker("currency")}
+            locked={currencyLocked}
+          />
+          {currencyLocked && (
+            <p className="mt-1.5 text-xs text-text-muted">{f.currencyLocked}</p>
+          )}
+        </div>
         <FieldButton
           label={f.weekendDays}
           value={weekend}
