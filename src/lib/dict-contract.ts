@@ -558,7 +558,7 @@ export const contractEn = {
         thu: "Thu",
         fri: "Fri",
       },
-      bookingTitle: "Contract booking type",
+      bookingTitle: "Confirmation booking type",
       bookingBody:
         "How bookings under this contract are confirmed. Allotment confirms instantly from your rooms; On request waits for your answer.",
       bookingAllotment: "Allotment · Block",
@@ -1469,7 +1469,7 @@ export const contractAr: typeof contractEn = {
         thu: "الخميس",
         fri: "الجمعة",
       },
-      bookingTitle: "نوع الحجز في العقد",
+      bookingTitle: "نوع تأكيد الحجز",
       bookingBody:
         "طريقة تأكيد الحجوزات في هذا العقد. الحصة تؤكد فورًا من غرفك، وعند الطلب ينتظر ردك.",
       bookingAllotment: "حصة · Block",
