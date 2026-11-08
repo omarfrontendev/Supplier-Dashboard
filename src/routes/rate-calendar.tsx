@@ -37,8 +37,13 @@ import { cn } from "@/lib/utils";
 import { winLines } from "@/lib/win-list-data";
 import {
   BulkRangeOverlay,
+  type LiveReleaseProps,
   type LiveRestrictionsProps,
 } from "@/components/rate-calendar/bulk-range-overlay";
+import {
+  describeReleaseTiming,
+  type ReleaseInheritedPolicy,
+} from "@/components/rate-calendar/release-live";
 import { Gated } from "@/components/system/permission-gate";
 import { fill, useLanguage } from "@/lib/i18n";
 import {
@@ -54,6 +59,7 @@ import {
   contractPicker,
   hotelPicker,
   liveGrid,
+  liveRelease,
   liveRestrictions,
   monthPicker,
   selectionBar,
@@ -77,6 +83,13 @@ import {
   type NightChecks,
 } from "@/lib/restriction-format";
 import {
+  usePreviewReleaseOverrides,
+  useReleaseOverrides,
+  useReleaseTargets,
+  useSaveReleaseOverrides,
+} from "@/api/modules/rates-availability/useRelease";
+import { isReleaseIsoDate, ownedNonpastReleaseCells } from "@/lib/release-format";
+import {
   useSaveSellControls,
   useSellControlTargets,
   useSellControls,
@@ -92,8 +105,10 @@ import {
 } from "@/api/modules/rates-availability/useRates";
 import type { AlreadySet } from "@/lib/bulk-range-data";
 import type {
+  ReleaseRule,
   RestrictionInheritedRule,
   RestrictionRule,
+  SellControlSla,
   SellControlOperation,
   SellControlRule,
   RateOverrideRow,
@@ -159,6 +174,25 @@ const DAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_AR = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 /** Guide p.11: a contract with no configured weekend uses Thursday and Friday. */
 const RESTRICTION_WEEKEND_FALLBACK = [4, 5];
+
+/**
+ * Release only: today as YYYY-MM-DD in the contract's published time zone,
+ * or null when that zone is missing or invalid - never the browser's own day.
+ */
+function releaseTodayIn(timezone: string | null | undefined): string | null {
+  if (!timezone) return null;
+  try {
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    return isReleaseIsoDate(today) ? today : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Today as YYYY-MM-DD in the hotel's published time zone, for read-only past nights. */
 function todayIn(timezone: string | null): string {
@@ -640,6 +674,60 @@ function RateCalendarPage() {
           restrictionToday,
           restrictionVariationIds,
         )
+      : [];
+  /* Manage Release: targets and rules load only while its overlay is open on a live contract. */
+  const releaseOpen = live && overlay === "release";
+  const releaseTargets = useReleaseTargets(releaseOpen ? pickedContract?.id : undefined);
+  const releaseRules = useReleaseOverrides(pickedContract?.id, releaseOpen);
+  const previewRelease = usePreviewReleaseOverrides(pickedContract?.id);
+  const saveRelease = useSaveReleaseOverrides(pickedContract?.id);
+  const releaseData = releaseOpen ? releaseTargets.data : undefined;
+  const releaseToday = releaseTodayIn(releaseData?.timezone);
+  /* Room + View names come from rate targets by variationId; the list itself from release targets. */
+  const releaseRoomName = (variationId: number) => {
+    const rate = rateTargets?.targets.find((item) => item.variationId === variationId);
+    const view =
+      rate?.view ?? releaseData?.targets.find((item) => item.variationId === variationId)?.view;
+    return bothLanguages((lang) =>
+      [
+        rate
+          ? (lang === "ar" ? rate.roomNameAr : rate.roomNameEn) ||
+            rate.roomNameEn ||
+            rate.roomNameAr ||
+            `#${variationId}`
+          : `#${variationId}`,
+        view ? (liveGrid.views[view]?.[lang] ?? view) : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    );
+  };
+  const releaseVariationIds = [
+    ...new Set((releaseData?.targets ?? []).map((target) => target.variationId)),
+  ];
+  const releaseRooms = releaseVariationIds.map((variationId, index, list) => {
+    const name = releaseRoomName(variationId);
+    /* Two Room + Views reading the same are told apart by ID, so a pick maps to one variation. */
+    const clash = list.some((other, at) => at !== index && releaseRoomName(other).en === name.en);
+    return {
+      variationId,
+      name: clash ? { en: `${name.en} #${variationId}`, ar: `${name.ar} #${variationId}` } : name,
+    };
+  });
+  const releaseBlocked = !releaseData
+    ? releaseTargets.isError
+      ? liveRelease.loadFailed
+      : liveRelease.loading
+    : !releaseData.eligible
+      ? liveRelease.notEligible
+      : !releaseData.canOverride
+        ? liveRelease.cannotOverride
+        : !releaseToday
+          ? liveRelease.noTimezone
+          : null;
+  const releaseOverrideRows =
+    releaseOpen && releaseRules.data
+      ? releaseRuleRows(releaseRules.data, releaseToday, releaseRoomName)
       : [];
   /* OV 04.1PN - whose prices the grid is showing. Everyone, until asked. */
   const [priceGroup, setPriceGroup] = useState<CalendarGroupId>("everyone");
@@ -1863,6 +1951,58 @@ function RateCalendarPage() {
                   : {}),
               }
             : {})}
+          {...(releaseOpen
+            ? {
+                /* Real Room + Views only: no demo rooms or rules in the live flow. */
+                roomOptions: releaseRooms.map((room) => room.name),
+                existing: [
+                  ...(releaseData
+                    ? [
+                        inheritedReleaseRow(
+                          releaseData.inheritedPolicy,
+                          releaseData.onRequestSettings,
+                        ),
+                      ]
+                    : []),
+                  ...releaseOverrideRows,
+                ],
+                liveRelease: {
+                  contractId: pickedContract!.id,
+                  blocked: releaseBlocked,
+                  today: releaseToday,
+                  timezone: releaseData?.timezone ?? null,
+                  term: {
+                    startDate: rateTargets.startDate.slice(0, 10),
+                    endDate: rateTargets.endDate.slice(0, 10),
+                  },
+                  rooms: releaseRooms,
+                  allVariationIds: releaseVariationIds,
+                  /* Undefined when the rule's remaining ownership could not be confirmed. */
+                  ownedCellsOf: (ruleId: number) =>
+                    releaseOverrideRows.find((row) => row.release?.ruleId === ruleId)?.release
+                      ?.ownedCells,
+                  reloadRules: () =>
+                    Promise.all([releaseTargets.refetch(), releaseRules.refetch()]),
+                  roomName: releaseRoomName,
+                  preview: (operations) => previewRelease.mutateAsync(operations),
+                  save: async (operations, expectedRevision) => {
+                    try {
+                      await saveRelease.mutateAsync({ expectedRevision, operations });
+                      notify.success(liveRelease.saved[k]);
+                      return "saved" as const;
+                    } catch (error) {
+                      /* 409: refreshed by the hook; the overlay previews again for review. */
+                      if ((error as { response?: { status?: number } }).response?.status === 409) {
+                        notify.error(liveRelease.stale[k]);
+                        return "stale" as const;
+                      }
+                      notify.error(getApiErrorMessage(error));
+                      throw error;
+                    }
+                  },
+                } satisfies LiveReleaseProps,
+              }
+            : {})}
           onClose={() => setOverlay(null)}
           onEditContract={() => {
             setOverlay(null);
@@ -3046,5 +3186,121 @@ function restrictionRuleRows(
             : {}),
         },
       ];
+    });
+}
+
+/* ---------------------------------------------------- release sidebar rows */
+
+const isInheritedReleasePolicy = (value: unknown): value is ReleaseInheritedPolicy => {
+  if (!value || typeof value !== "object") return false;
+  const policy = value as Record<string, unknown>;
+  return (
+    (policy["type"] === "same_day" || policy["type"] === "number_of_days") &&
+    typeof policy["releaseTime"] === "string" &&
+    (policy["afterReleaseAction"] === "stop_sale" || policy["afterReleaseAction"] === "on_request")
+  );
+};
+
+/**
+ * The contract's own release policy, read-only "From the contract": its
+ * timing, what happens after release and the On Request SLA. None of it is
+ * ever sent in an override.
+ */
+function inheritedReleaseRow(inherited: unknown, sla: SellControlSla | null): AlreadySet {
+  const policy = isInheritedReleasePolicy(inherited) ? inherited : null;
+  const note = bothLanguages((lang) =>
+    [
+      policy
+        ? (policy.afterReleaseAction === "stop_sale"
+            ? liveRelease.afterStopSale
+            : liveRelease.afterOnRequest)[lang]
+        : null,
+      sla
+        ? fill(liveRelease.sla[lang], {
+            minutes: lang === "ar" ? arNum(sla.slaMinutes) : String(sla.slaMinutes),
+            expiry: liveRelease.expiry[sla.expiryAction]?.[lang] ?? sla.expiryAction,
+          })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  );
+  return {
+    id: "contract-release",
+    fromContract: true,
+    when: liveRelease.fromContractWhen,
+    rooms: liveRestrictions.allRooms,
+    /* Same day ignores any day count the policy carries. */
+    value: policy
+      ? bothLanguages((lang) => describeReleaseTiming(policy, lang))
+      : liveRelease.noPolicy,
+    ...(note.en ? { note } : {}),
+  };
+}
+
+const RELEASE_CELL_STATUSES = ["effective", "shadowed", "historical"];
+
+/**
+ * Live release overrides. Nothing about a rule is guessed: its remaining
+ * ownership is used only when every cell checks out, and its timing and
+ * layer are not read at all, so Edit stays off and Remove needs ownership.
+ */
+function releaseRuleRows(
+  rules: ReleaseRule[],
+  today: string | null,
+  roomName: (variationId: number) => { en: string; ar: string },
+): AlreadySet[] {
+  return rules
+    .filter((rule) => rule.live === true)
+    .map((rule) => {
+      const ruleId = typeof rule.id === "number" && Number.isInteger(rule.id) ? rule.id : 0;
+      const cellsKnown =
+        today !== null &&
+        ruleId > 0 &&
+        Array.isArray(rule.cells) &&
+        rule.cells.length > 0 &&
+        rule.cells.every(
+          (cell) =>
+            Number.isInteger(cell?.variationId) &&
+            cell.variationId > 0 &&
+            isReleaseIsoDate(cell.stayDate) &&
+            RELEASE_CELL_STATUSES.includes(cell.status),
+        );
+      const ownedCells = cellsKnown ? ownedNonpastReleaseCells(rule, today!) : [];
+      const owned = cellsKnown && ownedCells.length > 0;
+      const current = owned ? rule.cells.filter((cell) => cell.stayDate >= today!) : [];
+      const dates = [...new Set(current.map((cell) => cell.stayDate))].sort();
+      const ids = [...new Set(current.map((cell) => cell.variationId))];
+      const shadowed = current.filter((cell) => cell.status === "shadowed").length;
+      return {
+        id: `release-${ruleId || "unknown"}`,
+        release: {
+          ruleId,
+          ownedCells: owned ? ownedCells : undefined,
+          editLocked: liveRelease.editLocked,
+          removeLocked: owned ? undefined : liveRelease.removeLocked,
+        },
+        when: owned
+          ? bothLanguages((lang) => runsLabel(dateRuns(dates), lang))
+          : liveRelease.scopeUnknown,
+        rooms: owned
+          ? bothLanguages((lang) =>
+              ids.map((id) => roomName(id)[lang]).join(lang === "ar" ? "، " : ", "),
+            )
+          : { en: "-", ar: "-" },
+        value: bothLanguages((lang) =>
+          fill(liveRelease.ruleValue[lang], {
+            id: lang === "ar" ? arNum(ruleId) : String(ruleId),
+          }),
+        ),
+        ...(shadowed > 0
+          ? {
+              note:
+                shadowed === current.length
+                  ? liveRelease.allShadowedNote
+                  : liveRestrictions.shadowedNote,
+            }
+          : {}),
+      };
     });
 }

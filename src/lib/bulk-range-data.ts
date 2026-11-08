@@ -128,6 +128,17 @@ export interface AlreadySet {
     /** Set when an edit could not rebuild the rule exactly; Remove stays available. */
     lockedReason?: Bi;
   };
+  /**
+   * A live release override. Edit stays off until the rule can be rebuilt
+   * exactly; Remove needs its remaining ownership to be known.
+   */
+  release?: {
+    ruleId: number;
+    /** Remaining nonpast owned cells ("variationId|date"); undefined when unconfirmed. */
+    ownedCells?: string[] | undefined;
+    editLocked: Bi;
+    removeLocked?: Bi | undefined;
+  };
   /** A short line under the rooms, e.g. a rule hidden by a more specific one. */
   note?: Bi;
   when: Bi;

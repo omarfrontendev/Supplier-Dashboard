@@ -56,7 +56,12 @@ import {
   type AlreadySet,
   type BulkKind,
 } from "@/lib/bulk-range-data";
-import { liveGrid, liveRestrictions as lr, oneNight } from "@/lib/rate-overlay-data";
+import {
+  liveGrid,
+  liveRelease as lrel,
+  liveRestrictions as lr,
+  oneNight,
+} from "@/lib/rate-overlay-data";
 import { panelMotion, scrimMotion, useDismiss } from "@/components/layout/overlay";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -74,10 +79,25 @@ import {
   type NightChecks,
 } from "@/lib/restriction-format";
 import type {
+  ReleaseChangesData,
+  ReleaseOperation,
+  ReleaseTiming,
   RestrictionChangesData,
   RestrictionOperation,
   RestrictionScope,
 } from "@/api/modules/rates-availability/types";
+import { ReleasePreview } from "@/components/rate-calendar/release-live";
+import {
+  createReleaseOperation,
+  isReleaseDays,
+  isReleaseTime,
+  RELEASE_LIMITS,
+  releaseNightsBetween,
+  removeReleaseOperation,
+  validateReleaseBatch,
+  validateReleaseOperation,
+  type ReleaseSelection,
+} from "@/lib/release-format";
 
 type Lang = "en" | "ar";
 
@@ -103,6 +123,30 @@ export interface LiveRestrictionsProps {
     operations: RestrictionOperation[],
     expectedRevision: number,
   ) => Promise<"saved" | "stale">;
+}
+
+/** The live Release overlay: everything it reads and writes goes through these. */
+export interface LiveReleaseProps {
+  contractId: number;
+  /** Set while writes are off for the whole contract, with the reason to show. */
+  blocked: Bi | null;
+  /** Today in the contract's published time zone, YYYY-MM-DD; null when that zone is missing or invalid. */
+  today: string | null;
+  timezone: string | null;
+  /** The contract term, inclusive, when known. */
+  term: { startDate: string; endDate: string } | undefined;
+  /** Every configured Room + View from release targets, with the name the form shows. */
+  rooms: Array<{ variationId: number; name: Bi }>;
+  /** What All rooms expands to. */
+  allVariationIds: number[];
+  /** A live rule's remaining nonpast owned cells; undefined when they could not be confirmed. */
+  ownedCellsOf: (ruleId: number) => string[] | undefined;
+  /** Refetch the overrides list. */
+  reloadRules: () => Promise<unknown>;
+  roomName: (variationId: number) => Bi;
+  preview: (operations: ReleaseOperation[]) => Promise<ReleaseChangesData>;
+  /** "stale" when releaseRevision moved on: the overlay previews again and waits for review. */
+  save: (operations: ReleaseOperation[], expectedRevision: number) => Promise<"saved" | "stale">;
 }
 
 const isoOf = (date: Date) =>
@@ -134,6 +178,8 @@ interface Line {
   payload?: StatusPayload | undefined;
   /** Live restrictions: the operations this line stages, and the rule it edits or removes. */
   restrictions?: RestrictionOperation[] | undefined;
+  /** Live release: the operations this line stages. */
+  release?: ReleaseOperation[] | undefined;
   ruleId?: number | undefined;
 }
 
@@ -192,6 +238,7 @@ export function BulkRangeOverlay({
   onApplyStatus,
   needsSla = false,
   liveRestrictions,
+  liveRelease,
 }: {
   kind: BulkKind;
   /** The contract this is scoped to, printed as the overline. */
@@ -212,8 +259,10 @@ export function BulkRangeOverlay({
   onApplyStatus?: ((lines: StatusPayload[]) => Promise<void>) | undefined;
   needsSla?: boolean;
   liveRestrictions?: LiveRestrictionsProps | undefined;
+  liveRelease?: LiveReleaseProps | undefined;
 }) {
   const live = kind === "restrictions" ? liveRestrictions : undefined;
+  const liveRel = kind === "release" ? liveRelease : undefined;
   const { lang, dir } = useLanguage();
   const k: Lang = lang === "ar" ? "ar" : "en";
   const ar = k === "ar";
@@ -280,6 +329,12 @@ export function BulkRangeOverlay({
   /* Live: check-in / check-out per picked night, keyed like the calendar; absent = Inherit. */
   const [nightChecks, setNightChecks] = useState<Record<string, NightChecks>>({});
   const [preview, setPreview] = useState<RestrictionChangesData | null>(null);
+  /* The release preview, kept with the exact operations it was run for. */
+  const [releasePreview, setReleasePreview] = useState<{
+    data: ReleaseChangesData;
+    operations: ReleaseOperation[];
+    key: string;
+  } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -383,11 +438,21 @@ export function BulkRangeOverlay({
 
   /* ------------------------------------------------- what is set, and if */
   const releaseNumber = Number(releaseDays);
+  /* Live release takes 1-365 days (guide p.15); the demo keeps the frame's 30. */
+  const releaseMax = liveRel ? RELEASE_LIMITS.maxDays : MAX_RELEASE_DAYS;
   const releaseTooMany =
     kind === "release" &&
     releaseMode === "days" &&
     releaseDays.trim() !== "" &&
-    (!Number.isFinite(releaseNumber) || releaseNumber > MAX_RELEASE_DAYS);
+    (!Number.isFinite(releaseNumber) || releaseNumber > releaseMax);
+  /* Live only: a whole number of days, and a strict HH:MM time in both modes. */
+  const releaseDaysValue = /^\d+$/.test(releaseDays.trim()) ? Number(releaseDays.trim()) : NaN;
+  const releaseDaysBad =
+    liveRel !== undefined &&
+    releaseMode === "days" &&
+    releaseDays.trim() !== "" &&
+    !isReleaseDays(releaseDaysValue);
+  const releaseTimeBad = liveRel !== undefined && releaseAt !== "" && !isReleaseTime(releaseAt);
   /* Add stays shut while a price is missing, but the box only says
      "fix the field in red" once there is a red field to fix. */
   const priceMissing =
@@ -400,7 +465,7 @@ export function BulkRangeOverlay({
       (priceMode === "apart" &&
         weekdayPrice.trim() !== "" &&
         weekendPrice.trim() === ""));
-  const broken = releaseTooMany || priceRed;
+  const broken = releaseTooMany || priceRed || releaseDaysBad || releaseTimeBad;
 
   /** The rooms the change reaches, once "all rooms" is resolved. */
   const roomList = roomOptions ? [bulkRooms[0]!, ...roomOptions] : bulkRooms;
@@ -499,6 +564,53 @@ export function BulkRangeOverlay({
   const restrictionOperations = (): RestrictionOperation[] | undefined =>
     restrictionPlan?.ok ? restrictionPlan.operations : undefined;
 
+  /* ----------------------------------------------- live release operation */
+  const releaseTiming = (): ReleaseTiming =>
+    releaseMode === "same"
+      ? { type: "same_day", releaseTime: releaseAt }
+      : { type: "number_of_days", daysBeforeCheckIn: releaseDaysValue, releaseTime: releaseAt };
+  /*
+   * One picked range of several nights goes as startDate/endDate; one night,
+   * or several ranges, as explicit dates. Picker keys are already YYYY-MM-DD.
+   */
+  const releaseSelection = (): ReleaseSelection | null => {
+    if (!liveRel || picked.length === 0) return null;
+    const ids = liveRel.rooms
+      .filter((room) => realRooms.some((item) => item.en === room.name.en))
+      .map((room) => room.variationId);
+    if (!allRoomsPicked && ids.length === 0) return null;
+    const spans = picked.map((item) => {
+      const end = item.range.end ?? item.range.start;
+      return item.range.start <= end
+        ? { start: item.range.start, end }
+        : { start: end, end: item.range.start };
+    });
+    const nightsSel =
+      spans.length === 1 && spans[0]!.start !== spans[0]!.end
+        ? { startDate: spans[0]!.start, endDate: spans[0]!.end }
+        : { dates: spans.flatMap((span) => releaseNightsBetween(span.start, span.end)) };
+    return {
+      rooms: allRoomsPicked ? { allRooms: true } : { variationIds: ids },
+      nights: nightsSel,
+      weekdays: days,
+    };
+  };
+  const releaseSelected = releaseSelection();
+  const releaseOperation = releaseSelected
+    ? createReleaseOperation(releaseSelected, releaseTiming())
+    : null;
+  const releaseIssue: Bi | null = (() => {
+    if (!liveRel || nights === 0 || realRooms.length === 0) return null;
+    if (liveRel.blocked) return liveRel.blocked;
+    if (!liveRel.today) return lrel.noTimezone;
+    if (!releaseOperation) return lrel.issues.noRooms;
+    const codes = validateReleaseOperation(releaseOperation, {
+      today: liveRel.today,
+      term: liveRel.term,
+    });
+    return codes[0] ? lrel.issues[codes[0]] : null;
+  })();
+
   /** What this overlay is setting, as the list will name it. */
   const setting: Bi = (() => {
     if (live) {
@@ -515,6 +627,17 @@ export function BulkRangeOverlay({
         : setTo === "openSale"
           ? c.openSale
           : c.onRequest;
+    }
+    if (kind === "release" && liveRel) {
+      return releaseMode === "same"
+        ? {
+            en: fill(lrel.sameDayAt.en, { at: releaseAt }),
+            ar: fill(lrel.sameDayAt.ar, { at: clock(releaseAt) }),
+          }
+        : {
+            en: fill(lrel.daysAt.en, { days: String(releaseNumber || 0), at: releaseAt }),
+            ar: fill(lrel.daysAt.ar, { days: n(releaseNumber || 0), at: clock(releaseAt) }),
+          };
     }
     if (kind === "release") {
       return releaseMode === "same"
@@ -596,7 +719,8 @@ export function BulkRangeOverlay({
 
   /* OV 04.BRRW - nights already inside the release window being set. */
   const releasePast = useMemo(() => {
-    if (kind !== "release" || releaseMode !== "days" || !releaseNumber) {
+    /* Live: never the browser clock - the preview shows each night's local deadline. */
+    if (kind !== "release" || releaseMode !== "days" || !releaseNumber || liveRel) {
       return null;
     }
     const edge = Date.now() + releaseNumber * 86400000;
@@ -604,7 +728,7 @@ export function BulkRangeOverlay({
       (item) => dateOf(item.range.start).getTime() <= edge
     );
     return inside.length > 0 ? inside.map(rangeLabel).join(", ") : null;
-  }, [kind, releaseMode, releaseNumber, picked]);
+  }, [kind, releaseMode, releaseNumber, picked, liveRel]);
 
   /* A night, a room and a sound middle are what make a line addable. */
   const slaAsked = Boolean(onApplyStatus) && needsSla && setTo === "onRequest";
@@ -630,7 +754,9 @@ export function BulkRangeOverlay({
     !priceMissing &&
     !slaBad &&
     !restrictionIssue &&
-    (!live || restrictionPlan?.ok === true);
+    (!live || restrictionPlan?.ok === true) &&
+    !releaseIssue &&
+    (!liveRel || releaseOperation !== null);
   const rows = existing ?? alreadySet[kind];
   const shownSaved = existing ? [] : saved;
   /* Contract rules whose dates have not started - Inactive, in the
@@ -643,8 +769,8 @@ export function BulkRangeOverlay({
   const howMany = (value: number) =>
     k === "ar" ? counted(value, rulesWord, "ar") : String(value);
   const labels = ar ? c.weekdaysAr : c.weekdays;
-  /* Live restrictions save as soon as they are confirmed: no draft step. */
-  const atOnce = appliesAtOnce[kind] || Boolean(live);
+  /* Live restrictions and live release save as soon as they are confirmed: no draft step. */
+  const atOnce = appliesAtOnce[kind] || Boolean(live) || Boolean(liveRel);
 
   const clearForm = () => {
     setPicked([]);
@@ -710,6 +836,7 @@ export function BulkRangeOverlay({
               : undefined,
         payload: statusPayload(),
         restrictions: restrictionOperations(),
+        release: liveRel && releaseOperation ? [releaseOperation] : undefined,
         ruleId: editing,
       },
     ]);
@@ -729,7 +856,7 @@ export function BulkRangeOverlay({
   const batchUsage = live
     ? restrictionBatchUsage(stagedOperations, live.allVariationIds, live.ownedCellsOf)
     : null;
-  const batchIssue: Bi | null = !batchUsage
+  const restrictionBatchIssue: Bi | null = !batchUsage
     ? null
     : batchUsage.unknownRuleIds.length
       ? {
@@ -752,17 +879,80 @@ export function BulkRangeOverlay({
                 ar: fill(lr.limitCells.ar, { n: n(batchUsage.cells) }),
               }
             : null;
+
+  /* Live release: the same pre-review limits, from release-format. A removal
+     whose remaining ownership is unknown blocks review and save. */
+  const stagedRelease = lines.flatMap((line) => line.release ?? []);
+  /* A preview counts only while it was run for exactly the operations staged now:
+     any change to the list voids it in the same render, before a new preview starts. */
+  const stagedReleaseKey = JSON.stringify(stagedRelease);
+  const currentReleasePreview =
+    releasePreview && releasePreview.key === stagedReleaseKey ? releasePreview : null;
+  const releaseCheck =
+    liveRel && liveRel.today
+      ? validateReleaseBatch(stagedRelease, {
+          today: liveRel.today,
+          term: liveRel.term,
+          allVariationIds: liveRel.allVariationIds,
+          ownedCellsOf: liveRel.ownedCellsOf,
+        })
+      : null;
+  const releaseUnknown = releaseCheck?.usage.unknownRuleIds ?? [];
+  const releaseBatchIssue: Bi | null =
+    !liveRel || lines.length === 0
+      ? null
+      : liveRel.blocked
+        ? liveRel.blocked
+        : !releaseCheck
+          ? lrel.noTimezone
+          : releaseUnknown.length
+            ? {
+                en: fill(lr.unknownRules.en, {
+                  ids: releaseUnknown.map((id) => `#${id}`).join(", "),
+                }),
+                ar: fill(lr.unknownRules.ar, {
+                  ids: releaseUnknown.map((id) => `#${id}`).join("، "),
+                }),
+              }
+            : releaseCheck.issues[0]
+              ? lrel.issues[releaseCheck.issues[0].code]
+              : null;
+  const batchIssue: Bi | null = restrictionBatchIssue ?? releaseBatchIssue;
+  const unknownOwnership =
+    (batchUsage?.unknownRuleIds.length ?? 0) > 0 || releaseUnknown.length > 0;
+
   const [reloading, setReloading] = useState(false);
   const reloadRules = async () => {
-    if (!live) return;
+    const reload = live?.reloadRules ?? liveRel?.reloadRules;
+    if (!reload) return;
     setReloading(true);
     try {
-      await live.reloadRules();
+      await reload();
     } finally {
       setReloading(false);
     }
   };
   const runPreview = async () => {
+    if (liveRel) {
+      const run = ++previewRun.current;
+      setReleasePreview(null);
+      setPreviewError(null);
+      /* Nothing is sent while the batch itself is not sound. */
+      if (stagedRelease.length === 0 || releaseBatchIssue) return;
+      const operations = stagedRelease;
+      const key = stagedReleaseKey;
+      setPreviewing(true);
+      try {
+        const data = await liveRel.preview(operations);
+        if (run === previewRun.current) setReleasePreview({ data, operations, key });
+      } catch (error) {
+        if (run === previewRun.current)
+          setPreviewError(getApiErrorMessage(error, lr.previewFailed[k]));
+      } finally {
+        if (run === previewRun.current) setPreviewing(false);
+      }
+      return;
+    }
     if (!live) return;
     const run = ++previewRun.current;
     setPreview(null);
@@ -780,13 +970,35 @@ export function BulkRangeOverlay({
   };
   /* Entering review, or changing the list while in it, needs a fresh preview. */
   useEffect(() => {
-    if (!live || !reviewing) return;
+    if ((!live && !liveRel) || !reviewing) return;
     setStale(false);
     void runPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewing, lines]);
 
   const confirm = async () => {
+    if (liveRel) {
+      /* Exactly the previewed batch, with the releaseRevision that preview returned. */
+      if (!currentReleasePreview || releaseBatchIssue) return;
+      setApplying(true);
+      let outcome: "saved" | "stale";
+      try {
+        outcome = await liveRel.save(
+          currentReleasePreview.operations,
+          currentReleasePreview.data.releaseRevision,
+        );
+      } catch {
+        setApplying(false);
+        return;
+      }
+      setApplying(false);
+      if (outcome === "stale") {
+        /* Never retried silently: preview again and wait for another review. */
+        await runPreview();
+        setStale(true);
+        return;
+      }
+    }
     if (live) {
       if (!preview) return;
       setApplying(true);
@@ -872,7 +1084,9 @@ export function BulkRangeOverlay({
               <Button
                 disabled={
                   applying ||
-                  (live !== undefined && (previewing || !preview || batchIssue !== null))
+                  (live !== undefined && (previewing || !preview || batchIssue !== null)) ||
+                  (liveRel !== undefined &&
+                    (previewing || !currentReleasePreview || batchIssue !== null))
                 }
                 onClick={() => void confirm()}
               >
@@ -923,7 +1137,7 @@ export function BulkRangeOverlay({
             {batchIssue && (
               <BatchIssue
                 text={batchIssue[k]}
-                unknown={(batchUsage?.unknownRuleIds.length ?? 0) > 0}
+                unknown={unknownOwnership}
                 reloading={reloading}
                 onReload={() => void reloadRules()}
                 reloadLabel={lr.reloadRules[k]}
@@ -953,6 +1167,41 @@ export function BulkRangeOverlay({
           </>
         )}
 
+        {liveRel && (
+          <>
+            {batchIssue && (
+              <BatchIssue
+                text={batchIssue[k]}
+                unknown={unknownOwnership}
+                reloading={reloading}
+                onReload={() => void reloadRules()}
+                reloadLabel={lr.reloadRules[k]}
+              />
+            )}
+            {stale && (
+              <div className="mt-3 rounded-xl bg-[#fdf0d9] p-3.5 text-[12px] leading-5 text-[#8a5a00]">
+                {lrel.stale[k]}
+              </div>
+            )}
+            {previewing ? (
+              <p className="mt-3 text-[12px] text-text-quiet">{lr.previewing[k]}</p>
+            ) : previewError ? (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-status-danger-bg p-3.5">
+                <p className="text-[12px] text-status-danger">{previewError}</p>
+                <button
+                  type="button"
+                  onClick={() => void runPreview()}
+                  className="text-[12px] font-medium text-text-link hover:underline"
+                >
+                  {lr.retry[k]}
+                </button>
+              </div>
+            ) : currentReleasePreview ? (
+              <ReleasePreview data={currentReleasePreview.data} roomName={liveRel.roomName} k={k} />
+            ) : null}
+          </>
+        )}
+
         {/* The one place the four overlays part company. */}
         <div
           className={cn(
@@ -968,6 +1217,8 @@ export function BulkRangeOverlay({
               ? c.pricesTakeEffectBody[k]
               : live
                 ? lr.takesEffectBody[k]
+                : liveRel
+                  ? lrel.takesEffectBody[k]
                 : atOnce
                 ? c.takesEffectBody[k]
                 : c.savedDraftBandBody[k]}
@@ -1018,7 +1269,7 @@ export function BulkRangeOverlay({
               {batchIssue && lines.length > 0 && (
                 <BatchIssue
                   text={batchIssue[k]}
-                  unknown={(batchUsage?.unknownRuleIds.length ?? 0) > 0}
+                  unknown={unknownOwnership}
                   reloading={reloading}
                   onReload={() => void reloadRules()}
                   reloadLabel={lr.reloadRules[k]}
@@ -1069,7 +1320,9 @@ export function BulkRangeOverlay({
                       ? c.pricesAppliedBody[k]
                       : live
                         ? lr.appliedBody[k]
-                        : c.appliedBody[k]
+                        : liveRel
+                          ? lrel.appliedBody[k]
+                          : c.appliedBody[k]
                     : c.draftedBody[k]}
               </p>
             )}
@@ -1093,6 +1346,12 @@ export function BulkRangeOverlay({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-5">
+          {/* Live release: why nothing can be written on this contract right now. */}
+          {liveRel?.blocked && (
+            <div className="rounded-xl bg-[#fdf0d9] p-3.5 text-[12px] leading-5 text-[#8a5a00]">
+              {liveRel.blocked[k]}
+            </div>
+          )}
           {editingRule !== null && (
             <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-brand-deep/30 bg-primary-subtle px-3.5 py-2.5">
               <p className="min-w-0 flex-1 text-[12px] leading-5 text-text-primary">
@@ -1452,45 +1711,53 @@ export function BulkRangeOverlay({
                   </span>
                 </label>
               </RadioGroup>
-              {releaseMode === "days" && (
+              {/* Live: the time is required for Same day too (guide p.15). */}
+              {(releaseMode === "days" || liveRel) && (
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Input
-                      label={c.daysBefore[k]}
-                      inputMode="numeric"
-                      value={releaseDays}
-                      onChange={(e) => setReleaseDays(e.target.value)}
-                      {...(releaseTooMany
-                        ? {
-                            error: fill(c.releaseTooMany[k], {
-                              max: n(MAX_RELEASE_DAYS),
-                            }),
-                          }
-                        : {})}
-                    />
-                    {/* OV 04.BRRE - the fix is one press, not a re-read. */}
-                    {releaseTooMany ? (
-                      <button
-                        type="button"
-                        onClick={() => setReleaseDays(String(MAX_RELEASE_DAYS))}
-                        className="mt-1 text-[11.5px] font-medium text-text-link hover:underline"
-                      >
-                        {fill(c.useMaxDays[k], { max: n(MAX_RELEASE_DAYS) })}
-                      </button>
-                    ) : (
-                      <p className="mt-1 text-[11.5px] text-text-quiet">
-                        {c.daysRange[k]}
-                      </p>
-                    )}
-                  </div>
+                  {releaseMode === "days" && (
+                    <div>
+                      <Input
+                        label={c.daysBefore[k]}
+                        inputMode="numeric"
+                        value={releaseDays}
+                        onChange={(e) => setReleaseDays(e.target.value)}
+                        {...(releaseTooMany
+                          ? {
+                              error: fill(c.releaseTooMany[k], {
+                                max: n(releaseMax),
+                              }),
+                            }
+                          : releaseDaysBad
+                            ? { error: lrel.daysInvalid[k] }
+                            : {})}
+                      />
+                      {/* OV 04.BRRE - the fix is one press, not a re-read. */}
+                      {releaseTooMany ? (
+                        <button
+                          type="button"
+                          onClick={() => setReleaseDays(String(releaseMax))}
+                          className="mt-1 text-[11.5px] font-medium text-text-link hover:underline"
+                        >
+                          {fill(c.useMaxDays[k], { max: n(releaseMax) })}
+                        </button>
+                      ) : (
+                        <p className="mt-1 text-[11.5px] text-text-quiet">
+                          {liveRel ? lrel.daysRange[k] : c.daysRange[k]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <Input
                       label={c.at[k]}
                       value={releaseAt}
                       onChange={(e) => setReleaseAt(e.target.value)}
+                      {...(releaseTimeBad ? { error: lrel.timeInvalid[k] } : {})}
                     />
                     <p className="mt-1 text-[11.5px] text-text-quiet">
-                      {c.makkahTime[k]}
+                      {liveRel
+                        ? fill(lrel.timeHint[k], { timezone: liveRel.timezone ?? "-" })
+                        : c.makkahTime[k]}
                     </p>
                   </div>
                 </div>
@@ -1697,6 +1964,8 @@ export function BulkRangeOverlay({
               <p className="mt-1 text-[12px] leading-5 text-status-danger">
                 {restrictionIssue[k]}
               </p>
+            ) : releaseIssue ? (
+              <p className="mt-1 text-[12px] leading-5 text-status-danger">{releaseIssue[k]}</p>
             ) : canAdd ? (
               <>
                 <p
@@ -1719,6 +1988,8 @@ export function BulkRangeOverlay({
                 <ul className="mt-1 space-y-0.5">
                   {(live
                     ? [lr.bulletPriority[k], lr.bulletUntouched[k], lr.bulletExpires[k]]
+                    : liveRel
+                      ? [lrel.bulletTimingOnly[k], lrel.bulletPriority[k], lrel.bulletNow[k]]
                     : kind === "restrictions"
                     ? [
                         /* OV 04.BXF - which nights lost an arrival or a
@@ -1966,10 +2237,20 @@ export function BulkRangeOverlay({
                     {fill(lr.editLocked[k], { reason: row.restriction.lockedReason[k] })}
                   </p>
                 )}
+                {/* Live release: why Edit (and, when ownership is unknown, Remove) is off. */}
+                {liveRel && row.release && (
+                  <p className="mt-0.5 text-[11px] leading-4 text-status-warning">
+                    {row.release.editLocked[k]}
+                    {row.release.removeLocked && ` ${row.release.removeLocked[k]}`}
+                  </p>
+                )}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  {live &&
-                  row.restriction &&
-                  lines.some((line) => line.ruleId === row.restriction?.ruleId) ? (
+                  {(live &&
+                    row.restriction &&
+                    lines.some((line) => line.ruleId === row.restriction?.ruleId)) ||
+                  (liveRel &&
+                    row.release &&
+                    lines.some((line) => line.ruleId === row.release?.ruleId)) ? (
                     <StatusPill tone="warning">{lr.staged[k]}</StatusPill>
                   ) : row.fromContract ? (
                     <>
@@ -2013,7 +2294,8 @@ export function BulkRangeOverlay({
                       <span className="flex items-center gap-3 text-[11.5px] font-medium">
                         {(!onRemoveExisting || row.edit) &&
                           /* An edit that cannot rebuild the rule exactly is not offered; Remove stays. */
-                          !(live && row.restriction?.lockedReason) && (
+                          !(live && row.restriction?.lockedReason) &&
+                          !(liveRel && row.release) && (
                           <button
                             type="button"
                             onClick={() => {
@@ -2062,8 +2344,43 @@ export function BulkRangeOverlay({
                         )}
                         <button
                           type="button"
-                          disabled={removing === (row.id ?? row.when.en)}
+                          disabled={
+                            removing === (row.id ?? row.when.en) ||
+                            Boolean(
+                              liveRel &&
+                              row.release &&
+                              (row.release.removeLocked || liveRel.blocked),
+                            )
+                          }
                           onClick={async () => {
+                            const releaseSeed = row.release;
+                            if (liveRel && releaseSeed) {
+                              /* Staged, never saved here: remove takes only action and ruleId. */
+                              if (releaseSeed.removeLocked || liveRel.blocked) return;
+                              const what = {
+                                en: fill(lrel.removeLine.en, { id: String(releaseSeed.ruleId) }),
+                                ar: fill(lrel.removeLine.ar, { id: String(releaseSeed.ruleId) }),
+                              };
+                              setLines((current) => [
+                                ...current.filter((line) => line.ruleId !== releaseSeed.ruleId),
+                                {
+                                  id: `L-${Date.now()}`,
+                                  what,
+                                  detail: {
+                                    en: `${row.when.en} · ${row.rooms.en}`,
+                                    ar: `${row.when.ar} · ${row.rooms.ar}`,
+                                  },
+                                  when: row.when,
+                                  rooms: row.rooms,
+                                  value: lr.removeValue,
+                                  tone: "danger",
+                                  release: [removeReleaseOperation(releaseSeed.ruleId)],
+                                  ruleId: releaseSeed.ruleId,
+                                },
+                              ]);
+                              setNote({ kind: "added", what });
+                              return;
+                            }
                             const seed = row.restriction;
                             if (live && seed) {
                               /* Staged like everything else: remove takes only action and ruleId. */

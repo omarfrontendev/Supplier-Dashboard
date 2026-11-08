@@ -113,6 +113,14 @@ const ratesAndAvailability = {
     `/ratesandavailability/contracts/${contractId}/sell-controls/preview`,
   sellControls: (contractId: number) =>
     `/ratesandavailability/contracts/${contractId}/sell-controls`,
+  releaseTargets: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/release-targets`,
+  releaseContext: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/release/context`,
+  releaseOverridesPreview: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/release-overrides/preview`,
+  releaseOverrides: (contractId: number) =>
+    `/ratesandavailability/contracts/${contractId}/release-overrides`,
 };
 
 const ratesAvailability = {

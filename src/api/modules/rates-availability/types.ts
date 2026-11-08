@@ -498,3 +498,150 @@ export interface SaveRestrictionOverridesBody {
   expectedRevision: number;
   operations: RestrictionOperation[];
 }
+
+/* ---------------------------------------------------- release overrides */
+
+/**
+ * Guide p.15 - variationIds OR allRooms (never both), dates OR an inclusive
+ * startDate/endDate range (never both), optional weekdays 0 = Sunday .. 6.
+ * Never send mealPlan, library roomId or a hotel-wide scope.
+ */
+export type ReleaseScope = SellControlScope;
+
+export type ReleaseType = "number_of_days" | "same_day";
+
+/** Guide p.16 - room_override, all_rooms_override, contract or default. */
+export type ReleaseSource = RestrictionSource;
+
+/**
+ * What an override may set (guide p.15). Timing only: afterReleaseAction and
+ * onRequestSettings are forbidden inputs and always come from the contract.
+ * releaseTime is strict local HH:MM, 00:00-23:59.
+ */
+export type ReleaseTiming =
+  | {
+      type: "number_of_days";
+      /** Integer 1-365. */
+      daysBeforeCheckIn: number;
+      releaseTime: string;
+    }
+  | {
+      type: "same_day";
+      /** Omitted entirely for same_day: null and zero are invalid. */
+      daysBeforeCheckIn?: never;
+      releaseTime: string;
+    };
+
+/** A local date/time plus IANA timezone - not a UTC instant, not proof of released stock. */
+export interface ReleaseDeadline {
+  date: string;
+  time: string;
+  timezone: string;
+}
+
+/**
+ * The effective release of one Room/View night (guide p.16).
+ * Contract/default ruleId is null; without a policy, timing and deadline are null.
+ */
+export interface ReleaseValue {
+  type: ReleaseType | null;
+  daysBeforeCheckIn: number | null;
+  releaseTime: string | null;
+  source: ReleaseSource;
+  ruleId: number | null;
+  afterReleaseAction: "stop_sale" | "on_request" | null;
+  onRequestSettings: SellControlSla | null;
+  deadline: ReleaseDeadline | null;
+}
+
+export interface ReleaseCell {
+  contractId: number;
+  variationId: number;
+  stayDate: string;
+  release: ReleaseValue;
+}
+
+export interface ReleaseTargetsData {
+  /** Shape not specified on guide pp.15-17; read-only "From the contract". */
+  inheritedPolicy: unknown;
+  onRequestSettings: SellControlSla | null;
+  timezone: string | null;
+  eligible: boolean;
+  /** Publication eligibility combined with inherited policy availability. */
+  canOverride: boolean;
+  releaseRevision: number;
+  targets: Array<{ variationId: number; roomId: number; view: string }>;
+}
+
+export interface ReleaseContextData {
+  /** Shape not specified on guide pp.15-17. */
+  inheritedPolicy: unknown;
+  onRequestSettings: SellControlSla | null;
+  timezone: string | null;
+  weekendDays: string[];
+  eligible: boolean;
+  canOverride: boolean;
+  releaseRevision: number;
+  cells: ReleaseCell[];
+}
+
+/** One remaining owned cell of a rule. */
+export interface ReleaseRuleCell {
+  variationId: number;
+  stayDate: string;
+  status: "effective" | "shadowed" | "historical";
+}
+
+/**
+ * A rule row (guide p.17): timing, layer, audits, live and its full remaining
+ * cells. live = at least one nonpast owned cell; disable Edit/Delete otherwise.
+ * Audit fields are not named in the guide, hence the index signature.
+ */
+export interface ReleaseRule {
+  id: number;
+  live: boolean;
+  cells: ReleaseRuleCell[];
+  [key: string]: unknown;
+}
+
+export interface ReleaseOverridesListData {
+  releaseRevision: number;
+  rules: ReleaseRule[];
+  meta: RatesPageMeta;
+  emptyState: "no_release_overrides" | null;
+}
+
+/** Optional GET release-overrides filters; explicit dates permit history. */
+export interface ReleaseOverridesFilters {
+  startDate?: string;
+  endDate?: string;
+  variationId?: number;
+}
+
+export type ReleaseOperation =
+  | (ReleaseScope & ReleaseTiming & { action: "create" })
+  | (ReleaseScope & ReleaseTiming & { action: "edit"; ruleId: number })
+  | { action: "remove"; ruleId: number };
+
+export interface ReleaseChange {
+  variationId: number;
+  stayDate: string;
+  before: ReleaseValue;
+  after: ReleaseValue;
+}
+
+/** Preview and save response (guide p.16). Negative staged rule IDs are response-only. */
+export interface ReleaseChangesData {
+  /** Echo of the reviewed operations; item shape not specified in the guide. */
+  operations: unknown[];
+  releaseRevision: number;
+  changes: ReleaseChange[];
+  counts: { cells: number; nights: number; rooms: number };
+  replacedRuleIds: number[];
+}
+
+/** expectedRevision is the releaseRevision only - never contract version or another family's. */
+export interface SaveReleaseOverridesBody {
+  expectedRevision: number;
+  operations: ReleaseOperation[];
+}

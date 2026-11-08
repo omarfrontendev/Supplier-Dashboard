@@ -1355,3 +1355,180 @@ export const liveRestrictions = {
   ),
   saved: t("Restrictions saved", "تم حفظ القيود"),
 };
+
+/**
+ * Manage Release - live copy for the Release overlay. Generic batch, preview
+ * and source wording is shared with liveRestrictions.
+ */
+export const liveRelease = {
+  /* The form. */
+  daysRange: t("1 to 365 days", "من ١ إلى ٣٦٥ يومًا"),
+  daysInvalid: t("Enter a whole number from 1 to 365.", "أدخل رقمًا صحيحًا من ١ إلى ٣٦٥."),
+  timeHint: t(
+    "24-hour HH:MM, hotel time ({timezone})",
+    "صيغة ٢٤ ساعة HH:MM، بتوقيت الفندق ({timezone})",
+  ),
+  timeInvalid: t(
+    "Enter the time as HH:MM, from 00:00 to 23:59.",
+    "أدخل الوقت بصيغة HH:MM، من ٠٠:٠٠ إلى ٢٣:٥٩.",
+  ),
+  sameDayAt: t("Release same day · {at}", "إصدار في اليوم نفسه · {at}"),
+  daysAt: t("Release {days} days before · {at}", "إصدار قبل {days} يوم · {at}"),
+
+  /* Why writes are shut for the whole contract. */
+  loading: t("Loading this contract's release settings…", "جارٍ تحميل إعدادات الإصدار لهذا العقد…"),
+  loadFailed: t(
+    "Could not load this contract's release settings, so changes are off.",
+    "تعذّر تحميل إعدادات الإصدار لهذا العقد، لذا التغييرات متوقفة.",
+  ),
+  notEligible: t(
+    "This contract cannot take release changes right now (it must be published and active, scheduled or paused).",
+    "لا يقبل هذا العقد تغييرات الإصدار الآن (يجب أن يكون منشورًا ونشطًا أو مجدولًا أو موقوفًا مؤقتًا).",
+  ),
+  cannotOverride: t(
+    "Release can't be changed here: the contract has no release policy to override, or isn't eligible.",
+    "لا يمكن تغيير الإصدار هنا: لا توجد سياسة إصدار في العقد لتجاوزها، أو العقد غير مؤهل.",
+  ),
+  noTimezone: t(
+    "The hotel's published time zone is missing, so release dates can't be checked and changes are off.",
+    "المنطقة الزمنية المنشورة للفندق غير متوفرة، فلا يمكن فحص تواريخ الإصدار والتغييرات متوقفة.",
+  ),
+
+  /* Why Add or Review is shut - one per release-format issue code. */
+  issues: {
+    invalidAction: t("This change is not a release change.", "هذا التغيير ليس تغيير إصدار."),
+    invalidRuleId: t(
+      "This change has no valid rule to edit or remove.",
+      "لا توجد قاعدة صالحة لتعديلها أو حذفها.",
+    ),
+    forbiddenField: t(
+      "This change carries a field a release override can't send.",
+      "يحمل هذا التغيير حقلًا لا يمكن إرساله في استثناء الإصدار.",
+    ),
+    noRooms: t("Pick at least one room.", "اختر غرفة واحدة على الأقل."),
+    roomsConflict: t(
+      "Pick All rooms or single rooms, not both.",
+      "اختر كل الغرف أو غرفًا محددة، لا الاثنين.",
+    ),
+    invalidVariationId: t(
+      "One of the picked rooms is not on this contract.",
+      "إحدى الغرف المختارة ليست في هذا العقد.",
+    ),
+    duplicateVariationIds: t("A room is picked twice.", "غرفة مختارة مرتين."),
+    noNights: t("Pick at least one night.", "اختر ليلة واحدة على الأقل."),
+    datesConflict: t(
+      "Pick single nights or a range, not both.",
+      "اختر ليالي منفردة أو مدى، لا الاثنين.",
+    ),
+    incompleteRange: t(
+      "The range needs a first and a last night.",
+      "يحتاج المدى إلى أول ليلة وآخر ليلة.",
+    ),
+    invalidDate: t(
+      "One of the picked nights is not a valid date.",
+      "إحدى الليالي المختارة ليست تاريخًا صالحًا.",
+    ),
+    rangeReversed: t("The range ends before it starts.", "ينتهي المدى قبل أن يبدأ."),
+    tooManySelectedNights: t(
+      "One change can cover at most 366 nights. Pick fewer nights.",
+      "التغيير الواحد يغطي ٣٦٦ ليلة على الأكثر. اختر ليالي أقل.",
+    ),
+    invalidWeekdays: t("Pick at least one weekday.", "اختر يومًا واحدًا على الأقل من الأسبوع."),
+    noMatchingNights: t(
+      "None of the picked nights falls on the picked weekdays.",
+      "لا تقع أي من الليالي المختارة في أيام الأسبوع المختارة.",
+    ),
+    pastNight: t(
+      "Past nights are read-only. Pick tonight or later in the hotel's time zone.",
+      "الليالي الماضية للقراءة فقط. اختر الليلة أو ما بعدها بتوقيت الفندق.",
+    ),
+    outsideTerm: t("Pick nights inside the contract term.", "اختر ليالي ضمن مدة العقد."),
+    invalidType: t("Choose Number of days or Same day.", "اختر عدد الأيام أو اليوم نفسه."),
+    invalidDays: t(
+      "Enter a whole number of days from 1 to 365.",
+      "أدخل عدد أيام صحيحًا من ١ إلى ٣٦٥.",
+    ),
+    daysNotAllowed: t("Same day takes no number of days.", "اليوم نفسه لا يأخذ عدد أيام."),
+    invalidTime: t(
+      "Enter the time as HH:MM, from 00:00 to 23:59.",
+      "أدخل الوقت بصيغة HH:MM، من ٠٠:٠٠ إلى ٢٣:٥٩.",
+    ),
+    noOperations: t("Add a change first.", "أضف تغييرًا أولًا."),
+    tooManyOperations: t(
+      "This list has more than 100 changes; save part of it first.",
+      "تحتوي هذه القائمة على أكثر من ١٠٠ تغيير؛ احفظ جزءًا منها أولًا.",
+    ),
+    tooManyNights: t(
+      "This list affects more than 366 distinct nights, including nights cleared by removals.",
+      "تمس هذه القائمة أكثر من ٣٦٦ ليلة مختلفة، بما فيها ما يزيله الحذف.",
+    ),
+    tooManyCells: t(
+      "This list affects more than 10,000 room-nights, including room-nights cleared by removals.",
+      "تمس هذه القائمة أكثر من ١٠٬٠٠٠ ليلة-غرفة، بما فيها ما يزيله الحذف.",
+    ),
+  },
+
+  /* The contract's own policy, read-only. */
+  fromContractWhen: t("Every night of the contract", "كل ليالي العقد"),
+  noPolicy: t("No release policy", "لا توجد سياسة إصدار"),
+  valueDays: t("{days} days before · {time}", "قبل {days} يوم · {time}"),
+  valueSameDay: t("Same day · {time}", "اليوم نفسه · {time}"),
+  afterStopSale: t("After release: Stop sale", "بعد الإصدار: إيقاف البيع"),
+  afterOnRequest: t("After release: On Request", "بعد الإصدار: عند الطلب"),
+  sla: t(
+    "On Request SLA: {minutes} min, then {expiry}",
+    "مهلة الطلب: {minutes} دقيقة، ثم {expiry}",
+  ),
+  expiry: {
+    auto_reject: t("auto-reject", "رفض تلقائي"),
+    escalate_to_hoteliana: t("escalate to Hoteliana", "تصعيد إلى هوتيليانا"),
+  } as Record<string, Bi>,
+
+  /* Override rules in the list. */
+  ruleValue: t("Release rule #{id}", "قاعدة إصدار #{id}"),
+  scopeUnknown: t("Nights and rooms couldn't be confirmed", "تعذّر تأكيد الليالي والغرف"),
+  allShadowedNote: t(
+    "Hidden on every remaining night by a more specific room rule.",
+    "مخفية في كل لياليها المتبقية بقاعدة أخص للغرفة.",
+  ),
+  editLocked: t(
+    "Edit unavailable: this rule's timing and layer can't be rebuilt exactly yet. Remove it and add a new one instead.",
+    "التعديل غير متاح: لا يمكن إعادة بناء توقيت هذه القاعدة وطبقتها بدقة بعد. احذفها وأضف قاعدة جديدة بدلًا منها.",
+  ),
+  removeLocked: t(
+    "Remove unavailable: this rule's remaining nights and rooms couldn't be confirmed.",
+    "الحذف غير متاح: تعذّر تأكيد الليالي والغرف المتبقية لهذه القاعدة.",
+  ),
+  removeLine: t("Remove release rule #{id}", "حذف قاعدة الإصدار #{id}"),
+
+  /* What will happen. */
+  bulletTimingOnly: t(
+    "Changes only when unsold rooms go back. What happens after release, and its SLA, still come from the contract.",
+    "يغيّر موعد عودة الغرف غير المبيعة فقط. وما يحدث بعد الإصدار ومهلته يبقيان من العقد.",
+  ),
+  bulletPriority: t(
+    "Room-specific release beats all-rooms release, which beats the contract.",
+    "إصدار الغرف المحددة يتقدم على إصدار كل الغرف، وهذا يتقدم على العقد.",
+  ),
+  bulletNow: t(
+    "Saved straight after review. Confirmed bookings are not touched.",
+    "يُحفظ مباشرة بعد المراجعة. ولا تُمس الحجوزات المؤكدة.",
+  ),
+
+  /* Review. */
+  noValue: t("No release", "بلا إصدار"),
+  deadline: t("Deadline {date} {time} ({timezone})", "الموعد {date} {time} ({timezone})"),
+  takesEffectBody: t(
+    "New release timing applies as soon as you save. The contract and confirmed bookings are not touched.",
+    "يسري توقيت الإصدار الجديد فور الحفظ. ولا يُمس العقد ولا الحجوزات المؤكدة.",
+  ),
+  appliedBody: t(
+    "Release timing is saved. The list on the right is refreshed.",
+    "تم حفظ توقيت الإصدار. وتم تحديث القائمة على اليمين.",
+  ),
+  stale: t(
+    "Release on this contract changed since you checked. The latest rules are loaded and the impact was checked again - review it before saving.",
+    "تغيّر الإصدار على هذا العقد منذ فحصك. حُمّلت أحدث القواعد وأُعيد فحص الأثر - راجعه قبل الحفظ.",
+  ),
+  saved: t("Release saved", "تم حفظ الإصدار"),
+};
