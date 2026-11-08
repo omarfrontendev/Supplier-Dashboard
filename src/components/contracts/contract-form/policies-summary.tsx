@@ -5,11 +5,7 @@ import { fill, useLanguage } from "@/lib/i18n";
 import { cancellationDrawer, chargeKinds } from "@/lib/policy-overlay-data";
 import { toAmount } from "@/store/features/contracts/contract-payload";
 import type { Dict } from "@/lib/dict";
-import {
-  MAX_CANCELLATION_TIERS,
-  type CancellationFee,
-  type CancellationPolicy,
-} from "@/store/features/contracts/types";
+import type { CancellationFee, CancellationPolicy } from "@/store/features/contracts/types";
 import { contractIssuesFor } from "./schema";
 import { formatAmount, useContractDraft } from "./shared";
 
@@ -86,10 +82,11 @@ export function PoliciesSummary({
                 ))}
               </ul>
               <p className="mt-1 text-xs text-text-muted">
-                {fill(p.tiersCount, {
-                  count: cancellation.tiers.length,
-                  max: MAX_CANCELLATION_TIERS,
-                })}
+                {cancellation.tiers.length === 1
+                  ? p.tiersOne
+                  : cancellation.tiers.length === 2
+                    ? p.tiersTwo
+                    : fill(p.tiersCount, { count: cancellation.tiers.length })}
               </p>
             </>
           ) : (
