@@ -534,8 +534,8 @@ export const weekendPanel = {
     "الخميس والجمعة مختاران - نهاية الأسبوع السعودية. ويمكن للمواسم والقيود استهداف أيام مفردة.",
   cancel: "Cancel",
   cancelAr: "إلغاء",
-  confirm: "Save weekend",
-  confirmAr: "حفظ نهاية الأسبوع",
+  confirm: "Add Weekend",
+  confirmAr: "إضافة نهاية الأسبوع",
 };
 
 /** OV 03.11 — nothing is live yet, so a draft keeps the work. */
@@ -618,10 +618,10 @@ export const overlapPanel = {
       actionAr: "افتح الموسم ←",
     },
   ],
-  note: "Save stays off until no night overlaps.",
-  noteAr: "يبقى الحفظ معطّلًا حتى تختفي كل ليلة متداخلة.",
+  note: "Add Season stays off until no night overlaps.",
+  noteAr: "يبقى زر الإضافة معطّلًا حتى تختفي كل ليلة متداخلة.",
   cancel: "Back to dates",
   cancelAr: "العودة إلى التواريخ",
-  confirm: "Save season",
-  confirmAr: "حفظ الموسم",
+  confirm: "Add Season",
+  confirmAr: "إضافة الموسم",
 };

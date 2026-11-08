@@ -95,7 +95,7 @@ export const seasonPage = {
 
   removeSeason: t("Remove season", "حذف الموسم"),
   cancel: t("Cancel", "إلغاء"),
-  save: t("Save season", "حفظ الموسم"),
+  save: t("Add Season", "إضافة الموسم"),
 
   newTitle: t("New season", "موسم جديد"),
   editorOverline: t("RATE SEASON", "موسم الأسعار"),

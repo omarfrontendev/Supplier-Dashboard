@@ -98,8 +98,8 @@ export const restrictionDrawer = {
   ),
   deleteRule: t("Delete restriction", "حذف القيد"),
   cancel: t("Cancel", "إلغاء"),
-  save: t("Save restriction", "حفظ القيد"),
-  saveChanges: t("Save changes", "حفظ التغييرات"),
+  save: t("Add Restriction", "إضافة القيد"),
+  saveChanges: t("Update Restriction", "تحديث القيد"),
   month: t("September 2026", "سبتمبر ٢٠٢٦"),
   weekdays: ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"],
   /** The calendar heads are short; the sentences use the full name. */
