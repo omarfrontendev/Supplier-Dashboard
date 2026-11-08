@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import { useQuery } from "@tanstack/react-query";
 
 import type { SupplierHotelContractResponse } from "./types";
@@ -19,4 +20,6 @@ export const useHotelContract = (id: number | null) =>
     queryFn: () => fetchHotelContract(id!),
     enabled: id !== null,
     refetchOnWindowFocus: false,
+    retry: (failures, error) =>
+      !(isAxiosError(error) && error.response?.status === 404) && failures < 3,
   });

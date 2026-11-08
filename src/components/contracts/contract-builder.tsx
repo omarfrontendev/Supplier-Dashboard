@@ -1441,6 +1441,22 @@ export function ContractBuilder({
     finalizationError?.kind === "crypto",
   );
 
+  if (mode === "edit" && isAxiosError(remote.error) && remote.error.response?.status === 404) {
+    return (
+      <PageShell>
+        <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+          <h1 className="text-xl font-semibold text-text-primary">{t.notFoundTitle}</h1>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
+            {t.notFoundBody}
+          </p>
+          <Button className="mt-5" onClick={() => navigate({ to: "/rate-contracts" })}>
+            {t.back}
+          </Button>
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
       {pendingOutcomeUnknown && !reviewOpen && (
