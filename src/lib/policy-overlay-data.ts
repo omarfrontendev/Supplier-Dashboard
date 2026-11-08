@@ -124,7 +124,7 @@ export const releaseDrawer = {
     "داخل نافذة الإفراج تُغلق الليلة ببساطة. ويراها الوكلاء غير متاحة - فلا تصلك طلبات، ولا يمكن تأكيد شيء في اللحظة الأخيرة."
   ),
   cancel: t("Cancel", "إلغاء"),
-  confirm: t("Add Release To Policies", "إضافة الإفراج إلى السياسات"),
+  confirm: t("Add Release Policies", "إضافة سياسات الإفراج"),
 };
 
 /** OV 03.16SRAM / SLTN / SHAJ / SSUM — a season's own cancellation policy. */
