@@ -80,6 +80,13 @@ const supplierHotelContracts = {
   byId: (id: number) => `/hotel-contracts/${id}`,
   finalizationReview: (id: number) => `/hotel-contracts/${id}/finalization-review`,
   finalize: (id: number) => `/hotel-contracts/${id}/finalize`,
+  pause: (id: number) => `/hotel-contracts/${id}/pause`,
+  resume: (id: number) => `/hotel-contracts/${id}/resume`,
+  terminate: (id: number) => `/hotel-contracts/${id}/terminate`,
+  copy: (id: number) => `/hotel-contracts/${id}/copy`,
+  activity: (id: number) => `/hotel-contracts/${id}/activity`,
+  stopSalePreview: (id: number) => `/hotel-contracts/${id}/stop-sale/preview`,
+  stopSale: (id: number) => `/hotel-contracts/${id}/stop-sale`,
 };
 
 const ratesAndAvailability = {

@@ -346,10 +346,12 @@ export function ConfirmOverlay({
   reasonPlaceholder,
   reasonLabel,
   requireTyped,
+  saving = false,
 }: {
   panel: ConfirmPanel;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (reason: string) => void;
+  saving?: boolean;
   reasonLabel?: string;
   reasonPlaceholder?: string;
   /** OV 03.21 — terminate asks the word to be typed out. */
@@ -376,7 +378,8 @@ export function ConfirmOverlay({
           <Button
             variant={panel.confirmTone ?? "default"}
             disabled={Boolean(requireTyped) && typed !== requireTyped}
-            onClick={onConfirm}
+            loading={saving}
+            onClick={() => onConfirm(reason)}
           >
             {ar ? panel.confirmAr : panel.confirm}
           </Button>

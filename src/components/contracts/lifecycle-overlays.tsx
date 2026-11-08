@@ -493,15 +493,21 @@ export function LifecycleDialogOverlay({
   kind,
   onClose,
   onConfirm,
+  saving = false,
+  live = false,
 }: {
   dialog: LifecycleDialog;
   kind: "discard" | "pause" | "terminate";
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (reason: string) => void;
+  saving?: boolean;
+  live?: boolean;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
-  const [reason, setReason] = useState(kind === "terminate" ? terminateReason.value[k] : "");
+  const [reason, setReason] = useState(
+    kind === "terminate" && !live ? terminateReason.value[k] : "",
+  );
   const [typed, setTyped] = useState("");
   const needsTyped = kind === "terminate";
 
@@ -521,7 +527,8 @@ export function LifecycleDialogOverlay({
           <Button
             variant={dialog.confirmTone}
             disabled={needsTyped && typed !== terminateReason.typed}
-            onClick={onConfirm}
+            loading={saving}
+            onClick={() => onConfirm(reason)}
           >
             {dialog.confirm[k]}
           </Button>
@@ -562,7 +569,7 @@ export function LifecycleDialogOverlay({
       {needsTyped && (
         <div className="grid gap-3 sm:grid-cols-2">
           <Input
-            label={terminateReason.label[k]}
+            label={live ? pauseReason.label[k] : terminateReason.label[k]}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />

@@ -39,17 +39,15 @@ import { hotels } from "@/lib/demo-data";
 import { fill, useLanguage } from "@/lib/i18n";
 import { usePortal } from "@/lib/portal-store";
 import {
-  ConfirmOverlay,
   ContractListFilterValues,
   FilterMenu,
   FilterPanel,
 } from "@/components/contracts/contract-overlays";
+import { periodPanel } from "@/lib/contract-overlay-data";
 import {
-  deleteDraftPanel,
-  periodPanel,
-  resumePanel,
-  stopSellPanel,
-} from "@/lib/contract-overlay-data";
+  ContractActionOverlay,
+  type ContractAction,
+} from "@/components/contracts/contract-actions";
 import { useHotelContracts } from "@/api/modules/hotel-contract/useHotelContracts";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
 import { useDebounce } from "./my-hotels";
@@ -86,7 +84,6 @@ export const Route = createFileRoute("/rate-contracts/")({
   component: RateContractsPage,
 });
 
-type Action = "pause" | "resume" | "delete" | "terminate" | "stopSell" | null;
 
 const copy = {
   en: {
@@ -602,25 +599,14 @@ function RateContractsPage() {
   // const [hotel, setHotel] = useState("");
   // const [status, setStatus] = useState("");
   // const [period, setPeriod] = useState("");
-  // const [pending, setPending] = useState<{ contract: SupplyContract; action: Action } | null>(null);
+  const [pending, setPending] = useState<{
+    contract: SupplyContract;
+    action: ContractAction;
+  } | null>(null);
   /* OV 03.0G / 03.0L — the two panels the list opens over itself. */
   const [panel, setPanel] = useState<"attention" | "period" | null>(null);
   // UI 03.0 draws these four numbers for the whole account, not for the rows below.
   // const stats = { active: 3, hotels: 3, rooms: 24, attention: 2, issues: 4, alerts: 2 };
-  // const act = () => {
-  //   if (!pending?.action) return;
-  //   if (pending.action === "delete") deleteContract(pending.contract.id);
-  //   else
-  //     setContractState(
-  //       pending.contract.id,
-  //       pending.action === "pause"
-  //         ? "paused"
-  //         : pending.action === "resume"
-  //           ? "active"
-  //           : "terminated",
-  //     );
-  //   setPending(null);
-  // };
 
   const isPeriodFilterActive =
     filters.periods.length > 0 && !filters.periods.includes("everything");
@@ -940,38 +926,13 @@ function RateContractsPage() {
             ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول يتيحان التشغيل والتعديل؛ المسودة للمتابعة أو الحذف؛ المنتهي للعرض أو النسخ فقط."
             : "Row actions depend on the contract state: Active · Scheduled → open, edit operational settings, amend, pause, stop sale, duplicate, terminate · Paused → resume · Draft → continue or delete · Expired → copy to a new period · Terminated → view only."}
       </p>
-      {/* {pending?.action === "stopSell" && (
-        <ConfirmOverlay
-          panel={stopSellPanel}
+      {pending && (
+        <ContractActionOverlay
+          contract={pending.contract}
+          action={pending.action}
           onClose={() => setPending(null)}
-          onConfirm={() => setPending(null)}
         />
       )}
-      {pending?.action === "delete" && (
-        <ConfirmOverlay panel={deleteDraftPanel} onClose={() => setPending(null)} onConfirm={act} />
-      )}
-      {pending?.action === "resume" && (
-        <ConfirmOverlay panel={resumePanel} onClose={() => setPending(null)} onConfirm={act} />
-      )}
-      {(pending?.action === "pause" || pending?.action === "terminate") && (
-        <Dialog open={Boolean(pending)} onOpenChange={(open) => !open && setPending(null)}>
-          <DialogContent className="rounded-[14px] border-border-subtle bg-surface-default">
-            <DialogHeader>
-              <DialogTitle>{t.confirm}</DialogTitle>
-              <DialogDescription>{t.confirmBody}</DialogDescription>
-            </DialogHeader>
-            <div className="rounded-lg bg-surface-subtle p-4 text-sm font-semibold text-text-primary">
-              {pending?.contract.name}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setPending(null)}>
-                {t.cancel}
-              </Button>
-              <Button onClick={act}>{t.apply}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )} */}
       {panel === "period" && (
         <FilterPanel
           panel={periodPanel}
@@ -1045,7 +1006,7 @@ function ContractRow({
   item: SupplyContract;
   lang: "en" | "ar";
   t: typeof copy.en;
-  ask: (a: Action) => void;
+  ask: (a: ContractAction) => void;
 }) {
   const formatDate = (date: string, lang: "en" | "ar") =>
     new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", {
@@ -1093,11 +1054,21 @@ function ContractRow({
 
       <StatusPill tone={tone}>{statusLabel}</StatusPill>
       <div className="flex items-center justify-end gap-1">
-        <Link to="/rate-contracts/$contractId" params={{ contractId: item.id }}>
-          <Button size="sm" variant="outline">
+        {item.status === "paused" || item.status === "expired" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => ask(item.status === "paused" ? "resume" : "copy")}
+          >
             {rowAction(item, t)}
           </Button>
-        </Link>
+        ) : (
+          <Link to="/rate-contracts/$contractId" params={{ contractId: item.id }}>
+            <Button size="sm" variant="outline">
+              {rowAction(item, t)}
+            </Button>
+          </Link>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon-sm" aria-label={t.actions}>
@@ -1140,13 +1111,12 @@ function ContractRow({
                     hint={t.viewHint}
                   />
                   <ActionItem
-                    to="/rate-contracts/new"
-                    search={{ source: item.id }}
                     permission="contracts.create"
                     title={t.copyPeriod}
                     hint={t.copyExpiredHint}
+                    onSelect={() => ask("copy")}
                   />
-                  <ActionItem title={t.activity} hint={t.activityHint} />
+                  <ActionItem title={t.activity} hint={t.activityHint} onSelect={() => ask("activity")} />
                 </>
               ) : item.status === "terminated" ? (
                 <>
@@ -1156,7 +1126,7 @@ function ContractRow({
                     title={t.view}
                     hint={t.viewHint}
                   />
-                  <ActionItem title={t.activity} hint={t.activityHint} />
+                  <ActionItem title={t.activity} hint={t.activityHint} onSelect={() => ask("activity")} />
                 </>
               ) : item.status === "paused" ? (
                 <>
@@ -1179,7 +1149,7 @@ function ContractRow({
                     hint={t.terminateHint}
                     onSelect={() => ask("terminate")}
                   />
-                  <ActionItem title={t.activity} hint={t.activityHint} />
+                  <ActionItem title={t.activity} hint={t.activityHint} onSelect={() => ask("activity")} />
                 </>
               ) : (
                 <>
@@ -1211,11 +1181,10 @@ function ContractRow({
                     onSelect={() => ask("stopSell")}
                   />
                   <ActionItem
-                    to="/rate-contracts/new"
-                    search={{ source: item.id }}
                     permission="contracts.create"
                     title={t.copyPeriod}
                     hint={t.copyPeriodHint}
+                    onSelect={() => ask("copy")}
                   />
                   <ActionItem
                     danger
@@ -1224,7 +1193,7 @@ function ContractRow({
                     hint={t.terminateHint}
                     onSelect={() => ask("terminate")}
                   />
-                  <ActionItem title={t.activity} hint={t.activityHint} />
+                  <ActionItem title={t.activity} hint={t.activityHint} onSelect={() => ask("activity")} />
                 </>
               )}
             </div>
