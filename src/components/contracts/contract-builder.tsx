@@ -1650,8 +1650,7 @@ export function ContractBuilder({
           {/* 3 — Rooms */}
           {fixed && (
             <Section
-              id={sectionList.length + 1}
-              // id={num("rooms")}
+              id={num("rooms")}
               title={t.sections[2]!}
               body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
               locked={!basicsDone}
@@ -1669,8 +1668,8 @@ export function ContractBuilder({
 
           {!fixed && (
             <Section
-              id={sectionList.length + 1}
-              title={lang === "ar" ? "الغرف المتاحة في الفندق" : "Available Hotel Rooms"}
+              id={num("rooms")}
+              title={t.sections[2]!}
               body={
                 lang === "ar"
                   ? "الغرف المسجلة للفندق المحدد."
