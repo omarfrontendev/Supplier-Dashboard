@@ -33,6 +33,7 @@ export const contractEn = {
     bulkStatus: "Stop sale / On Request",
     bulkRelease: "Release",
     bulkRestrictions: "Restrictions",
+    contractCoverage: "No contract coverage outside {start} – {end}, so those dates are closed.",
     show: "Show",
     filterAll: "All",
     filterSoldOut: "Sold out",
@@ -956,6 +957,8 @@ export const contractAr: typeof contractEn = {
     bulkStatus: "إيقاف البيع / عند الطلب",
     bulkRelease: "الاسترجاع",
     bulkRestrictions: "القيود",
+    contractCoverage:
+      "لا توجد تغطية للعقد خارج الفترة من {start} إلى {end}، لذلك هذه التواريخ مغلقة.",
     show: "عرض",
     filterAll: "الكل",
     filterSoldOut: "نفد",

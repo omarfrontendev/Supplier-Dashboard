@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { BackLink, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
+import { readableDay } from "@/components/ui/date-field";
 import { DatePicker, dateOf } from "@/components/ui/date-picker";
 import { datePickerCopy } from "@/lib/date-picker-copy";
 import {
@@ -314,6 +315,8 @@ function RateCalendarPage() {
   const contractDetails = detail && pickedContract && detail.id === pickedContract.id ? detail : undefined;
   const detailStart = contractDetails?.startDate.slice(0, 10);
   const detailEnd = contractDetails?.endDate.slice(0, 10);
+  const contractTerm =
+    detailStart && detailEnd ? { start: detailStart, end: detailEnd } : undefined;
 
   useEffect(() => {
     if (!detailStart || !detailEnd) return;
@@ -1524,6 +1527,7 @@ function RateCalendarPage() {
             value={contractDetails ? span.start : ""}
             edge="start"
             span={span}
+            term={contractTerm}
             weekend={weekendDays}
             onPick={(next) => setSpan(next)}
           />
@@ -1532,10 +1536,20 @@ function RateCalendarPage() {
             value={contractDetails ? span.end : ""}
             edge="end"
             span={span}
+            term={contractTerm}
             weekend={weekendDays}
             onPick={(next) => setSpan(next)}
           />
         </div>
+
+        {contractTerm && (
+          <p className="-mt-2 mb-4 text-xs leading-4 text-text-secondary">
+            {fill(t.contractCoverage, {
+              start: readableDay(contractTerm.start, lang),
+              end: readableDay(contractTerm.end, lang),
+            })}
+          </p>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {(
@@ -2540,6 +2554,7 @@ export function DayField({
   value,
   edge,
   span,
+  term,
   onPick,
   weekend,
 }: {
@@ -2547,6 +2562,7 @@ export function DayField({
   value: string;
   edge: "start" | "end";
   span: { start: string; end: string };
+  term?: { start: string; end: string } | undefined;
   onPick: (next: { start: string; end: string }) => void;
   weekend?: number[] | undefined;
 }) {
@@ -2588,6 +2604,15 @@ export function DayField({
       ? "اختر التاريخ"
       : "Select date";
   const seed = value || span.start || span.end;
+  const floor =
+    edge === "end" && span.start && (!term || span.start > term.start) ? span.start : term?.start;
+  const closedHint = term
+    ? edge === "end"
+      ? t.toWithinContract
+      : t.outsideContractClosed
+    : edge === "end" && span.start
+      ? t.beforeFromClosed
+      : undefined;
 
   return (
     <div className="w-full" ref={holder}>
@@ -2627,9 +2652,9 @@ export function DayField({
               single
               shortcuts={false}
               {...(weekend ? { weekend } : {})}
-              {...(edge === "end" && span.start
-                ? { min: span.start, closedHint: t.beforeFromClosed }
-                : {})}
+              {...(floor ? { min: floor } : {})}
+              {...(term ? { max: term.end } : {})}
+              {...(closedHint ? { closedHint } : {})}
               {...(seed ? { value: { start: seed, end: null } } : {})}
               onCancel={() => setOpen(false)}
               onApply={(next) => {

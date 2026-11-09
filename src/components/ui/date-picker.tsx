@@ -180,7 +180,8 @@ export function DatePicker({
         head: `${t.daysShort[a.getDay()]} ${n(a.getDate())} ${t.monthsShort[a.getMonth()]} ${n(a.getFullYear())} · ${kind}`,
         hint:
           hint ??
-          (min && min > keyOf(new Date(year, month, 1))
+          ((min && min > keyOf(new Date(year, month, 1))) ||
+          (closedHint && max && max < keyOf(new Date(year, month + 1, 0)))
             ? `${oneHint} ${closedHint ?? t.pastClosed}`
             : oneHint),
         use: `${n(a.getDate())} ${t.monthsShort[a.getMonth()]}`,
