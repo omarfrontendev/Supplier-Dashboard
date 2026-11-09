@@ -65,9 +65,15 @@ export function RateGrid({
   fade,
   weekendDays = WEEKEND_DAYS,
   poolNote,
+  poolCapacityLabel,
   nightSeasons,
   seasonNote,
 }: {
+  /**
+   * Live pool: the row shows each night's capacity, not what is left, so it
+   * takes this label and neutral styling instead of the sold-out colours.
+   */
+  poolCapacityLabel?: string | undefined;
   /** The contract's season on each night (index = night - 1), or null. */
   nightSeasons?: Array<{ name: string; color: string } | null> | undefined;
   /** Said in the season row instead of seasons, e.g. while they load. */
@@ -344,7 +350,7 @@ export function RateGrid({
             <tr className="border-t border-border-subtle">
               <th className={cn(label, "ps-3.5 pe-2.5 py-2 text-start align-top")}>
                 <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">
-                  {t.poolLeft}
+                  {poolCapacityLabel ?? t.poolLeft}
                 </span>
                 <span className="block text-[10px] leading-[13px] tracking-[-0.04em] text-text-muted">
                   {t.poolLeftHint}
@@ -376,11 +382,13 @@ export function RateGrid({
                           "font-data flex h-[18px] w-8 items-center justify-center rounded-[5px] text-[10.5px] font-semibold",
                           isPast(night) || left < 0
                             ? "bg-surface-subtle text-cell-past-text"
-                            : left === 0
-                              ? "bg-status-danger-bg text-status-danger"
-                              : left <= 4
-                                ? "bg-status-warning-bg text-status-warning"
-                                : "bg-status-success-bg text-status-success"
+                            : poolCapacityLabel !== undefined
+                              ? "bg-surface-subtle text-text-secondary"
+                              : left === 0
+                                ? "bg-status-danger-bg text-status-danger"
+                                : left <= 4
+                                  ? "bg-status-warning-bg text-status-warning"
+                                  : "bg-status-success-bg text-status-success"
                         )}
                       >
                         {left < 0 ? "—" : left}

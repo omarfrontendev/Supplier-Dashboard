@@ -1017,6 +1017,11 @@ export const liveGrid = {
   everyNight: t("{amount} a night", "{amount} في الليلة"),
   cappedAt: t("capped at {count} a night", "بحد أقصى {count} في الليلة"),
   noStock: t("No stock yet", "لا مخزون بعد"),
+  poolMetaLive: t(
+    "{capacity} rooms a night · +{overbooking} overbooking · every room sells from it",
+    "{capacity} غرفة في الليلة · تجاوز +{overbooking} · كل غرفة تبيع منه",
+  ),
+  poolCapacity: t("Pool capacity", "سعة المخزون"),
   seasonsLoading: t("Loading seasons…", "جارٍ تحميل المواسم…"),
   seasonsError: t("We couldn't load this contract's seasons.", "تعذّر تحميل مواسم هذا العقد."),
   roomsPickContract: t("Pick a contract to see its rooms.", "اختر عقدًا لعرض غرفه."),
