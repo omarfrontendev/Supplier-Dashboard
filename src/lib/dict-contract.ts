@@ -1316,7 +1316,7 @@ export const contractAr: typeof contractEn = {
     reviewActionNotAllowed: "مراجعة الخادم لا تسمح بإنهاء هذا العقد.",
     reviewActionAcceptConfirmation: "اقبل التأكيد أعلاه للمتابعة.",
     finalizationInProgress: "جارٍ إنهاء العقد…",
-    finalizationSuccess: "تم إنهاء العقد بنجاح.",
+    finalizationSuccess: "تم تفعيل العقد بنجاح.",
     finalizationNetworkFailure:
       "تعذّر تأكيد الاستجابة بسبب مشكلة في الشبكة. أعد المحاولة بأمان باستخدام الطلب نفسه.",
     finalizationOutcomeUnknown:

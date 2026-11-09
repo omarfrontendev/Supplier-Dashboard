@@ -948,7 +948,14 @@ export function ContractBuilder({
       setSnapshotStorageBlocked(!cleanupSucceeded);
       setAcceptedReviewKey(null);
       setFinalizationSuccess(result);
-      if (!cleanupSucceeded) setFinalizationError({ kind: "storage" });
+      if (!cleanupSucceeded) {
+        setFinalizationError({ kind: "storage" });
+        return;
+      }
+      setReviewOpen(false);
+      notify.success(c.builder.finalizationSuccess);
+      allowLeave.current = true;
+      navigate({ to: "/rate-contracts", replace: true });
     } catch (error) {
       if (isAxiosError<FinalizationApiErrorResponse>(error)) {
         const response = error.response;
