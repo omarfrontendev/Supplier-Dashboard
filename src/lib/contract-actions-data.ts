@@ -15,6 +15,14 @@ export const contractStatusNames = {
 export const statusName = (status: unknown, k: "en" | "ar") =>
   contractStatusNames[status as keyof typeof contractStatusNames]?.[k] ?? String(status ?? "—");
 
+const bookingTypeNames = {
+  allotment_block: t("Allotment Block", "حجز بحصة محددة"),
+  on_request: t("On Request", "عند الطلب"),
+} as const;
+
+export const bookingTypeName = (bookingType: unknown, k: "en" | "ar") =>
+  bookingTypeNames[bookingType as keyof typeof bookingTypeNames]?.[k] ?? String(bookingType ?? "—");
+
 const statusOverline = (name: string, status: string) => ({
   en: `${name.toUpperCase()} · ${statusName(status, "en").toUpperCase()}`,
   ar: `${name} · ${statusName(status, "ar")}`,

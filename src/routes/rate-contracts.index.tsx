@@ -923,8 +923,8 @@ function RateContractsPage() {
         {filtered?.length
           ? t.listFooter
           : lang === "ar"
-            ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول يتيحان التشغيل والتعديل؛ المسودة للمتابعة أو الحذف؛ المنتهي للعرض أو النسخ فقط."
-            : "Row actions depend on the contract state: Active · Scheduled → open, edit operational settings, amend, pause, stop sale, duplicate, terminate · Paused → resume · Draft → continue or delete · Expired → copy to a new period · Terminated → view only."}
+            ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول يتيحان التشغيل والتعديل؛ الموقوف مؤقتًا للاستئناف أو النسخ؛ المسودة للمتابعة أو النسخ أو الحذف؛ المنتهي للعرض أو النسخ فقط."
+            : "Row actions depend on the contract state: Active · Scheduled → open, edit operational settings, amend, pause, stop sale, duplicate, terminate · Paused → resume or copy to a new period · Draft → continue, copy to a new period or delete · Expired → copy to a new period · Terminated → view only."}
       </p>
       {pending && (
         <ContractActionOverlay

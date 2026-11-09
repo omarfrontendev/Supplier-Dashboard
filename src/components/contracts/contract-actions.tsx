@@ -31,6 +31,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   activityCopy,
+  bookingTypeName,
   contractActionCopy,
   copyPeriodCopy,
   liveDeletePanel,
@@ -442,6 +443,10 @@ function StopSaleOverlay({
 
 function changeValue(change: ContractActivityChange, value: unknown, k: Language) {
   if (change.field === "status") return statusName(value, k);
+  if (change.field === "bookingType") return bookingTypeName(value, k);
+  if ((change.field === "startDate" || change.field === "endDate") && typeof value === "string") {
+    return readableDay(dayOf(value), k);
+  }
   if (change.field === "period" && value && typeof value === "object") {
     const period = value as { startDate?: string; endDate?: string };
     if (period.startDate && period.endDate) {
