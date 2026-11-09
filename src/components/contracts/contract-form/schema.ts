@@ -97,6 +97,16 @@ export function cancellationIssues({ tiers, noShow }: CancellationPolicy, m: Mes
   return issues;
 }
 
+export function isValidSlaMinutes(value: string): boolean {
+  const minutes = toAmount(value);
+  return (
+    minutes !== null &&
+    Number.isInteger(minutes) &&
+    minutes >= SLA_MIN_MINUTES &&
+    minutes <= SLA_MAX_MINUTES
+  );
+}
+
 export function releaseIssues(release: ReleasePolicy, m: Messages): string[] {
   const issues: string[] = [];
   if (release.period === "days" && !wholeNumber(release.days, 1, 365)) {
@@ -320,16 +330,13 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
     const split = draft.weekPricing === "weekday_weekend";
     if (split && basics.weekendDays.length === 0) issue("basics", m.weekend);
 
-    if (basics.bookingType === "on_request") {
-      const minutes = toAmount(basics.slaMinutes);
-      if (
-        minutes === null ||
-        !Number.isInteger(minutes) ||
-        minutes < SLA_MIN_MINUTES ||
-        minutes > SLA_MAX_MINUTES
-      ) {
-        issue("booking", fill(m.sla, { min: SLA_MIN_MINUTES, max: SLA_MAX_MINUTES }));
-      }
+    const releaseNeedsSla =
+      Boolean(draft.policies?.enabled) && draft.policies?.release?.afterRelease === "on_request";
+    if ((basics.bookingType === "on_request" || releaseNeedsSla) && !isValidSlaMinutes(basics.slaMinutes)) {
+      issue(
+        basics.bookingType === "on_request" ? "booking" : "policies",
+        fill(m.sla, { min: SLA_MIN_MINUTES, max: SLA_MAX_MINUTES }),
+      );
     }
 
     if (draft.pricingModel === "base_supplements") {

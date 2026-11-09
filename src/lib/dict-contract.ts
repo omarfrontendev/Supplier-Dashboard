@@ -182,6 +182,10 @@ export const contractEn = {
     draftLoading: "Loading the contract…",
     notFoundTitle: "This contract doesn't exist",
     notFoundBody: "It may have been deleted, or it isn't available on your account.",
+    notDraftTitle: "This contract is {status}, so it can't be edited here.",
+    notDraftBody:
+      "Only Draft contracts can be changed on this page. Use the Rate Calendar for prices, stock and sell status.",
+    notDraftAction: "Open Rate Calendar",
     saveDraft: "Save draft",
     reviewActivate: "Review & activate",
     sectionsOverline: "SECTIONS",
@@ -520,6 +524,7 @@ export const contractEn = {
         "Someone saved this contract while you were editing ({fields}). Your changes are kept - check them and save again.",
       saveStaleNone:
         "Someone saved this contract while you were editing. Your changes are kept - save again.",
+      saveNotDraft: "Not saved: this contract is {status}, and only Draft contracts can be edited here.",
       noChanges: "No changes to save.",
       unavailable:
         "This contract or its hotel isn't available for changes right now. Your changes are kept.",
@@ -1097,6 +1102,10 @@ export const contractAr: typeof contractEn = {
     draftLoading: "جارٍ تحميل العقد…",
     notFoundTitle: "هذا العقد غير موجود",
     notFoundBody: "ربما تم حذفه، أو أنه غير متاح في حسابك.",
+    notDraftTitle: "حالة هذا العقد {status}، ولا يمكن تعديله من هنا.",
+    notDraftBody:
+      "يمكن تعديل العقود المسودة فقط في هذه الصفحة. استخدم تقويم الأسعار للأسعار والمخزون وحالة البيع.",
+    notDraftAction: "فتح تقويم الأسعار",
     saveDraft: "حفظ المسودة",
     reviewActivate: "المراجعة والتفعيل",
     sectionsOverline: "الأقسام",
@@ -1434,6 +1443,7 @@ export const contractAr: typeof contractEn = {
       saveStale:
         "حفظ أحدهم هذا العقد أثناء تعديلك ({fields}). تعديلاتك محفوظة في الصفحة - راجعها واحفظ مجددًا.",
       saveStaleNone: "حفظ أحدهم هذا العقد أثناء تعديلك. تعديلاتك محفوظة في الصفحة - احفظ مجددًا.",
+      saveNotDraft: "لم يتم الحفظ: حالة هذا العقد {status}، ويمكن تعديل العقود المسودة فقط من هنا.",
       noChanges: "لا توجد تغييرات للحفظ.",
       unavailable: "هذا العقد أو فندقه غير متاح للتعديل حاليًا. تعديلاتك محفوظة في الصفحة.",
       changedFields: {

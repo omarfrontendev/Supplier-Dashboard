@@ -148,7 +148,11 @@ export const contractDraftSlice = createSlice({
           rule.roomId = null;
         });
       }
-      if (next.bookingType === "allotment") {
+      if (
+        next.bookingType === "allotment" &&
+        state.basics.bookingType !== "allotment" &&
+        state.policies.release?.afterRelease !== "on_request"
+      ) {
         next.slaMinutes = "";
         next.slaExpiryAction = "auto_reject";
       }
@@ -341,6 +345,10 @@ export const contractDraftSlice = createSlice({
       if (!action.payload) {
         state.policies.cancellation = null;
         state.policies.release = null;
+        if (state.basics.bookingType === "allotment") {
+          state.basics.slaMinutes = "";
+          state.basics.slaExpiryAction = "auto_reject";
+        }
       }
     },
 
@@ -353,6 +361,10 @@ export const contractDraftSlice = createSlice({
         ...action.payload,
         days: action.payload.period === "same_day" ? "" : action.payload.days,
       };
+      if (action.payload.afterRelease !== "on_request" && state.basics.bookingType === "allotment") {
+        state.basics.slaMinutes = "";
+        state.basics.slaExpiryAction = "auto_reject";
+      }
     },
 
     ensureMealPlans: (state, action: PayloadAction<MealPlan[]>) => {

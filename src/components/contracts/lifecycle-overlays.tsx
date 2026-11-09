@@ -109,7 +109,9 @@ export function ActivateDrawer({
   const k = lang === "ar" ? "ar" : "en";
   const d = activateDrawer;
   const issueGroups = new Map<string, FinalizationIssue[]>();
-  const allIssues = [...(review?.issues ?? []), ...(finalizationError?.issues ?? [])];
+  const allIssues = finalizationSuccess
+    ? []
+    : [...(review?.issues ?? []), ...(finalizationError?.issues ?? [])];
   for (const issue of allIssues) {
     const group = issueGroups.get(issue.section);
     if (group) group.push(issue);
@@ -307,7 +309,7 @@ export function ActivateDrawer({
           ))}
         </section>
       )}
-      {review && !review.canFinalize && !hasBlockingIssues && (
+      {review && !review.canFinalize && !hasBlockingIssues && !finalizationSuccess && (
         <p className="mt-3 rounded-xl border border-status-warning/25 bg-status-warning-bg p-3 text-sm text-status-warning">
           {c.builder.reviewCannotFinalize}
         </p>

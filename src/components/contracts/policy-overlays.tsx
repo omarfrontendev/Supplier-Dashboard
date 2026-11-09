@@ -17,12 +17,15 @@ import {
   type ChargeKind,
   type SeasonPolicy,
 } from "@/lib/policy-overlay-data";
+import { SlaFields } from "@/components/contracts/contract-form/booking-fields";
 import {
   cancellationIssues,
+  isValidSlaMinutes,
   releaseIssues,
 } from "@/components/contracts/contract-form/schema";
 import {
   MAX_CANCELLATION_TIERS,
+  type SlaExpiryAction,
   type AfterRelease,
   type CancellationCharge,
   type CancellationFee,
@@ -469,11 +472,13 @@ function Segmented({
 
 export function ReleaseDrawer({
   initial,
+  initialSla,
   onSave,
   onClose,
 }: {
   initial?: ReleasePolicy | null;
-  onSave?: (release: ReleasePolicy) => void;
+  initialSla?: { minutes: string; expiry: SlaExpiryAction };
+  onSave?: (release: ReleasePolicy, sla: { minutes: string; expiry: SlaExpiryAction } | null) => void;
   onClose: () => void;
 }) {
   const { c: dict, lang } = useLanguage();
@@ -485,6 +490,9 @@ export function ReleaseDrawer({
   const [time, setTime] = useState(initial?.time || "18:00");
   const [after, setAfter] = useState<AfterRelease>(initial?.afterRelease ?? "on_request");
   const [issues, setIssues] = useState<string[]>([]);
+  const [slaMinutes, setSlaMinutes] = useState(initialSla?.minutes ?? "");
+  const [slaExpiry, setSlaExpiry] = useState<SlaExpiryAction>(initialSla?.expiry ?? "auto_reject");
+  const [slaRequired, setSlaRequired] = useState(false);
 
   const save = () => {
     const next: ReleasePolicy = {
@@ -495,8 +503,11 @@ export function ReleaseDrawer({
     };
     const found = releaseIssues(next, dict.builder.form.v);
     setIssues(found);
-    if (found.length > 0) return;
-    onSave?.(next);
+    const needsSla = after === "on_request";
+    const slaMissing = needsSla && !isValidSlaMinutes(slaMinutes);
+    setSlaRequired(slaMissing);
+    if (found.length > 0 || slaMissing) return;
+    onSave?.(next, needsSla ? { minutes: slaMinutes, expiry: slaExpiry } : null);
     onClose();
   };
 
@@ -585,6 +596,15 @@ export function ReleaseDrawer({
         <p className="mt-3 rounded-[12px] bg-surface-subtle px-3.5 py-3 text-[11.5px] leading-5 text-text-body">
           {r.stopSaleNote[k]}
         </p>
+      )}
+      {after === "on_request" && (
+        <SlaFields
+          minutes={slaMinutes}
+          expiry={slaExpiry}
+          showRequiredError={slaRequired}
+          onMinutesChange={setSlaMinutes}
+          onExpiryChange={setSlaExpiry}
+        />
       )}
 
       {issues.length > 0 && (

@@ -448,7 +448,10 @@ export function pricingFromDraft(
 }
 
 const apiOnRequestSettings = (draft: ContractDraftState): ContractOnRequestSettings | null => {
-  if (draft.basics.bookingType !== "on_request") return null;
+  const usesOnRequest =
+    draft.basics.bookingType === "on_request" ||
+    (draft.policies.enabled && draft.policies.release?.afterRelease === "on_request");
+  if (!usesOnRequest) return null;
   const slaMinutes = toAmount(draft.basics.slaMinutes);
   if (slaMinutes === null || !Number.isInteger(slaMinutes)) return null;
   return {

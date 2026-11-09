@@ -11,6 +11,7 @@ import { useFinalizeHotelContract } from "@/api/modules/hotel-contract/useFinali
 import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorList, getApiErrorMessage } from "@/lib/api-error";
+import { statusName } from "@/lib/contract-actions-data";
 import type {
   FinalizationApiErrorResponse,
   FinalizationIssue,
@@ -71,6 +72,7 @@ import {
   saveCancellationPolicy,
   saveReleasePolicy,
   setPoliciesEnabled,
+  updateBasics,
   updateInventory,
   setInventoryRoomCap,
   setPerRoomInventory,
@@ -896,7 +898,9 @@ export function ContractBuilder({
                 }),
           ]
         : []),
-      ...(onRequest ? [`${f.slaMinutes}: ${basics.slaMinutes}`] : []),
+      ...(onRequest || draft.policies.release?.afterRelease === "on_request"
+        ? [`${f.slaMinutes}: ${basics.slaMinutes}`]
+        : []),
       ...(review?.contract.bookingCutoff
         ? [
             fill(t.reviewCutoff, {
@@ -1310,6 +1314,12 @@ export function ContractBuilder({
       const before = base;
       const editing = draft;
       void remote.refetch().then(({ data: latest }) => {
+        if (latest && latest.status !== "draft") {
+          notify.error(
+            fill(f.saveNotDraft, { status: statusName(latest.status, lang === "ar" ? "ar" : "en") }),
+          );
+          return;
+        }
         const fields = latest ? contractDifferences(before, latest) : [];
         if (latest) {
           dispatch(loadContract(mergeLatestDraft(editing, before, latest)));
@@ -1345,18 +1355,23 @@ export function ContractBuilder({
         minute: "2-digit",
       }).format(new Date(saved.updatedAt))
     : "";
+  const notEditable = saved !== null && saved.status !== "draft";
+  const savedStatusName = saved ? statusName(saved.status, lang === "ar" ? "ar" : "en") : "";
   const draftStatus = remote.isLoading
     ? t.draftLoading
     : remote.isError
       ? f.loadFailed
       : !saved
         ? t.draftEmpty
-        : sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)
-          ? fill(t.draftSaved, { time: savedAt })
-          : t.draftUnsaved;
+        : notEditable
+          ? savedStatusName
+          : sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)
+            ? fill(t.draftSaved, { time: savedAt })
+            : t.draftUnsaved;
 
   const hasUnsaved =
     !remote.isLoading &&
+    !notEditable &&
     (saved
       ? !sameSavedDraft(draft, saved, inventoryRules, basePricingRoomView)
       : Boolean(basics.hotelId || basics.name.trim() || basics.startDate || basics.currency));
@@ -1495,20 +1510,44 @@ export function ContractBuilder({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs text-text-muted">{draftStatus}</span>
-          <Button
-            variant="outline"
-            loading={savingDraft}
-            disabled={remote.isLoading || remote.isError}
-            onClick={() => void saveDraft()}
-          >
-            <Save className="h-4 w-4" aria-hidden="true" />
-            {t.saveDraft}
-          </Button>
-          <Button loading={savingDraft} onClick={openReview}>
-            {t.reviewActivate}
-          </Button>
+          {!notEditable && (
+            <>
+              <Button
+                variant="outline"
+                loading={savingDraft}
+                disabled={remote.isLoading || remote.isError}
+                onClick={() => void saveDraft()}
+              >
+                <Save className="h-4 w-4" aria-hidden="true" />
+                {t.saveDraft}
+              </Button>
+              <Button loading={savingDraft} onClick={openReview}>
+                {t.reviewActivate}
+              </Button>
+            </>
+          )}
         </div>
       </header>
+
+      {notEditable && (
+        <div
+          role="status"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/25 bg-status-warning-bg p-4"
+        >
+          <div className="flex min-w-0 flex-1 gap-3">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-primary">
+                {fill(t.notDraftTitle, { status: savedStatusName })}
+              </p>
+              <p className="mt-0.5 text-sm text-text-secondary">{t.notDraftBody}</p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/rate-calendar" })}>
+            {t.notDraftAction}
+          </Button>
+        </div>
+      )}
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[264px_minmax(0,1fr)]">
         <aside className="h-fit space-y-4 xl:sticky xl:top-24">
@@ -1606,7 +1645,7 @@ export function ContractBuilder({
           </div>
         </aside>
 
-        <div className="min-w-0 space-y-6">
+        <fieldset disabled={notEditable} className="min-w-0 space-y-6">
           {/* 1 — Contract basics */}
           <Section
             id={num("basics")}
@@ -2287,21 +2326,27 @@ export function ContractBuilder({
               <p
                 className={cn(
                   "min-w-0 flex-1 text-sm",
-                  seasonsDone ? "text-status-success" : "text-text-muted",
+                  seasonsDone && !notEditable ? "text-status-success" : "text-text-muted",
                 )}
               >
-                {seasonsDone ? t.reviewReady : t.reviewLocked}
+                {notEditable
+                  ? fill(t.notDraftTitle, { status: savedStatusName })
+                  : seasonsDone
+                    ? t.reviewReady
+                    : t.reviewLocked}
               </p>
-              <Button
-                variant={seasonsDone ? "default" : "outline"}
-                loading={savingDraft}
-                onClick={openReview}
-              >
-                {t.reviewActivate}
-              </Button>
+              {!notEditable && (
+                <Button
+                  variant={seasonsDone ? "default" : "outline"}
+                  loading={savingDraft}
+                  onClick={openReview}
+                >
+                  {t.reviewActivate}
+                </Button>
+              )}
             </div>
           </Section>
-        </div>
+        </fieldset>
       </div>
 
       {editingSeason && (
@@ -2372,7 +2417,13 @@ export function ContractBuilder({
       {policy === "release" && (
         <ReleaseDrawer
           initial={draft.policies.release}
-          onSave={(release) => dispatch(saveReleasePolicy(release))}
+          initialSla={{ minutes: basics.slaMinutes, expiry: basics.slaExpiryAction }}
+          onSave={(release, sla) => {
+            dispatch(saveReleasePolicy(release));
+            if (sla) {
+              dispatch(updateBasics({ slaMinutes: sla.minutes, slaExpiryAction: sla.expiry }));
+            }
+          }}
           onClose={() => setPolicy(null)}
         />
       )}
