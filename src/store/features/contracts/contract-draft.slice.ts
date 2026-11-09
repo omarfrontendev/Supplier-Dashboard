@@ -23,6 +23,7 @@ import type {
 
 const emptyBaseSupplements = (): ContractDraftState["baseSupplements"] => ({
   baseRoomId: null,
+  baseRoomView: null,
   weekdayBaseCost: "",
   weekendBaseCost: "",
   rooms: [],
@@ -212,7 +213,15 @@ export const contractDraftSlice = createSlice({
     },
 
     setBaseRoom: (state, action: PayloadAction<number | null>) => {
+      if (state.baseSupplements.baseRoomId !== action.payload) {
+        state.baseSupplements.baseRoomView = null;
+      }
       state.baseSupplements.baseRoomId = action.payload;
+      state.roomVariationsEdited = true;
+    },
+
+    setBaseRoomView: (state, action: PayloadAction<RoomView | null>) => {
+      state.baseSupplements.baseRoomView = action.payload;
       state.roomVariationsEdited = true;
     },
 
@@ -406,6 +415,7 @@ export const {
   setInventoryRoomCap,
   setPerRoomInventory,
   setBaseRoom,
+  setBaseRoomView,
   setBaseCost,
   toggleSupplementRoom,
   addSupplementRoom,

@@ -8,6 +8,7 @@ import type {
 import { Table } from "@/components/contracts/contract-parts";
 import { Button } from "@/components/ui/button";
 import { contractRoomLabel } from "@/lib/contract-room-label";
+import { viewsForRoomSize } from "@/lib/contracts/room-views";
 import { useLanguage } from "@/lib/i18n";
 import { Select } from "@/components/ui/select";
 import { ROOM_SIZES } from "@/lib/room-sizes";
@@ -89,7 +90,24 @@ export function AvailableHotelRooms({
   const baseRoom =
     baseRoomId === null ? undefined : availableRooms.find((room) => room.id === baseRoomId);
   const baseRowKey = JSON.stringify(["base-room", baseRoomId]);
+  const baseRoomView = baseSupplements.baseRoomView;
+  const baseViewOption = baseRoomView
+    ? metadata?.roomViews.find((item) => item.value === baseRoomView)
+    : undefined;
+  const baseViewLabel = baseRoomView
+    ? baseViewOption
+      ? lang === "ar"
+        ? baseViewOption.labelAr || baseViewOption.labelEn
+        : baseViewOption.labelEn || baseViewOption.labelAr
+      : baseRoomView
+    : null;
+  // The picked base variation (room size + view) is shown on the base row, not as a regular row.
+  const baseVariationKey =
+    baseRoom && baseRoomView
+      ? roomRowKey({ roomSizeId: baseRoom.roomSizeId, view: baseRoomView })
+      : null;
   const displayedRooms = rooms.filter((room, index) => {
+    if (baseVariationKey !== null && roomRowKey(room) === baseVariationKey) return false;
     return rooms.findIndex((candidate) => roomRowKey(candidate) === roomRowKey(room)) === index;
   });
 
@@ -134,13 +152,7 @@ export function AvailableHotelRooms({
       label: roomSize ? (lang === "ar" ? roomSize.name_ar : roomSize.name_en) : String(roomSizeId),
     };
   });
-  const availableViews = [
-    ...new Set(
-      availableRooms
-        .filter((room) => selectedRoomSizeId === null || room.roomSizeId === selectedRoomSizeId)
-        .flatMap((room) => (room.view ? [room.view] : [])),
-    ),
-  ];
+  const availableViews = viewsForRoomSize(availableRooms, selectedRoomSizeId);
   const viewOptions = availableViews.map((viewValue) => {
     const viewOption = metadata?.roomViews.find((item) => item.value === viewValue);
     return {
@@ -298,7 +310,7 @@ export function AvailableHotelRooms({
                 {isBase && <span className="ms-2 text-xs text-brand-mid">{f.baseTag}</span>}
                 <span className="ms-2 text-xs text-text-muted">#{id}</span>
               </span>,
-              isBase ? "-" : viewLabel,
+              isBase ? (baseViewLabel ?? "-") : viewLabel,
               ...(showPricing
                 ? [
                     isBase ? (
