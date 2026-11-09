@@ -1095,12 +1095,19 @@ function ContractRow({
                     hint={t.continueHint}
                   />
                   <ActionItem
+                    permission="contracts.create"
+                    title={t.copyPeriod}
+                    hint={t.copyPeriodHint}
+                    onSelect={() => ask("copy")}
+                  />
+                  <ActionItem
                     danger
                     permission="contracts.edit"
                     title={t.delete}
                     hint={t.deleteHint}
                     onSelect={() => ask("delete")}
                   />
+                  <ActionItem title={t.activity} hint={t.activityHint} onSelect={() => ask("activity")} />
                 </>
               ) : item.status === "expired" ? (
                 <>
@@ -1141,6 +1148,12 @@ function ContractRow({
                     title={t.resume}
                     hint={t.resumeHint}
                     onSelect={() => ask("resume")}
+                  />
+                  <ActionItem
+                    permission="contracts.create"
+                    title={t.copyPeriod}
+                    hint={t.copyPeriodHint}
+                    onSelect={() => ask("copy")}
                   />
                   <ActionItem
                     danger
