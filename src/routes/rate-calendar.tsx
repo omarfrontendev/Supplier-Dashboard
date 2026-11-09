@@ -1481,7 +1481,7 @@ function RateCalendarPage() {
               on a phone it simply follows, rather than taking a line of
               its own with nothing beside it. */}
           <div className="flex items-center gap-3 sm:ms-auto">
-            <span className="hidden h-6 w-px bg-border-subtle sm:block" aria-hidden="true" />
+            <span className="hidden h-6 w-px bg-border-subtle lg:block" aria-hidden="true" />
             <Button variant="outline" className="rounded-full" onClick={() => setOverlay("export")}>
               <Upload className="h-[18px] w-[18px]" aria-hidden="true" />
               {t.export}

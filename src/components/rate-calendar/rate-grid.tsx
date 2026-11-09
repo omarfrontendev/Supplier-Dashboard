@@ -196,6 +196,23 @@ export function RateGrid({
     };
   }, [nights.length, compact, month.today, ar]);
 
+  useEffect(() => {
+    const cellEl = todayCell.current;
+    const scroller = box.current;
+    if (!cellEl || !scroller) return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+    if (scroller.scrollWidth <= scroller.clientWidth) return;
+    const styles = getComputedStyle(scroller);
+    const labelWidth = Number.parseFloat(styles.getPropertyValue("--label")) || 0;
+    const cellRect = cellEl.getBoundingClientRect();
+    const boxRect = scroller.getBoundingClientRect();
+    const distance =
+      styles.direction === "rtl"
+        ? cellRect.right - (boxRect.right - labelWidth)
+        : cellRect.left - (boxRect.left + labelWidth);
+    scroller.scrollBy({ left: distance });
+  }, [nights.length, month.today, ar]);
+
   return (
     <div
       ref={box}
@@ -685,7 +702,7 @@ function RoomBlock({
                   type="button"
                   onClick={() => onOpenStatus?.(row, night)}
                   className={cn(
-                    "h-[26px] w-full px-1 text-center text-[11px] font-medium",
+                    "h-[26px] w-full px-1 text-center text-[11px] font-medium max-lg:h-11",
                     value === "SS"
                       ? "bg-status-danger-bg text-status-danger"
                       : value === "RQ"
