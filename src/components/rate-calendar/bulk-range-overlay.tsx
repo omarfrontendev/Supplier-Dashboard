@@ -220,7 +220,12 @@ export interface StatusPayload {
   weekdays: number[];
   rooms: string[];
   allRooms: boolean;
-  sla?: { slaMinutes: number; expiryAction: "auto_reject" | "escalate_to_hoteliana" } | undefined;
+  sla?: StatusSla | undefined;
+}
+
+export interface StatusSla {
+  slaMinutes: number;
+  expiryAction: "auto_reject" | "escalate_to_hoteliana";
 }
 
 interface Bi {
@@ -267,12 +272,22 @@ export function BulkRangeOverlay({
   onRemoveExisting,
   onApplyStatus,
   needsSla = false,
+  slaDefaults,
   slaReady = true,
   liveRestrictions,
   liveRelease,
   liveRates,
+  term,
+  openOn,
 }: {
   kind: BulkKind;
+  /**
+   * The selected contract's term, inclusive YYYY-MM-DD. Nights outside it cannot
+   * be picked. Undefined while unknown: the picker is then left unbounded.
+   */
+  term?: { start: string; end: string } | undefined;
+  /** YYYY-MM-DD whose month the picker first shows. Only the visible month: nothing is selected. */
+  openOn?: string | undefined;
   /** The contract this is scoped to, printed as the overline. */
   contract: string;
   onClose: () => void;
@@ -289,7 +304,10 @@ export function BulkRangeOverlay({
   existing?: AlreadySet[] | undefined;
   onRemoveExisting?: ((row: AlreadySet) => Promise<void>) | undefined;
   onApplyStatus?: ((lines: StatusPayload[]) => Promise<void>) | undefined;
+  /** Show the SLA fields when On Request is chosen; their final values are always sent. */
   needsSla?: boolean;
+  /** The contract's SLA, used only as the fields' starting values - never changed here. */
+  slaDefaults?: StatusSla | null | undefined;
   /** False until the contract's SLA settings have loaded: On Request cannot be staged. */
   slaReady?: boolean;
   liveRestrictions?: LiveRestrictionsProps | undefined;
@@ -323,6 +341,30 @@ export function BulkRangeOverlay({
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [rooms, setRooms] = useState<string[]>([]);
 
+  /* A new term trims the picked nights to it; nights still inside are kept as they are. */
+  const termStart = term?.start;
+  const termEnd = term?.end;
+  useEffect(() => {
+    if (!termStart || !termEnd) return;
+    setPicked((current) => {
+      let changed = false;
+      const next = current.flatMap((item) => {
+        const end = item.range.end ?? item.range.start;
+        const from = item.range.start < termStart ? termStart : item.range.start;
+        const to = end > termEnd ? termEnd : end;
+        if (from === item.range.start && to === end) return [item];
+        changed = true;
+        if (from > to) return [];
+        const range: DayRange = {
+          start: from,
+          end: item.range.end === null && from === to ? null : to,
+        };
+        return [{ ...item, range, nights: nightsIn(range) }];
+      });
+      return changed ? next : current;
+    });
+  }, [termStart, termEnd]);
+
   /* Bulk rates */
   const [priceMode, setPriceMode] = useState("apart");
   const [weekdayPrice, setWeekdayPrice] = useState("");
@@ -336,10 +378,19 @@ export function BulkRangeOverlay({
   const [setTo, setSetTo] = useState("stopSale");
   const [editingRule, setEditingRule] = useState<number | null>(null);
   const [everyContract, setEveryContract] = useState(false);
-  const [slaMinutes, setSlaMinutes] = useState("30");
-  const [expiryAction, setExpiryAction] = useState<"auto_reject" | "escalate_to_hoteliana">(
-    "auto_reject",
-  );
+  /* The SLA fields start from the contract's SLA (30 min / auto reject when it has none). */
+  const defaultSlaMinutes = String(slaDefaults?.slaMinutes ?? 30);
+  const defaultExpiry = slaDefaults?.expiryAction ?? "auto_reject";
+  const [slaMinutes, setSlaMinutes] = useState(defaultSlaMinutes);
+  const [expiryAction, setExpiryAction] =
+    useState<StatusSla["expiryAction"]>(defaultExpiry);
+  /* Once the supplier edits the fields (or a saved rule fills them), late-loading defaults leave them alone. */
+  const slaTouched = useRef(false);
+  useEffect(() => {
+    if (slaTouched.current) return;
+    setSlaMinutes(defaultSlaMinutes);
+    setExpiryAction(defaultExpiry);
+  }, [defaultSlaMinutes, defaultExpiry]);
   /* Release */
   const [releaseMode, setReleaseMode] = useState("days");
   const [releaseDays, setReleaseDays] = useState("3");
@@ -828,8 +879,9 @@ export function BulkRangeOverlay({
       setNightChecks({});
     }
     setEveryContract(false);
-    setSlaMinutes("30");
-    setExpiryAction("auto_reject");
+    slaTouched.current = false;
+    setSlaMinutes(defaultSlaMinutes);
+    setExpiryAction(defaultExpiry);
     setEditingRule(null);
   };
 
@@ -1769,7 +1821,10 @@ export function BulkRangeOverlay({
                     <Input
                       inputMode="numeric"
                       value={slaMinutes}
-                      onChange={(e) => setSlaMinutes(e.target.value)}
+                      onChange={(e) => {
+                        slaTouched.current = true;
+                        setSlaMinutes(e.target.value);
+                      }}
                       className="h-9 w-20"
                       aria-invalid={slaBad}
                     />
@@ -1778,9 +1833,10 @@ export function BulkRangeOverlay({
                   <RadioGroup
                     className="flex flex-wrap items-center gap-x-5 gap-y-2"
                     value={expiryAction}
-                    onValueChange={(value) =>
-                      setExpiryAction(value as "auto_reject" | "escalate_to_hoteliana")
-                    }
+                    onValueChange={(value) => {
+                      slaTouched.current = true;
+                      setExpiryAction(value as StatusSla["expiryAction"]);
+                    }}
                   >
                     {(["auto_reject", "escalate_to_hoteliana"] as const).map((value) => (
                       <label
@@ -2453,8 +2509,11 @@ export function BulkRangeOverlay({
                               );
                               setRooms(rule.allRooms ? [roomList[0]!.en] : rule.rooms);
                               setSetTo(rule.status);
-                              setSlaMinutes(String(rule.sla?.slaMinutes ?? 30));
-                              setExpiryAction(rule.sla?.expiryAction ?? "auto_reject");
+                              slaTouched.current = Boolean(rule.sla);
+                              setSlaMinutes(
+                                rule.sla ? String(rule.sla.slaMinutes) : defaultSlaMinutes,
+                              );
+                              setExpiryAction(rule.sla?.expiryAction ?? defaultExpiry);
                               setDays([0, 1, 2, 3, 4, 5, 6]);
                               setEditingRule(rule.ruleId);
                             }}
@@ -2579,6 +2638,8 @@ export function BulkRangeOverlay({
         <div className="absolute inset-0 z-10 flex items-start justify-end bg-brand-deep/10 p-4">
           <DatePicker
             className="w-[300px]"
+            {...(term ? { min: term.start, max: term.end, clampShortcuts: true } : {})}
+            {...(openOn ? { openOn } : {})}
             onApply={(range) => {
               const item = { id: `R-${Date.now()}`, range, nights: nightsIn(range) };
               setPicked((current) => (oneRange ? [item] : [...current, item]));

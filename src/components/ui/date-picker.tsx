@@ -68,6 +68,10 @@ export interface DatePickerProps {
   /** Nothing before this can be picked; defaults to no limit. */
   min?: DayKey | undefined;
   max?: DayKey | undefined;
+  /** The month to open on when there is no value; defaults to min, then today. */
+  openOn?: DayKey | undefined;
+  /** Trim the shortcut ranges to min / max; a shortcut wholly outside them does nothing. */
+  clampShortcuts?: boolean | undefined;
   /** The season "Whole season" fills in, when the caller is inside one. */
   season?: DayRange | undefined;
   /** One night only — a second click moves the night instead of ranging. */
@@ -104,6 +108,8 @@ export function DatePicker({
   locked = [],
   min,
   max,
+  openOn,
+  clampShortcuts = false,
   season,
   single = false,
   closedHint,
@@ -127,7 +133,7 @@ export function DatePicker({
     onChange?.(next);
   };
   const [cursor, setCursor] = useState(() =>
-    dateOf(value?.start ?? min ?? today)
+    dateOf(value?.start ?? openOn ?? min ?? today)
   );
 
   const changedSet = useMemo(() => new Set(changed), [changed]);
@@ -162,7 +168,14 @@ export function DatePicker({
 
   const step = (by: number) => setCursor(new Date(year, month + by, 1));
 
-  const shortcut = (from: DayKey, to: DayKey) => {
+  const shortcut = (rawFrom: DayKey, rawTo: DayKey) => {
+    let from = rawFrom;
+    let to = rawTo;
+    if (clampShortcuts) {
+      if (min && from < min) from = min;
+      if (max && to > max) to = max;
+      if (from > to) return;
+    }
     setRange(ordered(from, to));
     setCursor(dateOf(from));
   };
@@ -329,7 +342,7 @@ export function DatePicker({
       </div>
 
       {/* Shortcuts */}
-      {shortcuts && (
+      {/* {shortcuts && (
         <div className="flex flex-wrap gap-1.5">
           {[
             [t.thisWeekend, () => {
@@ -354,7 +367,7 @@ export function DatePicker({
             </button>
           ))}
         </div>
-      )}
+      )} */}
 
       {/* Summary */}
       <div className="rounded-[10px] bg-surface-subtle px-3 py-2.5">
@@ -372,10 +385,10 @@ export function DatePicker({
           <span className="h-2 w-2 rounded-full bg-brand-deep" aria-hidden="true" />
           {t.legendWeekend.replace("{days}", weekendNames)}
         </span>
-        <span className="inline-flex items-center gap-1.5">
+        {/* <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-status-warning" aria-hidden="true" />
           {t.legendChanged}
-        </span>
+        </span> */}
         <span className="inline-flex items-center gap-1.5">
           <span
             className="h-2 w-2 rounded-full border-[1.5px] border-brand-deep"

@@ -14,11 +14,26 @@ export const fetchRatesAvailabilityContracts = async ({
   page,
   limit,
   search,
-}: FetchHotelContractsParams & { search?: string }): Promise<RatesAvailabilityContractsData> => {
+  from,
+  to,
+  includeExpired,
+}: FetchHotelContractsParams & {
+  search?: string;
+  from?: string;
+  to?: string;
+  includeExpired?: boolean;
+}): Promise<RatesAvailabilityContractsData> => {
   const response = await api.get<ApiResponse<RatesAvailabilityContractsData>>(
     endpoints.ratesAvailability.contracts(String(hotelId)),
     {
-      params: { page, limit, search: search || undefined },
+      params: {
+        page,
+        limit,
+        search: search || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        includeExpired,
+      },
     },
   );
 
@@ -30,6 +45,10 @@ interface UseRatesAvailabilityContractsParams {
   page: number;
   limit: number;
   search?: string;
+  /** Contract period filter; both are left out unless a full range is picked. */
+  from?: string | undefined;
+  to?: string | undefined;
+  includeExpired?: boolean | undefined;
 }
 
 export const useRatesAvailabilityContracts = ({
@@ -37,15 +56,31 @@ export const useRatesAvailabilityContracts = ({
   page,
   limit,
   search = "",
+  from = "",
+  to = "",
+  includeExpired = false,
 }: UseRatesAvailabilityContractsParams) => {
   const { data, error, isLoading, refetch } = useQuery({
-    queryKey: ["rates-availability", "contracts", hotelId, page, limit, search],
+    queryKey: [
+      "rates-availability",
+      "contracts",
+      hotelId,
+      page,
+      limit,
+      search,
+      from,
+      to,
+      includeExpired,
+    ],
     queryFn: () =>
       fetchRatesAvailabilityContracts({
         hotelId: hotelId!,
         page,
         limit,
         search,
+        from,
+        to,
+        includeExpired,
       }),
     enabled: hotelId !== undefined && hotelId !== null,
   });

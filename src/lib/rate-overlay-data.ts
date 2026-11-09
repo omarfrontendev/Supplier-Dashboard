@@ -1025,6 +1025,11 @@ export const liveGrid = {
   seasonsLoading: t("Loading seasons…", "جارٍ تحميل المواسم…"),
   seasonsError: t("We couldn't load this contract's seasons.", "تعذّر تحميل مواسم هذا العقد."),
   roomsPickContract: t("Pick a contract to see its rooms.", "اختر عقدًا لعرض غرفه."),
+  selectContractTitle: t("Select a Contract", "اختر عقدًا"),
+  selectContractFirst: t(
+    "Please select a contract to view the Rate Calendar and access calendar controls.",
+    "يُرجى اختيار عقد لعرض تقويم الأسعار والوصول إلى أدوات التحكم في التقويم.",
+  ),
   roomsLoading: t("Loading rooms…", "جارٍ تحميل الغرف…"),
   roomsError: t("We couldn't load this contract's rooms.", "تعذّر تحميل غرف هذا العقد."),
   roomsEmpty: t("This contract has no rooms yet.", "لا توجد غرف في هذا العقد بعد."),

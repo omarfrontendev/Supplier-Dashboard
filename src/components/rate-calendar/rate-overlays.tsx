@@ -1601,6 +1601,7 @@ export function NightStatusOverlay({
   current,
   onApply,
   needsSla = false,
+  slaDefaults,
   saving = false,
 }: {
   room?: string | undefined;
@@ -1615,7 +1616,16 @@ export function NightStatusOverlay({
         sla?: { slaMinutes: number; expiryAction: "auto_reject" | "escalate_to_hoteliana" },
       ) => void)
     | undefined;
+  /** Show the SLA fields when On Request is chosen; their final values are always sent. */
   needsSla?: boolean;
+  /**
+   * The fields' starting values: the night's own effective On Request SLA when it
+   * already is On Request, otherwise the contract's inherited SLA. Never changed here.
+   */
+  slaDefaults?:
+    | { slaMinutes: number; expiryAction: "auto_reject" | "escalate_to_hoteliana" }
+    | null
+    | undefined;
   saving?: boolean;
 }) {
   const { lang } = useLanguage();
@@ -1624,14 +1634,28 @@ export function NightStatusOverlay({
   const f = oneNightStates;
   const [state, setState] = useState<string>(current ?? "request");
   const [hint, setHint] = useState(false);
-  const [slaMinutes, setSlaMinutes] = useState("30");
+  /* The SLA fields start from the contract's SLA (30 min / auto reject when it has none). */
+  const defaultSlaMinutes = String(slaDefaults?.slaMinutes ?? 30);
+  const defaultExpiry = slaDefaults?.expiryAction ?? "auto_reject";
+  const [slaMinutes, setSlaMinutes] = useState(defaultSlaMinutes);
   const [expiryAction, setExpiryAction] = useState<"auto_reject" | "escalate_to_hoteliana">(
-    "auto_reject",
+    defaultExpiry,
   );
+  /* Once the supplier edits the fields, late-loading defaults leave them alone. */
+  const slaTouched = useRef(false);
+  useEffect(() => {
+    if (slaTouched.current) return;
+    setSlaMinutes(defaultSlaMinutes);
+    setExpiryAction(defaultExpiry);
+  }, [defaultSlaMinutes, defaultExpiry]);
   const slaAsked = Boolean(onApply) && needsSla && state === "request";
   const slaNumber = Number(slaMinutes);
   const slaBad =
     slaAsked && (!Number.isInteger(slaNumber) || slaNumber < 10 || slaNumber > 120);
+  /* An SLA edit on a night that is already On Request is a change of its own. */
+  const slaChanged =
+    slaAsked && (slaNumber !== Number(defaultSlaMinutes) || expiryAction !== defaultExpiry);
+  const unchanged = state === current && !(state === "request" && slaChanged);
 
   return (
     <IconModal
@@ -1649,7 +1673,7 @@ export function NightStatusOverlay({
           }
         >
           <Button
-            disabled={saving || slaBad || (onApply !== undefined && state === current)}
+            disabled={saving || slaBad || (onApply !== undefined && unchanged)}
             onClick={() => {
               if (!onApply) return onClose();
               onApply(
@@ -1709,7 +1733,10 @@ export function NightStatusOverlay({
             <input
               inputMode="numeric"
               value={slaMinutes}
-              onChange={(e) => setSlaMinutes(e.target.value)}
+              onChange={(e) => {
+                slaTouched.current = true;
+                setSlaMinutes(e.target.value);
+              }}
               aria-invalid={slaBad}
               className="h-9 w-20 rounded-lg border border-border-default bg-surface-default px-2 text-[12.5px]"
             />
@@ -1724,7 +1751,10 @@ export function NightStatusOverlay({
                 <input
                   type="radio"
                   checked={expiryAction === value}
-                  onChange={() => setExpiryAction(value)}
+                  onChange={() => {
+                    slaTouched.current = true;
+                    setExpiryAction(value);
+                  }}
                   className="accent-[var(--brand-deep)]"
                 />
                 {liveGrid.expiry[value][k]}
@@ -3270,6 +3300,8 @@ export function ContractPickerOverlay({
   value,
   includeEnded,
   onIncludeEnded,
+  dates,
+  onDates,
   onPick,
   onClose,
   search,
@@ -3287,9 +3319,12 @@ export function ContractPickerOverlay({
   value: number | null;
   includeEnded: boolean;
   onIncludeEnded: (next: boolean) => void;
+  /** The contract period filter; null means no dates are picked. */
+  dates: { start: string; end: string } | null;
+  onDates: (next: { start: string; end: string } | null) => void;
   onPick: (id: number) => void;
   onClose: () => void;
-  /** Search and paging are done by the backend; `contracts` is one server page. */
+  /** Search, dates, ended contracts and paging are done by the backend; `contracts` is one server page. */
   search: string;
   searchActive: boolean;
   onSearch: (next: string) => void;
@@ -3300,14 +3335,11 @@ export function ContractPickerOverlay({
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = contractPicker;
-  const [dates, setDates] = useState<{ start: string; end: string } | null>(null);
+  const setDates = onDates;
   const shown = contracts.filter(
     (contract) => includeEnded || !ENDED_STATUSES.includes(contract.status),
   );
-  const pageRows = shown.filter(
-    (contract) =>
-      !dates || (contract.startDate.slice(0, 10) <= dates.end && contract.endDate.slice(0, 10) >= dates.start),
-  );
+  const pageRows = shown;
   const rows = pageRows;
   const pages = Math.max(1, totalPages);
   const setPage = onPageChange;
@@ -3326,7 +3358,7 @@ export function ContractPickerOverlay({
       title={c.title[k]}
       onClose={onClose}
     >
-      {!error && (searchActive || (!loading && shown.length > 0)) && (
+      {!error && (searchActive || dates || (!loading && shown.length > 0)) && (
         <>
           <PickerSearch
             value={search}
@@ -3366,7 +3398,7 @@ export function ContractPickerOverlay({
         loadingText={c.loading[k]}
         errorText={c.error[k]}
         emptyText={
-          searchActive || (dates && shown.length > 0)
+          searchActive || dates
             ? pickerSearch.noMatch[k]
             : contracts.length === 0
               ? c.empty[k]
