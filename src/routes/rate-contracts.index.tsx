@@ -1062,13 +1062,13 @@ function ContractRow({
           >
             {rowAction(item, t)}
           </Button>
-        ) : (
+        ) : item.status === "draft" || item.status === "terminated" ? (
           <Link to="/rate-contracts/$contractId" params={{ contractId: item.id }}>
             <Button size="sm" variant="outline">
               {rowAction(item, t)}
             </Button>
           </Link>
-        )}
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon-sm" aria-label={t.actions}>
@@ -1391,7 +1391,5 @@ function rowAction(item: SupplyContract, t: typeof copy.en) {
       ? t.resume
       : item.status === "expired"
         ? t.copyPeriod
-        : item.status === "terminated"
-          ? t.view
-          : t.open;
+        : t.view;
 }
