@@ -99,6 +99,8 @@ export interface BasePriceRoom {
 
 export interface BaseSupplements {
   baseRoomId: number | null;
+  /** View picked for the base room; null falls back to the room's own view. */
+  baseRoomView: RoomView | null;
   weekdayBaseCost: string;
   weekendBaseCost: string;
   rooms: BasePriceRoom[];

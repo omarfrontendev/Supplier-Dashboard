@@ -159,6 +159,7 @@ const pricingDraftKey = (draft: ContractDraftState, includeWeekendDays = true) =
     ...(includeWeekendDays ? { weekendDays: [...draft.basics.weekendDays].sort() } : {}),
     baseSupplements: {
       baseRoomId: draft.baseSupplements.baseRoomId,
+      baseRoomView: draft.baseSupplements.baseRoomView,
       weekdayBaseCost: amountForComparison(draft.baseSupplements.weekdayBaseCost),
       weekendBaseCost: amountForComparison(draft.baseSupplements.weekendBaseCost),
       rooms: [...draft.baseSupplements.rooms]
@@ -537,6 +538,7 @@ function pricingFieldsFromContract(contract: SupplierHotelContract) {
       weekendDays,
       baseSupplements: {
         baseRoomId: baseRoom?.roomId ?? null,
+        baseRoomView: baseRoom ? roomViewFromApi(baseRoom.view) : null,
         weekdayBaseCost: baseRate.weekday,
         weekendBaseCost: weekPricing === "weekday_weekend" ? baseRate.weekend : "",
         rooms: (pricing?.rooms ?? []).map((room) => ({
@@ -556,6 +558,7 @@ function pricingFieldsFromContract(contract: SupplierHotelContract) {
     weekendDays,
     baseSupplements: {
       baseRoomId: null,
+      baseRoomView: null,
       weekdayBaseCost: "",
       weekendBaseCost: "",
       rooms: [],

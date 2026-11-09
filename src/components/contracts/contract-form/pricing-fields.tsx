@@ -1,28 +1,42 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 
+import { useContractHotelRooms } from "@/api/modules/hotel-contract/useContractHotelRooms";
+import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
 import { ChoiceRow } from "@/components/contracts/contract-parts";
 import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { roomViewOptions } from "@/lib/contracts/room-views";
 import { fill, useLanguage } from "@/lib/i18n";
 import {
   setBaseCost,
   setBaseRoom,
+  setBaseRoomView,
   setPricingModel,
   setWeekPricing,
 } from "@/store/features/contracts/contract-draft.slice";
-import type { PricingModel, WeekPricing } from "@/store/features/contracts/types";
+import type { PricingModel, RoomView, WeekPricing } from "@/store/features/contracts/types";
 import { ContractRoomSelect } from "./room-select";
 import { AmountInput, useAppDispatch, useContractDraft } from "./shared";
 
 export function PricingFields({ modelLocked = false }: { modelLocked?: boolean }) {
-  const { c } = useLanguage();
+  const { c, lang } = useLanguage();
   const t = c.builder;
   const f = t.form;
   const dispatch = useAppDispatch();
   const draft = useContractDraft();
   const { basics, pricingModel, weekPricing, baseSupplements, fixedRooms } = draft;
   const [pendingModel, setPendingModel] = useState<PricingModel | null>(null);
+  const metadata = useHotelContractsMetadata();
+  const roomsQuery = useContractHotelRooms(basics.hotelId, { page: 1, limit: 100 });
+  const baseRoom = roomsQuery.data?.rooms.find((room) => room.id === baseSupplements.baseRoomId);
+  const baseViewOptions = roomViewOptions(
+    roomsQuery.data?.rooms ?? [],
+    baseRoom?.roomSizeId ?? null,
+    metadata.data?.roomViews,
+    lang,
+  );
 
   const split = weekPricing === "weekday_weekend";
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
@@ -89,6 +103,19 @@ export function PricingFields({ modelLocked = false }: { modelLocked?: boolean }
             />
             <p className="mt-1.5 text-xs leading-relaxed text-text-muted">{f.baseRoomHint}</p>
           </div>
+          {baseSupplements.baseRoomId !== null && (
+            <Select
+              label={f.view}
+              placeholder={f.viewPh}
+              loading={metadata.isLoading || roomsQuery.isLoading}
+              {...(metadata.isError ? { loadError: f.roomsError } : {})}
+              onRetry={() => void metadata.refetch()}
+              value={baseSupplements.baseRoomView ?? ""}
+              onChange={(value) => dispatch(setBaseRoomView(value ? (value as RoomView) : null))}
+              options={baseViewOptions}
+              clearable
+            />
+          )}
           <AmountInput
             label={split ? f.weekdayBaseCost : f.baseCost}
             {...currencySuffix}

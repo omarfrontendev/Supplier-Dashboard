@@ -463,8 +463,11 @@ export function ContractBuilder({
   const savedBaseRoom = saved?.pricing?.baseRoom;
   const matchingSavedBaseRoom =
     savedBaseRoom?.roomId === draft.baseSupplements.baseRoomId ? savedBaseRoom : undefined;
-  const baseRoomDataAvailable = Boolean(baseRoomDetails || matchingSavedBaseRoom);
-  const baseRoomView = baseRoomDetails?.view ?? matchingSavedBaseRoom?.view;
+  const pickedBaseRoomView = draft.baseSupplements.baseRoomView;
+  const baseRoomDataAvailable = Boolean(
+    pickedBaseRoomView || baseRoomDetails || matchingSavedBaseRoom,
+  );
+  const baseRoomView = pickedBaseRoomView ?? baseRoomDetails?.view ?? matchingSavedBaseRoom?.view;
   const basePricingRoomView = baseRoomDataAvailable ? (baseRoomView ?? "no_view") : undefined;
   if (draft.baseSupplements.baseRoomId !== null && baseRoomDataAvailable) {
     addInventoryVariation(
@@ -671,7 +674,10 @@ export function ContractBuilder({
     const baseRoomView =
       baseRoomId === null
         ? "no_view"
-        : (selectedRoomDetails[baseRoomId]?.view ?? saved?.pricing?.baseRoom?.view ?? "no_view");
+        : (draft.baseSupplements.baseRoomView ??
+          selectedRoomDetails[baseRoomId]?.view ??
+          saved?.pricing?.baseRoom?.view ??
+          "no_view");
     const baseRate = review?.contract.pricing?.baseRoom?.rate ?? undefined;
     const baseRoomValue = fixed
       ? t.modelFixed

@@ -24,6 +24,7 @@ import {
   type PricingModel,
   type RoomView,
 } from "@/store/features/contracts/types";
+import { roomViewOptions } from "@/lib/contracts/room-views";
 import { ROOM_SIZES } from "@/lib/room-sizes";
 import { ContractRoomSelect } from "./room-select";
 import { AmountInput, RoomTick, useAppDispatch, useContractDraft } from "./shared";
@@ -86,7 +87,10 @@ export function AddRoomDialog({
     !hasMealPlan && roomId !== "" && view !== "" ? { roomId: Number(roomId), view } : null;
   const selection = fixedSelection ?? supplementSelection;
   const baseRoom = rooms.find((room) => room.id === baseSupplements.baseRoomId);
-  const baseRoomView = ROOM_VIEWS.find((roomView) => roomView === baseRoom?.view) ?? "no_view";
+  const baseRoomView =
+    baseSupplements.baseRoomView ??
+    ROOM_VIEWS.find((roomView) => roomView === baseRoom?.view) ??
+    "no_view";
   const isBaseSupplementVariation =
     supplementSelection !== null &&
     supplementSelection.roomId === baseSupplements.baseRoomId &&
@@ -115,29 +119,8 @@ export function AddRoomDialog({
       const meal = current[plan];
       return meal ? { ...current, [plan]: { ...meal, ...change } } : current;
     });
-  const getViewOptions = (sizeId: number | null) => {
-    const associatedViewIds =
-      sizeId === null
-        ? null
-        : new Set(
-            rooms
-              .filter((room) => room.roomSizeId === sizeId)
-              .flatMap((room) => (room.view ? [room.view] : [])),
-          );
-    const seenViewIds = new Set<string>();
-    return (metadata?.roomViews ?? [])
-      .filter((option) => {
-        if (!ROOM_VIEWS.some((item) => item === option.value)) return false;
-        if (associatedViewIds && !associatedViewIds.has(option.value)) return false;
-        if (seenViewIds.has(option.value)) return false;
-        seenViewIds.add(option.value);
-        return true;
-      })
-      .map((option) => ({
-        value: option.value,
-        label: lang === "ar" ? option.labelAr : option.labelEn,
-      }));
-  };
+  const getViewOptions = (sizeId: number | null) =>
+    roomViewOptions(rooms, sizeId, metadata?.roomViews, lang);
   const viewOptions = getViewOptions(roomSizeId);
 
   return (
