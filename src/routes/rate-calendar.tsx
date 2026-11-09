@@ -286,19 +286,22 @@ function RateCalendarPage() {
   // Seasons come only from the picked contract's details, never from rate targets.
   const contractSeasons = detail && detail.id === pickedContract?.id ? detail.seasons : undefined;
   const liveDetail = live && detail?.id === pickedContract?.id ? detail : undefined;
-  const livePools = liveDetail?.inventory.pools ?? [];
+  // Inventory needs only the contract details, so a contract with no rate
+  // targets still shows its own pool instead of the demo one.
+  const inventoryDetail = detail?.id === pickedContract?.id ? detail : undefined;
+  const livePools = inventoryDetail?.inventory.pools ?? [];
   const nightsOf = (variationId: number | null) => {
     const pool =
       livePools.find((item) => item.variationId === variationId) ??
       (variationId === null ? livePools[0] : undefined);
     return new Map((pool?.nights ?? []).map((night) => [night.stayDate, night]));
   };
-  const liveModel = liveDetail
-    ? liveDetail.bookingType === "on_request"
+  const liveModel = inventoryDetail
+    ? inventoryDetail.bookingType === "on_request"
       ? ("onRequest" as const)
-      : liveDetail.inventoryRules?.mode === "free_sale"
+      : inventoryDetail.inventoryRules?.mode === "free_sale"
         ? ("free" as const)
-        : liveDetail.inventoryRules?.mode === "per_room_type"
+        : inventoryDetail.inventoryRules?.mode === "per_room_type"
           ? ("perRoom" as const)
           : ("pool" as const)
     : undefined;
@@ -1060,9 +1063,33 @@ function RateCalendarPage() {
   const poolLeftAt = (night: number) =>
     gridModel !== "pool"
       ? null
-      : liveDetail
+      : inventoryDetail
         ? (nightsOf(null).get(monthDates[night - 1]!)?.capacity ?? null)
         : (month.poolLeft[night - 1] ?? null);
+  // Live pool header: each shown night's capacity and overbooking limit, as
+  // the contract details return them. No demo numbers in live mode.
+  const poolHeader = (() => {
+    if (!inventoryDetail) return undefined;
+    const sharedNights = nightsOf(null);
+    const shownPool = monthDates.flatMap((day) => {
+      const night = sharedNights.get(day);
+      return night ? [night] : [];
+    });
+    const capacities = shownPool.flatMap((night) =>
+      night.capacity === null ? [] : [night.capacity],
+    );
+    if (!capacities.length) return liveGrid.noStock[k];
+    const num = (value: number) => (ar ? arNum(value) : String(value));
+    const range = (values: number[]) => {
+      const low = Math.min(...values);
+      const high = Math.max(...values);
+      return low === high ? num(low) : `${num(low)}–${num(high)}`;
+    };
+    return fill(liveGrid.poolMetaLive[k], {
+      capacity: range(capacities),
+      overbooking: range(shownPool.map((night) => night.overbookingLimit)),
+    });
+  })();
   const roomLeftAt = (row: GridRow, night: number) =>
     gridModel === "perRoom" || row.inventoryLabel === "left"
       ? (row.inventory[night - 1] ?? null)
@@ -1703,8 +1730,9 @@ function RateCalendarPage() {
           fixedPrice={fixedPrice}
           currency={rateTargets?.currency}
           weekendDays={weekendDays}
-          poolNote={liveDetail && livePools.length === 0 ? liveGrid.noStock[k] : undefined}
-          pool={liveDetail ? liveDetail.inventoryRules?.roomsPerNight : grid.pool}
+          poolNote={poolHeader}
+          poolCapacityLabel={inventoryDetail ? liveGrid.poolCapacity[k] : undefined}
+          pool={inventoryDetail ? undefined : grid.pool}
           perRoomCaps={
             liveDetail
               ? Object.fromEntries(
@@ -1718,7 +1746,7 @@ function RateCalendarPage() {
               : grid.perRoomCaps
           }
           month={
-            liveDetail
+            inventoryDetail
               ? {
                   ...month,
                   poolLeft: monthDates.map((day) => nightsOf(null).get(day)?.capacity ?? -1),
@@ -2436,7 +2464,7 @@ function RateCalendarPage() {
           date={nightDate}
           fixed={fixedPrice}
           onClose={() => setOverlay(null)}
-          {...(liveDetail && nightCell
+          {...(inventoryDetail && nightCell
             ? (() => {
                 const day = isoDay(dateOfNight(month, nightCell.night));
                 const pool = nightsOf(null).get(day);
@@ -2444,7 +2472,7 @@ function RateCalendarPage() {
                   live: {
                     capacity: pool?.capacity ?? null,
                     overbooking: pool?.overbookingLimit ?? 0,
-                    caps: liveDetail.inventory.caps.flatMap((cap) => {
+                    caps: inventoryDetail.inventory.caps.flatMap((cap) => {
                       const max = cap.nights.find((night) => night.stayDate === day)?.maxRooms;
                       const row = allRows.find(
                         (item) => item.target?.variationId === cap.variationId,
