@@ -1522,6 +1522,7 @@ function RateCalendarPage() {
           <DayField
             label={t.from}
             value={contractDetails ? span.start : ""}
+            edge="start"
             span={span}
             weekend={weekendDays}
             onPick={(next) => setSpan(next)}
@@ -1529,6 +1530,7 @@ function RateCalendarPage() {
           <DayField
             label={t.to}
             value={contractDetails ? span.end : ""}
+            edge="end"
             span={span}
             weekend={weekendDays}
             onPick={(next) => setSpan(next)}
@@ -2533,19 +2535,17 @@ function wholeMonth(key: string) {
   };
 }
 
-/**
- * UI 04.1 — From and To. Each opens the same picker on the span the grid
- * is showing, and applying it moves both ends at once.
- */
 export function DayField({
   label,
   value,
+  edge,
   span,
   onPick,
   weekend,
 }: {
   label: string;
   value: string;
+  edge: "start" | "end";
   span: { start: string; end: string };
   onPick: (next: { start: string; end: string }) => void;
   weekend?: number[] | undefined;
@@ -2587,6 +2587,7 @@ export function DayField({
     : lang === "ar"
       ? "اختر التاريخ"
       : "Select date";
+  const seed = value || span.start || span.end;
 
   return (
     <div className="w-full" ref={holder}>
@@ -2623,17 +2624,23 @@ export function DayField({
           <div className="absolute z-50 mt-2 w-[393px] max-w-[calc(100vw-2rem)] start-0">
             <DatePicker
               className="w-full"
+              single
+              shortcuts={false}
               {...(weekend ? { weekend } : {})}
-              value={{
-                start: span.start,
-                end: span.end || span.start,
-              }}
+              {...(edge === "end" && span.start
+                ? { min: span.start, closedHint: t.beforeFromClosed }
+                : {})}
+              {...(seed ? { value: { start: seed, end: null } } : {})}
               onCancel={() => setOpen(false)}
               onApply={(next) => {
-                onPick({
-                  start: next.start,
-                  end: next.end ?? next.start,
-                });
+                if (edge === "start") {
+                  onPick({
+                    start: next.start,
+                    end: span.end && next.start > span.end ? next.start : span.end,
+                  });
+                } else {
+                  onPick({ start: span.start, end: next.start });
+                }
 
                 setOpen(false);
               }}

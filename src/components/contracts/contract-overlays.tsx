@@ -246,6 +246,7 @@ export function FilterPanel({
               <DayField
                 label={ar ? "من تاريخ" : "From"}
                 value={span.start}
+                edge="start"
                 span={span}
                 onPick={setSpan}
               />
@@ -253,6 +254,7 @@ export function FilterPanel({
               <DayField
                 label={ar ? "إلى تاريخ" : "To"}
                 value={span.end}
+                edge="end"
                 span={span}
                 onPick={setSpan}
               />

@@ -72,6 +72,8 @@ export interface DatePickerProps {
   season?: DayRange | undefined;
   /** One night only — a second click moves the night instead of ranging. */
   single?: boolean | undefined;
+  closedHint?: string | undefined;
+  shortcuts?: boolean | undefined;
   /** Fires on every pick, for callers that carry their own footer. */
   onChange?: ((range: DayRange | null) => void) | undefined;
   /** False embeds the picker in a panel that already has Cancel / Apply. */
@@ -104,6 +106,8 @@ export function DatePicker({
   max,
   season,
   single = false,
+  closedHint,
+  shortcuts = true,
   onChange,
   actions = true,
   hint,
@@ -163,6 +167,7 @@ export function DatePicker({
     setCursor(dateOf(from));
   };
 
+  const oneHint = single ? t.singleHint : t.oneHint;
   const weekendNames = weekend.map((d) => t.weekdays[d]).join(ar ? "، " : ", ");
 
   // ---- what the summary box says -------------------------------------
@@ -176,8 +181,8 @@ export function DatePicker({
         hint:
           hint ??
           (min && min > keyOf(new Date(year, month, 1))
-            ? `${t.oneHint} ${t.pastClosed}`
-            : t.oneHint),
+            ? `${oneHint} ${closedHint ?? t.pastClosed}`
+            : oneHint),
         use: `${n(a.getDate())} ${t.monthsShort[a.getMonth()]}`,
       };
     }
@@ -323,30 +328,32 @@ export function DatePicker({
       </div>
 
       {/* Shortcuts */}
-      <div className="flex flex-wrap gap-1.5">
-        {[
-          [t.thisWeekend, () => {
-            const base = new Date();
-            const ahead = (weekend[0] ?? 4) - base.getDay();
-            const from = keyOf(new Date(base.getTime() + ((ahead + 7) % 7) * DAY));
-            shortcut(from, addDays(from, Math.max(weekend.length - 1, 0)));
-          }],
-          [t.next7, () => shortcut(today, addDays(today, 6))],
-          [t.next30, () => shortcut(today, addDays(today, 29))],
-          ...(season
-            ? ([[t.wholeSeason, () => shortcut(season.start, season.end ?? season.start)]] as Array<[string, () => void]>)
-            : []),
-        ].map(([text, run]) => (
-          <button
-            key={text as string}
-            type="button"
-            onClick={run as () => void}
-            className="h-[27px] rounded-full bg-surface-subtle px-2.5 text-[12px] font-medium text-text-primary transition-colors hover:bg-border-subtle"
-          >
-            {text as string}
-          </button>
-        ))}
-      </div>
+      {shortcuts && (
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            [t.thisWeekend, () => {
+              const base = new Date();
+              const ahead = (weekend[0] ?? 4) - base.getDay();
+              const from = keyOf(new Date(base.getTime() + ((ahead + 7) % 7) * DAY));
+              shortcut(from, addDays(from, Math.max(weekend.length - 1, 0)));
+            }],
+            [t.next7, () => shortcut(today, addDays(today, 6))],
+            [t.next30, () => shortcut(today, addDays(today, 29))],
+            ...(season
+              ? ([[t.wholeSeason, () => shortcut(season.start, season.end ?? season.start)]] as Array<[string, () => void]>)
+              : []),
+          ].map(([text, run]) => (
+            <button
+              key={text as string}
+              type="button"
+              onClick={run as () => void}
+              className="h-[27px] rounded-full bg-surface-subtle px-2.5 text-[12px] font-medium text-text-primary transition-colors hover:bg-border-subtle"
+            >
+              {text as string}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Summary */}
       <div className="rounded-[10px] bg-surface-subtle px-3 py-2.5">
@@ -354,7 +361,7 @@ export function DatePicker({
           {label ? label.head : t.pickFirst}
         </p>
         <p className="mt-0.5 text-[12px] leading-[15px] text-text-body">
-          {label ? label.hint : t.oneHint}
+          {label ? label.hint : oneHint}
         </p>
       </div>
 
