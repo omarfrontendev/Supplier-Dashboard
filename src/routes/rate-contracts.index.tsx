@@ -646,9 +646,11 @@ function RateContractsPage() {
         subtitle={t.subtitle}
         right={
           <div className="flex flex-wrap gap-3">
+            {/* Hidden until the backend supports sell status.
             <Link to="/sell-status">
               <Button variant="outline">{t.sellStatus}</Button>
             </Link>
+            */}
             <Gated permission="contracts.create" instead={null}>
               <Link to="/rate-contracts/new" search={{ source: undefined }}>
                 <Button>
@@ -787,12 +789,12 @@ function RateContractsPage() {
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[1260px]">
-            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_.6fr_120px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
+            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_120px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
               <span>{t.contract}</span>
               <span>{t.period}</span>
               <span>{t.allotment}</span>
               <span>{t.confirmation}</span>
-              <span>{t.soldOut}</span>
+              {/* Hidden until the backend returns sell status. <span>{t.soldOut}</span> */}
               <span>{t.release}</span>
               <span>{t.status}</span>
               <span>{t.actions}</span>
@@ -923,8 +925,8 @@ function RateContractsPage() {
         {filtered?.length
           ? t.listFooter
           : lang === "ar"
-            ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول يتيحان التشغيل والتعديل؛ الموقوف مؤقتًا للاستئناف أو النسخ؛ المسودة للمتابعة أو النسخ أو الحذف؛ المنتهي للعرض أو النسخ فقط."
-            : "Row actions depend on the contract state: Active · Scheduled → open, edit operational settings, amend, pause, stop sale, duplicate, terminate · Paused → resume or copy to a new period · Draft → continue, copy to a new period or delete · Expired → copy to a new period · Terminated → view only."}
+            ? "تعتمد إجراءات الصف على حالة العقد: النشط والمجدول للفتح أو الإيقاف المؤقت أو إيقاف البيع أو النسخ أو الإنهاء؛ الموقوف مؤقتًا للاستئناف أو النسخ؛ المسودة للمتابعة أو النسخ أو الحذف؛ المنتهي للعرض أو النسخ فقط."
+            : "Row actions depend on the contract state: Active · Scheduled → open, pause, stop sale, copy to a new period, terminate · Paused → resume or copy to a new period · Draft → continue, copy to a new period or delete · Expired → copy to a new period · Terminated → view only."}
       </p>
       {pending && (
         <ContractActionOverlay
@@ -1033,7 +1035,7 @@ function ContractRow({
             ? "danger"
             : "neutral";
   return (
-    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_.6fr_120px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
+    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_120px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
       <div className="min-w-0">
         <span
           // to="/rate-contracts/$contractId"
@@ -1049,7 +1051,7 @@ function ContractRow({
       </span>
       {/* <span>{item.model === "instant" ? t.instant : t.request}</span> */}
       <span>{bookingTypeLabel(item.bookingType, t)}</span>
-      <span className="text-text-muted">—</span>
+      {/* Hidden until the backend returns sell status. <span className="text-text-muted">—</span> */}
       <span className="text-text-muted">—</span>
 
       <StatusPill tone={tone}>{statusLabel}</StatusPill>
@@ -1172,6 +1174,7 @@ function ContractRow({
                     title={t.open}
                     hint={t.openHint}
                   />
+                  {/* Hidden until the backend supports editing and amending published contracts.
                   <ActionItem
                     to="/rate-contracts/$contractId/edit"
                     params={{ contractId: item.id }}
@@ -1180,6 +1183,7 @@ function ContractRow({
                     hint={t.editHint}
                   />
                   <ActionItem permission="contracts.edit" title={t.amend} hint={t.amendHint} />
+                  */}
                   <DropdownMenuSeparator />
                   <ActionItem
                     permission="contracts.edit"
