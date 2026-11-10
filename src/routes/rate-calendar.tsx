@@ -468,9 +468,9 @@ function RateCalendarPage() {
         const meal = target.mealPlan ? liveGrid.meals[target.mealPlan] : undefined;
         const name = (lang: "en" | "ar") =>
           [
-            (lang === "ar" ? target.roomNameAr : target.roomNameEn) ||
-              target.roomNameEn ||
-              target.roomNameAr ||
+            (lang === "ar" ? target.roomSizeNameAr : target.roomSizeNameEn) ||
+              target.roomSizeNameEn ||
+              target.roomSizeNameAr ||
               `#${target.roomId}`,
             meal?.[lang],
             view?.[lang] ?? target.view,
@@ -719,9 +719,9 @@ function RateCalendarPage() {
     return bothLanguages((lang) =>
       [
         rate
-          ? (lang === "ar" ? rate.roomNameAr : rate.roomNameEn) ||
-            rate.roomNameEn ||
-            rate.roomNameAr ||
+          ? (lang === "ar" ? rate.roomSizeNameAr : rate.roomSizeNameEn) ||
+            rate.roomSizeNameEn ||
+            rate.roomSizeNameAr ||
             `#${variationId}`
           : `#${variationId}`,
         view ? (liveGrid.views[view]?.[lang] ?? view) : null,
@@ -1919,6 +1919,8 @@ function RateCalendarPage() {
         overlay === "release" ||
         overlay === "restrictions") && (
         <BulkRangeOverlay
+          /* Each Bulk operation opens with its own clean form. */
+          key={overlay}
           kind={overlay === "bulk" ? "bulkRates" : overlay}
           contract={(live ? pickedContract!.name : ar ? grid.nameAr : grid.name).toUpperCase()}
           term={contractTerm}
@@ -2998,7 +3000,9 @@ function contractTerms(detail: RatesContractDetail, targets: RateTargetsData, k:
   const base = targets.targets.find((target) => target.kind === "base") ?? targets.targets[0];
   const room = base
     ? [
-        (k === "ar" ? base.roomNameAr : base.roomNameEn) || base.roomNameEn || base.roomNameAr,
+        (k === "ar" ? base.roomSizeNameAr : base.roomSizeNameEn) ||
+          base.roomSizeNameEn ||
+          base.roomSizeNameAr,
         liveGrid.views[base.view]?.[k] ?? base.view,
       ]
         .filter(Boolean)
@@ -3272,8 +3276,8 @@ function inheritedRestrictionRows(
           ? liveRestrictions.allRooms
           : bothLanguages((lang) =>
               room
-                ? (lang === "ar" ? room.roomNameAr : room.roomNameEn) ||
-                  room.roomNameEn ||
+                ? (lang === "ar" ? room.roomSizeNameAr : room.roomSizeNameEn) ||
+                  room.roomSizeNameEn ||
                   `#${rule.roomId}`
                 : `#${rule.roomId}`,
             ),

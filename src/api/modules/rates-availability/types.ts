@@ -81,8 +81,8 @@ export interface RateTarget {
 export interface RateTargetRow {
   variationId: number;
   roomId: number;
-  roomNameEn: string | null;
-  roomNameAr: string | null;
+  roomSizeNameEn: string | null;
+  roomSizeNameAr: string | null;
   view: string;
   kind: string;
   mealPlan?: RatesMealPlan;

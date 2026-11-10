@@ -318,7 +318,8 @@ export const bulkCopy = {
   /* ------------------------------------------- the nights, once picked */
   nightsPicked: t("{nights} · {ranges}", "{nights} · {ranges}"),
   rangeChip: t("{when} · {nights}", "{when} · {nights}"),
-  clearNights: t("Clear nights", "\u0627\u0645\u0633\u062d \u0627\u0644\u0644\u064a\u0627\u0644\u064a"),
+  removeNight: t("Remove night", "إزالة الليلة"),
+  clearNights: t("Clear nights","\u0627\u0645\u0633\u062d \u0627\u0644\u0644\u064a\u0627\u0644\u064a"),
   pickedHint: t(
     "{nights} · {weekdays} and {weekend}. Choose the rooms and what to set below, then press + Add to put it in your list.",
     "{nights} · {weekdays} و{weekend}. اختر الغرف وما تريد ضبطه أدناه، ثم اضغط + أضف لتضعه في قائمتك."

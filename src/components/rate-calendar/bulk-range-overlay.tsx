@@ -585,6 +585,13 @@ export function BulkRangeOverlay({
 
   /* ------------------------------------------- live restriction operation */
   const allRoomsPicked = rooms.includes(roomList[0]!.en);
+  /* What the rooms checkboxes show: "All rooms" covers every room, and every room
+     picked one by one shows "All rooms" as picked too (the stored picks are unchanged). */
+  const roomChoices = roomList.slice(1);
+  const everyRoomShown =
+    allRoomsPicked ||
+    (roomChoices.length > 0 && roomChoices.every((room) => rooms.includes(room.en)));
+  const someRoomShown = !everyRoomShown && roomChoices.some((room) => rooms.includes(room.en));
   const pickedIsos = [...new Set(pickedDates.map(isoOf))].sort();
   const minText = minNights.trim();
   const minValid = minText === "" || (/^\d+$/.test(minText) && Number(minText) <= 365);
@@ -885,6 +892,22 @@ export function BulkRangeOverlay({
     setEditingRule(null);
   };
 
+  /* After a successful apply/save: the whole form back to how it opened. */
+  const resetForm = () => {
+    clearForm();
+    setPicking(false);
+    setDays([0, 1, 2, 3, 4, 5, 6]);
+    setPriceMode("apart");
+    setSetTo("stopSale");
+    setReleaseMode("days");
+    setReleaseDays("3");
+    setReleaseAt("18:00");
+    setAppliesOn("every");
+    setShut({});
+    setNightChecks({});
+    setStale(false);
+  };
+
   /* Live bulk rates: the page builds the operations from exactly what the form holds. */
   const rateOperations = (): RateOperation[] | undefined =>
     liveRt && picked[0]
@@ -930,9 +953,15 @@ export function BulkRangeOverlay({
         splitInto ? ` · ${fill(lr.splitNote[key], { count: n(splitInto) })}` : ""
       }`;
     const editing = live && editingRule !== null ? editingRule : undefined;
+    /* Stop sale keeps its form after Add, so a second Add of the same edited rule replaces the first. */
+    const editingStatus = kind === "stopSale" && editingRule !== null ? editingRule : undefined;
     setLines((current) => [
       /* One staged change per live rule: a newer edit replaces the older one. */
-      ...current.filter((line) => editing === undefined || line.ruleId !== editing),
+      ...current.filter(
+        (line) =>
+          (editing === undefined || line.ruleId !== editing) &&
+          (editingStatus === undefined || line.payload?.ruleId !== editingStatus),
+      ),
       {
         id: `L-${Date.now()}`,
         what: headline,
@@ -953,7 +982,22 @@ export function BulkRangeOverlay({
       },
     ]);
     setNote({ kind: "added", what: headline });
-    clearForm();
+    if (kind !== "stopSale") {
+      clearForm();
+      return;
+    }
+    /* Stop sale / On Request: only the nights, the rooms and the type start over for the
+       next Add; the list and everything else stay. The full reset is resetForm in confirm. */
+    setPicking(false);
+    setPicked([]);
+    setRooms([]);
+    setSetTo("stopSale");
+    /* Leaving On Request drops its SLA, as the type radio does. */
+    slaTouched.current = false;
+    setSlaMinutes(defaultSlaMinutes);
+    setExpiryAction(defaultExpiry);
+    /* The staged line carries the edited rule; the next Add is a new change. */
+    setEditingRule(null);
   };
 
   const [applying, setApplying] = useState(false);
@@ -1211,6 +1255,8 @@ export function BulkRangeOverlay({
     setLines([]);
     setReviewing(false);
     setFinished(true);
+    /* Only reached once every save above succeeded: failures and stale returns keep the form. */
+    resetForm();
   };
 
   /* ------------------------------------------------- OV 04.B*RV, review */
@@ -1408,14 +1454,16 @@ export function BulkRangeOverlay({
       onClose={onClose}
       width="max-w-[1000px]"
       footer={
-        finished ? (
+        /* Bulk rates and stop sale stay open for another round after a save,
+           so they keep their way back to review too. */
+        finished && !oneRange && kind !== "stopSale" ? (
           <Button variant="outline" onClick={onClose}>
             {c.done[k]}
           </Button>
         ) : oneRange ? (
           <>
             <Button variant="outline" onClick={onClose}>
-              {c.cancel[k]}
+              {finished ? c.done[k] : c.cancel[k]}
             </Button>
             <Button
               disabled={!canAdd}
@@ -1428,7 +1476,8 @@ export function BulkRangeOverlay({
         ) : (
           <>
             <Button variant="outline" onClick={onClose}>
-              {c.cancel[k]}
+              {/* Only stop sale reaches this footer once finished. */}
+              {finished ? c.done[k] : c.cancel[k]}
             </Button>
             <div className="flex flex-wrap items-center gap-3">
               {lines.length === 0 && (
@@ -1624,12 +1673,29 @@ export function BulkRangeOverlay({
                 {picked.map((item) => (
                   <span
                     key={item.id}
-                    className="rounded-md bg-surface-subtle px-2.5 py-1 text-[11.5px] text-text-primary"
+                    className={cn(
+                      "rounded-md bg-surface-subtle px-2.5 py-1 text-[11.5px] text-text-primary",
+                      kind === "stopSale" && "inline-flex items-center gap-1.5 pe-1.5",
+                    )}
                   >
                     {fill(c.rangeChip[k], {
                       when: rangeLabel(item),
                       nights: say(item.nights, nightsWord),
                     })}
+                    {/* Stop sale: take out this one range only; what is staged follows the chips. */}
+                    {kind === "stopSale" && (
+                      <button
+                        type="button"
+                        aria-label={c.removeNight[k]}
+                        title={c.removeNight[k]}
+                        onClick={() =>
+                          setPicked((current) => current.filter((other) => other.id !== item.id))
+                        }
+                        className="grid h-4 w-4 place-content-center rounded-sm text-text-quiet transition-colors hover:bg-status-danger-bg hover:text-status-danger"
+                      >
+                        <X className="h-3 w-3" aria-hidden />
+                      </button>
+                    )}
                   </span>
                 ))}
                 <button
@@ -1674,18 +1740,31 @@ export function BulkRangeOverlay({
 
           <Section label={c.rooms[k]}>
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-              {roomList.map((room) => (
+              {/* "All rooms" still stores only its own entry, exactly as before;
+                  every room just shows as covered by it. */}
+              <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
+                <Checkbox
+                  checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
+                  onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
+                  className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
+                />
+                {roomList[0]![k]}
+              </label>
+              {roomChoices.map((room) => (
                 <label
                   key={room.en}
                   className="flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary"
                 >
                   <Checkbox
-                    checked={rooms.includes(room.en)}
+                    checked={allRoomsPicked || rooms.includes(room.en)}
                     onCheckedChange={(value) =>
                       setRooms((current) =>
                         value === true
                           ? [...current, room.en]
-                          : current.filter((r) => r !== room.en)
+                          : /* Leaving "All rooms" by one room keeps the others picked. */
+                            current.includes(roomList[0]!.en)
+                            ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
+                            : current.filter((r) => r !== room.en)
                       )
                     }
                   />
@@ -1791,7 +1870,15 @@ export function BulkRangeOverlay({
               <RadioGroup
                 className="flex flex-wrap items-center gap-x-5 gap-y-2"
                 value={setTo}
-                onValueChange={setSetTo}
+                onValueChange={(value) => {
+                  /* Leaving On Request drops its SLA: choosing it again starts from the defaults. */
+                  if (value !== "onRequest") {
+                    slaTouched.current = false;
+                    setSlaMinutes(defaultSlaMinutes);
+                    setExpiryAction(defaultExpiry);
+                  }
+                  setSetTo(value);
+                }}
               >
                 {(
                   [
