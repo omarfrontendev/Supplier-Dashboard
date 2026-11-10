@@ -1174,6 +1174,9 @@ function RateCalendarPage() {
         .map((meal) => ({
           label: liveGrid.meals[meal.type]?.[k] ?? meal.type,
           value: `+${num(meal.price ?? 0)} ${rateTargets?.currency ?? ""} ${unit(meal.pricingBasis)}`,
+          type: meal.type,
+          price: meal.price,
+          unit: `${rateTargets?.currency ?? ""} ${unit(meal.pricingBasis)}`.trim(),
         })),
       pool:
         capacity === null
@@ -2601,8 +2604,10 @@ function RateCalendarPage() {
                 .filter((date) => value.weekdays.includes(date.getDay()))
                 .map(isoDay);
               const targets = pickedTargets();
+              /* Fixed Price never edits meal plans here. */
+              const meals = fixedPrice ? [] : value.meals;
               void previewNightRates(
-                value.priceChanged || !value.children.length
+                value.priceChanged || (!value.children.length && !meals.length)
                   ? [
                       {
                         action: "set",
@@ -2614,17 +2619,31 @@ function RateCalendarPage() {
                     ]
                   : [],
                 false,
-                value.children.length
+                value.children.length || meals.length
                   ? [
                       {
                         targets: [...new Set(targets.map((target) => target.variationId))].map(
                           (variationId) => ({ variationId }),
                         ),
                         dates,
-                        childChanges: value.children.map((band) => ({
-                          ...band,
-                          action: "set" as const,
-                        })),
+                        /* Guide p.5: a price-only set; the meal's basis and availability are kept. */
+                        ...(meals.length
+                          ? {
+                              mealChanges: meals.map((meal) => ({
+                                type: meal.type,
+                                action: "set" as const,
+                                price: meal.price,
+                              })),
+                            }
+                          : {}),
+                        ...(value.children.length
+                          ? {
+                              childChanges: value.children.map((band) => ({
+                                ...band,
+                                action: "set" as const,
+                              })),
+                            }
+                          : {}),
                       },
                     ]
                   : [],
