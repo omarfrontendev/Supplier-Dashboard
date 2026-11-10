@@ -214,6 +214,11 @@ interface Line {
   ruleId?: number | undefined;
   /** Stop sale / On Request: the form this line was added from, so Edit can put it back. */
   stopSale?: StopSaleDraft | undefined;
+  /**
+   * Stop sale: a list item as it was before its first saved edit, for Undo changes.
+   * Never set on a staged edit of a saved rule - there the rule as loaded is the original.
+   */
+  original?: Line | undefined;
 }
 
 /**
@@ -965,6 +970,24 @@ export function BulkRangeOverlay({
     setEditingLine(null);
     if (leavingEdit) setDays(EVERY_DAY);
   };
+  /**
+   * Undo changes on an updated item (not Cancel of an open edit): a list item goes back
+   * to its original at the same id and position; a staged edit of a saved rule is dropped,
+   * which leaves the rule exactly as loaded. Nothing else in the list moves.
+   */
+  const undoStopSaleChanges = (line: Line) => {
+    if (line.stopSale?.ruleId !== undefined) {
+      setLines((current) => current.filter((item) => item.id !== line.id));
+    } else if (line.original) {
+      const original = line.original;
+      setLines((current) => current.map((item) => (item.id === line.id ? original : item)));
+    } else {
+      return;
+    }
+    /* An open edit of this item would otherwise save over the restored one. */
+    if (editingLine === line.id) restartStopSale(true);
+    setNote(null);
+  };
   /** The staged change for a saved rule, which the list shows in that rule's own row. */
   const stagedEditOf = (ruleId: number | undefined) =>
     ruleId === undefined
@@ -1049,7 +1072,15 @@ export function BulkRangeOverlay({
       stopSale: stopSaleDraft(),
     };
     if (lineId !== null) {
-      const replace = (list: Line[]) => list.map((line) => (line.id === lineId ? next : line));
+      /* A list item keeps its state from before the first edit, so Undo changes goes all the way back. */
+      const replace = (list: Line[]) =>
+        list.map((line) =>
+          line.id === lineId
+            ? ruleId === undefined
+              ? { ...next, original: line.original ?? line }
+              : next
+            : line,
+        );
       setLines(replace);
       /* Demo only: a line already saved in this session is edited where it is shown. */
       setSaved(replace);
@@ -2540,6 +2571,18 @@ export function BulkRangeOverlay({
                   </StatusPill>
                   {!removed.includes(line.id) && (
                     <span className="flex items-center gap-3 text-[11.5px] font-medium">
+                      {/* Stop sale: only an item edited and saved in this list, until it is applied. */}
+                      {kind === "stopSale" &&
+                        line.original &&
+                        lines.some((item) => item.id === line.id) && (
+                          <button
+                            type="button"
+                            onClick={() => undoStopSaleChanges(line)}
+                            className="text-text-link hover:underline"
+                          >
+                            {stopSaleEditCopy.undoChanges[k]}
+                          </button>
+                        )}
                       <button
                         type="button"
                         /* Stop sale: the line's own form back, held by its id until Save or Cancel. */
@@ -2685,7 +2728,17 @@ export function BulkRangeOverlay({
                               ? c.newDraft[k]
                               : c.live[k]}
                       </StatusPill>
-                      <span className="flex items-center gap-3 text-[11.5px] font-medium">
+                      <span className="flex items-center justify-end w-full gap-3 text-[11.5px] font-medium">
+                        {/* Stop sale: drop this rule's saved edit; the rule shows as loaded again. */}
+                        {staged && (
+                          <button
+                            type="button"
+                            onClick={() => undoStopSaleChanges(staged)}
+                            className="text-text-link hover:underline"
+                          >
+                            {stopSaleEditCopy.undoChanges[k]}
+                          </button>
+                        )}
                         {((!onRemoveExisting && !liveRt) || row.edit) &&
                           /* An edit that cannot rebuild the rule exactly is not offered; Remove stays. */
                           !(live && row.restriction?.lockedReason) &&
