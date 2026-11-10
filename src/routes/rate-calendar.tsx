@@ -92,7 +92,13 @@ import {
   useReleaseTargets,
   useSaveReleaseOverrides,
 } from "@/api/modules/rates-availability/useRelease";
-import { isReleaseIsoDate, ownedNonpastReleaseCells } from "@/lib/release-format";
+import {
+  isReleaseDays,
+  isReleaseIsoDate,
+  isReleaseTime,
+  ownedNonpastReleaseCells,
+  RELEASE_LIMITS,
+} from "@/lib/release-format";
 import {
   useSaveSellControls,
   useSellControlTargets,
@@ -755,7 +761,7 @@ function RateCalendarPage() {
           : null;
   const releaseOverrideRows =
     releaseOpen && releaseRules.data
-      ? releaseRuleRows(releaseRules.data, releaseToday, releaseRoomName)
+      ? releaseRuleRows(releaseRules.data, releaseToday, releaseRoomName, releaseVariationIds)
       : [];
   /* OV 04.1PN - whose prices the grid is showing. Everyone, until asked. */
   const [priceGroup, setPriceGroup] = useState<CalendarGroupId>("everyone");
@@ -3475,14 +3481,44 @@ function inheritedReleaseRow(inherited: unknown, sla: SellControlSla | null): Al
 const RELEASE_CELL_STATUSES = ["effective", "shadowed", "historical"];
 
 /**
+ * A rule's layer, read defensively: "all_rooms" or room-specific, null when
+ * unreadable. All-room and room layers are never confused with each other.
+ */
+function releaseLayerOf(layer: unknown): "all" | "room" | null {
+  if (typeof layer !== "string") return null;
+  if (/^all[_-]?rooms?(_override)?$/i.test(layer)) return "all";
+  if (/^rooms?([_-](specific|override))?$/i.test(layer)) return "room";
+  return null;
+}
+
+/** A rule's own timing, exactly as an edit would resend it; null when it can't be read. */
+function releaseTimingOf(rule: ReleaseRule): NonNullable<
+  NonNullable<AlreadySet["release"]>["seed"]
+>["timing"] | null {
+  if (!isReleaseTime(rule.releaseTime)) return null;
+  if (rule.type === "same_day") return { type: "same_day", releaseTime: rule.releaseTime };
+  if (rule.type === "number_of_days" && isReleaseDays(rule.daysBeforeCheckIn)) {
+    return {
+      type: "number_of_days",
+      daysBeforeCheckIn: rule.daysBeforeCheckIn,
+      releaseTime: rule.releaseTime,
+    };
+  }
+  return null;
+}
+
+/**
  * Live release overrides. Nothing about a rule is guessed: its remaining
- * ownership is used only when every cell checks out, and its timing and
- * layer are not read at all, so Edit stays off and Remove needs ownership.
+ * ownership is used only when every cell checks out, and Edit is offered only
+ * when one edit over the rule's remaining nights - in its own layer, on its own
+ * rooms, with its own timing - would own exactly the cells it owns now.
+ * Otherwise Edit is locked with the reason and Remove stays (when ownership is known).
  */
 function releaseRuleRows(
   rules: ReleaseRule[],
   today: string | null,
   roomName: (variationId: number) => { en: string; ar: string },
+  allVariationIds: number[],
 ): AlreadySet[] {
   return rules
     .filter((rule) => rule.live === true)
@@ -3502,16 +3538,55 @@ function releaseRuleRows(
         );
       const ownedCells = cellsKnown ? ownedNonpastReleaseCells(rule, today!) : [];
       const owned = cellsKnown && ownedCells.length > 0;
-      const current = owned ? rule.cells.filter((cell) => cell.stayDate >= today!) : [];
+      /* Remaining owned cells: effective or shadowed, tonight or later. Historical
+         cells are archived - never resent, never part of the replacement dates. */
+      const current = owned
+        ? rule.cells.filter((cell) => cell.status !== "historical" && cell.stayDate >= today!)
+        : [];
       const dates = [...new Set(current.map((cell) => cell.stayDate))].sort();
-      const ids = [...new Set(current.map((cell) => cell.variationId))];
+      const ids = [...new Set(current.map((cell) => cell.variationId))].sort((a, b) => a - b);
       const shadowed = current.filter((cell) => cell.status === "shadowed").length;
+
+      /* Can one edit rebuild this rule exactly? */
+      const layer = releaseLayerOf(rule.layer);
+      const timing = releaseTimingOf(rule);
+      /* Every remaining (room, night) pair owned: one rooms x nights selection says it. */
+      const fullGrid = ownedCells.length === ids.length * dates.length;
+      /* All rooms expands to the contract's current Room + Views: only exact when the
+         rule owns exactly those. A room rule keeps its own rooms, all of them offered. */
+      const roomsExact =
+        layer === "all"
+          ? allVariationIds.length === ids.length &&
+            allVariationIds.every((id) => ids.includes(id))
+          : ids.every((id) => allVariationIds.includes(id));
+      const editLocked = !owned
+        ? liveRelease.lockedScope
+        : !layer
+          ? liveRelease.lockedLayer
+          : !timing
+            ? liveRelease.lockedTiming
+            : dates.length > RELEASE_LIMITS.selectionNights
+              ? liveRelease.lockedTooManyNights
+              : !fullGrid
+                ? liveRelease.lockedShape
+                : !roomsExact
+                  ? liveRelease.lockedRooms
+                  : undefined;
+      const seed =
+        !editLocked && layer && timing
+          ? {
+              ranges: dateRuns(dates).map((run) => ({ start: run[0]!, end: run[run.length - 1]! })),
+              allRooms: layer === "all",
+              variationIds: layer === "all" ? [] : ids,
+              timing,
+            }
+          : undefined;
       return {
         id: `release-${ruleId || "unknown"}`,
         release: {
           ruleId,
           ownedCells: owned ? ownedCells : undefined,
-          editLocked: liveRelease.editLocked,
+          ...(seed ? { seed } : { editLocked }),
           removeLocked: owned ? undefined : liveRelease.removeLocked,
         },
         when: owned

@@ -131,14 +131,27 @@ export interface AlreadySet {
     lockedReason?: Bi;
   };
   /**
-   * A live release override. Edit stays off until the rule can be rebuilt
-   * exactly; Remove needs its remaining ownership to be known.
+   * A live release override. Edit is offered only with a seed (the rule rebuilt
+   * exactly); otherwise editLocked says why. Remove needs its remaining ownership.
    */
   release?: {
     ruleId: number;
     /** Remaining nonpast owned cells ("variationId|date"); undefined when unconfirmed. */
     ownedCells?: string[] | undefined;
-    editLocked: Bi;
+    /** What Edit puts back in the form. Its layer and rooms are fixed while editing. */
+    seed?:
+      | {
+          ranges: Array<{ start: string; end: string }>;
+          /** all_rooms layer: allRooms:true, never an explicit room list. */
+          allRooms: boolean;
+          /** Room-specific layer: the rule's own variations, exactly. */
+          variationIds: number[];
+          timing:
+            | { type: "number_of_days"; daysBeforeCheckIn: number; releaseTime: string }
+            | { type: "same_day"; releaseTime: string };
+        }
+      | undefined;
+    editLocked?: Bi | undefined;
     removeLocked?: Bi | undefined;
   };
   /** A short line under the rooms, e.g. a rule hidden by a more specific one. */
@@ -578,6 +591,15 @@ export const stopSaleEditCopy = {
   finishEditing: t(
     "Save or cancel the item you are editing first.",
     "\u0627\u062d\u0641\u0638 \u0627\u0644\u0639\u0646\u0635\u0631 \u0627\u0644\u0630\u064a \u062a\u0639\u062f\u0651\u0644\u0647 \u0623\u0648 \u0623\u0644\u063a\u0650 \u0627\u0644\u062a\u0639\u062f\u064a\u0644 \u0623\u0648\u0644\u064b\u0627.",
+  ),
+} as const;
+
+/** Release: the same Edit / Save changes / Undo changes words, with its own editing hint. */
+export const releaseEditCopy = {
+  ...stopSaleEditCopy,
+  editingHint: t(
+    "Change the nights, rooms or release timing, then press Save changes. Cancel leaves the item as it was.",
+    "غيّر الليالي أو الغرف أو توقيت الإصدار، ثم اضغط حفظ التغييرات. والإلغاء يُبقي العنصر كما كان.",
   ),
 } as const;
 

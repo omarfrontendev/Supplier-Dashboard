@@ -349,12 +349,15 @@ export function validateReleaseOperation(
 
 /* ------------------------------------------------------------ batch limits */
 
-/** A rule's remaining nonpast owned cells as "variationId|date" - what an edit/remove clears. */
+/**
+ * A rule's remaining nonpast owned cells as "variationId|date" - what an edit/remove clears.
+ * Historical cells are archived ownership, never live, whatever their date.
+ */
 export function ownedNonpastReleaseCells(rule: ReleaseRule, today: string): string[] {
   return [
     ...new Set(
       rule.cells
-        .filter((cell) => cell.stayDate >= today)
+        .filter((cell) => cell.status !== "historical" && cell.stayDate >= today)
         .map((cell) => `${cell.variationId}|${cell.stayDate}`),
     ),
   ];

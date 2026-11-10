@@ -611,6 +611,12 @@ export interface ReleaseRule {
   id: number;
   live: boolean;
   cells: ReleaseRuleCell[];
+  /** "all_rooms" or room-specific; read defensively - an unknown value locks Edit. */
+  layer?: string;
+  type?: ReleaseTiming["type"];
+  /** number_of_days only; absent for same_day. */
+  daysBeforeCheckIn?: number | null;
+  releaseTime?: string;
   [key: string]: unknown;
 }
 
