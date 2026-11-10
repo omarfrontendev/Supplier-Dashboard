@@ -603,6 +603,19 @@ export const releaseEditCopy = {
   ),
 } as const;
 
+/** Restrictions: the same Edit / Save changes / Undo changes words, with its own editing hints. */
+export const restrictionEditCopy = {
+  ...stopSaleEditCopy,
+  editingHint: t(
+    "Change the nights, rooms, minimum stay or check-in / check-out, then press Save changes. Cancel leaves the item as it was.",
+    "غيّر الليالي أو الغرف أو الحد الأدنى للإقامة أو الوصول / المغادرة، ثم اضغط حفظ التغييرات. والإلغاء يُبقي العنصر كما كان.",
+  ),
+  editingRuleHint: t(
+    "Editing replaces this rule's nights, rooms and values. Change them, then press Save changes. Cancel leaves the rule as it was.",
+    "التعديل يستبدل ليالي هذه القاعدة وغرفها وقيمها. غيّرها ثم اضغط حفظ التغييرات. والإلغاء يُبقي القاعدة كما كانت.",
+  ),
+} as const;
+
 /** What each overlay already has on this contract, as the frames draw it. */
 export const alreadySet: Record<BulkKind, AlreadySet[]> = {
   bulkRates: [
