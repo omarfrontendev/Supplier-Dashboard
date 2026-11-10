@@ -8,6 +8,7 @@ import type {
   RatesCountry,
   RatesHotel,
   RatesMealPlan,
+  SupplementMealType,
 } from "@/api/modules/rates-availability/types";
 import { withCurrency } from "@/lib/rate-grid-data";
 import {
@@ -2060,7 +2061,14 @@ export function OneNightOverlay({
   live?:
     | {
         contract: { weekday: number; weekend: number } | { amount: number } | null;
-        supplements: Array<{ label: string; value: string }>;
+        /* A meal line carries its type and effective price so it can be edited. */
+        supplements: Array<{
+          label: string;
+          value: string;
+          type?: SupplementMealType;
+          price?: number | null;
+          unit?: string;
+        }>;
         pool: string;
         status: string;
         minNights: string;
@@ -2119,6 +2127,8 @@ export function OneNightOverlay({
         weekdays: number[];
         priceChanged: boolean;
         children: ChildBandValue[];
+        /** Only the meal plans whose price was changed; the basis is never sent. */
+        meals: Array<{ type: SupplementMealType; price: number }>;
       }) => void)
     | undefined;
   saving?: boolean | undefined;
@@ -2171,6 +2181,39 @@ export function OneNightOverlay({
   }, [current, currentWeekday]);
   const [view, setView] = useState<"night" | "supplements">("night");
   const nightChildren = useChildBands(childBands ?? []);
+  /* Live Base + Supplements: one draft per meal plan, keyed by its type. */
+  const [mealDraft, setMealDraft] = useState<Partial<Record<SupplementMealType, string>>>({});
+  /* Blank = no change (omitted); otherwise 0 - 10,000,000 with up to two decimals. */
+  const mealAmountOf = (text: string) => {
+    const plain = text
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+      .replace(/٫/g, ".")
+      .trim();
+    if (plain === "") return null;
+    if (!/^\d+(\.\d{1,2})?$/.test(plain)) return NaN;
+    const value = Number(plain);
+    return value > 10_000_000 ? NaN : value;
+  };
+  const mealLines =
+    live && !fixed
+      ? live.supplements.flatMap((line) =>
+          line.type && line.price !== undefined && line.price !== null
+            ? [{ ...line, type: line.type, price: line.price }]
+            : []
+        )
+      : [];
+  const mealShown = (line: (typeof mealLines)[number]) =>
+    mealDraft[line.type] ?? (k === "ar" ? arNum(line.price) : String(line.price));
+  const mealChecks = mealLines.map((line) => ({
+    line,
+    amount: mealDraft[line.type] === undefined ? null : mealAmountOf(mealShown(line)),
+  }));
+  const mealBad = mealChecks.some(({ amount }) => amount !== null && Number.isNaN(amount));
+  const mealEdits = mealChecks.flatMap(({ line, amount }) =>
+    amount === null || Number.isNaN(amount) || amount === line.price
+      ? []
+      : [{ type: line.type, price: amount }]
+  );
   const [perNight, setPerNight] = useState<Record<string, string>>({});
   const [split, setSplit] = useState(false);
   const [perWeekend, setPerWeekend] = useState<Record<string, string>>({});
@@ -2422,7 +2465,9 @@ export function OneNightOverlay({
             {c.cancel[k]}
           </Button>
           <Button
-            disabled={missing || saving || saveBlocked !== undefined || nightChildren.bad}
+            disabled={
+              missing || saving || saveBlocked !== undefined || nightChildren.bad || mealBad
+            }
             title={saveBlocked}
             onClick={() =>
               onSave
@@ -2433,6 +2478,7 @@ export function OneNightOverlay({
                     weekdays: days,
                     priceChanged: typed,
                     children: nightChildren.values,
+                    meals: mealEdits,
                   })
                 : onClose()
             }
@@ -2887,10 +2933,29 @@ export function OneNightOverlay({
               {c.supplementsLabel[k]}
             </span>
           </PanelRow>
-          {live.supplements.map((line) => (
-            <SummaryRow key={line.label} label={line.label} value={line.value} />
-          ))}
+          {live.supplements.map((line) => {
+            const meal = mealLines.find((item) => item.type === line.type);
+            if (!meal) return <SummaryRow key={line.label} label={line.label} value={line.value} />;
+            const amount = mealDraft[meal.type] === undefined ? null : mealAmountOf(mealShown(meal));
+            return (
+              <PanelRow key={line.label}>
+                <span className="min-w-0 flex-1 text-[12.5px] text-text-primary">{line.label}</span>
+                <Box
+                  value={mealShown(meal)}
+                  onChange={(next) => setMealDraft((prev) => ({ ...prev, [meal.type]: next }))}
+                  suffix={meal.unit}
+                  className="w-[190px]"
+                  invalid={amount !== null && Number.isNaN(amount)}
+                />
+              </PanelRow>
+            );
+          })}
         </Panel>
+      )}
+      {!fixed && live && mealBad && (
+        <p className="mt-1.5 text-[11.5px] font-medium text-status-danger">
+          {bulkSupplements.badPrice[k]}
+        </p>
       )}
 
       {/* A fixed-price line has no supplements to carry. */}
