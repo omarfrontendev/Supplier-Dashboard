@@ -42,22 +42,16 @@ export interface BulkRateRow {
 export const bulkRateRows: BulkRateRow[] = contractRooms
   .filter((room) => room.onSale)
   .map((room) => ({
-    room: t(
-      `${room.type} · ${room.view}`,
-      `${room.typeAr} · ${room.viewAr}`
-    ),
+    room: t(`${room.type} · ${room.view}`, `${room.typeAr} · ${room.viewAr}`),
     supplement: room.supplement,
   }));
 
 export const bulkRates = {
-  overline: t(
-    "Makkah Annual Block · Base + supplements",
-    "حصة مكة السنوية · أساس + فروق"
-  ),
+  overline: t("Makkah Annual Block · Base + supplements", "حصة مكة السنوية · أساس + فروق"),
   title: t("Bulk rates", "الأسعار الجماعية"),
   body: t(
     "Set or adjust the room price for many nights at once. Meals keep their per-person supplement from the contract.",
-    "اضبط سعر الغرفة أو عدّله لليالٍ كثيرة دفعة واحدة. وتبقى الوجبات على فرقها لكل شخص من العقد."
+    "اضبط سعر الغرفة أو عدّله لليالٍ كثيرة دفعة واحدة. وتبقى الوجبات على فرقها لكل شخص من العقد.",
   ),
 
   roomsTitle: t("Rooms", "الغرف"),
@@ -70,7 +64,7 @@ export const bulkRates = {
   to2: t("to", "إلى"),
   noDates: t(
     "No dates added yet - pick From and To, choose the days, then Add.",
-    "لم تُضف تواريخ بعد - اختر «من» و«إلى»، وحدّد الأيام، ثم أضف."
+    "لم تُضف تواريخ بعد - اختر «من» و«إلى»، وحدّد الأيام، ثم أضف.",
   ),
   removeRange: t("Delete", "حذف"),
 
@@ -85,7 +79,7 @@ export const bulkRates = {
   supplementRow: t("base + {amount}", "الأساس + {amount}"),
   footNote: t(
     "Other rooms follow the base (+ their supplement from the contract)",
-    "بقية الغرف تتبع الأساس (+ فرقها من العقد)"
+    "بقية الغرف تتبع الأساس (+ فرقها من العقد)",
   ),
 
   cancel: t("Cancel", "إلغاء"),
@@ -117,7 +111,7 @@ export const stopSale = {
   title: t("Stop sale / On Request", "إيقاف البيع / عند الطلب"),
   body: t(
     "Close or open nights for many dates and rooms at once. Prices and rooms held stay as they are.",
-    "أغلق ليالي أو افتحها لتواريخ وغرف كثيرة دفعة واحدة. ويبقى السعر والغرف المحجوزة كما هي."
+    "أغلق ليالي أو افتحها لتواريخ وغرف كثيرة دفعة واحدة. ويبقى السعر والغرف المحجوزة كما هي.",
   ),
 
   alreadySet: t("Already set", "المضبوط بالفعل"),
@@ -133,19 +127,13 @@ export const stopSale = {
   setTo: t("Set these nights to", "اضبط هذه الليالي على"),
   open: t("Open sale", "البيع مفتوح"),
   stop: t("Stop sale", "إيقاف البيع"),
-  request: t(
-    "On Request - the hotel confirms each booking",
-    "عند الطلب - يؤكد الفندق كل حجز"
-  ),
+  request: t("On Request - the hotel confirms each booking", "عند الطلب - يؤكد الفندق كل حجز"),
   requestShort: t("On Request", "عند الطلب"),
 
-  everyContract: t(
-    "Apply to every contract on this hotel",
-    "طبّق على كل عقود هذا الفندق"
-  ),
+  everyContract: t("Apply to every contract on this hotel", "طبّق على كل عقود هذا الفندق"),
   everyContractNote: t(
     "Makkah Annual Block · Ramadan Block · Makkah Rooms Block - useful when the hotel closes a date for everyone.",
-    "حصة مكة السنوية · حصة رمضان · حصة غرف مكة - مفيد حين يغلق الفندق تاريخًا على الجميع."
+    "حصة مكة السنوية · حصة رمضان · حصة غرف مكة - مفيد حين يغلق الفندق تاريخًا على الجميع.",
   ),
 
   cancel: t("Cancel", "إلغاء"),
@@ -186,7 +174,7 @@ export const releaseRange = {
   title: t("Release", "الإفراج"),
   body: t(
     "How many days before arrival unsold rooms go back to the hotel. The contract sets the default; change it here for some nights or rooms.",
-    "كم يومًا قبل الوصول تعود الغرف غير المباعة إلى الفندق. العقد يضع الافتراضي؛ وتغيّره هنا لبعض الليالي أو الغرف."
+    "كم يومًا قبل الوصول تعود الغرف غير المباعة إلى الفندق. العقد يضع الافتراضي؛ وتغيّره هنا لبعض الليالي أو الغرف.",
   ),
 
   inForce: t("Already set", "المضبوط بالفعل"),
@@ -218,7 +206,7 @@ export const nightStatus = {
   room: t("Quad Room · City View", "غرفة رباعية · إطلالة المدينة"),
   body: t(
     "What happens to new bookings for this room on this night.",
-    "ما الذي يحدث للحجوزات الجديدة لهذه الغرفة في هذه الليلة."
+    "ما الذي يحدث للحجوزات الجديدة لهذه الغرفة في هذه الليلة.",
   ),
   options: [
     {
@@ -231,7 +219,7 @@ export const nightStatus = {
       label: t("Stop sale", "إيقاف البيع"),
       note: t(
         "No new bookings. Price and rooms are kept.",
-        "لا حجوزات جديدة. ويُحتفظ بالسعر والغرف."
+        "لا حجوزات جديدة. ويُحتفظ بالسعر والغرف.",
       ),
     },
     {
@@ -239,13 +227,13 @@ export const nightStatus = {
       label: t("On Request", "عند الطلب"),
       note: t(
         "Bookings wait for the hotel to confirm - within the contract SLA.",
-        "تنتظر الحجوزات تأكيد الفندق - ضمن مهلة العقد."
+        "تنتظر الحجوزات تأكيد الفندق - ضمن مهلة العقد.",
       ),
     },
   ] as const,
   footNote: t(
     "More nights or rooms? Use Stop sale / On Request in the toolbar",
-    "ليالٍ أو غرف أكثر؟ استخدم «إيقاف البيع / عند الطلب» في الشريط"
+    "ليالٍ أو غرف أكثر؟ استخدم «إيقاف البيع / عند الطلب» في الشريط",
   ),
   cancel: t("Cancel", "إلغاء"),
   apply: t("Apply", "تطبيق"),
@@ -255,12 +243,12 @@ export const nightStatus = {
 export const oneNight = {
   overline: t(
     "Standard Room · City View · base room",
-    "غرفة ستاندرد · إطلالة المدينة · الغرفة الأساس"
+    "غرفة ستاندرد · إطلالة المدينة · الغرفة الأساس",
   ),
   title: t("Change prices", "تغيير الأسعار"),
   body: t(
     "Room-only price for the nights you pick. The contract stays as it is.",
-    "سعر الغرفة وحدها لليالي التي تختارها. ويبقى العقد كما هو."
+    "سعر الغرفة وحدها لليالي التي تختارها. ويبقى العقد كما هو.",
   ),
 
   /** The frame names the base room on the overline, and the weekend on the date. */
@@ -275,31 +263,22 @@ export const oneNight = {
   /* OV 04.6A-F - what the frames put around the two fields. */
   weekendNightHint: t(
     "Weekend night (Thu, Fri in your contract)",
-    "ليلة نهاية أسبوع (الخميس والجمعة في عقدك)"
+    "ليلة نهاية أسبوع (الخميس والجمعة في عقدك)",
   ),
-  weekdayNightHint: t(
-    "Weekday night",
-    "ليلة يوم أسبوع"
-  ),
+  weekdayNightHint: t("Weekday night", "ليلة يوم أسبوع"),
   /* The split, as two cards rather than two radios on a line. */
   onePriceTitle: t("One price for every night", "سعر واحد لكل ليلة"),
-  onePriceBody: t(
-    "Weekdays and weekend pay the same",
-    "أيام الأسبوع ونهايته بالسعر نفسه"
-  ),
+  onePriceBody: t("Weekdays and weekend pay the same", "أيام الأسبوع ونهايته بالسعر نفسه"),
   apartTitle: t("Weekdays and weekend apart", "أيام الأسبوع ونهايته كلّ على حدة"),
-  apartBody: t(
-    "Two prices, as in your contract",
-    "سعران، كما في عقدك"
-  ),
+  apartBody: t("Two prices, as in your contract", "سعران، كما في عقدك"),
   applyDays: t("Apply to these days", "طبّق على هذه الأيام"),
   allDaysTicked: t(
     "All {n} days are ticked. Untick a day to leave those nights as they are.",
-    "كل الأيام الـ{n} معلّمة. أزل علامة يوم لتترك لياليه كما هي."
+    "كل الأيام الـ{n} معلّمة. أزل علامة يوم لتترك لياليه كما هي.",
   ),
   someDaysTicked: t(
     "{n} of 7 days are ticked. The nights on the days you untick stay as they are.",
-    "{n} من أصل ٧ أيام معلّمة. وليالي الأيام التي تزيل علامتها تبقى كما هي."
+    "{n} من أصل ٧ أيام معلّمة. وليالي الأيام التي تزيل علامتها تبقى كما هي.",
   ),
   weekdaysPrice: t("Weekdays · {nights} · SAR", "أيام الأسبوع · {nights} · ر.س"),
   weekendPriceLabel: t("Weekend · {nights} · SAR", "نهاية الأسبوع · {nights} · ر.س"),
@@ -309,48 +288,48 @@ export const oneNight = {
      why a night outside one says so before you wonder. */
   noSeason: t(
     "These nights are not in a season, so every nationality pays the price above. Nationality prices are set inside a season.",
-    "هذه الليالي ليست في موسم، فكل الجنسيات تدفع السعر أعلاه. وأسعار الجنسيات تُضبط داخل موسم."
+    "هذه الليالي ليست في موسم، فكل الجنسيات تدفع السعر أعلاه. وأسعار الجنسيات تُضبط داخل موسم.",
   ),
   /* OV 04.6N / 04.6G - inside a season the nationality groups apply, so
      the grey band above is replaced by what each group will pay. */
   nationalityHead: t(
     "Nationality prices for these nights",
-    "\u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u062c\u0646\u0633\u064a\u0627\u062a \u0644\u0647\u0630\u0647 \u0627\u0644\u0644\u064a\u0627\u0644\u064a"
+    "\u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u062c\u0646\u0633\u064a\u0627\u062a \u0644\u0647\u0630\u0647 \u0627\u0644\u0644\u064a\u0627\u0644\u064a",
   ),
   nationalitySub: t(
     "From the {season} season \u00b7 everyone else pays the price above",
-    "\u0645\u0646 \u0645\u0648\u0633\u0645 {season} \u00b7 \u0648\u064a\u062f\u0641\u0639 \u0627\u0644\u0628\u0627\u0642\u0648\u0646 \u0627\u0644\u0633\u0639\u0631 \u0623\u0639\u0644\u0627\u0647"
+    "\u0645\u0646 \u0645\u0648\u0633\u0645 {season} \u00b7 \u0648\u064a\u062f\u0641\u0639 \u0627\u0644\u0628\u0627\u0642\u0648\u0646 \u0627\u0644\u0633\u0639\u0631 \u0623\u0639\u0644\u0627\u0647",
   ),
   openSeason: t("Open the season", "\u0627\u0641\u062a\u062d \u0627\u0644\u0645\u0648\u0633\u0645"),
   adjustOnYourPrice: t(
     "{sign} {amount} SAR on your price",
-    "{sign} {amount} \u0631.\u0633 \u0639\u0644\u0649 \u0633\u0639\u0631\u0643"
+    "{sign} {amount} \u0631.\u0633 \u0639\u0644\u0649 \u0633\u0639\u0631\u0643",
   ),
   fixedInSeason: t(
     "Fixed price in the season - keep it or type a new one",
-    "\u0633\u0639\u0631 \u062b\u0627\u0628\u062a \u0641\u064a \u0627\u0644\u0645\u0648\u0633\u0645 \u2014 \u0623\u0628\u0642\u0647 \u0623\u0648 \u0627\u0643\u062a\u0628 \u063a\u064a\u0631\u0647"
+    "\u0633\u0639\u0631 \u062b\u0627\u0628\u062a \u0641\u064a \u0627\u0644\u0645\u0648\u0633\u0645 \u2014 \u0623\u0628\u0642\u0647 \u0623\u0648 \u0627\u0643\u062a\u0628 \u063a\u064a\u0631\u0647",
   ),
   seasonIs: t("Season {price}", "\u0627\u0644\u0645\u0648\u0633\u0645 {price}"),
-  seasonNightHint: t("{tag} \u00b7 {season} season", "{tag} \u00b7 \u0645\u0648\u0633\u0645 {season}"),
+  seasonNightHint: t(
+    "{tag} \u00b7 {season} season",
+    "{tag} \u00b7 \u0645\u0648\u0633\u0645 {season}",
+  ),
   seasonContract: t("{season} {price}", "{season} {price}"),
   /* OV 04.6G / 04.6O - a run of nights can cross a season boundary, and
      the price being typed replaces both sides of it. */
-  twoSeasons: t(
-    "These nights are in {n}",
-    "هذه الليالي في {n}"
-  ),
+  twoSeasons: t("These nights are in {n}", "هذه الليالي في {n}"),
   twoSeasonsBody: t(
     "{list}. The new prices replace both. Each night keeps the nationality rules of its own season.",
-    "{list}. والأسعار الجديدة تستبدل الاثنين. وتحتفظ كل ليلة بقواعد جنسيات موسمها."
+    "{list}. والأسعار الجديدة تستبدل الاثنين. وتحتفظ كل ليلة بقواعد جنسيات موسمها.",
   ),
   seasonSpan: t("{season} {from} - {to} ({nights})", "{season} {from} - {to} ({nights})"),
   seasonsHave: t(
     "{list} have the same groups · everyone else pays the price above",
-    "{list} لها المجموعات نفسها · ويدفع الباقون السعر أعلاه"
+    "{list} لها المجموعات نفسها · ويدفع الباقون السعر أعلاه",
   ),
   fixedInEach: t(
     "Fixed in each season - one price replaces both",
-    "ثابت في كل موسم — وسعر واحد يستبدل الاثنين"
+    "ثابت في كل موسم — وسعر واحد يستبدل الاثنين",
   ),
   seasonsCount: t("{n} seasons", "{n} مواسم"),
 
@@ -359,65 +338,67 @@ export const oneNight = {
      have their own price" is a sentence a reader stops at. */
   alreadyPriced: t(
     "{n} already have their own price",
-    "{n} \u0644\u0647\u0627 \u0633\u0639\u0631\u0647\u0627 \u0627\u0644\u062e\u0627\u0635 \u0628\u0627\u0644\u0641\u0639\u0644"
+    "{n} \u0644\u0647\u0627 \u0633\u0639\u0631\u0647\u0627 \u0627\u0644\u062e\u0627\u0635 \u0628\u0627\u0644\u0641\u0639\u0644",
   ),
-  alreadyPricedOne: t(
-    "{n} already has its own price",
-    "{n} لها سعرها الخاص بالفعل"
-  ),
+  alreadyPricedOne: t("{n} already has its own price", "{n} لها سعرها الخاص بالفعل"),
   alreadyPricedBody: t(
     "{list}. Saving replaces them with this price. Untick those days to keep them.",
-    "{list}. \u0648\u0627\u0644\u062d\u0641\u0638 \u064a\u0633\u062a\u0628\u062f\u0644\u0647\u0627 \u0628\u0647\u0630\u0627 \u0627\u0644\u0633\u0639\u0631. \u0623\u0632\u0644 \u0639\u0644\u0627\u0645\u0629 \u062a\u0644\u0643 \u0627\u0644\u0623\u064a\u0627\u0645 \u0644\u062a\u0628\u0642\u064a\u0647\u0627."
+    "{list}. \u0648\u0627\u0644\u062d\u0641\u0638 \u064a\u0633\u062a\u0628\u062f\u0644\u0647\u0627 \u0628\u0647\u0630\u0627 \u0627\u0644\u0633\u0639\u0631. \u0623\u0632\u0644 \u0639\u0644\u0627\u0645\u0629 \u062a\u0644\u0643 \u0627\u0644\u0623\u064a\u0627\u0645 \u0644\u062a\u0628\u0642\u064a\u0647\u0627.",
   ),
   alreadyPricedBodyOne: t(
     "{list}. Saving replaces it with this price. Untick that day to keep it.",
-    "{list}. والحفظ يستبدله بهذا السعر. أزل علامة ذلك اليوم لتبقيه."
+    "{list}. والحفظ يستبدله بهذا السعر. أزل علامة ذلك اليوم لتبقيه.",
   ),
   nightsClosed: t("{n} are closed", "{n} \u0645\u063a\u0644\u0642\u0629"),
   nightsClosedOne: t("{n} is closed", "{n} مغلقة"),
   nightsClosedBody: t(
     "{list} are closed. The price is saved on them and they stay closed until you open them.",
-    "{list} \u0645\u063a\u0644\u0642\u0629. \u0648\u064a\u064f\u062d\u0641\u0638 \u0627\u0644\u0633\u0639\u0631 \u0639\u0644\u064a\u0647\u0627 \u0648\u062a\u0628\u0642\u0649 \u0645\u063a\u0644\u0642\u0629 \u062d\u062a\u0649 \u062a\u0641\u062a\u062d\u0647\u0627."
+    "{list} \u0645\u063a\u0644\u0642\u0629. \u0648\u064a\u064f\u062d\u0641\u0638 \u0627\u0644\u0633\u0639\u0631 \u0639\u0644\u064a\u0647\u0627 \u0648\u062a\u0628\u0642\u0649 \u0645\u063a\u0644\u0642\u0629 \u062d\u062a\u0649 \u062a\u0641\u062a\u062d\u0647\u0627.",
   ),
   nightsClosedBodyOne: t(
     "{list} is closed. The price is saved on it and it stays closed until you open it.",
-    "{list} مغلقة. ويُحفظ السعر عليها وتبقى مغلقة حتى تفتحها."
+    "{list} مغلقة. ويُحفظ السعر عليها وتبقى مغلقة حتى تفتحها.",
   ),
   bookingsKeep: t(
     "Bookings already made keep their price",
-    "\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u062a\u062d\u062a\u0641\u0638 \u0628\u0633\u0639\u0631\u0647\u0627"
+    "\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u062a\u062d\u062a\u0641\u0638 \u0628\u0633\u0639\u0631\u0647\u0627",
   ),
   bookingsKeepBody: t(
     "{n} are booked on these nights. Their price was locked when they were booked.",
-    "{n} \u0645\u062d\u062c\u0648\u0632\u0629 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0644\u064a\u0627\u0644\u064a. \u0648\u0642\u064f\u0641\u0644 \u0633\u0639\u0631\u0647\u0627 \u0633\u0627\u0639\u0629 \u062d\u062c\u0632\u0647\u0627."
+    "{n} \u0645\u062d\u062c\u0648\u0632\u0629 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0644\u064a\u0627\u0644\u064a. \u0648\u0642\u064f\u0641\u0644 \u0633\u0639\u0631\u0647\u0627 \u0633\u0627\u0639\u0629 \u062d\u062c\u0632\u0647\u0627.",
   ),
   bookedOne: t(
     "{n} is booked on these nights. Its price was locked when it was booked.",
-    "{n} محجوزة في هذه الليالي. وقُفل سعرها ساعة حجزها."
+    "{n} محجوزة في هذه الليالي. وقُفل سعرها ساعة حجزها.",
   ),
 
   /* OV 04.6J - a room cannot be given away, and OV 04.6I - it can be
      sold under your own floor, as long as you are told what you did. */
-  enterPrice: t("Enter a price above 0", "\u0627\u0643\u062a\u0628 \u0633\u0639\u0631\u064b\u0627 \u0623\u0643\u0628\u0631 \u0645\u0646 \u0635\u0641\u0631"),
+  enterPrice: t(
+    "Enter a price above 0",
+    "\u0627\u0643\u062a\u0628 \u0633\u0639\u0631\u064b\u0627 \u0623\u0643\u0628\u0631 \u0645\u0646 \u0635\u0641\u0631",
+  ),
   belowFloor: t(
     "Below your minimum selling price ({floor}). You can still save - agents will see {price}.",
-    "\u062f\u0648\u0646 \u062d\u062f\u0651\u0643 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0628\u064a\u0639 ({floor}). \u0648\u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u062d\u0641\u0638 \u0631\u063a\u0645 \u0630\u0644\u0643 \u2014 \u0648\u0633\u064a\u0631\u0649 \u0627\u0644\u0648\u0643\u0644\u0627\u0621 {price}."
+    "\u062f\u0648\u0646 \u062d\u062f\u0651\u0643 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0628\u064a\u0639 ({floor}). \u0648\u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u062d\u0641\u0638 \u0631\u063a\u0645 \u0630\u0644\u0643 \u2014 \u0648\u0633\u064a\u0631\u0649 \u0627\u0644\u0648\u0643\u0644\u0627\u0621 {price}.",
+  ),
+  /* Base + Supplements only - the typed price is the whole price. */
+  priceIncludesAll: t(
+    "The price you enter is the total selling price, including the base room price, meal plan, and all applicable supplements.",
+    "السعر الذي تدخله هو إجمالي سعر البيع، ويشمل سعر الغرفة الأساسية والوجبة وجميع الإضافات المطبقة.",
   ),
   pricePerNight: t(
     "Price per night \u00b7 {nights} \u00b7 SAR",
-    "\u0633\u0639\u0631 \u0627\u0644\u0644\u064a\u0644\u0629 \u00b7 {nights} \u00b7 \u0631.\u0633"
+    "\u0633\u0639\u0631 \u0627\u0644\u0644\u064a\u0644\u0629 \u00b7 {nights} \u00b7 \u0631.\u0633",
   ),
   contractBoth: t(
     "Contract {weekday} weekdays \u00b7 {weekend} weekend",
-    "\u0627\u0644\u0639\u0642\u062f {weekday} \u0623\u064a\u0627\u0645 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 {weekend} \u0646\u0647\u0627\u064a\u062a\u0647"
+    "\u0627\u0644\u0639\u0642\u062f {weekday} \u0623\u064a\u0627\u0645 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u00b7 {weekend} \u0646\u0647\u0627\u064a\u062a\u0647",
   ),
 
   saveOne: t("Save 1 night", "احفظ ليلة واحدة"),
 
-  supplementsLabel: t(
-    "This room’s supplements · from the contract",
-    "فروق هذه الغرفة · من العقد"
-  ),
+  supplementsLabel: t("This room’s supplements · from the contract", "فروق هذه الغرفة · من العقد"),
   editSupplements: t("Edit for this night", "تعديل لهذه الليلة"),
   supplements: [
     {
@@ -437,10 +418,7 @@ export const oneNight = {
       value: t("free", "مجانًا"),
     },
     {
-      label: t(
-        "Child 6 - 11 sharing · no extra bed",
-        "طفل ٦ - ١١ مشارك · بلا سرير إضافي"
-      ),
+      label: t("Child 6 - 11 sharing · no extra bed", "طفل ٦ - ١١ مشارك · بلا سرير إضافي"),
       value: t("+ 50", "+ ٥٠"),
     },
     {
@@ -464,7 +442,7 @@ export const oneNight = {
   undo: t("Undo change", "التراجع عن التغيير"),
   draftNote: t(
     "Saved straight away · new bookings get it at once",
-    "يُحفظ فورًا · وتأخذه الحجوزات الجديدة مباشرة"
+    "يُحفظ فورًا · وتأخذه الحجوزات الجديدة مباشرة",
   ),
   cancel: t("Cancel", "إلغاء"),
   save: t("Save change", "حفظ التغيير"),
@@ -474,10 +452,7 @@ export const oneNight = {
 export const poolBreakdown = {
   overline: t("Contract pool", "مخزون العقد"),
   title: t("Fri 25 Sep 2026", "الجمعة ٢٥ سبتمبر ٢٠٢٦"),
-  body: t(
-    "Every room type sells from these 50 rooms.",
-    "كل أنواع الغرف تُباع من هذه الـ٥٠ غرفة."
-  ),
+  body: t("Every room type sells from these 50 rooms.", "كل أنواع الغرف تُباع من هذه الـ٥٠ غرفة."),
   rows: [
     { label: t("Rooms in the pool", "الغرف في المخزون"), value: t("50", "٥٠") },
     { label: t("Sold", "المباعة"), value: t("50", "٥٠") },
@@ -488,15 +463,12 @@ export const poolBreakdown = {
     },
     {
       label: t("Capped rooms", "الغرف المحدودة"),
-      value: t(
-        "Deluxe City View · 12 of 12 sold",
-        "ديلوكس إطلالة المدينة · بيعت ١٢ من ١٢"
-      ),
+      value: t("Deluxe City View · 12 of 12 sold", "ديلوكس إطلالة المدينة · بيعت ١٢ من ١٢"),
     },
   ],
   note: t(
     "The pool is full. The contract allows controlled overbooking - up to 2 more bookings, then the night stops selling.",
-    "المخزون ممتلئ. ويسمح العقد بحجز زائد محكوم - حتى حجزين إضافيين، ثم تتوقف الليلة عن البيع."
+    "المخزون ممتلئ. ويسمح العقد بحجز زائد محكوم - حتى حجزين إضافيين، ثم تتوقف الليلة عن البيع.",
   ),
   close: t("Close", "إغلاق"),
 };
@@ -505,10 +477,7 @@ export const poolBreakdown = {
 export const monthPicker = {
   overline: t("Within the contract term", "ضمن مدة العقد"),
   title: t("Show months", "إظهار الشهور"),
-  body: t(
-    "Pick where the grid starts and ends.",
-    "اختر أين يبدأ الجدول وأين ينتهي."
-  ),
+  body: t("Pick where the grid starts and ends.", "اختر أين يبدأ الجدول وأين ينتهي."),
   months: [
     t("Sep 26", "سبتمبر ٢٦"),
     t("Oct 26", "أكتوبر ٢٦"),
@@ -540,7 +509,7 @@ export const monthPicker = {
   ] as Array<string | null>,
   tip: t(
     "Tip: pick up to 3 months - the grid gets wide after that.",
-    "نصيحة: اختر ٣ شهور على الأكثر - يتسع الجدول كثيرًا بعدها."
+    "نصيحة: اختر ٣ شهور على الأكثر - يتسع الجدول كثيرًا بعدها.",
   ),
   done: t("Done", "تم"),
 };
@@ -555,7 +524,7 @@ export const contractPicker = {
   empty: t("No contracts for this hotel yet.", "لا توجد عقود لهذا الفندق بعد."),
   emptyActive: t(
     "No current contracts. Tick Include ended contracts to see the rest.",
-    "لا توجد عقود حالية. فعّل تضمين العقود المنتهية لترى البقية."
+    "لا توجد عقود حالية. فعّل تضمين العقود المنتهية لترى البقية.",
   ),
   pickHotelFirst: t("Pick a hotel first", "اختر فندقًا أولًا"),
   status: {
@@ -594,7 +563,7 @@ export const hotelPicker = {
   retry: t("Try again", "حاول مجددًا"),
   empty: t(
     "No hotels to show yet. A hotel appears here once your link to it is approved.",
-    "لا توجد فنادق بعد. يظهر الفندق هنا بعد اعتماد ربطك به."
+    "لا توجد فنادق بعد. يظهر الفندق هنا بعد اعتماد ربطك به.",
   ),
   stars: t("{n}-star", "{n} نجوم"),
 };
@@ -603,12 +572,12 @@ export const hotelPicker = {
 export const exportView = {
   overline: t(
     "September 2026 · 9 rooms · Makkah Annual Block",
-    "سبتمبر ٢٠٢٦ · ٩ غرف · حصة مكة السنوية"
+    "سبتمبر ٢٠٢٦ · ٩ غرف · حصة مكة السنوية",
   ),
   title: t("Export this view", "تصدير هذا العرض"),
   body: t(
     "Exactly what you see: the months, the rooms and the rows you have switched on.",
-    "ما تراه تمامًا: الشهور والغرف والصفوف التي شغّلتها."
+    "ما تراه تمامًا: الشهور والغرف والصفوف التي شغّلتها.",
   ),
   formats: [
     {
@@ -616,29 +585,26 @@ export const exportView = {
       label: t("Excel workbook (.xlsx)", "مصنّف إكسل (.xlsx)"),
       note: t(
         "One sheet per room · rate, inventory, stop sale, restrictions, release",
-        "ورقة لكل غرفة · السعر والمخزون وإيقاف البيع والقيود والإفراج"
+        "ورقة لكل غرفة · السعر والمخزون وإيقاف البيع والقيود والإفراج",
       ),
     },
     {
       key: "csv",
       label: t("CSV (.csv)", "CSV (.csv)"),
-      note: t(
-        "One row per room-night - for your own system",
-        "صفّ لكل غرفة-ليلة - لنظامك الخاص"
-      ),
+      note: t("One row per room-night - for your own system", "صفّ لكل غرفة-ليلة - لنظامك الخاص"),
     },
     {
       key: "pdf",
       label: t("PDF (.pdf)", "PDF (.pdf)"),
       note: t(
         "The grid as it looks now, for sending or printing",
-        "الجدول كما يبدو الآن، للإرسال أو الطباعة"
+        "الجدول كما يبدو الآن، للإرسال أو الطباعة",
       ),
     },
   ] as const,
   note: t(
     "Unpublished changes are marked in the file so you can tell them apart from what agents can see.",
-    "التغييرات غير المنشورة مُعلَّمة في الملف حتى تميّزها عمّا يراه الوكلاء."
+    "التغييرات غير المنشورة مُعلَّمة في الملف حتى تميّزها عمّا يراه الوكلاء.",
   ),
   cancel: t("Cancel", "إلغاء"),
   download: t("Download", "تنزيل"),
@@ -658,14 +624,14 @@ export const reviewPublish = {
   title: t("Review & publish", "المراجعة والنشر"),
   body: t(
     "Nothing reaches agents until you publish. Confirmed bookings keep the price and rules they were booked with. To reverse a published change, change the night again and publish.",
-    "لا شيء يصل الوكلاء حتى تنشر. وتحتفظ الحجوزات المؤكدة بالسعر والقواعد التي حُجزت بها. ولعكس تغيير منشور، غيّر الليلة مرة أخرى وانشر."
+    "لا شيء يصل الوكلاء حتى تنشر. وتحتفظ الحجوزات المؤكدة بالسعر والقواعد التي حُجزت بها. ولعكس تغيير منشور، غيّر الليلة مرة أخرى وانشر.",
   ),
   changes: [
     {
       tag: t("Rate", "السعر"),
       what: t(
         "Standard Room · City View · Thu 24 Sep",
-        "غرفة ستاندرد · إطلالة المدينة · الخميس ٢٤ سبتمبر"
+        "غرفة ستاندرد · إطلالة المدينة · الخميس ٢٤ سبتمبر",
       ),
       from: t("Room only 500 → 520", "الغرفة فقط ٥٠٠ ← ٥٢٠"),
     },
@@ -674,7 +640,7 @@ export const reviewPublish = {
       tone: "warning",
       what: t(
         "Quad Room · City View · 26 - 27 Sep",
-        "غرفة رباعية · إطلالة المدينة · ٢٦ - ٢٧ سبتمبر"
+        "غرفة رباعية · إطلالة المدينة · ٢٦ - ٢٧ سبتمبر",
       ),
       from: t("Open sale → On Request", "البيع مفتوح ← عند الطلب"),
     },
@@ -682,7 +648,7 @@ export const reviewPublish = {
       tag: t("Release", "الإفراج"),
       what: t(
         "Standard Room · City View · 24 - 30 Sep",
-        "غرفة ستاندرد · إطلالة المدينة · ٢٤ - ٣٠ سبتمبر"
+        "غرفة ستاندرد · إطلالة المدينة · ٢٤ - ٣٠ سبتمبر",
       ),
       from: t("3 days → 1 day before · 18:00", "٣ أيام ← يوم واحد قبل · ١٨:٠٠"),
     },
@@ -698,34 +664,34 @@ export const reviewPublish = {
 export const bulkRateStates = {
   rangeMeta: t(
     "{nights} nights · {weekdays} weekdays (Sat - Wed) + {weekend} weekend ({days})",
-    "{nights} ليالٍ · {weekdays} أيام أسبوع (السبت - الأربعاء) + {weekend} نهاية أسبوع ({days})"
+    "{nights} ليالٍ · {weekdays} أيام أسبوع (السبت - الأربعاء) + {weekend} نهاية أسبوع ({days})",
   ),
   oneNight: t("{nights} night", "{nights} ليلة"),
   followsBase: t("base + {amount} · follows the base", "الأساس + {amount} · يتبع الأساس"),
   typingHint: t(
     "Whole SAR · fills all {count} rooms · press Enter",
-    "ريالات صحيحة · تملأ كل الغرف الـ{count} · اضغط Enter"
+    "ريالات صحيحة · تملأ كل الغرف الـ{count} · اضغط Enter",
   ),
   summary: t(
     "{rooms} rooms × {nights} nights ({range}) = {total} room-nights. Held as a draft until you publish.",
-    "{rooms} غرف × {nights} ليالٍ ({range}) = {total} غرفة-ليلة. محفوظة كمسودة حتى تنشر."
+    "{rooms} غرف × {nights} ليالٍ ({range}) = {total} غرفة-ليلة. محفوظة كمسودة حتى تنشر.",
   ),
   saveCount: t("Save {count} changes", "حفظ {count} تغييرًا"),
   fixTitle: t(
     "2 things to fix before you can hold these changes: pick the dates, and type a price for at least one room.",
-    "أمران يجب إصلاحهما قبل حفظ هذه التغييرات: اختر التواريخ، واكتب سعرًا لغرفة واحدة على الأقل."
+    "أمران يجب إصلاحهما قبل حفظ هذه التغييرات: اختر التواريخ، واكتب سعرًا لغرفة واحدة على الأقل.",
   ),
   fixDates: t(
     "Add at least one date range - pick From and To, then press Add.",
-    "أضف نطاق تواريخ واحدًا على الأقل - اختر «من» و«إلى»، ثم اضغط إضافة."
+    "أضف نطاق تواريخ واحدًا على الأقل - اختر «من» و«إلى»، ثم اضغط إضافة.",
   ),
   fixPrice: t(
     "Type a price for at least one room - or one price in “All selected rooms”",
-    "اكتب سعرًا لغرفة واحدة على الأقل - أو سعرًا واحدًا في «كل الغرف المختارة»"
+    "اكتب سعرًا لغرفة واحدة على الأقل - أو سعرًا واحدًا في «كل الغرف المختارة»",
   ),
   overlap: t(
     "{range} overlaps {added}, which is already added. Pick other dates, or delete the added range first.",
-    "{range} يتداخل مع {added} المضاف بالفعل. اختر تواريخ أخرى، أو احذف النطاق المضاف أولًا."
+    "{range} يتداخل مع {added} المضاف بالفعل. اختر تواريخ أخرى، أو احذف النطاق المضاف أولًا.",
   ),
   pickOther: t("Pick other dates", "اختر تواريخ أخرى"),
 };
@@ -739,24 +705,24 @@ export const rangeStates = {
   undo: t("Undo", "تراجع"),
   stopRemoved: t(
     "Removed - {rooms} is open again on {range}. Held as a draft until you publish.",
-    "أُزيل - {rooms} مفتوحة للبيع مجددًا في {range}. محفوظ كمسودة حتى تنشر."
+    "أُزيل - {rooms} مفتوحة للبيع مجددًا في {range}. محفوظ كمسودة حتى تنشر.",
   ),
   releaseRemoved: t(
     "Removed - {rooms} goes back to the contract release ({rule}) on {range}.",
-    "أُزيل - {rooms} تعود إلى إفراج العقد ({rule}) في {range}."
+    "أُزيل - {rooms} تعود إلى إفراج العقد ({rule}) في {range}.",
   ),
 
   /** OV 04.2B / 04.2O — what the hotel-wide flag will actually do. */
   everyContractDone: t(
     "Makkah Annual Block · Ramadan Block · Makkah Rooms Block will all close these nights for {rooms}.",
-    "حصة مكة السنوية · حصة رمضان · حصة غرف مكة ستُغلق جميعها هذه الليالي لـ{rooms}."
+    "حصة مكة السنوية · حصة رمضان · حصة غرف مكة ستُغلق جميعها هذه الليالي لـ{rooms}.",
   ),
   roomsPicked: t("the {count} rooms you picked", "الغرف الـ{count} التي اخترتها"),
 
   /** OV 04.2O — a stop sale laid over nights that are already On Request. */
   stopOverlap: t(
     "{room} is On Request on {range}. Adding this turns those nights into Stop sale as well, so {span} is closed.",
-    "{room} عند الطلب في {range}. وإضافة هذا تحوّل تلك الليالي إلى إيقاف بيع أيضًا، فيُغلق {span}."
+    "{room} عند الطلب في {range}. وإضافة هذا تحوّل تلك الليالي إلى إيقاف بيع أيضًا، فيُغلق {span}.",
   ),
 
   /** OV 04.3E — the band turns into an edit of one change. */
@@ -765,23 +731,22 @@ export const rangeStates = {
   /** OV 04.3S — what the same day means. */
   sameDayNote: t(
     "Same day: unsold rooms go back to the hotel at {at} on the arrival day. Agents can still book until then.",
-    "اليوم نفسه: تعود الغرف غير المباعة إلى الفندق الساعة {at} يوم الوصول. ويظل بإمكان الوكلاء الحجز حتى ذلك الحين."
+    "اليوم نفسه: تعود الغرف غير المباعة إلى الفندق الساعة {at} يوم الوصول. ويظل بإمكان الوكلاء الحجز حتى ذلك الحين.",
   ),
 
   /** OV 04.3O — a change laid over a change. */
   releaseOverlap: t(
     "Overlaps your change on {range} ({rule}). The newest wins, so {span} will be {days} days before.",
-    "يتداخل مع تغييرك في {range} ({rule}). والأحدث يفوز، فيصير {span} {days} أيام قبل الوصول."
+    "يتداخل مع تغييرك في {range} ({rule}). والأحدث يفوز، فيصير {span} {days} أيام قبل الوصول.",
   ),
 
   /** OV 04.3K — the ceiling on how early rooms may go back. */
   tooManyDays: t(
     "Release can’t be more than {max} days before arrival.",
-    "لا يمكن أن يكون الإفراج قبل الوصول بأكثر من {max} يومًا."
+    "لا يمكن أن يكون الإفراج قبل الوصول بأكثر من {max} يومًا.",
   ),
   useMax: t("Use {max}", "استخدم {max}"),
 };
-
 
 /** OV 04.5E-KF, 04.6F and 04.4F — the states one night moves through. */
 export const oneNightStates = {
@@ -791,7 +756,7 @@ export const oneNightStates = {
   titleMany: t("Change prices", "تغيير الأسعار"),
   bodyMany: t(
     "Room-only price for the nights you pick. The contract stays as it is.",
-    "سعر الغرفة وحدها لليالي التي تختارها. ويبقى العقد كما هو."
+    "سعر الغرفة وحدها لليالي التي تختارها. ويبقى العقد كما هو.",
   ),
   /* The count is a phrase, so one night reads "· 1 night" rather than
      "· 1 nights" and two read "ليلتان". */
@@ -799,7 +764,7 @@ export const oneNightStates = {
   /* OV 04.6B-G - what the nights are made of, under the field. */
   nightsBreakdown: t(
     "{weekdays} ({weekdayList}) · {weekend} ({list})",
-    "{weekdays} ({weekdayList}) · {weekend} ({list})"
+    "{weekdays} ({weekdayList}) · {weekend} ({list})",
   ),
   /*
    * OV 04.6B / 04.6C - a run that is all one kind has nothing to split,
@@ -808,57 +773,33 @@ export const oneNightStates = {
    * answer to a question nobody asked.
    */
   bothWeekday: t("Both are weekdays", "كلتاهما يوما أسبوع"),
-  bothWeekend: t(
-    "Both are weekend nights",
-    "كلتاهما ليلتا نهاية أسبوع"
-  ),
+  bothWeekend: t("Both are weekend nights", "كلتاهما ليلتا نهاية أسبوع"),
   allWeekday: t("All {n} are weekdays", "الـ{n} جميعها أيام أسبوع"),
-  allWeekend: t(
-    "All {n} are weekend nights",
-    "الـ{n} جميعها ليالي نهاية أسبوع"
-  ),
-  perNightWeekday: t(
-    "Price per night · weekdays · SAR",
-    "السعر لليلة · أيام الأسبوع · ر.س"
-  ),
-  perNightWeekend: t(
-    "Price per night · weekend · SAR",
-    "السعر لليلة · نهاية الأسبوع · ر.س"
-  ),
-  weekdayPrice: t(
-    "Weekdays · Sat · contract {price}",
-    "أيام الأسبوع · السبت · العقد {price}"
-  ),
+  allWeekend: t("All {n} are weekend nights", "الـ{n} جميعها ليالي نهاية أسبوع"),
+  perNightWeekday: t("Price per night · weekdays · SAR", "السعر لليلة · أيام الأسبوع · ر.س"),
+  perNightWeekend: t("Price per night · weekend · SAR", "السعر لليلة · نهاية الأسبوع · ر.س"),
+  weekdayPrice: t("Weekdays · Sat · contract {price}", "أيام الأسبوع · السبت · العقد {price}"),
   weekendPrice: t(
     "Weekend · Thu, Fri · contract {price}",
-    "نهاية الأسبوع · الخميس والجمعة · العقد {price}"
+    "نهاية الأسبوع · الخميس والجمعة · العقد {price}",
   ),
   editMany: t("Edit for these nights", "تعديل لهذه الليالي"),
-  poolMany: t(
-    "2 · 0 · 16 left of 50 (24 · 25 · 26)",
-    "٢ · ٠ · ١٦ متبقية من ٥٠ (٢٤ · ٢٥ · ٢٦)"
-  ),
+  poolMany: t("2 · 0 · 16 left of 50 (24 · 25 · 26)", "٢ · ٠ · ١٦ متبقية من ٥٠ (٢٤ · ٢٥ · ٢٦)"),
   minMany: t("4 nights on all {count}", "٤ ليالٍ في الثلاث جميعها"),
-  releaseMany: t(
-    "1 day before · 18:00 on all {count}",
-    "يوم واحد قبل · ١٨:٠٠ في الثلاث جميعها"
-  ),
+  releaseMany: t("1 day before · 18:00 on all {count}", "يوم واحد قبل · ١٨:٠٠ في الثلاث جميعها"),
   saveMany: t("Save {count} nights", "حفظ {count} ليالٍ"),
 
   /** OV 04.5U / 04.5RU — a supplement that no longer matches the contract. */
-  mealChanged: t(
-    "+ {now} per person · contract {was}",
-    "+ {now} لكل شخص · العقد {was}"
-  ),
+  mealChanged: t("+ {now} per person · contract {was}", "+ {now} لكل شخص · العقد {was}"),
   mealChangedWeekend: t(
     "+ {now} · weekend + {weekend} per person · contract {was}",
-    "+ {now} · نهاية الأسبوع + {weekend} لكل شخص · العقد {was}"
+    "+ {now} · نهاية الأسبوع + {weekend} لكل شخص · العقد {was}",
   ),
 
   /** OV 04.5K / 04.5KF — a room cannot be given away. */
   zero: t(
     "A room can’t sell for 0. Type the price - or close the night with Stop sale.",
-    "لا يمكن بيع غرفة بصفر. اكتب السعر - أو أغلق الليلة بإيقاف البيع."
+    "لا يمكن بيع غرفة بصفر. اكتب السعر - أو أغلق الليلة بإيقاف البيع.",
   ),
   stopInstead: t("Stop sale instead", "إيقاف البيع بدلًا من ذلك"),
 
@@ -866,19 +807,19 @@ export const oneNightStates = {
   supTitle: t("Supplements · {when}", "الفروق · {when}"),
   supBody: t(
     "For this night and this room only. Leave a field as it is to keep the contract value.",
-    "لهذه الليلة ولهذه الغرفة وحدهما. واترك أي حقل كما هو للإبقاء على قيمة العقد."
+    "لهذه الليلة ولهذه الغرفة وحدهما. واترك أي حقل كما هو للإبقاء على قيمة العقد.",
   ),
   supBodyMany: t(
     "For these nights and this room only. Leave a field as it is to keep the contract value.",
-    "لهذه الليالي ولهذه الغرفة وحدهما. واترك أي حقل كما هو للإبقاء على قيمة العقد."
+    "لهذه الليالي ولهذه الغرفة وحدهما. واترك أي حقل كما هو للإبقاء على قيمة العقد.",
   ),
   supHead: t(
     "Supplement · this night  (contract value in grey)",
-    "الفرق · هذه الليلة  (قيمة العقد بالرمادي)"
+    "الفرق · هذه الليلة  (قيمة العقد بالرمادي)",
   ),
   supHeadMany: t(
     "Supplement · same price on all {count} nights  (contract value in grey)",
-    "الفرق · السعر نفسه في الليالي الـ{count}  (قيمة العقد بالرمادي)"
+    "الفرق · السعر نفسه في الليالي الـ{count}  (قيمة العقد بالرمادي)",
   ),
   supHeadPlain: t("Supplement", "الفرق"),
   colWeekdays: t("Weekdays · Sat", "أيام الأسبوع · السبت"),
@@ -894,49 +835,37 @@ export const oneNightStates = {
   /** OV 04.5F / FR / PF / KF — a line that carries its own full price. */
   fixedOverline: t(
     "Standard Room · Bed & Breakfast · City View",
-    "غرفة ستاندرد · إفطار · إطلالة المدينة"
+    "غرفة ستاندرد · إفطار · إطلالة المدينة",
   ),
   fixedBody: t(
     "Full price for this room and meal plan. Fixed-price contract - no supplements.",
-    "السعر الكامل لهذه الغرفة وخطة الوجبات. عقد بسعر ثابت — بلا فروق."
+    "السعر الكامل لهذه الغرفة وخطة الوجبات. عقد بسعر ثابت — بلا فروق.",
   ),
   fixedBodyMany: t(
     "Full price for this room and meal plan. Fixed-price contract - no supplements.",
-    "السعر الكامل لهذه الغرفة وخطة الوجبات. عقد بسعر ثابت — بلا فروق."
+    "السعر الكامل لهذه الغرفة وخطة الوجبات. عقد بسعر ثابت — بلا فروق.",
   ),
-  fixedLabel: t(
-    "Full price for this night · SAR",
-    "السعر الكامل لهذه الليلة · ر.س"
-  ),
+  fixedLabel: t("Full price for this night · SAR", "السعر الكامل لهذه الليلة · ر.س"),
   fixedValue: 620,
   fixedContract: t("Contract 590", "العقد ٥٩٠"),
-  fixedWeekday: t(
-    "Weekdays · {nights} · SAR",
-    "أيام الأسبوع · {nights} · ر.س"
-  ),
-  fixedWeekend: t(
-    "Weekend · {nights} · SAR",
-    "نهاية الأسبوع · {nights} · ر.س"
-  ),
+  fixedWeekday: t("Weekdays · {nights} · SAR", "أيام الأسبوع · {nights} · ر.س"),
+  fixedWeekend: t("Weekend · {nights} · SAR", "نهاية الأسبوع · {nights} · ر.س"),
 
   /** OV 04.6F — a pool every priced line sells from. */
-  poolFixedBody: t(
-    "Every line sells from these 50 rooms.",
-    "كل صفّ يُباع من هذه الـ٥٠ غرفة."
-  ),
+  poolFixedBody: t("Every line sells from these 50 rooms.", "كل صفّ يُباع من هذه الـ٥٠ غرفة."),
   poolFixedCapped: t(
     "Deluxe Room · Bed & Breakfast · Haram View · 12 of 12 sold",
-    "غرفة ديلوكس · إفطار · إطلالة الحرم · بيعت ١٢ من ١٢"
+    "غرفة ديلوكس · إفطار · إطلالة الحرم · بيعت ١٢ من ١٢",
   ),
 
   /** OV 04.4F — a status set on one priced line. */
   statusFixedBody: t(
     "What happens to new bookings for this line on this night.",
-    "ما الذي يحدث للحجوزات الجديدة لهذا الصفّ في هذه الليلة."
+    "ما الذي يحدث للحجوزات الجديدة لهذا الصفّ في هذه الليلة.",
   ),
   statusFixedFoot: t(
     "More nights or lines? Use Stop sale / On Request in the tool",
-    "ليالٍ أو صفوف أكثر؟ استخدم «إيقاف البيع / عند الطلب» في الأداة"
+    "ليالٍ أو صفوف أكثر؟ استخدم «إيقاف البيع / عند الطلب» في الأداة",
   ),
 };
 
@@ -944,11 +873,11 @@ export const oneNightStates = {
 export const selectionBar = {
   count: t(
     "{count} offer-nights selected · {rooms} rooms × {range}",
-    "{count} ليلة-عرض مختارة · {rooms} غرف × {range}"
+    "{count} ليلة-عرض مختارة · {rooms} غرف × {range}",
   ),
   countOneRoom: t(
     "{count} offer-nights selected · 1 room × {range}",
-    "{count} ليلة-عرض مختارة · غرفة واحدة × {range}"
+    "{count} ليلة-عرض مختارة · غرفة واحدة × {range}",
   ),
   setRate: t("Set rate", "تعيين السعر"),
   adjust: t("Adjust ±", "تعديل ±"),
@@ -970,13 +899,10 @@ export const bulkLineRows: BulkLineRow[] = fixedPriceRooms.map((room) => {
   const weekday = plain(room.weekday);
   const weekend = plain(room.weekend);
   return {
-    line: t(
-      `${room.room} · ${room.meal}`,
-      `${room.roomAr} · ${room.mealAr}`
-    ),
+    line: t(`${room.room} · ${room.meal}`, `${room.roomAr} · ${room.mealAr}`),
     meta: t(
       `fixed price · weekday ${weekday} · weekend ${weekend}`,
-      `سعر ثابت · أيام الأسبوع ${arNum(weekday)} · نهاية الأسبوع ${arNum(weekend)}`
+      `سعر ثابت · أيام الأسبوع ${arNum(weekday)} · نهاية الأسبوع ${arNum(weekend)}`,
     ),
     weekday,
     weekend,
@@ -986,11 +912,11 @@ export const bulkLineRows: BulkLineRow[] = fixedPriceRooms.map((room) => {
 export const bulkRatesFixed = {
   overline: t(
     "Al Noor Fixed · HTL-2026-0155 · fixed price",
-    "النور الثابت · HTL-2026-0155 · سعر ثابت"
+    "النور الثابت · HTL-2026-0155 · سعر ثابت",
   ),
   body: t(
     "Set the full price for many nights at once. Each line is one room with one meal and one view - there are no supplements.",
-    "اضبط السعر الكامل لليالٍ كثيرة دفعة واحدة. وكل صفّ غرفة واحدة بوجبة واحدة وإطلالة واحدة - بلا فروق."
+    "اضبط السعر الكامل لليالٍ كثيرة دفعة واحدة. وكل صفّ غرفة واحدة بوجبة واحدة وإطلالة واحدة - بلا فروق.",
   ),
   linesTitle: t("Lines", "الصفوف"),
   allLines: t("All lines", "كل الصفوف"),
@@ -999,7 +925,7 @@ export const bulkRatesFixed = {
   fillsEveryLine: t("fills every line below", "يملأ كل صفّ أدناه"),
   summary: t(
     "{lines} lines × {nights} nights ({range}) = {total} line-nights. Held as a draft until you publish.",
-    "{lines} صفوف × {nights} ليالٍ ({range}) = {total} صفّ-ليلة. محفوظة كمسودة حتى تنشر."
+    "{lines} صفوف × {nights} ليالٍ ({range}) = {total} صفّ-ليلة. محفوظة كمسودة حتى تنشر.",
   ),
 };
 
@@ -1013,7 +939,10 @@ export const liveGrid = {
   baseLine: t("BASE", "الأساس"),
   supplementLine: t("base + {amount}", "الأساس + {amount}"),
   fixedLine: t("fixed price", "سعر ثابت"),
-  weekdayWeekend: t("weekday {weekday} · weekend {weekend}", "وسط الأسبوع {weekday} · نهاية الأسبوع {weekend}"),
+  weekdayWeekend: t(
+    "weekday {weekday} · weekend {weekend}",
+    "وسط الأسبوع {weekday} · نهاية الأسبوع {weekend}",
+  ),
   everyNight: t("{amount} a night", "{amount} في الليلة"),
   cappedAt: t("capped at {count} a night", "بحد أقصى {count} في الليلة"),
   noStock: t("No stock yet", "لا مخزون بعد"),
@@ -1033,7 +962,10 @@ export const liveGrid = {
   roomsLoading: t("Loading rooms…", "جارٍ تحميل الغرف…"),
   roomsError: t("We couldn't load this contract's rooms.", "تعذّر تحميل غرف هذا العقد."),
   roomsEmpty: t("This contract has no rooms yet.", "لا توجد غرف في هذا العقد بعد."),
-  seasonNights: t("Season price on {count} of these nights", "سعر الموسم في {count} من هذه الليالي"),
+  seasonNights: t(
+    "Season price on {count} of these nights",
+    "سعر الموسم في {count} من هذه الليالي",
+  ),
   knowPrices: t(
     "Prices are the room only, per night, in {currency}.",
     "الأسعار للغرفة فقط، لكل ليلة، بـ{currency}.",
@@ -1052,8 +984,14 @@ export const liveGrid = {
     iftar_and_suhoor: t("Iftar & suhoor", "إفطار وسحور"),
   } as Record<string, Bi>,
   mealFor: t("{meal} · for {guests} guests", "{meal} · لـ{guests} ضيوف"),
-  mealPerPerson: t("room + {price} × {guests} · from the contract", "الغرفة + {price} × {guests} · من العقد"),
-  mealPerRoom: t("room + {price} per room · from the contract", "الغرفة + {price} للغرفة · من العقد"),
+  mealPerPerson: t(
+    "room + {price} × {guests} · from the contract",
+    "الغرفة + {price} × {guests} · من العقد",
+  ),
+  mealPerRoom: t(
+    "room + {price} per room · from the contract",
+    "الغرفة + {price} للغرفة · من العقد",
+  ),
   saved: t("Prices saved", "تم حفظ الأسعار"),
   restored: t("Back to the contract price", "عاد السعر إلى سعر العقد"),
   notEligible: t(
@@ -1071,7 +1009,10 @@ export const liveGrid = {
     escalate_to_hoteliana: t("No answer: pass it to Hoteliana", "بلا رد: تحويله إلى Hoteliana"),
   },
   sellSaved: t("Sell status saved", "تم حفظ حالة البيع"),
-  poolBody: t("Every room type sells from these {count} rooms.", "كل أنواع الغرف تُباع من هذه الـ{count} غرفة."),
+  poolBody: t(
+    "Every room type sells from these {count} rooms.",
+    "كل أنواع الغرف تُباع من هذه الـ{count} غرفة.",
+  ),
   poolRooms: t("Rooms in the pool", "الغرف في المخزون"),
   poolOverbooking: t("Overbooking allowed", "الحجز الزائد المسموح"),
   poolCapped: t("Capped rooms", "الغرف المحدودة"),
@@ -1083,7 +1024,10 @@ export const liveGrid = {
   ),
   perRoomUnit: t("per room", "للغرفة"),
   perPersonUnit: t("per person", "للشخص"),
-  poolOfNight: t("{count} rooms in the pool · no booking data yet", "{count} غرفة في المخزون · لا بيانات حجوزات بعد"),
+  poolOfNight: t(
+    "{count} rooms in the pool · no booking data yet",
+    "{count} غرفة في المخزون · لا بيانات حجوزات بعد",
+  ),
   openSaleValue: t("Open sale", "البيع مفتوح"),
   checkInClosed: t("Check-in closed", "الوصول مغلق"),
   checkOutClosed: t("Check-out closed", "المغادرة مغلقة"),
@@ -1136,10 +1080,7 @@ export const liveGrid = {
     releaseSameDay: t("Release on the day · {time}", "الاسترجاع في نفس اليوم · {time}"),
     noRelease: t("No release", "بلا استرجاع"),
     cancelFree: t("Cancellation free until {count} days", "الإلغاء مجاني حتى {count} أيام"),
-    cancelCharged: t(
-      "Cancellation charged from {count} days",
-      "الإلغاء برسوم من {count} أيام",
-    ),
+    cancelCharged: t("Cancellation charged from {count} days", "الإلغاء برسوم من {count} أيام"),
     restrictions: t("{count} restrictions on this contract", "{count} قيود على هذا العقد"),
     noRestrictions: t("No restrictions on this contract", "لا قيود على هذا العقد"),
     term: t("Term {from} - {to}", "المدة {from} - {to}"),
