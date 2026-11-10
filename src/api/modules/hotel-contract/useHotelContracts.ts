@@ -1,15 +1,36 @@
 import { isAxiosError } from "axios";
 import { useQuery } from "@tanstack/react-query";
 
-import type { GetHotelContractsParams, SupplierHotelContractsResponse } from "./types.ts";
+import type {
+  BookingType,
+  GetHotelContractsParams,
+  PricingModel,
+  SupplierHotelContract,
+  SupplierHotelContractsData,
+} from "./types.ts";
 import { endpoints } from "../../endpoints.ts";
 import { api } from "@/api/client.ts";
 import { getApiErrorMessage } from "@/lib/api-error";
 import type { ApiResponse } from "../profile-permissions/userProfiles.ts";
 
+/**
+ * One row of GET /suppliers/hotel-contracts. The list returns the contract
+ * basics plus releasePolicy, bookingCutoff, onRequestSettings, pricingStatus
+ * and inventoryStatus; it omits inventoryRules and the other detail sections.
+ * bookingType and pricingModel only ever take the documented values.
+ */
+export type HotelContractListItem = Omit<SupplierHotelContract, "bookingType" | "pricingModel"> & {
+  bookingType: BookingType;
+  pricingModel: PricingModel;
+};
+
+export type HotelContractsListData = Omit<SupplierHotelContractsData, "contracts"> & {
+  contracts: HotelContractListItem[];
+};
+
 export const fetchHotelContracts = async (
   params: GetHotelContractsParams,
-): Promise<SupplierHotelContractsResponse> => {
+): Promise<HotelContractsListData> => {
   const query = new URLSearchParams();
 
   if (params.page !== undefined) {
@@ -67,7 +88,9 @@ export const fetchHotelContracts = async (
     ? `${endpoints.supplierHotelContracts.list}?${queryString}`
     : endpoints.supplierHotelContracts.list;
 
-  const { data } = await api.get<ApiResponse<SupplierHotelContractsResponse>>(url);
+  // The envelope is { status, message, data }, so data.data is the list payload
+  // ({ contracts, meta, emptyState }) rather than the whole envelope.
+  const { data } = await api.get<ApiResponse<HotelContractsListData>>(url);
 
   return data.data;
 };

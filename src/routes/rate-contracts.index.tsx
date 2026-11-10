@@ -48,7 +48,10 @@ import {
   ContractActionOverlay,
   type ContractAction,
 } from "@/components/contracts/contract-actions";
-import { useHotelContracts } from "@/api/modules/hotel-contract/useHotelContracts";
+import {
+  useHotelContracts,
+  type HotelContractListItem,
+} from "@/api/modules/hotel-contract/useHotelContracts";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
 import { useDebounce } from "./my-hotels";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
@@ -149,6 +152,8 @@ const copy = {
     none: "-",
     days: "days",
     daysBefore: "{count} days before",
+    releaseSameDay: "Same day",
+    releaseThen: "then {action}",
     noAllotment: "No allotment",
     perNight: "{count} / night · {types}",
     types: "{count} types",
@@ -259,6 +264,8 @@ const copy = {
     none: "-",
     days: "أيام",
     daysBefore: "{count} أيام قبلها",
+    releaseSameDay: "اليوم نفسه",
+    releaseThen: "ثم {action}",
     noAllotment: "بلا حصة",
     perNight: "{count} / ليلة · {types}",
     types: "{count} أنواع",
@@ -999,13 +1006,53 @@ function contractStatusLabel(status: ContractStatus, t: typeof copy.en) {
   }
 }
 
+/**
+ * Release column — reads the row's releasePolicy as the list returns it:
+ * when the rooms go back ("7 days before · 18:00" or "Same day · 18:00")
+ * and what happens to the night after that (stop sale or On Request).
+ */
+function ReleaseCell({
+  policy,
+  t,
+}: {
+  policy: HotelContractListItem["releasePolicy"];
+  t: typeof copy.en;
+}) {
+  if (!policy) {
+    return <span className="text-text-muted">{t.notSet}</span>;
+  }
+
+  const when =
+    policy.type === "same_day"
+      ? t.releaseSameDay
+      : policy.daysBeforeCheckIn != null
+        ? fill(t.daysBefore, { count: policy.daysBeforeCheckIn })
+        : null;
+  const timing = [when, policy.releaseTime].filter(Boolean).join(" · ");
+  const after =
+    policy.afterReleaseAction === "stop_sale"
+      ? t.stop
+      : policy.afterReleaseAction === "on_request"
+        ? t.request
+        : null;
+
+  return (
+    <div className="min-w-0">
+      <p className="truncate font-medium text-text-primary">{timing || t.notSet}</p>
+      {after ? (
+        <p className="mt-0.5 truncate text-text-muted">{fill(t.releaseThen, { action: after })}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function ContractRow({
   item,
   lang,
   t,
   ask,
 }: {
-  item: SupplyContract;
+  item: SupplyContract & Pick<HotelContractListItem, "releasePolicy">;
   lang: "en" | "ar";
   t: typeof copy.en;
   ask: (a: ContractAction) => void;
@@ -1052,7 +1099,7 @@ function ContractRow({
       {/* <span>{item.model === "instant" ? t.instant : t.request}</span> */}
       <span>{bookingTypeLabel(item.bookingType, t)}</span>
       {/* Hidden until the backend returns sell status. <span className="text-text-muted">—</span> */}
-      <span className="text-text-muted">—</span>
+      <ReleaseCell policy={item.releasePolicy} t={t} />
 
       <StatusPill tone={tone}>{statusLabel}</StatusPill>
       <div className="flex items-center justify-end gap-1">
