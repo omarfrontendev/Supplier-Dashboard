@@ -49,18 +49,11 @@ function useEscape(onEscape: () => void, active = true) {
 }
 
 /**
- * Esc, and a click beside the panel — for every overlay in the portal.
- *
- * The scrim cannot test the click by itself. A centred panel needs a
- * wrapper to centre it, that wrapper fills the scrim, and a click in the
- * empty space lands on the wrapper rather than on the scrim - so a
- * `target === currentTarget` test on the scrim silently answered "that
- * was inside" to every click outside. The panel stops the event instead,
- * which is true however deeply it is nested.
+ * Esc closes every overlay in the portal. A click beside the panel does not,
+ * so typed input is never lost to a stray click.
  *
  * BR-00-08 keeps its exception: a panel holding typed input hands the
- * screen its "Discard changes?" guard rather than closing under it. That
- * is still a way out, only one that asks first.
+ * screen its "Discard changes?" guard rather than closing under it.
  */
 export function useDismiss({
   onClose,
@@ -78,7 +71,6 @@ export function useDismiss({
     scrim: {
       role: "dialog" as const,
       "aria-modal": true,
-      onMouseDown: dismiss,
     },
     /** Spread on the panel: a click inside it is not a click outside. */
     panel: {

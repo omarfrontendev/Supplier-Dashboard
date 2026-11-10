@@ -2527,16 +2527,23 @@ function RateCalendarPage() {
               exportRows({
                 head: liveGrid.exportHead[k],
                 rows: rows.flatMap((row) =>
-                  shown.map(({ day, night }) => [
-                    ar ? row.nameAr : row.name,
-                    day,
-                    String(row.rate[night - 1] ?? ""),
-                    rateTargets.currency,
-                    row.edited?.includes(night)
-                      ? liveGrid.exportEdited[k]
-                      : liveGrid.exportContract[k],
-                    String(poolLeftAt(night) ?? roomLeftAt(row, night) ?? ""),
-                  ]),
+                  shown
+                    .filter(({ night }) => !fade?.(night, row.name))
+                    .map(({ day, night }) => [
+                      ar ? row.nameAr : row.name,
+                      day,
+                      String(row.rate[night - 1] ?? ""),
+                      rateTargets.currency,
+                      row.edited?.includes(night)
+                        ? liveGrid.exportEdited[k]
+                        : liveGrid.exportContract[k],
+                      String(poolLeftAt(night) ?? roomLeftAt(row, night) ?? ""),
+                      (row.status[night - 1] === "SS"
+                        ? liveGrid.stopSaleValue
+                        : row.status[night - 1] === "RQ"
+                          ? liveGrid.onRequestValue
+                          : liveGrid.openSaleValue)[k],
+                    ]),
                 ),
                 filename: `rates-${pickedContract!.id}-${span.start}-${span.end}.csv`,
                 lang,
@@ -2909,9 +2916,9 @@ function CheckRow({
  * amber for one that needs looking at. "All" is green because it is the
  * absence of a filter, and it is the only one with no dot and no count.
  */
-const CHIP_TONE: Record<string, "success" | "danger" | "warning"> = {
+const CHIP_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
   all: "success",
-  soldOut: "danger",
+  soldOut: "neutral",
   fewer: "warning",
   stopSale: "danger",
   onRequest: "warning",
@@ -2936,7 +2943,7 @@ function FilterChip({
   count,
   clearLabel,
 }: {
-  tone: "success" | "danger" | "warning";
+  tone: "success" | "danger" | "warning" | "neutral";
   active: boolean;
   onClick: () => void;
   label: string;
@@ -2948,12 +2955,16 @@ function FilterChip({
     ? "bg-status-success"
     : tone === "danger"
       ? "bg-status-danger"
-      : "bg-status-warning";
+      : tone === "neutral"
+        ? "bg-status-neutral"
+        : "bg-status-warning";
   const idle = isAll
     ? "text-text-secondary hover:bg-surface-subtle"
     : tone === "danger"
       ? "bg-status-danger-bg text-status-danger"
-      : "bg-status-warning-bg text-status-warning";
+      : tone === "neutral"
+        ? "bg-cell-zero-inventory-bg text-status-neutral"
+        : "bg-status-warning-bg text-status-warning";
 
   return (
     <button

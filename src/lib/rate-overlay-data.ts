@@ -1103,8 +1103,8 @@ export const liveGrid = {
   stopSaleValue: t("Stop sale", "إيقاف البيع"),
   onRequestValue: t("On Request", "عند الطلب"),
   exportHead: {
-    en: ["Room", "Night", "Rate", "Currency", "Price from", "Rooms in pool"],
-    ar: ["الغرفة", "الليلة", "السعر", "العملة", "مصدر السعر", "الغرف في المخزون"],
+    en: ["Room", "Night", "Rate", "Currency", "Price from", "Rooms in pool", "Status"],
+    ar: ["الغرفة", "الليلة", "السعر", "العملة", "مصدر السعر", "الغرف في المخزون", "الحالة"],
   },
   exportEdited: t("Changed for this night", "معدّل لهذه الليلة"),
   exportContract: t("Contract or season", "العقد أو الموسم"),

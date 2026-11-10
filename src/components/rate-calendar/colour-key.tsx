@@ -9,6 +9,7 @@ const SWATCH: Record<string, string> = {
   plain: "bg-status-success-bg text-status-success",
   warning: "bg-status-warning-bg text-status-warning",
   danger: "bg-status-danger-bg text-status-danger",
+  soldOut: "bg-cell-zero-inventory-bg text-status-neutral",
   draft:
     "border border-dashed border-status-warning bg-surface-default text-status-warning",
   info: "bg-status-warning-bg text-status-warning",
@@ -33,7 +34,7 @@ export function ColourKeyDialog({
     ? [
         ["24", "الغرف المتبقية", "الغرف التي ما زال يمكنك بيعها تلك الليلة", "plain"],
         ["3", `${threshold} أو أقل`, `على وشك النفاد - ${threshold} غرف أو أقل · أنت تختار هذا الرقم`, "warning"],
-        ["0", "نفد", "لا غرف متبقية تلك الليلة", "danger"],
+        ["0", "نفد", "لا غرف متبقية تلك الليلة", "soldOut"],
         ["520", "غير منشور", "غيّرته - لا يعمل حتى تنشره", "draft"],
         ["SS", "إيقاف البيع", "مغلق للبيع - يظهر سعر تلك الليلة مشطوبًا", "danger"],
         ["RQ", "عند الطلب", "يمكن للضيوف الطلب، وأنت تؤكد كل حجز", "info"],
@@ -43,7 +44,7 @@ export function ColourKeyDialog({
     : [
         ["24", "Rooms left", "Rooms you can still sell that night", "plain"],
         ["3", `${threshold} or fewer`, `Almost gone - ${threshold} rooms or fewer left · you choose this number`, "warning"],
-        ["0", "Sold out", "No rooms left that night", "danger"],
+        ["0", "Sold out", "No rooms left that night", "soldOut"],
         ["520", "Not published", "You changed it - not live until you publish", "draft"],
         ["SS", "Stop sale", "Closed for sale - the price that night shows struck through", "danger"],
         ["RQ", "On Request", "Guests can ask; you confirm each booking", "info"],

@@ -402,7 +402,7 @@ export function RateGrid({
                             : poolCapacityLabel !== undefined
                               ? "bg-surface-subtle text-text-secondary"
                               : left === 0
-                                ? "bg-status-danger-bg text-status-danger"
+                                ? "bg-cell-zero-inventory-bg text-status-neutral"
                                 : left <= 4
                                   ? "bg-status-warning-bg text-status-warning"
                                   : "bg-status-success-bg text-status-success"
@@ -668,7 +668,7 @@ function RoomBlock({
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg",
                   value === 0 && row.inventoryLabel === "left"
-                    ? "font-semibold text-status-danger"
+                    ? "font-semibold text-status-neutral"
                     : low
                       ? "font-semibold text-status-warning"
                       : "text-text-secondary"
