@@ -139,8 +139,8 @@ const copy = {
     period: "PERIOD",
     allotment: "Pricing model",
     confirmation: "booking type",
-    soldOut: "Sell Status",
-    inventoryModel: "Inventory Model",
+    whenSoldOut: "WHEN SOLD OUT",
+    allotmentPerNight: "ALLOTMENT / NIGHT",
     release: "RELEASE",
     status: "STATUS",
     actions: "ACTIONS",
@@ -149,6 +149,7 @@ const copy = {
     request: "On Request",
     stop: "Stop sale",
     overbooking: "Overbooking +{count}",
+    overbookingNoLimit: "Overbooking",
     notSet: "Not set",
     none: "-",
     days: "days",
@@ -157,6 +158,7 @@ const copy = {
     releaseThen: "then {action}",
     noAllotment: "No allotment",
     perNight: "{count} / night · {types}",
+    perNightOnly: "{count} / night",
     types: "{count} types",
     oneType: "1 type",
     open: "Open",
@@ -252,8 +254,8 @@ const copy = {
     period: "الفترة",
     allotment: "نموذج التسعير",
     confirmation: "نوع الحجز",
-    soldOut: "حالة البيع",
-    inventoryModel: "نموذج المخزون",
+    whenSoldOut: "عند نفاد الغرف",
+    allotmentPerNight: "الحصة / ليلة",
     release: "الاسترجاع",
     status: "الحالة",
     actions: "الإجراءات",
@@ -262,6 +264,7 @@ const copy = {
     request: "عند الطلب",
     stop: "إيقاف البيع",
     overbooking: "تجاوز +{count}",
+    overbookingNoLimit: "تجاوز",
     notSet: "غير محدّد",
     none: "-",
     days: "أيام",
@@ -270,6 +273,7 @@ const copy = {
     releaseThen: "ثم {action}",
     noAllotment: "بلا حصة",
     perNight: "{count} / ليلة · {types}",
+    perNightOnly: "{count} / ليلة",
     types: "{count} أنواع",
     oneType: "نوع واحد",
     open: "فتح",
@@ -803,8 +807,8 @@ function RateContractsPage() {
               <span>{t.period}</span>
               <span>{t.allotment}</span>
               <span>{t.confirmation}</span>
-              <span>{t.inventoryModel}</span>
-              <span>{t.soldOut}</span>
+              <span>{t.whenSoldOut}</span>
+              <span>{t.allotmentPerNight}</span>
               <span>{t.release}</span>
               <span>{t.status}</span>
               <span>{t.actions}</span>
@@ -1049,13 +1053,80 @@ function ReleaseCell({
   );
 }
 
+/**
+ * When sold out column — inventorySummary.whenSoldOut as the list returns it.
+ * Overbooking shows its per-night limit only when the API sends one.
+ */
+function WhenSoldOutCell({
+  summary,
+  t,
+}: {
+  summary: HotelContractListItem["inventorySummary"];
+  t: typeof copy.en;
+}) {
+  const soldOut = summary?.whenSoldOut;
+
+  if (!soldOut?.action) {
+    return <span className="text-text-muted">—</span>;
+  }
+
+  const limit = soldOut.overbookingLimitPerNight;
+  const label =
+    soldOut.action === "stop_sale"
+      ? t.stop
+      : soldOut.action === "on_request"
+        ? t.request
+        : soldOut.action === "controlled_overbooking"
+          ? typeof limit === "number"
+            ? fill(t.overbooking, { count: limit })
+            : t.overbookingNoLimit
+          : soldOut.action
+              .split("_")
+              .filter(Boolean)
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+
+  return <span className="truncate font-medium text-text-primary">{label}</span>;
+}
+
+/**
+ * Allotment / night column — inventorySummary.roomsPerNight and variationCount
+ * exactly as the list returns them ("40 / night · 3 types").
+ */
+function AllotmentPerNightCell({
+  summary,
+  t,
+}: {
+  summary: HotelContractListItem["inventorySummary"];
+  t: typeof copy.en;
+}) {
+  const rooms = summary?.roomsPerNight;
+
+  if (typeof rooms !== "number") {
+    return <span className="text-text-muted">—</span>;
+  }
+
+  const variations = summary?.variationCount;
+  const types =
+    typeof variations !== "number"
+      ? null
+      : variations === 1
+        ? t.oneType
+        : fill(t.types, { count: variations });
+  const label = types
+    ? fill(t.perNight, { count: rooms, types })
+    : fill(t.perNightOnly, { count: rooms });
+
+  return <span className="truncate font-data font-medium text-text-primary">{label}</span>;
+}
+
 function ContractRow({
   item,
   lang,
   t,
   ask,
 }: {
-  item: SupplyContract & Pick<HotelContractListItem, "releasePolicy">;
+  item: SupplyContract & Pick<HotelContractListItem, "releasePolicy" | "inventorySummary">;
   lang: "en" | "ar";
   t: typeof copy.en;
   ask: (a: ContractAction) => void;
@@ -1101,9 +1172,8 @@ function ContractRow({
       </span>
       {/* <span>{item.model === "instant" ? t.instant : t.request}</span> */}
       <span>{bookingTypeLabel(item.bookingType, t)}</span>
-      {/* Inventory model and sell status stay empty until the backend returns them. */}
-      <span className="text-text-muted">—</span>
-      <span className="text-text-muted">—</span>
+      <WhenSoldOutCell summary={item.inventorySummary} t={t} />
+      <AllotmentPerNightCell summary={item.inventorySummary} t={t} />
       <ReleaseCell policy={item.releasePolicy} t={t} />
 
       <StatusPill tone={tone}>{statusLabel}</StatusPill>

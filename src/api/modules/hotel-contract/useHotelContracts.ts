@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import type {
   BookingType,
+  ContractInventoryRules,
   GetHotelContractsParams,
+  InventorySoldOutAction,
   PricingModel,
   SupplierHotelContract,
   SupplierHotelContractsData,
@@ -14,14 +16,32 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import type { ApiResponse } from "../profile-permissions/userProfiles.ts";
 
 /**
+ * The list's inventorySummary for a row: how many rooms a night the contract
+ * holds, across how many room variations, and what happens once they are sold.
+ * The known values are typed; anything else the backend adds still passes.
+ */
+export type HotelContractInventorySummary = {
+  mode: ContractInventoryRules["mode"] | (string & {});
+  roomsPerNight: number;
+  variationCount: number;
+  whenSoldOut: {
+    action: InventorySoldOutAction | (string & {});
+    overbookingLimitPerNight: number | null;
+    variationLimits: unknown[];
+  } | null;
+};
+
+/**
  * One row of GET /suppliers/hotel-contracts. The list returns the contract
- * basics plus releasePolicy, bookingCutoff, onRequestSettings, pricingStatus
- * and inventoryStatus; it omits inventoryRules and the other detail sections.
+ * basics plus releasePolicy, bookingCutoff, onRequestSettings, pricingStatus,
+ * inventoryStatus and inventorySummary; it omits inventoryRules and the other
+ * detail sections.
  * bookingType and pricingModel only ever take the documented values.
  */
 export type HotelContractListItem = Omit<SupplierHotelContract, "bookingType" | "pricingModel"> & {
   bookingType: BookingType;
   pricingModel: PricingModel;
+  inventorySummary?: HotelContractInventorySummary | null;
 };
 
 export type HotelContractsListData = Omit<SupplierHotelContractsData, "contracts"> & {
