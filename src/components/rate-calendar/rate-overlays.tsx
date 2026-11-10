@@ -2709,7 +2709,42 @@ export function OneNightOverlay({
           />
           {/* One line under the field, and it is whichever matters most:
               the refusal, then the warning, then what it is being
-              compared with. */}
+              compared with. The under-floor warning is not shown. */}
+          {missing ? (
+            <p className="mt-1.5 text-[11.5px] font-medium text-status-danger">
+              {c.enterPrice[k]}
+            </p>
+          ) : (
+            <p className="mt-1.5 text-[11.5px] text-text-quiet">
+              {fixed
+                ? f.fixedContract[k]
+                : season
+                  ? fill(c.seasonContract[k], {
+                      season: season[k],
+                      price:
+                        k === "ar"
+                          ? arNum(seasonPrice ?? 740)
+                          : String(seasonPrice ?? 740),
+                    })
+                  : many
+                    ? apart
+                      ? fill(c.contractIs[k], {
+                          price: k === "ar" ? arNum(contractWeekend) : String(contractWeekend),
+                        })
+                      : fill(c.contractBoth[k], {
+                          weekday: k === "ar" ? arNum(contractWeekday) : String(contractWeekday),
+                          weekend: k === "ar" ? arNum(contractWeekend) : String(contractWeekend),
+                        })
+                    : /* A weekday night is compared with the weekday
+                         contract price, not with the weekend's. */
+                      fill(c.contractIs[k], {
+                        price:
+                          k === "ar"
+                            ? arNum(weekend ? contractWeekend : contractWeekday)
+                            : String(weekend ? contractWeekend : contractWeekday),
+                      })}
+            </p>
+          )}
           {/* Base + Supplements: the typed price already includes the
               base, the meal plan and every supplement. On a live contract
               `fixed` is pricingModel === "fixed_per_room", so !fixed is
