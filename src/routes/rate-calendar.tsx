@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   Eye,
+  FileText,
   Info,
   Layers,
   Lightbulb,
@@ -91,7 +92,13 @@ import {
   useReleaseTargets,
   useSaveReleaseOverrides,
 } from "@/api/modules/rates-availability/useRelease";
-import { isReleaseIsoDate, ownedNonpastReleaseCells } from "@/lib/release-format";
+import {
+  isReleaseDays,
+  isReleaseIsoDate,
+  isReleaseTime,
+  ownedNonpastReleaseCells,
+  RELEASE_LIMITS,
+} from "@/lib/release-format";
 import {
   useSaveSellControls,
   useSellControlTargets,
@@ -236,7 +243,7 @@ function RateCalendarPage() {
   const [monthKey, setMonthKey] = useState(grid.month ?? "2026-09");
   const unpricedOnly = roomsParam === "unpriced";
   /* The grid starts and ends on a day, so From and To pick days. */
-  
+
   const [span, setSpan] = useState(() => wholeMonth(grid.month ?? "2026-09"));
   const month = windowFor(span.start, span.end);
   const holdsNothing = grid.model === "free" || grid.model === "onRequest";
@@ -258,15 +265,20 @@ function RateCalendarPage() {
   const [contractSearch, setContractSearch] = useState("");
   const [contractPage, setContractPage] = useState(1);
   const debouncedContractSearch = useDebounce(contractSearch.trim(), SEARCH_DEBOUNCE_MS);
+  // The picker's date range and Include ended contracts are sent to the backend.
+  const [contractDates, setContractDates] = useState<{ start: string; end: string } | null>(null);
+  const [includeEnded, setIncludeEnded] = useState(false);
   const contractsQuery = useRatesAvailabilityContracts({
     hotelId,
     page: contractPage,
     limit: PICKER_LIMIT,
     search: debouncedContractSearch,
+    from: contractDates?.start,
+    to: contractDates?.end,
+    includeExpired: includeEnded,
   });
   const hotelContracts = contractsQuery.contracts as RatesContract[];
   const [chosenContract, setChosenContract] = useState<RatesContract | null>(null);
-  const [includeEnded, setIncludeEnded] = useState(false);
   // No default contract either; an ended pick hides when ended ones are excluded.
   const pickedContract =
     chosenContract &&
@@ -312,7 +324,8 @@ function RateCalendarPage() {
 
   // From and To come from the picked contract's details, and stay empty until
   // the details for that contract have arrived.
-  const contractDetails = detail && pickedContract && detail.id === pickedContract.id ? detail : undefined;
+  const contractDetails =
+    detail && pickedContract && detail.id === pickedContract.id ? detail : undefined;
   const detailStart = contractDetails?.startDate.slice(0, 10);
   const detailEnd = contractDetails?.endDate.slice(0, 10);
   const contractTerm =
@@ -461,9 +474,9 @@ function RateCalendarPage() {
         const meal = target.mealPlan ? liveGrid.meals[target.mealPlan] : undefined;
         const name = (lang: "en" | "ar") =>
           [
-            (lang === "ar" ? target.roomNameAr : target.roomNameEn) ||
-              target.roomNameEn ||
-              target.roomNameAr ||
+            (lang === "ar" ? target.roomSizeNameAr : target.roomSizeNameEn) ||
+              target.roomSizeNameEn ||
+              target.roomSizeNameAr ||
               `#${target.roomId}`,
             meal?.[lang],
             view?.[lang] ?? target.view,
@@ -712,9 +725,9 @@ function RateCalendarPage() {
     return bothLanguages((lang) =>
       [
         rate
-          ? (lang === "ar" ? rate.roomNameAr : rate.roomNameEn) ||
-            rate.roomNameEn ||
-            rate.roomNameAr ||
+          ? (lang === "ar" ? rate.roomSizeNameAr : rate.roomSizeNameEn) ||
+            rate.roomSizeNameEn ||
+            rate.roomSizeNameAr ||
             `#${variationId}`
           : `#${variationId}`,
         view ? (liveGrid.views[view]?.[lang] ?? view) : null,
@@ -748,7 +761,7 @@ function RateCalendarPage() {
           : null;
   const releaseOverrideRows =
     releaseOpen && releaseRules.data
-      ? releaseRuleRows(releaseRules.data, releaseToday, releaseRoomName)
+      ? releaseRuleRows(releaseRules.data, releaseToday, releaseRoomName, releaseVariationIds)
       : [];
   /* OV 04.1PN - whose prices the grid is showing. Everyone, until asked. */
   const [priceGroup, setPriceGroup] = useState<CalendarGroupId>("everyone");
@@ -788,6 +801,17 @@ function RateCalendarPage() {
   const pickedRooms = [...new Set(selected.map((key) => key.split("|")[0]!))];
   const pickedNights = selected.map((key) => Number(key.split("|")[1])).sort((a, b) => a - b);
   const nightRow = allRows.find((row) => row.name === (pickedRooms[0] ?? nightCell?.room));
+  /* The single night's current override from POST sell-controls/context (null = normal contract behavior). */
+  const nightDay = nightOn ? isoDay(nightOn) : null;
+  const nightOverride =
+    nightRow?.target && nightDay
+      ? (sellAt.get(`${nightRow.target.variationId}|${nightDay}`) ?? null)
+      : null;
+  /* An existing On Request night starts from its own effective SLA; a new one from the contract's. */
+  const nightSla =
+    nightOverride?.status === "on_request" && nightOverride.onRequestSettings
+      ? nightOverride.onRequestSettings
+      : contractSla;
   const pickedTargets = () =>
     allRows
       .filter((row) => (pickedRooms.length ? pickedRooms : [nightCell?.room]).includes(row.name))
@@ -1154,13 +1178,13 @@ function RateCalendarPage() {
          * from a contract - which is what `?contract=` says - so that the
          * way back is the way you came.
          */}
-        {contractParam && (
+        {/* {contractParam && (
           <BackLink
             inline
             to="/rate-contracts"
             label={fill(t.back, { contract: ar ? grid.nameAr : grid.name })}
           />
-        )}
+        )} */}
         {/* `flex-1` alone lets a wrapping row squeeze text to its
             narrowest word. The basis makes it claim a line instead. */}
         <div className="min-w-0 flex-1 basis-60">
@@ -1182,7 +1206,7 @@ function RateCalendarPage() {
           </div>
         </div>
         {/* Flow 04-W - the Win list, with this week's open lines. */}
-        <Gated permission="rates.view" instead={null}>
+        {/* <Gated permission="rates.view" instead={null}>
           <Link to="/rates/win-list" search={{}}>
             <Button variant="outline">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -1192,8 +1216,8 @@ function RateCalendarPage() {
               </span>
             </Button>
           </Link>
-        </Gated>
-        {live ? null : grid.readOnly ? (
+        </Gated> */}
+        {/* {live ? null : grid.readOnly ? (
           <StatusPill tone="neutral">{ar ? grid.publishStateAr : grid.publishState}</StatusPill>
         ) : (
           <Gated
@@ -1215,7 +1239,7 @@ function RateCalendarPage() {
                     : grid.publishState}
             </Button>
           </Gated>
-        )}
+        )} */}
       </header>
 
       {grid.readOnly && (
@@ -1249,7 +1273,7 @@ function RateCalendarPage() {
       )}
 
       <SectionCard className="mb-5" bodyClassName="p-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[260px_340px_210px_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[260px_340px_minmax(0,1fr)]">
           {/* OV 04.10 / 04.9 / 04.8 - each field opens the frame behind it. */}
           <PickerField
             label={t.hotel}
@@ -1273,11 +1297,11 @@ function RateCalendarPage() {
             }}
           />
           {/* OV 04.1PN - the field that opens the nationality menu. */}
-          <PickerField
+          {/* <PickerField
             label={pricesForCopy.label[k]}
             value={group.name[k]}
             onClick={() => setOverlay("prices")}
-          />
+          /> */}
           <label className="flex h-11 cursor-pointer items-center gap-2.5 self-end px-3">
             <input
               type="checkbox"
@@ -1353,123 +1377,274 @@ function RateCalendarPage() {
        * is drawn - so each gets its own icon, its own sentence and its own
        * column, with a rule between them. Read as one long strip of
        * checkboxes they blur together; read as three they are obvious.
+       * Like the calendar, it waits for a contract; until then a note asks for one.
        */}
-      <SectionCard className="mb-5" bodyClassName="px-6 py-5">
-        {/* The floors are the widest pill each question has to hold:
+      {!pickedContract ? (
+        <div
+          role="status"
+          className="mb-5 flex flex-col items-center rounded-xl border border-status-info/40 bg-status-info-bg px-6 py-10 text-center"
+        >
+          <span
+            aria-hidden
+            className="mb-4 grid h-14 w-14 place-items-center rounded-full border border-status-info/30 bg-surface text-status-info"
+          >
+            <FileText className="h-7 w-7" strokeWidth={1.75} />
+          </span>
+          <h2 className="text-[18px] font-semibold leading-[1.3] text-text-primary">
+            {liveGrid.selectContractTitle[k]}
+          </h2>
+          <p className="mt-1.5 max-w-[460px] text-[14px] leading-[1.55] text-text-secondary">
+            {liveGrid.selectContractFirst[k]}
+          </p>
+        </div>
+      ) : (
+        <>
+          <SectionCard className="mb-5" bodyClassName="px-6 py-5">
+            {/* The floors are the widest pill each question has to hold:
             204px is "Pickup - last 7 days", and 32fr gives the rows
             question the 378px its first line needs to break where
             the frame breaks it. */}
-        <div className="grid gap-x-6 gap-y-5 lg:grid-cols-[minmax(240px,32fr)_1px_minmax(0,51fr)_1px_minmax(204px,17fr)]">
-          <PanelSection icon={PanelsTopLeft} title={t.showRows} hint={t.showRowsHint}>
-            {/* Sized to their labels: these five are not a column of equals. */}
-            <div className="flex flex-wrap gap-x-2.5 gap-y-3">
+            <div className="grid gap-x-6 gap-y-5 lg:grid-cols-[minmax(240px,32fr)_1px_minmax(0,51fr)_1px_minmax(204px,17fr)]">
+              <PanelSection icon={PanelsTopLeft} title={t.showRows} hint={t.showRowsHint}>
+                {/* Sized to their labels: these five are not a column of equals. */}
+                <div className="flex flex-wrap gap-x-2.5 gap-y-3">
+                  {(
+                    [
+                      ["rate", t.rowRates],
+                      /* UI 04.1S / 04.1Q - both rows stay, named for what they
+                     cannot do on a contract that holds no rooms. */
+                      ["inventory", holdsNothing ? t.rowInventoryUnused : t.rowInventory],
+                      ["status", t.rowStatus],
+                      ["restrictions", t.rowRestrictions],
+                      ["release", holdsNothing ? t.rowReleaseUnused : t.rowRelease],
+                    ] as Array<[GridRowKind, string]>
+                  ).map(([key, label]) => (
+                    <CheckRow
+                      key={key}
+                      checked={show[key]}
+                      onChange={() => setShow((prev) => ({ ...prev, [key]: !prev[key] }))}
+                      label={label}
+                    />
+                  ))}
+                </div>
+              </PanelSection>
+
+              <PanelRule />
+
+              <PanelSection icon={Bed} title={t.showRooms} hint={t.showRoomsHint} stacked>
+                {/*
+                 * Nine rooms and an All, in a grid so the names line up in
+                 * columns instead of ragging after the longest one.
+                 *
+                 * How many columns is decided by the longest name, not by a
+                 * breakpoint: "Deluxe Room - Partial Haram View" needs 244px
+                 * of pill, so the track floor is 244px and the column fits as
+                 * many as it can hold - three where the frame draws three, two
+                 * at 1440, one when the panel is a stack on a phone. Sized off
+                 * a breakpoint instead, the same name was cut in half at three
+                 * different widths, and a room name you cannot read is worse
+                 * than a panel one row taller. Logged in roadmap.md.
+                 */}
+                {!pickedContract || targetsQuery.isError || !rateTargets || !allRows.length ? (
+                  <p className="text-xs text-text-muted">
+                    {
+                      (!pickedContract
+                        ? liveGrid.roomsPickContract
+                        : targetsQuery.isError
+                          ? liveGrid.roomsError
+                          : !rateTargets
+                            ? liveGrid.roomsLoading
+                            : liveGrid.roomsEmpty)[k]
+                    }
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(244px,1fr))] gap-x-2 gap-y-3">
+                    <CheckRow
+                      checked={visibleRooms.length === allRows.length}
+                      onChange={() =>
+                        pickRooms(
+                          visibleRooms.length === allRows.length
+                            ? []
+                            : allRows.map((row) => row.name),
+                        )
+                      }
+                      label={fill(t.allRooms, { count: allRows.length })}
+                    />
+                    {allRows.map((row) => (
+                      <CheckRow
+                        key={row.name}
+                        checked={visibleRooms.includes(row.name)}
+                        onChange={() =>
+                          pickRooms((prev) =>
+                            prev.includes(row.name)
+                              ? prev.filter((name) => name !== row.name)
+                              : [...prev, row.name],
+                          )
+                        }
+                        label={ar ? row.nameAr : row.name}
+                      />
+                    ))}
+                  </div>
+                )}
+              </PanelSection>
+
+              <PanelRule />
+
+              <PanelSection icon={Eye} title={t.view} hint={t.viewHint} stacked>
+                {/* One under another, each the full width of the column. */}
+                <div className="grid gap-3">
+                  <CheckRow
+                    checked={compact}
+                    onChange={() => setCompact(!compact)}
+                    label={t.compact}
+                  />
+                  <CheckRow
+                    checked={hidePast && hasPast}
+                    onChange={() => setHidePast(!hidePast)}
+                    label={t.hidePast}
+                    disabled={!hasPast}
+                    hint={hasPast ? undefined : liveGrid.noPastNights[k]}
+                  />
+                  <CheckRow
+                    checked={pickup && !live}
+                    onChange={() => setPickup(!pickup)}
+                    label={t.pickup}
+                    disabled={live}
+                    hint={live ? liveGrid.noBookingData[k] : undefined}
+                  />
+                  <CheckRow
+                    checked={selectCells}
+                    onChange={() => setSelectCells(!selectCells)}
+                    label={t.selectCells}
+                  />
+                </div>
+              </PanelSection>
+            </div>
+          </SectionCard>
+          <SectionCard className="mb-5" bodyClassName="px-5 py-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="dark" className="rounded-full" onClick={() => setOverlay("bulk")}>
+                <Layers className="h-[18px] w-[18px]" aria-hidden="true" />
+                {t.bulkRates}
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => setOverlay("stopSale")}
+              >
+                <Ban className="h-[18px] w-[18px]" aria-hidden="true" />
+                {t.bulkStatus}
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => setOverlay("release")}
+              >
+                <Tag className="h-[18px] w-[18px]" aria-hidden="true" />
+                {t.bulkRelease}
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => setOverlay("restrictions")}
+              >
+                <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
+                {t.bulkRestrictions}
+              </Button>
+
+              {/* Pushed to the end where there is a row to push it along;
+              on a phone it simply follows, rather than taking a line of
+              its own with nothing beside it. */}
+              <div className="flex items-center gap-3 sm:ms-auto">
+                <span className="hidden h-6 w-px bg-border-subtle lg:block" aria-hidden="true" />
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setOverlay("export")}
+                >
+                  <Upload className="h-[18px] w-[18px]" aria-hidden="true" />
+                  {t.export}
+                </Button>
+              </div>
+            </div>
+
+            <div className="my-4 h-px bg-border-subtle" aria-hidden="true" />
+
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-[repeat(2,minmax(0,1fr))]">
+              <DayField
+                label={t.from}
+                value={contractDetails ? span.start : ""}
+                edge="start"
+                span={span}
+                term={contractTerm}
+                weekend={weekendDays}
+                onPick={(next) => setSpan(next)}
+              />
+              <DayField
+                label={t.to}
+                value={contractDetails ? span.end : ""}
+                edge="end"
+                span={span}
+                term={contractTerm}
+                weekend={weekendDays}
+                onPick={(next) => setSpan(next)}
+              />
+            </div>
+
+            {contractTerm && (
+              <p className="-mt-2 mb-4 text-xs leading-4 text-text-secondary">
+                {fill(t.contractCoverage, {
+                  start: readableDay(contractTerm.start, lang),
+                  end: readableDay(contractTerm.end, lang),
+                })}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
               {(
                 [
-                  ["rate", t.rowRates],
-                  /* UI 04.1S / 04.1Q - both rows stay, named for what they
-                     cannot do on a contract that holds no rooms. */
-                  ["inventory", holdsNothing ? t.rowInventoryUnused : t.rowInventory],
-                  ["status", t.rowStatus],
-                  ["restrictions", t.rowRestrictions],
-                  ["release", holdsNothing ? t.rowReleaseUnused : t.rowRelease],
-                ] as Array<[GridRowKind, string]>
-              ).map(([key, label]) => (
-                <CheckRow
+                  ["all", t.filterAll, counts.all],
+                  ["soldOut", t.filterSoldOut, counts.soldOut],
+                  ["fewer", t.filterFewer.replace("4", String(threshold)), counts.fewer],
+                  ["stopSale", t.filterStopSale, counts.stopSale],
+                  ["onRequest", t.filterOnRequest, counts.onRequest],
+                  [
+                    "notPublished",
+                    t.filterNotPublished,
+                    state === "published" ? 0 : counts.notPublished,
+                  ],
+                  /* The guide fixes the filter row at seven. Not priced used to
+                 disappear at zero while Stop sale stayed and showed its 0,
+                 which made the row change shape for no reason. */
+                  ["notPriced", t.filterNotPriced, unpriced.length],
+                ] as Array<[string, string, number]>
+              ).map(([key, label, count]) => (
+                <FilterChip
                   key={key}
-                  checked={show[key]}
-                  onChange={() => setShow((prev) => ({ ...prev, [key]: !prev[key] }))}
+                  tone={CHIP_TONE[key] ?? "warning"}
+                  active={filter === key}
+                  onClick={() => setFilter(filter === key ? "all" : key)}
                   label={label}
+                  clearLabel={t.filterAll}
+                  {...(key === "all" ? {} : { count: ar ? arNum(count) : count })}
                 />
               ))}
-            </div>
-          </PanelSection>
 
-          <PanelRule />
-
-          <PanelSection icon={Bed} title={t.showRooms} hint={t.showRoomsHint} stacked>
-            {/*
-             * Nine rooms and an All, in a grid so the names line up in
-             * columns instead of ragging after the longest one.
-             *
-             * How many columns is decided by the longest name, not by a
-             * breakpoint: "Deluxe Room - Partial Haram View" needs 244px
-             * of pill, so the track floor is 244px and the column fits as
-             * many as it can hold - three where the frame draws three, two
-             * at 1440, one when the panel is a stack on a phone. Sized off
-             * a breakpoint instead, the same name was cut in half at three
-             * different widths, and a room name you cannot read is worse
-             * than a panel one row taller. Logged in roadmap.md.
-             */}
-            {!pickedContract || targetsQuery.isError || !rateTargets || !allRows.length ? (
-              <p className="text-xs text-text-muted">
-                {
-                  (!pickedContract
-                    ? liveGrid.roomsPickContract
-                    : targetsQuery.isError
-                      ? liveGrid.roomsError
-                      : !rateTargets
-                        ? liveGrid.roomsLoading
-                        : liveGrid.roomsEmpty)[k]
-                }
-              </p>
-            ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(244px,1fr))] gap-x-2 gap-y-3">
-                <CheckRow
-                  checked={visibleRooms.length === allRows.length}
-                  onChange={() =>
-                    pickRooms(
-                      visibleRooms.length === allRows.length ? [] : allRows.map((row) => row.name),
-                    )
-                  }
-                  label={fill(t.allRooms, { count: allRows.length })}
-                />
-                {allRows.map((row) => (
-                  <CheckRow
-                    key={row.name}
-                    checked={visibleRooms.includes(row.name)}
-                    onChange={() =>
-                      pickRooms((prev) =>
-                        prev.includes(row.name)
-                          ? prev.filter((name) => name !== row.name)
-                          : [...prev, row.name],
-                      )
-                    }
-                    label={ar ? row.nameAr : row.name}
-                  />
-                ))}
+              <div className="flex items-center gap-3 sm:ms-auto">
+                <span className="hidden h-6 w-px bg-border-subtle sm:block" aria-hidden="true" />
+                <Button
+                  variant="ghost"
+                  className="rounded-full px-3"
+                  onClick={() => setColourKey(true)}
+                >
+                  <Info className="h-[18px] w-[18px]" aria-hidden="true" />
+                  {t.colourKey}
+                </Button>
               </div>
-            )}
-          </PanelSection>
-
-          <PanelRule />
-
-          <PanelSection icon={Eye} title={t.view} hint={t.viewHint} stacked>
-            {/* One under another, each the full width of the column. */}
-            <div className="grid gap-3">
-              <CheckRow checked={compact} onChange={() => setCompact(!compact)} label={t.compact} />
-              <CheckRow
-                checked={hidePast && hasPast}
-                onChange={() => setHidePast(!hidePast)}
-                label={t.hidePast}
-                disabled={!hasPast}
-                hint={hasPast ? undefined : liveGrid.noPastNights[k]}
-              />
-              <CheckRow
-                checked={pickup && !live}
-                onChange={() => setPickup(!pickup)}
-                label={t.pickup}
-                disabled={live}
-                hint={live ? liveGrid.noBookingData[k] : undefined}
-              />
-              <CheckRow
-                checked={selectCells}
-                onChange={() => setSelectCells(!selectCells)}
-                label={t.selectCells}
-              />
             </div>
-          </PanelSection>
-        </div>
-      </SectionCard>
+          </SectionCard>
+        </>
+      )}
 
       {/*
        * UI 04.1 - the toolbar, as one card with two rows and a rule
@@ -1484,116 +1659,6 @@ function RateCalendarPage() {
        * floating between the panel above and the grid below, belonging to
        * neither.
        */}
-      <SectionCard className="mb-5" bodyClassName="px-5 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="dark" className="rounded-full" onClick={() => setOverlay("bulk")}>
-            <Layers className="h-[18px] w-[18px]" aria-hidden="true" />
-            {t.bulkRates}
-          </Button>
-          <Button variant="outline" className="rounded-full" onClick={() => setOverlay("stopSale")}>
-            <Ban className="h-[18px] w-[18px]" aria-hidden="true" />
-            {t.bulkStatus}
-          </Button>
-          <Button variant="outline" className="rounded-full" onClick={() => setOverlay("release")}>
-            <Tag className="h-[18px] w-[18px]" aria-hidden="true" />
-            {t.bulkRelease}
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => setOverlay("restrictions")}
-          >
-            <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
-            {t.bulkRestrictions}
-          </Button>
-
-          {/* Pushed to the end where there is a row to push it along;
-              on a phone it simply follows, rather than taking a line of
-              its own with nothing beside it. */}
-          <div className="flex items-center gap-3 sm:ms-auto">
-            <span className="hidden h-6 w-px bg-border-subtle lg:block" aria-hidden="true" />
-            <Button variant="outline" className="rounded-full" onClick={() => setOverlay("export")}>
-              <Upload className="h-[18px] w-[18px]" aria-hidden="true" />
-              {t.export}
-            </Button>
-          </div>
-        </div>
-
-        <div className="my-4 h-px bg-border-subtle" aria-hidden="true" />
-
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-[repeat(2,minmax(0,1fr))]">
-          <DayField
-            label={t.from}
-            value={contractDetails ? span.start : ""}
-            edge="start"
-            span={span}
-            term={contractTerm}
-            weekend={weekendDays}
-            onPick={(next) => setSpan(next)}
-          />
-          <DayField
-            label={t.to}
-            value={contractDetails ? span.end : ""}
-            edge="end"
-            span={span}
-            term={contractTerm}
-            weekend={weekendDays}
-            onPick={(next) => setSpan(next)}
-          />
-        </div>
-
-        {contractTerm && (
-          <p className="-mt-2 mb-4 text-xs leading-4 text-text-secondary">
-            {fill(t.contractCoverage, {
-              start: readableDay(contractTerm.start, lang),
-              end: readableDay(contractTerm.end, lang),
-            })}
-          </p>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              ["all", t.filterAll, counts.all],
-              ["soldOut", t.filterSoldOut, counts.soldOut],
-              ["fewer", t.filterFewer.replace("4", String(threshold)), counts.fewer],
-              ["stopSale", t.filterStopSale, counts.stopSale],
-              ["onRequest", t.filterOnRequest, counts.onRequest],
-              [
-                "notPublished",
-                t.filterNotPublished,
-                state === "published" ? 0 : counts.notPublished,
-              ],
-              /* The guide fixes the filter row at seven. Not priced used to
-                 disappear at zero while Stop sale stayed and showed its 0,
-                 which made the row change shape for no reason. */
-              ["notPriced", t.filterNotPriced, unpriced.length],
-            ] as Array<[string, string, number]>
-          ).map(([key, label, count]) => (
-            <FilterChip
-              key={key}
-              tone={CHIP_TONE[key] ?? "warning"}
-              active={filter === key}
-              onClick={() => setFilter(filter === key ? "all" : key)}
-              label={label}
-              clearLabel={t.filterAll}
-              {...(key === "all" ? {} : { count: ar ? arNum(count) : count })}
-            />
-          ))}
-
-          <div className="flex items-center gap-3 sm:ms-auto">
-            <span className="hidden h-6 w-px bg-border-subtle sm:block" aria-hidden="true" />
-            <Button
-              variant="ghost"
-              className="rounded-full px-3"
-              onClick={() => setColourKey(true)}
-            >
-              <Info className="h-[18px] w-[18px]" aria-hidden="true" />
-              {t.colourKey}
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
 
       {unpriced.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-status-warning/25 bg-status-warning-bg p-4">
@@ -1630,20 +1695,13 @@ function RateCalendarPage() {
           </Button>
         </div>
       )}
-
+      {/* 
       {!live &&
         filter === "all" &&
         grid.counts.fewer > 0 &&
         month.key === "2026-09" &&
         !unpriced.length && (
           <div className="mb-4 rounded-xl border border-status-info/25 bg-status-info-bg px-4 py-3">
-            {/*
-             * One row on a wide screen, as the frame draws it. On a phone
-             * the sentence takes the width and the two actions share the
-             * line below. It used to be a single wrapping row, and `flex-1`
-             * on the sentence let it shrink to its narrowest word - at 393
-             * the banner was 499px tall with one letter per line.
-             */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
               <p className="min-w-0 text-[13px] leading-[1.45] text-text-secondary lg:flex-1">
                 <span className="text-overline me-2 tracking-[0.02em] text-status-info">
@@ -1671,7 +1729,7 @@ function RateCalendarPage() {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
       {/* UI 04.1VS — what was picked, and the three things to do with it. */}
       {selected.length > 0 && (
@@ -1867,11 +1925,16 @@ function RateCalendarPage() {
         overlay === "release" ||
         overlay === "restrictions") && (
         <BulkRangeOverlay
+          /* Each Bulk operation opens with its own clean form. */
+          key={overlay}
           kind={overlay === "bulk" ? "bulkRates" : overlay}
           contract={(live ? pickedContract!.name : ar ? grid.nameAr : grid.name).toUpperCase()}
+          term={contractTerm}
+          openOn={contractDetails ? span.start : undefined}
           {...(live && overlay === "bulk"
             ? {
                 roomOptions: allRows.map((row) => ({ en: row.name, ar: row.nameAr })),
+                // existing: [],
                 existing: overrideRuns(overridesQuery.data ?? [], allRows, rateTargets.currency),
                 liveRates: {
                   currency: rateTargets.currency,
@@ -1941,7 +2004,9 @@ function RateCalendarPage() {
                       ) === index,
                   )
                   .map((row) => ({ en: row.name, ar: row.nameAr })),
-                needsSla: sellSlaReady && !contractSla,
+                /* On Request always shows both SLA fields, seeded from the contract SLA. */
+                needsSla: sellSlaReady,
+                slaDefaults: contractSla,
                 slaReady: sellSlaReady,
                 existing: sellRuleRows(sellRules.data ?? [], allRows),
                 onRemoveExisting: async (row) => {
@@ -1996,7 +2061,8 @@ function RateCalendarPage() {
                               ? { allRooms: true as const }
                               : { variationIds: ids(line.rooms) }),
                             dates,
-                            ...(line.sla && line.status === "onRequest" && !contractSla
+                            /* The final SLA is always sent, even when it matches the contract's. */
+                            ...(line.sla && line.status === "onRequest"
                               ? { onRequestSettings: line.sla }
                               : {}),
                           },
@@ -2020,7 +2086,7 @@ function RateCalendarPage() {
                                   ? ("stop_sale" as const)
                                   : ("on_request" as const),
                               ...scope,
-                              ...(line.sla && line.status === "onRequest" && !contractSla
+                              ...(line.sla && line.status === "onRequest"
                                 ? { onRequestSettings: line.sla }
                                 : {}),
                             };
@@ -2307,6 +2373,8 @@ function RateCalendarPage() {
 
       {overlay === "status" && (
         <NightStatusOverlay
+          /* A new contract, room or night starts a fresh form: no SLA carried over. */
+          key={`${pickedContract?.id ?? ""}|${nightRow?.target?.variationId ?? ""}|${nightDay ?? ""}`}
           room={nightCell ? (ar ? nightCell.roomAr : nightCell.room) : undefined}
           date={nightDate}
           fixed={fixedPrice}
@@ -2319,7 +2387,8 @@ function RateCalendarPage() {
                     : nightRow.status[nightCell.night - 1] === "RQ"
                       ? ("request" as const)
                       : ("open" as const),
-                needsSla: sellSlaReady && !contractSla,
+                needsSla: sellSlaReady,
+                slaDefaults: nightSla,
                 saving: saveSell.isPending || sellTargets.isPending,
                 onApply: (state, sla) => {
                   if (sellNotReady()) return;
@@ -2335,9 +2404,7 @@ function RateCalendarPage() {
                             action: "create",
                             status: state === "stop" ? "stop_sale" : "on_request",
                             ...scope,
-                            ...(sla && state === "request" && !contractSla
-                              ? { onRequestSettings: sla }
-                              : {}),
+                            ...(sla && state === "request" ? { onRequestSettings: sla } : {}),
                           },
                     ],
                     {
@@ -2398,7 +2465,12 @@ function RateCalendarPage() {
           onRetry={() => void contractsQuery.refetch()}
           value={pickedContract?.id ?? null}
           includeEnded={includeEnded}
-          onIncludeEnded={setIncludeEnded}
+          onIncludeEnded={(next) => {
+            setIncludeEnded(next);
+            setContractPage(1);
+          }}
+          dates={contractDates}
+          onDates={setContractDates}
           search={contractSearch}
           searchActive={contractSearch.trim() !== "" || debouncedContractSearch !== ""}
           onSearch={(next) => {
@@ -2934,7 +3006,9 @@ function contractTerms(detail: RatesContractDetail, targets: RateTargetsData, k:
   const base = targets.targets.find((target) => target.kind === "base") ?? targets.targets[0];
   const room = base
     ? [
-        (k === "ar" ? base.roomNameAr : base.roomNameEn) || base.roomNameEn || base.roomNameAr,
+        (k === "ar" ? base.roomSizeNameAr : base.roomSizeNameEn) ||
+          base.roomSizeNameEn ||
+          base.roomSizeNameAr,
         liveGrid.views[base.view]?.[k] ?? base.view,
       ]
         .filter(Boolean)
@@ -3208,8 +3282,8 @@ function inheritedRestrictionRows(
           ? liveRestrictions.allRooms
           : bothLanguages((lang) =>
               room
-                ? (lang === "ar" ? room.roomNameAr : room.roomNameEn) ||
-                  room.roomNameEn ||
+                ? (lang === "ar" ? room.roomSizeNameAr : room.roomSizeNameEn) ||
+                  room.roomSizeNameEn ||
                   `#${rule.roomId}`
                 : `#${rule.roomId}`,
             ),
@@ -3407,14 +3481,44 @@ function inheritedReleaseRow(inherited: unknown, sla: SellControlSla | null): Al
 const RELEASE_CELL_STATUSES = ["effective", "shadowed", "historical"];
 
 /**
+ * A rule's layer, read defensively: "all_rooms" or room-specific, null when
+ * unreadable. All-room and room layers are never confused with each other.
+ */
+function releaseLayerOf(layer: unknown): "all" | "room" | null {
+  if (typeof layer !== "string") return null;
+  if (/^all[_-]?rooms?(_override)?$/i.test(layer)) return "all";
+  if (/^rooms?([_-](specific|override))?$/i.test(layer)) return "room";
+  return null;
+}
+
+/** A rule's own timing, exactly as an edit would resend it; null when it can't be read. */
+function releaseTimingOf(rule: ReleaseRule): NonNullable<
+  NonNullable<AlreadySet["release"]>["seed"]
+>["timing"] | null {
+  if (!isReleaseTime(rule.releaseTime)) return null;
+  if (rule.type === "same_day") return { type: "same_day", releaseTime: rule.releaseTime };
+  if (rule.type === "number_of_days" && isReleaseDays(rule.daysBeforeCheckIn)) {
+    return {
+      type: "number_of_days",
+      daysBeforeCheckIn: rule.daysBeforeCheckIn,
+      releaseTime: rule.releaseTime,
+    };
+  }
+  return null;
+}
+
+/**
  * Live release overrides. Nothing about a rule is guessed: its remaining
- * ownership is used only when every cell checks out, and its timing and
- * layer are not read at all, so Edit stays off and Remove needs ownership.
+ * ownership is used only when every cell checks out, and Edit is offered only
+ * when one edit over the rule's remaining nights - in its own layer, on its own
+ * rooms, with its own timing - would own exactly the cells it owns now.
+ * Otherwise Edit is locked with the reason and Remove stays (when ownership is known).
  */
 function releaseRuleRows(
   rules: ReleaseRule[],
   today: string | null,
   roomName: (variationId: number) => { en: string; ar: string },
+  allVariationIds: number[],
 ): AlreadySet[] {
   return rules
     .filter((rule) => rule.live === true)
@@ -3434,16 +3538,55 @@ function releaseRuleRows(
         );
       const ownedCells = cellsKnown ? ownedNonpastReleaseCells(rule, today!) : [];
       const owned = cellsKnown && ownedCells.length > 0;
-      const current = owned ? rule.cells.filter((cell) => cell.stayDate >= today!) : [];
+      /* Remaining owned cells: effective or shadowed, tonight or later. Historical
+         cells are archived - never resent, never part of the replacement dates. */
+      const current = owned
+        ? rule.cells.filter((cell) => cell.status !== "historical" && cell.stayDate >= today!)
+        : [];
       const dates = [...new Set(current.map((cell) => cell.stayDate))].sort();
-      const ids = [...new Set(current.map((cell) => cell.variationId))];
+      const ids = [...new Set(current.map((cell) => cell.variationId))].sort((a, b) => a - b);
       const shadowed = current.filter((cell) => cell.status === "shadowed").length;
+
+      /* Can one edit rebuild this rule exactly? */
+      const layer = releaseLayerOf(rule.layer);
+      const timing = releaseTimingOf(rule);
+      /* Every remaining (room, night) pair owned: one rooms x nights selection says it. */
+      const fullGrid = ownedCells.length === ids.length * dates.length;
+      /* All rooms expands to the contract's current Room + Views: only exact when the
+         rule owns exactly those. A room rule keeps its own rooms, all of them offered. */
+      const roomsExact =
+        layer === "all"
+          ? allVariationIds.length === ids.length &&
+            allVariationIds.every((id) => ids.includes(id))
+          : ids.every((id) => allVariationIds.includes(id));
+      const editLocked = !owned
+        ? liveRelease.lockedScope
+        : !layer
+          ? liveRelease.lockedLayer
+          : !timing
+            ? liveRelease.lockedTiming
+            : dates.length > RELEASE_LIMITS.selectionNights
+              ? liveRelease.lockedTooManyNights
+              : !fullGrid
+                ? liveRelease.lockedShape
+                : !roomsExact
+                  ? liveRelease.lockedRooms
+                  : undefined;
+      const seed =
+        !editLocked && layer && timing
+          ? {
+              ranges: dateRuns(dates).map((run) => ({ start: run[0]!, end: run[run.length - 1]! })),
+              allRooms: layer === "all",
+              variationIds: layer === "all" ? [] : ids,
+              timing,
+            }
+          : undefined;
       return {
         id: `release-${ruleId || "unknown"}`,
         release: {
           ruleId,
           ownedCells: owned ? ownedCells : undefined,
-          editLocked: liveRelease.editLocked,
+          ...(seed ? { seed } : { editLocked }),
           removeLocked: owned ? undefined : liveRelease.removeLocked,
         },
         when: owned

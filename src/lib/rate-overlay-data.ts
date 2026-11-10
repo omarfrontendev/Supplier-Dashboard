@@ -1025,6 +1025,11 @@ export const liveGrid = {
   seasonsLoading: t("Loading seasons…", "جارٍ تحميل المواسم…"),
   seasonsError: t("We couldn't load this contract's seasons.", "تعذّر تحميل مواسم هذا العقد."),
   roomsPickContract: t("Pick a contract to see its rooms.", "اختر عقدًا لعرض غرفه."),
+  selectContractTitle: t("Select a Contract", "اختر عقدًا"),
+  selectContractFirst: t(
+    "Please select a contract to view the Rate Calendar and access calendar controls.",
+    "يُرجى اختيار عقد لعرض تقويم الأسعار والوصول إلى أدوات التحكم في التقويم.",
+  ),
   roomsLoading: t("Loading rooms…", "جارٍ تحميل الغرف…"),
   roomsError: t("We couldn't load this contract's rooms.", "تعذّر تحميل غرف هذا العقد."),
   roomsEmpty: t("This contract has no rooms yet.", "لا توجد غرف في هذا العقد بعد."),
@@ -1496,9 +1501,39 @@ export const liveRelease = {
     "Hidden on every remaining night by a more specific room rule.",
     "مخفية في كل لياليها المتبقية بقاعدة أخص للغرفة.",
   ),
-  editLocked: t(
-    "Edit unavailable: this rule's timing and layer can't be rebuilt exactly yet. Remove it and add a new one instead.",
-    "التعديل غير متاح: لا يمكن إعادة بناء توقيت هذه القاعدة وطبقتها بدقة بعد. احذفها وأضف قاعدة جديدة بدلًا منها.",
+  /* Why Edit is off for one rule. Remove stays available unless removeLocked says otherwise. */
+  lockedScope: t(
+    "Edit unavailable: this rule's remaining nights and rooms couldn't be confirmed.",
+    "التعديل غير متاح: تعذّر تأكيد الليالي والغرف المتبقية لهذه القاعدة.",
+  ),
+  lockedTiming: t(
+    "Edit unavailable: this rule's release timing couldn't be read. Remove it and add a new one instead.",
+    "التعديل غير متاح: تعذّرت قراءة توقيت الإصدار لهذه القاعدة. احذفها وأضف قاعدة جديدة بدلًا منها.",
+  ),
+  lockedLayer: t(
+    "Edit unavailable: whether this rule is for all rooms or specific rooms couldn't be read. Remove it and add a new one instead.",
+    "التعديل غير متاح: تعذّرت معرفة ما إذا كانت هذه القاعدة لكل الغرف أو لغرف محددة. احذفها وأضف قاعدة جديدة بدلًا منها.",
+  ),
+  lockedShape: t(
+    "Edit unavailable: this rule covers different nights on different rooms, so one edit can't rebuild it exactly. Remove it and add new rules instead.",
+    "التعديل غير متاح: تغطي هذه القاعدة ليالي مختلفة في غرف مختلفة، فلا يمكن لتعديل واحد إعادة بنائها بدقة. احذفها وأضف قواعد جديدة بدلًا منها.",
+  ),
+  lockedRooms: t(
+    "Edit unavailable: this rule's rooms no longer match the contract's Room + Views exactly, so editing it would change which rooms it covers.",
+    "التعديل غير متاح: لم تعد غرف هذه القاعدة تطابق غرف العقد بدقة، فتعديلها سيغيّر الغرف التي تشملها.",
+  ),
+  lockedTooManyNights: t(
+    "Edit unavailable: this rule has more remaining nights than one edit can carry (366).",
+    "التعديل غير متاح: لهذه القاعدة ليالٍ متبقية أكثر مما يحمله تعديل واحد (٣٦٦).",
+  ),
+  /* Editing a saved rule: its layer and rooms are fixed. */
+  editingRuleHint: t(
+    "Change the nights or release timing, then press Save changes. The rule keeps its rooms. Cancel leaves the rule as it was.",
+    "غيّر الليالي أو توقيت الإصدار، ثم اضغط حفظ التغييرات. تحتفظ القاعدة بغرفها. والإلغاء يُبقي القاعدة كما كانت.",
+  ),
+  roomsFixed: t(
+    "Rooms stay as the rule has them: a saved rule can't move between all rooms and specific rooms.",
+    "تبقى الغرف كما هي في القاعدة: لا يمكن نقل قاعدة محفوظة بين كل الغرف وغرف محددة.",
   ),
   removeLocked: t(
     "Remove unavailable: this rule's remaining nights and rooms couldn't be confirmed.",
