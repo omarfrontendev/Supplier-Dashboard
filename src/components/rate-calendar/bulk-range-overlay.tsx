@@ -53,6 +53,7 @@ import {
   contractRelease,
   hotelContracts,
   MAX_RELEASE_DAYS,
+  stopSaleEditCopy,
   type AlreadySet,
   type BulkKind,
 } from "@/lib/bulk-range-data";
@@ -211,7 +212,26 @@ interface Line {
   /** Live bulk rates: the operations this line stages. */
   rates?: RateOperation[] | undefined;
   ruleId?: number | undefined;
+  /** Stop sale / On Request: the form this line was added from, so Edit can put it back. */
+  stopSale?: StopSaleDraft | undefined;
 }
+
+/**
+ * Stop sale / On Request: exactly what the form held when a line was added.
+ * The line's own `id` is its client identity; `ruleId` is the API rule it
+ * edits, and is absent for a change that exists only in this list.
+ */
+interface StopSaleDraft {
+  picked: Picked[];
+  days: number[];
+  /** The stored room picks, "All rooms" entry included, as the checkboxes keep them. */
+  rooms: string[];
+  setTo: string;
+  sla: { minutes: string; expiryAction: StatusSla["expiryAction"]; touched: boolean };
+  ruleId?: number | undefined;
+}
+
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
 
 export interface StatusPayload {
   ruleId?: number | undefined;
@@ -376,7 +396,12 @@ export function BulkRangeOverlay({
   const [supplements, setSupplements] = useState<Record<string, string>>({});
   /* Stop sale */
   const [setTo, setSetTo] = useState("stopSale");
+  /* The API rule being edited (its persistent id); null for a change that is not a saved rule. */
   const [editingRule, setEditingRule] = useState<number | null>(null);
+  /* Stop sale: the list line being edited (its client id); null when no line is. */
+  const [editingLine, setEditingLine] = useState<string | null>(null);
+  /* Stop sale is in Edit mode while either identity is held; otherwise + Add adds. */
+  const stopSaleEditing = kind === "stopSale" && (editingLine !== null || editingRule !== null);
   const [everyContract, setEveryContract] = useState(false);
   /* The SLA fields start from the contract's SLA (30 min / auto reject when it has none). */
   const defaultSlaMinutes = String(slaDefaults?.slaMinutes ?? 30);
@@ -438,7 +463,7 @@ export function BulkRangeOverlay({
   const [reviewing, setReviewing] = useState(false);
   /** What the banner at the top says, once something has happened. */
   const [note, setNote] = useState<
-    | { kind: "added" | "applied" | "drafted"; what: Bi }
+    | { kind: "added" | "updated" | "applied" | "drafted"; what: Bi }
     | { kind: "removed"; what: Bi; row: Line }
     | null
   >(null);
@@ -860,6 +885,10 @@ export function BulkRangeOverlay({
     (!liveRel || releaseOperation !== null);
   const rows = existing ?? alreadySet[kind];
   const shownSaved = existing ? [] : saved;
+  /* The list's own new items. Stop sale shows a staged change to a saved rule in that
+     rule's row instead, so an edit never reads as one more item. */
+  const listedLines =
+    kind === "stopSale" ? lines.filter((line) => line.stopSale?.ruleId === undefined) : lines;
   /* Contract rules whose dates have not started - Inactive, in the
      contract's own table, and not "live" whatever the count says. */
   const dormant = rows.filter((row) => row.inactive).length;
@@ -890,7 +919,57 @@ export function BulkRangeOverlay({
     setSlaMinutes(defaultSlaMinutes);
     setExpiryAction(defaultExpiry);
     setEditingRule(null);
+    setEditingLine(null);
   };
+
+  /* ------------------------------------- stop sale: Add mode / Edit mode */
+  /** The form as it stands, kept on the line so Edit can put it back exactly. */
+  const stopSaleDraft = (): StopSaleDraft => ({
+    picked,
+    days,
+    rooms,
+    setTo,
+    sla: { minutes: slaMinutes, expiryAction, touched: slaTouched.current },
+    ...(editingRule !== null ? { ruleId: editingRule } : {}),
+  });
+  /** Enter Edit mode on a line: its data in the form, its identities held until Save or Cancel. */
+  const editStopSaleLine = (line: Line) => {
+    const draft = line.stopSale;
+    if (!draft) return;
+    setPicking(false);
+    setPicked(draft.picked);
+    setDays(draft.days);
+    setRooms(draft.rooms);
+    setSetTo(draft.setTo);
+    slaTouched.current = draft.sla.touched;
+    setSlaMinutes(draft.sla.minutes);
+    setExpiryAction(draft.sla.expiryAction);
+    setEditingRule(draft.ruleId ?? null);
+    setEditingLine(line.id);
+  };
+  /**
+   * Back to Add mode: the nights, rooms, type and SLA start over; the list is
+   * left exactly as it is. Leaving Edit mode also gives the week back, since
+   * Edit put the item's own days in.
+   */
+  const restartStopSale = (leavingEdit: boolean) => {
+    setPicking(false);
+    setPicked([]);
+    setRooms([]);
+    setSetTo("stopSale");
+    /* Leaving On Request drops its SLA, as the type radio does. */
+    slaTouched.current = false;
+    setSlaMinutes(defaultSlaMinutes);
+    setExpiryAction(defaultExpiry);
+    setEditingRule(null);
+    setEditingLine(null);
+    if (leavingEdit) setDays(EVERY_DAY);
+  };
+  /** The staged change for a saved rule, which the list shows in that rule's own row. */
+  const stagedEditOf = (ruleId: number | undefined) =>
+    ruleId === undefined
+      ? undefined
+      : lines.find((line) => line.stopSale?.ruleId === ruleId);
 
   /* After a successful apply/save: the whole form back to how it opened. */
   const resetForm = () => {
@@ -944,6 +1023,49 @@ export function BulkRangeOverlay({
     setReviewing(true);
   };
 
+  /**
+   * Stop sale / On Request: + Add in Add mode, Save changes in Edit mode.
+   * - Add mode appends one new line.
+   * - Editing a line (new or a staged change to a saved rule) replaces that
+   *   line in place: same id, same position, nothing else in the list moves.
+   * - Editing a saved rule with no staged change yet stages one line carrying
+   *   its ruleId; the list shows it in that rule's own row, never as a new item,
+   *   and Review & save sends it through the existing edit operation.
+   * Only the nights, rooms, type and SLA start over afterwards; the list and
+   * everything else stay. The full reset is resetForm in confirm.
+   */
+  const addOrUpdateStopSale = (detail: (key: Lang) => string) => {
+    const lineId = editingLine;
+    const ruleId = editingRule ?? undefined;
+    const next: Line = {
+      id: lineId ?? `L-${Date.now()}`,
+      what: headline,
+      detail: { en: detail("en"), ar: detail("ar") },
+      when: { en: whenLabel, ar: whenLabel },
+      rooms: roomNames(realRooms),
+      value: setting,
+      tone: setTo === "stopSale" ? "danger" : setTo === "onRequest" ? "warning" : undefined,
+      payload: statusPayload(),
+      stopSale: stopSaleDraft(),
+    };
+    if (lineId !== null) {
+      const replace = (list: Line[]) => list.map((line) => (line.id === lineId ? next : line));
+      setLines(replace);
+      /* Demo only: a line already saved in this session is edited where it is shown. */
+      setSaved(replace);
+    } else {
+      setLines((current) => [
+        /* One staged change per saved rule: never two lines for the same rule. */
+        ...current.filter(
+          (line) => ruleId === undefined || line.stopSale?.ruleId !== ruleId,
+        ),
+        next,
+      ]);
+    }
+    setNote({ kind: stopSaleEditing ? "updated" : "added", what: headline });
+    restartStopSale(stopSaleEditing);
+  };
+
   const add = () => {
     /* A night-by-night create is saved as several rules: the line says so. */
     const splitInto =
@@ -953,15 +1075,13 @@ export function BulkRangeOverlay({
         splitInto ? ` · ${fill(lr.splitNote[key], { count: n(splitInto) })}` : ""
       }`;
     const editing = live && editingRule !== null ? editingRule : undefined;
-    /* Stop sale keeps its form after Add, so a second Add of the same edited rule replaces the first. */
-    const editingStatus = kind === "stopSale" && editingRule !== null ? editingRule : undefined;
+    if (kind === "stopSale") {
+      addOrUpdateStopSale(detail);
+      return;
+    }
     setLines((current) => [
       /* One staged change per live rule: a newer edit replaces the older one. */
-      ...current.filter(
-        (line) =>
-          (editing === undefined || line.ruleId !== editing) &&
-          (editingStatus === undefined || line.payload?.ruleId !== editingStatus),
-      ),
+      ...current.filter((line) => editing === undefined || line.ruleId !== editing),
       {
         id: `L-${Date.now()}`,
         what: headline,
@@ -969,12 +1089,6 @@ export function BulkRangeOverlay({
         when: { en: whenLabel, ar: whenLabel },
         rooms: roomNames(realRooms),
         value: setting,
-        tone:
-          kind === "stopSale" && setTo === "stopSale"
-            ? "danger"
-            : kind === "stopSale" && setTo === "onRequest"
-              ? "warning"
-              : undefined,
         payload: statusPayload(),
         restrictions: restrictionOperations(),
         release: liveRel && releaseOperation ? [releaseOperation] : undefined,
@@ -982,22 +1096,7 @@ export function BulkRangeOverlay({
       },
     ]);
     setNote({ kind: "added", what: headline });
-    if (kind !== "stopSale") {
-      clearForm();
-      return;
-    }
-    /* Stop sale / On Request: only the nights, the rooms and the type start over for the
-       next Add; the list and everything else stay. The full reset is resetForm in confirm. */
-    setPicking(false);
-    setPicked([]);
-    setRooms([]);
-    setSetTo("stopSale");
-    /* Leaving On Request drops its SLA, as the type radio does. */
-    slaTouched.current = false;
-    setSlaMinutes(defaultSlaMinutes);
-    setExpiryAction(defaultExpiry);
-    /* The staged line carries the edited rule; the next Add is a new change. */
-    setEditingRule(null);
+    clearForm();
   };
 
   const [applying, setApplying] = useState(false);
@@ -1495,9 +1594,16 @@ export function BulkRangeOverlay({
                 />
               )}
               <Button
-                disabled={lines.length === 0 || batchIssue !== null}
+                /* Stop sale: an edit in progress is saved or cancelled first, so Review never misses it. */
+                disabled={lines.length === 0 || batchIssue !== null || stopSaleEditing}
                 reason={
-                  lines.length === 0 ? c.nothingYet[k] : batchIssue ? batchIssue[k] : undefined
+                  lines.length === 0
+                    ? c.nothingYet[k]
+                    : batchIssue
+                      ? batchIssue[k]
+                      : stopSaleEditing
+                        ? stopSaleEditCopy.finishEditing[k]
+                        : undefined
                 }
                 onClick={() => setReviewing(true)}
               >
@@ -1524,6 +1630,8 @@ export function BulkRangeOverlay({
             <p className="text-[12.5px] font-semibold text-text-primary">
               {note.kind === "added"
                 ? fill(c.addedTitle[k], { what: note.what[k] })
+                : note.kind === "updated"
+                  ? fill(stopSaleEditCopy.updatedTitle[k], { what: note.what[k] })
                 : note.kind === "applied"
                   ? fill(c.appliedTitle[k], { what: note.what[k] })
                   : note.kind === "drafted"
@@ -1532,7 +1640,7 @@ export function BulkRangeOverlay({
             </p>
             {note.kind !== "removed" && (
               <p className="mt-0.5 text-[12px] leading-5 text-text-body">
-                {note.kind === "added"
+                {note.kind === "added" || note.kind === "updated"
                   ? c.addedBody[k]
                   : note.kind === "applied"
                     ? oneRange
@@ -1571,14 +1679,19 @@ export function BulkRangeOverlay({
               {liveRel.blocked[k]}
             </div>
           )}
-          {editingRule !== null && (
+          {(editingRule !== null || stopSaleEditing) && (
             <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-brand-deep/30 bg-primary-subtle px-3.5 py-2.5">
               <p className="min-w-0 flex-1 text-[12px] leading-5 text-text-primary">
-                {live ? lr.editingHint[k] : liveGrid.editingHint[k]}
+                {live
+                  ? lr.editingHint[k]
+                  : kind === "stopSale"
+                    ? stopSaleEditCopy.editingHint[k]
+                    : liveGrid.editingHint[k]}
               </p>
               <button
                 type="button"
-                onClick={clearForm}
+                /* Stop sale: Cancel only leaves Edit mode - the list was never touched. */
+                onClick={kind === "stopSale" ? () => restartStopSale(true) : clearForm}
                 className="text-[11.5px] font-medium text-text-link hover:underline"
               >
                 {c.cancel[k]}
@@ -1662,7 +1775,7 @@ export function BulkRangeOverlay({
                   reason={!canAdd ? c.nightsHint[k] : undefined}
                   onClick={add}
                 >
-                  {c.add[k]}
+                  {stopSaleEditing ? stopSaleEditCopy.saveChanges[k] : c.add[k]}
                 </Button>
               )}
             </div>
@@ -2348,7 +2461,7 @@ export function BulkRangeOverlay({
           <p className="mt-1 text-[12.5px] font-medium text-text-primary">
             {lines.length > 0
               ? fill(c.inList[k], {
-                  n: n(rows.length + lines.length),
+                  n: n(rows.length + listedLines.length),
                   m: n(lines.length),
                 })
               : dormant > 0
@@ -2367,7 +2480,7 @@ export function BulkRangeOverlay({
           </p>
           <div className="mt-3 space-y-2">
             {/* Anything added or saved in this session sits on top. */}
-            {[...lines, ...shownSaved].map((line) => (
+            {[...listedLines, ...shownSaved].map((line) => (
               <div
                 key={line.id}
                 className={cn(
@@ -2417,16 +2530,22 @@ export function BulkRangeOverlay({
                   >
                     {removed.includes(line.id)
                       ? c.removedPill[k]
-                      : saved.some((item) => item.id === line.id)
-                        ? atOnce
-                          ? c.newLive[k]
-                          : c.newDraft[k]
-                        : c.newNotSaved[k]}
+                      : kind === "stopSale" && editingLine === line.id
+                        ? liveGrid.editing[k]
+                        : saved.some((item) => item.id === line.id)
+                          ? atOnce
+                            ? c.newLive[k]
+                            : c.newDraft[k]
+                          : c.newNotSaved[k]}
                   </StatusPill>
                   {!removed.includes(line.id) && (
                     <span className="flex items-center gap-3 text-[11.5px] font-medium">
                       <button
                         type="button"
+                        /* Stop sale: the line's own form back, held by its id until Save or Cancel. */
+                        onClick={
+                          kind === "stopSale" ? () => editStopSaleLine(line) : undefined
+                        }
                         className="text-text-link hover:underline"
                       >
                         {c.edit[k]}
@@ -2438,6 +2557,13 @@ export function BulkRangeOverlay({
                           setLines((current) =>
                             current.filter((item) => item.id !== line.id)
                           );
+                          if (kind === "stopSale") {
+                            /* Deleting the line being edited ends the edit with it. */
+                            if (editingLine === line.id) restartStopSale(true);
+                            /* No Undo banner here: the line simply goes. */
+                            setNote(null);
+                            return;
+                          }
                           setNote({
                             kind: "removed",
                             what: {
@@ -2463,7 +2589,11 @@ export function BulkRangeOverlay({
               </div>
             ))}
 
-            {rows.map((row) => (
+            {rows.map((row) => {
+              /* Stop sale: a saved rule with a staged edit shows that edit, in its own place. */
+              const staged = kind === "stopSale" ? stagedEditOf(row.edit?.ruleId) : undefined;
+              const shown = staged ?? row;
+              return (
               <div
                 key={row.id ?? row.when.en}
                 className={cn(
@@ -2473,23 +2603,23 @@ export function BulkRangeOverlay({
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-[12.5px] font-semibold text-text-primary">
-                    {row.when[k]}
+                    {shown.when[k]}
                   </p>
                   <p
                     className={cn(
                       "text-[12px] font-medium",
-                      row.tone === "danger"
+                      shown.tone === "danger"
                         ? "text-status-danger"
-                        : row.tone === "warning"
+                        : shown.tone === "warning"
                           ? "text-status-warning"
                           : "text-text-primary"
                     )}
                   >
-                    {row.value[k]}
+                    {shown.value[k]}
                   </p>
                 </div>
                 <p className="mt-0.5 text-[11px] text-text-body">
-                  {row.rooms[k]}
+                  {shown.rooms[k]}
                 </p>
                 {row.note && (
                   <p className="mt-0.5 text-[11px] text-text-quiet">{row.note[k]}</p>
@@ -2542,16 +2672,18 @@ export function BulkRangeOverlay({
                         tone={
                           row.edit && row.edit.ruleId === editingRule
                             ? "warning"
-                            : row.draft
+                            : staged || row.draft
                               ? "warning"
                               : "success"
                         }
                       >
                         {row.edit && row.edit.ruleId === editingRule
                           ? liveGrid.editing[k]
-                          : row.draft
-                            ? c.newDraft[k]
-                            : c.live[k]}
+                          : staged
+                            ? stopSaleEditCopy.edited[k]
+                            : row.draft
+                              ? c.newDraft[k]
+                              : c.live[k]}
                       </StatusPill>
                       <span className="flex items-center gap-3 text-[11.5px] font-medium">
                         {((!onRemoveExisting && !liveRt) || row.edit) &&
@@ -2585,8 +2717,16 @@ export function BulkRangeOverlay({
                                 setEditingRule(seed.ruleId);
                                 return;
                               }
+                              /* Stop sale: a rule already edited in this list reopens that edit. */
+                              if (staged) {
+                                editStopSaleLine(staged);
+                                return;
+                              }
                               const rule = row.edit;
                               if (!rule) return;
+                              /* The saved rule itself: no list line is being edited. */
+                              setEditingLine(null);
+                              setPicking(false);
                               setPicked(
                                 rule.ranges.map((range, index) => ({
                                   id: `E-${rule.ruleId}-${index}`,
@@ -2699,6 +2839,14 @@ export function BulkRangeOverlay({
                               return;
                             }
                             if (!onRemoveExisting) return;
+                            const removedRule = row.edit?.ruleId;
+                            if (kind === "stopSale" && removedRule !== undefined) {
+                              /* The rule is being removed: its staged edit, and any edit of it, go too. */
+                              setLines((current) =>
+                                current.filter((line) => line.stopSale?.ruleId !== removedRule),
+                              );
+                              if (editingRule === removedRule) restartStopSale(true);
+                            }
                             setRemoving(row.id ?? row.when.en);
                             try {
                               await onRemoveExisting(row);
@@ -2715,7 +2863,8 @@ export function BulkRangeOverlay({
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </aside>
       </div>

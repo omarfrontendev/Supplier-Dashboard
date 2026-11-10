@@ -562,6 +562,24 @@ export const bulkCopy = {
   checkOutClosedLine: t("Check-out closed", "\u0627\u0644\u0645\u063a\u0627\u062f\u0631\u0629 \u0645\u063a\u0644\u0642\u0629"),
 } as const;
 
+/**
+ * Bulk Stop Sale / On Request only: the words for editing a list item in place.
+ * Kept apart from bulkCopy so the other bulk overlays are untouched.
+ */
+export const stopSaleEditCopy = {
+  saveChanges: t("Save changes", "\u062d\u0641\u0638 \u0627\u0644\u062a\u063a\u064a\u064a\u0631\u0627\u062a"),
+  editingHint: t(
+    "Change the nights, rooms or type, then press Save changes. Cancel leaves the item as it was.",
+    "\u063a\u064a\u0651\u0631 \u0627\u0644\u0644\u064a\u0627\u0644\u064a \u0623\u0648 \u0627\u0644\u063a\u0631\u0641 \u0623\u0648 \u0627\u0644\u0646\u0648\u0639\u060c \u062b\u0645 \u0627\u0636\u063a\u0637 \u062d\u0641\u0638 \u0627\u0644\u062a\u063a\u064a\u064a\u0631\u0627\u062a. \u0648\u0627\u0644\u0625\u0644\u063a\u0627\u0621 \u064a\u064f\u0628\u0642\u064a \u0627\u0644\u0639\u0646\u0635\u0631 \u0643\u0645\u0627 \u0643\u0627\u0646.",
+  ),
+  updatedTitle: t("Updated in the list \u00b7 {what}", "\u062d\u064f\u062f\u0651\u062b \u0641\u064a \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u00b7 {what}"),
+  edited: t("Edited \u00b7 not saved", "\u0645\u064f\u0639\u062f\u0651\u0644 \u00b7 \u0644\u0645 \u064a\u064f\u062d\u0641\u0638"),
+  finishEditing: t(
+    "Save or cancel the item you are editing first.",
+    "\u0627\u062d\u0641\u0638 \u0627\u0644\u0639\u0646\u0635\u0631 \u0627\u0644\u0630\u064a \u062a\u0639\u062f\u0651\u0644\u0647 \u0623\u0648 \u0623\u0644\u063a\u0650 \u0627\u0644\u062a\u0639\u062f\u064a\u0644 \u0623\u0648\u0644\u064b\u0627.",
+  ),
+} as const;
+
 /** What each overlay already has on this contract, as the frames draw it. */
 export const alreadySet: Record<BulkKind, AlreadySet[]> = {
   bulkRates: [
