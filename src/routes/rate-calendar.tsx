@@ -675,6 +675,7 @@ function RateCalendarPage() {
   /* Unknown contract SLA is never "no SLA": On Request waits for loaded targets. */
   const sellSlaReady = sellTargets.isSuccess;
   const contractSla = sellTargets.data?.onRequestSettings ?? null;
+  const sellNeedsSla = sellSlaReady && sellTargets.data?.bookingType !== "on_request";
   const sellNotReady = () => {
     if (sellSlaReady) return false;
     if (sellTargets.isError) notify.error(getApiErrorMessage(sellTargets.error));
@@ -2004,8 +2005,8 @@ function RateCalendarPage() {
                       ) === index,
                   )
                   .map((row) => ({ en: row.name, ar: row.nameAr })),
-                /* On Request always shows both SLA fields, seeded from the contract SLA. */
-                needsSla: sellSlaReady,
+                /* On Request shows both SLA fields, seeded from the contract SLA, except on an On Request contract. */
+                needsSla: sellNeedsSla,
                 slaDefaults: contractSla,
                 slaReady: sellSlaReady,
                 existing: sellRuleRows(sellRules.data ?? [], allRows),
@@ -2387,7 +2388,7 @@ function RateCalendarPage() {
                     : nightRow.status[nightCell.night - 1] === "RQ"
                       ? ("request" as const)
                       : ("open" as const),
-                needsSla: sellSlaReady,
+                needsSla: sellNeedsSla,
                 slaDefaults: nightSla,
                 saving: saveSell.isPending || sellTargets.isPending,
                 onApply: (state, sla) => {
