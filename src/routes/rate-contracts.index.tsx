@@ -140,6 +140,7 @@ const copy = {
     allotment: "Pricing model",
     confirmation: "booking type",
     soldOut: "Sell Status",
+    inventoryModel: "Inventory Model",
     release: "RELEASE",
     status: "STATUS",
     actions: "ACTIONS",
@@ -252,6 +253,7 @@ const copy = {
     allotment: "نموذج التسعير",
     confirmation: "نوع الحجز",
     soldOut: "حالة البيع",
+    inventoryModel: "نموذج المخزون",
     release: "الاسترجاع",
     status: "الحالة",
     actions: "الإجراءات",
@@ -795,13 +797,14 @@ function RateContractsPage() {
           </FilterField>
         </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[1260px]">
-            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_120px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
+          <div className="min-w-[1480px]">
+            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.7fr_.7fr_.6fr_120px_190px] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
               <span>{t.contract}</span>
               <span>{t.period}</span>
               <span>{t.allotment}</span>
               <span>{t.confirmation}</span>
-              {/* Hidden until the backend returns sell status. <span>{t.soldOut}</span> */}
+              <span>{t.inventoryModel}</span>
+              <span>{t.soldOut}</span>
               <span>{t.release}</span>
               <span>{t.status}</span>
               <span>{t.actions}</span>
@@ -1082,7 +1085,7 @@ function ContractRow({
             ? "danger"
             : "neutral";
   return (
-    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.6fr_120px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
+    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.7fr_.7fr_.6fr_120px_190px] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
       <div className="min-w-0">
         <span
           // to="/rate-contracts/$contractId"
@@ -1098,7 +1101,9 @@ function ContractRow({
       </span>
       {/* <span>{item.model === "instant" ? t.instant : t.request}</span> */}
       <span>{bookingTypeLabel(item.bookingType, t)}</span>
-      {/* Hidden until the backend returns sell status. <span className="text-text-muted">—</span> */}
+      {/* Inventory model and sell status stay empty until the backend returns them. */}
+      <span className="text-text-muted">—</span>
+      <span className="text-text-muted">—</span>
       <ReleaseCell policy={item.releasePolicy} t={t} />
 
       <StatusPill tone={tone}>{statusLabel}</StatusPill>
