@@ -1383,6 +1383,7 @@ export const bulkSupplements = {
     "Fixed price: pick one room type at a time. Its meal plans show below with their own price.",
     "سعر ثابت: اختر نوع غرفة واحد في كل مرة. تظهر خطط وجباتها بالأسفل ولكل منها سعره.",
   ),
+  pickOneRoomBase: t("Pick one room at a time.", "اختر غرفة واحدة في كل مرة."),
   pickRoomFirst: t(
     "Pick a room above to see the meal plans it is sold with.",
     "اختر غرفة بالأعلى لتظهر خطط الوجبات التي تُباع بها.",

@@ -718,7 +718,10 @@ export function BulkRangeOverlay({
   const fixedLive = liveRt?.fixedPrice === true;
   const roomSupplementShown = (room: LiveSupplementRoom) =>
     roomSupplementDraft[room.name.en] ?? textOf(room.supplement);
-  const supplementRoomInputs = (liveRt && !fixedLive ? liveRt.supplementRooms : []).map((room) => ({
+  const pickedSupplementRooms = (liveRt && !fixedLive ? liveRt.supplementRooms : []).filter(
+    (room) => rooms.includes(room.name.en),
+  );
+  const supplementRoomInputs = pickedSupplementRooms.map((room) => ({
     room,
     amount: amountText(roomSupplementShown(room)),
   }));
@@ -806,12 +809,9 @@ export function BulkRangeOverlay({
 
   /** The rooms the change reaches, once "all rooms" is resolved. */
   const roomList = roomOptions ? [bulkRooms[0]!, ...roomOptions] : bulkRooms;
-  const realRooms =
-    liveRt && !liveRt.fixedPrice
-      ? roomList.slice(1)
-      : rooms.includes(roomList[0]!.en)
-        ? roomList.slice(1)
-        : roomList.filter((room) => rooms.includes(room.en));
+  const realRooms = rooms.includes(roomList[0]!.en)
+    ? roomList.slice(1)
+    : roomList.filter((room) => rooms.includes(room.en));
   const roomNames = (list: Bi[]) => ({
     en: list.map((r) => r.en).join(", "),
     ar: list.map((r) => r.ar).join("، "),
@@ -2485,62 +2485,60 @@ export function BulkRangeOverlay({
             </p>
           </Section>
 
-          {!(liveRt && !liveRt.fixedPrice) && (
-            <Section label={c.rooms[k]}>
-              <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                {/* "All rooms" still stores only its own entry, exactly as before;
-                    every room just shows as covered by it. */}
-                {!liveRt?.fixedPrice && (
-                  <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
-                    <Checkbox
-                      checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
-                      /* Release: a saved rule's layer and rooms are fixed while it is edited. */
-                      disabled={releaseRuleRooms !== null}
-                      onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
-                      className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
-                    />
-                    {roomList[0]![k]}
-                  </label>
-                )}
-                {liveRt?.fixedPrice && (
-                  <p className="text-[11.5px] leading-4 text-text-quiet sm:col-span-2">
-                    {bs.pickOneRoom[k]}
-                  </p>
-                )}
-                {roomChoices.map((room) => (
-                  <label
-                    key={room.en}
-                    className="flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary"
-                  >
-                    <Checkbox
-                      checked={allRoomsPicked || rooms.includes(room.en)}
-                      disabled={releaseRuleRooms !== null}
-                      onCheckedChange={(value) =>
-                        setRooms((current) =>
-                          liveRt?.fixedPrice
-                            ? value === true
-                              ? [room.en]
-                              : []
-                            : value === true
-                              ? [...current, room.en]
-                              : /* Leaving "All rooms" by one room keeps the others picked. */
-                                current.includes(roomList[0]!.en)
-                                ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
-                                : current.filter((r) => r !== room.en),
-                        )
-                      }
-                    />
-                    {room[k]}
-                  </label>
-                ))}
-              </div>
-              {releaseRuleRooms !== null && (
-                <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
-                  {lrel.roomsFixed[k]}
+          <Section label={c.rooms[k]}>
+            <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+              {/* "All rooms" still stores only its own entry, exactly as before;
+                  every room just shows as covered by it. */}
+              {!liveRt && (
+                <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
+                  <Checkbox
+                    checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
+                    /* Release: a saved rule's layer and rooms are fixed while it is edited. */
+                    disabled={releaseRuleRooms !== null}
+                    onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
+                    className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
+                  />
+                  {roomList[0]![k]}
+                </label>
+              )}
+              {liveRt && (
+                <p className="text-[11.5px] leading-4 text-text-quiet sm:col-span-2">
+                  {(liveRt.fixedPrice ? bs.pickOneRoom : bs.pickOneRoomBase)[k]}
                 </p>
               )}
-            </Section>
-          )}
+              {roomChoices.map((room) => (
+                <label
+                  key={room.en}
+                  className="flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary"
+                >
+                  <Checkbox
+                    checked={allRoomsPicked || rooms.includes(room.en)}
+                    disabled={releaseRuleRooms !== null}
+                    onCheckedChange={(value) =>
+                      setRooms((current) =>
+                        liveRt
+                          ? value === true
+                            ? [room.en]
+                            : []
+                          : value === true
+                            ? [...current, room.en]
+                            : /* Leaving "All rooms" by one room keeps the others picked. */
+                              current.includes(roomList[0]!.en)
+                              ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
+                              : current.filter((r) => r !== room.en),
+                      )
+                    }
+                  />
+                  {room[k]}
+                </label>
+              ))}
+            </div>
+            {releaseRuleRooms !== null && (
+              <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
+                {lrel.roomsFixed[k]}
+              </p>
+            )}
+          </Section>
 
           {kind === "bulkRates" && (
             <Section label={c.price[k]}>
@@ -2655,10 +2653,10 @@ export function BulkRangeOverlay({
             </Section>
           )}
 
-          {liveRt && !liveRt.fixedPrice && liveRt.supplementRooms.length > 0 && (
+          {liveRt && !liveRt.fixedPrice && pickedSupplementRooms.length > 0 && (
             <Section label={bs.roomSupplementsTitle[k]}>
               <div className="grid gap-4 sm:grid-cols-2">
-                {liveRt.supplementRooms.map((room) => {
+                {pickedSupplementRooms.map((room) => {
                   const amount = amountText(roomSupplementShown(room));
                   return (
                     <Input
