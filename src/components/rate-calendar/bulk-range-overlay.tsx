@@ -198,6 +198,7 @@ export interface SupplementApplyValue {
 }
 
 export interface SupplementDefaults {
+  base: { weekday: number | null; weekend: number | null } | null;
   meals: Array<{ type: SupplementMealType; price: number | null; pricingBasis: MealBasis | null }>;
   children: Array<{
     category: ChildCategory;
@@ -215,9 +216,10 @@ export interface SupplementDefaults {
 export interface LiveRatesProps {
   currency: string;
   fixedPrice: boolean;
-  supplementDefaults: SupplementDefaults | null;
+  supplementDefaultsFor: (room: string) => SupplementDefaults | null;
   supplementRooms: LiveSupplementRoom[];
   roomTypes: LiveRoomType[];
+  onRangeChange: (range: { start: string; end: string } | null) => void;
   operationsFor: (value: RateApplyValue) => RateOperation[];
   supplementOperationsFor: (value: SupplementApplyValue) => SupplementOperation[];
   /** A row of the existing-overrides list as remove operations; null when it cannot be read. */
@@ -686,7 +688,8 @@ export function BulkRangeOverlay({
     releaseDays.trim() !== "" &&
     !isReleaseDays(releaseDaysValue);
   const releaseTimeBad = liveRel !== undefined && releaseAt !== "" && !isReleaseTime(releaseAt);
-  const supplementDefaults = liveRt?.supplementDefaults ?? null;
+  const pickedRoom = rooms.length === 1 ? rooms[0] : undefined;
+  const supplementDefaults = liveRt && pickedRoom ? liveRt.supplementDefaultsFor(pickedRoom) : null;
   const mealOptions = liveRt && !liveRt.fixedPrice ? (supplementDefaults?.meals ?? []) : [];
   const childOptions = liveRt ? (supplementDefaults?.children ?? []) : [];
   const amountText = (value: string) => {
@@ -734,6 +737,37 @@ export function BulkRangeOverlay({
     ({ amount }) => amount !== null && (!Number.isFinite(amount) || amount < 0),
   );
   const roomSupplementNeedsBase = supplementRoomValues.length > 0 && weekdayPrice.trim() === "";
+  const baseNow = supplementDefaults?.base ?? null;
+  useEffect(() => {
+    if (!liveRt || liveRt.fixedPrice || priceTouched) return;
+    setWeekdayPrice(textOf(baseNow?.weekday));
+    setWeekendPrice(textOf(baseNow?.weekend));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedRoom, baseNow?.weekday, baseNow?.weekend]);
+  const pickedRangeKey = picked[0]
+    ? `${picked[0].range.start}|${picked[0].range.end ?? picked[0].range.start}`
+    : "";
+  useEffect(() => {
+    if (!liveRt) return;
+    const [start, end] = pickedRangeKey.split("|");
+    liveRt.onRangeChange(start && end ? { start, end } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedRangeKey]);
+  useEffect(
+    () => () => liveRt?.onRangeChange(null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const baseChanged =
+    liveRt !== undefined &&
+    !liveRt.fixedPrice &&
+    priceTouched &&
+    (amountText(weekdayPrice) !== baseNow?.weekday ||
+      (priceMode === "apart"
+        ? amountText(weekendPrice) !== baseNow?.weekend
+        : baseNow?.weekend !== null &&
+          baseNow?.weekend !== undefined &&
+          amountText(weekdayPrice) !== baseNow.weekend));
   const pickedRoomType = fixedLive
     ? liveRt.roomTypes.find((type) => rooms.includes(type.name.en))
     : undefined;
@@ -778,6 +812,9 @@ export function BulkRangeOverlay({
     if (rate === null) return false;
     return Object.values(rate).some((value) => !Number.isFinite(value) || value < 0);
   });
+  const roomPriceChanged = fixedLive
+    ? offerValues.length > 0
+    : baseChanged || supplementRoomValues.length > 0;
   const priceOptional =
     liveRt !== undefined &&
     supplementsGiven &&
@@ -1127,7 +1164,8 @@ export function BulkRangeOverlay({
     !restrictionIssue &&
     (!live || restrictionPlan?.ok === true) &&
     !releaseIssue &&
-    (!liveRel || releaseOperation !== null);
+    (!liveRel || releaseOperation !== null) &&
+    (!liveRt || roomPriceChanged || supplementsGiven);
   const rows = existing ?? alreadySet[kind];
   const shownSaved = existing ? [] : saved;
   /* The list's own new items. Stop sale shows a staged change to a saved rule in that
@@ -1441,9 +1479,7 @@ export function BulkRangeOverlay({
 
   /* Live bulk rates: the page builds the operations from exactly what the form holds. */
   const rateOperations = (): RateOperation[] | undefined =>
-    liveRt &&
-    picked[0] &&
-    ((!liveRt.fixedPrice && weekdayPrice.trim() !== "") || offerValues.length > 0)
+    liveRt && picked[0] && roomPriceChanged
       ? liveRt.operationsFor({
           range: picked[0].range,
           weekdays: days,
@@ -2514,7 +2550,14 @@ export function BulkRangeOverlay({
                   <Checkbox
                     checked={allRoomsPicked || rooms.includes(room.en)}
                     disabled={releaseRuleRooms !== null}
-                    onCheckedChange={(value) =>
+                    onCheckedChange={(value) => {
+                      if (liveRt) {
+                        setPriceTouched(false);
+                        setMealDraft({});
+                        children.reset();
+                        setRoomSupplementDraft({});
+                        setOfferDraft({});
+                      }
                       setRooms((current) =>
                         liveRt
                           ? value === true
@@ -2526,8 +2569,8 @@ export function BulkRangeOverlay({
                               current.includes(roomList[0]!.en)
                               ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
                               : current.filter((r) => r !== room.en),
-                      )
-                    }
+                      );
+                    }}
                   />
                   {room[k]}
                 </label>
@@ -2726,8 +2769,11 @@ export function BulkRangeOverlay({
               </Section>
             ))}
 
-          {liveRt && !supplementDefaults && (
+          {liveRt && pickedRoom && !supplementDefaults && (
             <p className="text-[11.5px] leading-4 text-text-quiet">{bs.loading[k]}</p>
+          )}
+          {liveRt && !liveRt.fixedPrice && !pickedRoom && (
+            <p className="text-[11.5px] leading-4 text-text-quiet">{bs.pickRoomFirst[k]}</p>
           )}
 
           {liveRt?.fixedPrice && (

@@ -679,13 +679,61 @@ function RateCalendarPage() {
     const first = today > start ? today : start;
     return first <= rateTargets.endDate.slice(0, 10) ? first : null;
   })();
+  const [bulkPicked, setBulkPicked] = useState<{ start: string; end: string } | null>(null);
+  const bulkWindow = (() => {
+    const start = bulkPicked?.start ?? bulkFirstNight;
+    if (!rateTargets || !start) return null;
+    const week = new Date(`${start}T00:00:00`);
+    week.setDate(week.getDate() + 6);
+    const termEnd = rateTargets.endDate.slice(0, 10);
+    const wanted = bulkPicked && bulkPicked.end > isoDay(week) ? bulkPicked.end : isoDay(week);
+    return { startDate: start, endDate: wanted < termEnd ? wanted : termEnd };
+  })();
   const bulkSupplementsQuery = useSupplementsContext(
     pickedContract?.id,
-    live && overlay === "bulk" && bulkFirstNight
-      ? { targets: [{ variationId: rateTargets.targets[0]!.variationId }], dates: [bulkFirstNight] }
+    live && overlay === "bulk" && bulkWindow
+      ? {
+          targets: [...new Set(rateTargets.targets.map((target) => target.variationId))].map(
+            (variationId) => ({ variationId }),
+          ),
+          ...bulkWindow,
+        }
       : null,
   );
-  const bulkSupplementNight = bulkSupplementsQuery.data?.nights[0];
+  const bulkRatesQuery = useRatesContext(
+    pickedContract?.id,
+    live && overlay === "bulk" && bulkWindow
+      ? {
+          targets: rateTargets.targets.map((target) => ({
+            variationId: target.variationId,
+            ...(target.mealPlan ? { mealPlan: target.mealPlan } : {}),
+          })),
+          ...bulkWindow,
+        }
+      : null,
+  );
+  /* The first weekday and first weekend night in the window, as they stand now. */
+  const bulkNow = (variationId: number | undefined, mealPlan?: RatesMealPlan) => {
+    const nights = (bulkRatesQuery.data?.nights ?? [])
+      .filter(
+        (night) => night.variationId === variationId && (!mealPlan || night.mealPlan === mealPlan),
+      )
+      .sort((a, b) => a.stayDate.localeCompare(b.stayDate));
+    if (!nights.length) return null;
+    return {
+      weekday: nights.find((night) => !night.isWeekend)?.roomAmount ?? null,
+      weekend: nights.find((night) => night.isWeekend)?.roomAmount ?? null,
+    };
+  };
+  const bulkBaseVariation = allRows.find((row) => row.base)?.target?.variationId;
+  const bulkSupplementNow = (variationId: number | undefined) => {
+    const room = bulkNow(variationId);
+    const base = bulkNow(bulkBaseVariation);
+    if (!room || !base) return null;
+    if (room.weekday !== null && base.weekday !== null) return room.weekday - base.weekday;
+    if (room.weekend !== null && base.weekend !== null) return room.weekend - base.weekend;
+    return null;
+  };
   const bulkRoomTypes: LiveRoomType[] = live
     ? [...new Set(rateTargets.targets.map((target) => target.variationId))].flatMap(
         (variationId) => {
@@ -709,12 +757,14 @@ function RateCalendarPage() {
                   offers: offers.map((offer) => ({
                     mealPlan: offer.mealPlan!,
                     meal: liveGrid.meals[offer.mealPlan!],
-                    contract:
-                      liveDetail?.resolvedRoomPrices?.find(
-                        (item) =>
-                          item.variationId === variationId &&
-                          (!item.mealPlan || item.mealPlan === offer.mealPlan),
-                      )?.price ?? null,
+                    contract: (() => {
+                      const now = bulkNow(variationId, offer.mealPlan);
+                      if (!now) return null;
+                      if (now.weekday !== null && now.weekend !== null)
+                        return { weekday: now.weekday, weekend: now.weekend };
+                      const amount = now.weekday ?? now.weekend;
+                      return amount === null ? null : { amount };
+                    })(),
                   })),
                 },
               ]
@@ -722,23 +772,29 @@ function RateCalendarPage() {
         },
       )
     : [];
-  const bulkSupplementDefaults: SupplementDefaults | null = bulkSupplementNight
-    ? {
-        meals: bulkSupplementNight.meals
-          .filter((meal) => meal.enabled)
-          .map((meal) => ({
-            type: meal.type,
-            price: meal.price,
-            pricingBasis: meal.pricingBasis,
+  const bulkSupplementDefaults = (variationId: number | undefined): SupplementDefaults | null => {
+    const night = [...(bulkSupplementsQuery.data?.nights ?? [])]
+      .sort((a, b) => a.stayDate.localeCompare(b.stayDate))
+      .find((item) => item.variationId === variationId);
+    return night
+      ? {
+          base: fixedPrice ? null : bulkNow(bulkBaseVariation),
+          meals: night.meals
+            .filter((meal) => meal.enabled)
+            .map((meal) => ({
+              type: meal.type,
+              price: meal.price,
+              pricingBasis: meal.pricingBasis,
+            })),
+          children: (night.childPricing ?? []).map((band) => ({
+            category: band.category,
+            from: band.from,
+            to: band.to,
+            price: band.price,
           })),
-        children: (bulkSupplementNight.childPricing ?? []).map((band) => ({
-          category: band.category,
-          from: band.from,
-          to: band.to,
-          price: band.price,
-        })),
-      }
-    : null;
+        }
+      : null;
+  };
   const sellTargets = useSellControlTargets(
     live && (overlay === "stopSale" || overlay === "status") ? pickedContract?.id : undefined,
   );
@@ -2054,14 +2110,20 @@ function RateCalendarPage() {
                 liveRates: {
                   currency: rateTargets.currency,
                   fixedPrice,
-                  supplementDefaults: bulkSupplementDefaults,
+                  supplementDefaultsFor: (room) =>
+                    bulkSupplementDefaults(
+                      fixedPrice
+                        ? bulkRoomTypes.find((type) => type.name.en === room)?.variationId
+                        : allRows.find((row) => row.name === room)?.target?.variationId,
+                    ),
                   supplementRooms: allRows
                     .filter((row) => !row.base)
                     .map((row) => ({
                       name: { en: row.name, ar: row.nameAr },
-                      supplement: contextQuery.data ? row.supplement : null,
+                      supplement: bulkSupplementNow(row.target?.variationId),
                     })),
                   roomTypes: bulkRoomTypes,
+                  onRangeChange: setBulkPicked,
                   roomName: rateRoomName,
                   /* The same set operation as before; only now it is previewed and confirmed. */
                   operationsFor: (value) => {
@@ -2081,38 +2143,27 @@ function RateCalendarPage() {
                     }
                     const base = value.rate;
                     if (!base) return [];
-                    const own = new Map(value.supplements.map((item) => [item.room, item.amount]));
                     const targetsOf = (rows: typeof allRows) =>
                       rows.flatMap((row) => (row.target ? [row.target as RateTarget] : []));
                     const plus = (amount: number): RateAmount =>
                       "weekday" in base
                         ? { weekday: base.weekday + amount, weekend: base.weekend + amount }
                         : { amount: base.amount + amount };
-                    const followers = allRows.filter(
-                      (row) => value.rooms.includes(row.name) && !own.has(row.name),
-                    );
-                    return [
-                      ...(followers.length
-                        ? [
-                            {
-                              action: "set" as const,
-                              basis: "base_plus_room_supplement" as const,
-                              rate: base,
-                              targets: targetsOf(followers),
-                              ...span,
-                            },
-                          ]
-                        : []),
-                      ...allRows
-                        .filter((row) => own.has(row.name))
-                        .map((row) => ({
-                          action: "set" as const,
-                          basis: "selected_room_total" as const,
-                          rate: plus(own.get(row.name)!),
-                          targets: targetsOf([row]),
-                          ...span,
-                        })),
-                    ];
+                    return allRows
+                      .filter((row) => value.rooms.includes(row.name))
+                      .map((row) => ({
+                        action: "set" as const,
+                        basis: "selected_room_total" as const,
+                        rate: plus(
+                          row.base
+                            ? 0
+                            : (value.supplements.find((item) => item.room === row.name)?.amount ??
+                                bulkSupplementNow(row.target?.variationId) ??
+                                0),
+                        ),
+                        targets: targetsOf([row]),
+                        ...span,
+                      }));
                   },
                   /* The same remove operation as before: no rate, no basis, offer meal plan kept. */
                   removeOperationsFor: (row) => {
