@@ -127,6 +127,7 @@ import type {
   SellControlRule,
   RateAmount,
   RateOperation,
+  SupplementOperation,
   RateOverrideRow,
   RateTarget,
   RateTargetsData,
@@ -910,20 +911,43 @@ function RateCalendarPage() {
    * the confirm saves these operations with this preview's ratesRevision.
    */
   const [nightReview, setNightReview] = useState<
-    (RateReviewState & { operations: RateOperation[] }) | null
+    | (RateReviewState & {
+        operations: RateOperation[];
+        supplementOperations: SupplementOperation[];
+      })
+    | null
   >(null);
   const nightReviewRun = useRef(0);
-  const previewNightRates = async (operations: RateOperation[], stale = false) => {
+  const previewNightRates = async (
+    operations: RateOperation[],
+    stale = false,
+    supplementOperations: SupplementOperation[] = [],
+  ) => {
     const run = ++nightReviewRun.current;
-    setNightReview({ operations, data: null, loading: true, error: null, stale });
+    setNightReview({
+      operations,
+      supplementOperations,
+      data: null,
+      loading: true,
+      error: null,
+      stale,
+    });
     try {
-      const data = await previewRates.mutateAsync(operations);
+      const data = await previewRates.mutateAsync({ operations, supplementOperations });
       if (run === nightReviewRun.current)
-        setNightReview({ operations, data, loading: false, error: null, stale });
+        setNightReview({
+          operations,
+          supplementOperations,
+          data,
+          loading: false,
+          error: null,
+          stale,
+        });
     } catch (error) {
       if (run === nightReviewRun.current)
         setNightReview({
           operations,
+          supplementOperations,
           data: null,
           loading: false,
           error: getApiErrorMessage(error, rateReviewCopy.previewFailed[k]),
@@ -938,17 +962,24 @@ function RateCalendarPage() {
   const confirmNightRates = () => {
     const review = nightReview;
     if (!review?.data || review.loading) return;
-    const { operations } = review;
+    const { operations, supplementOperations } = review;
     /* The review this save belongs to. If it is closed while the PUT is in
        flight, the request still completes and the hook still refreshes, but
        its outcome no longer touches the overlay or starts a new preview. */
     const run = nightReviewRun.current;
     saveReviewedRates.mutate(
-      { expectedRevision: review.data.ratesRevision, operations },
+      {
+        expectedRevision: review.data.ratesRevision,
+        ...rateBatchBody({ operations, supplementOperations }),
+      },
       {
         onSuccess: () => {
           if (run !== nightReviewRun.current) return;
-          notify.success(allRemovals(operations) ? liveGrid.restored[k] : liveGrid.saved[k]);
+          notify.success(
+            operations.length && !supplementOperations.length && allRemovals(operations)
+              ? liveGrid.restored[k]
+              : liveGrid.saved[k],
+          );
           closeNightReview();
           setOverlay(null);
           setTypedNights(null);
@@ -959,7 +990,7 @@ function RateCalendarPage() {
           if (isConflict(error)) {
             /* 409: the hook refreshed the data; preview again and wait for another review. */
             notify.error(rateReviewCopy.stale[k]);
-            void previewNightRates(operations, true);
+            void previewNightRates(operations, true, supplementOperations);
             return;
           }
           notify.error(getApiErrorMessage(error));
@@ -975,6 +1006,16 @@ function RateCalendarPage() {
    */
   const overlayNights =
     typedNights ?? (pickedNights.length ? pickedNights : nightCell ? [nightCell.night] : []);
+  const nightChildrenQuery = useSupplementsContext(
+    pickedContract?.id,
+    live && overlay === "night" && nightRow?.target && overlayNights.length
+      ? {
+          targets: [{ variationId: nightRow.target.variationId }],
+          dates: [isoDay(dateOfNight(month, overlayNights[0]!))],
+        }
+      : null,
+  );
+  const nightChildBands = nightChildrenQuery.data?.nights[0]?.childPricing ?? [];
   const nightSeason =
     !live && overlayNights.length ? seasonOf(dateOfNight(month, overlayNights[0]!)) : null;
   /*
@@ -2466,10 +2507,15 @@ function RateCalendarPage() {
                 onConfirmReview: confirmNightRates,
                 onBackFromReview: closeNightReview,
                 onRetryReview: () =>
-                  void previewNightRates(nightReview.operations, nightReview.stale),
+                  void previewNightRates(
+                    nightReview.operations,
+                    nightReview.stale,
+                    nightReview.supplementOperations,
+                  ),
               }
             : {})}
           {...(live && nightRow?.target && liveDetail ? { live: nightFacts(nightRow) } : {})}
+          {...(live ? { childBands: nightChildBands } : {})}
           {...(live
             ? {
                 weekendNames: {
@@ -2499,19 +2545,39 @@ function RateCalendarPage() {
           }}
           onSave={(value) => {
             if (live) {
-              /* Built exactly as before; previewed for review, saved only on confirm. */
-              void previewNightRates([
-                {
-                  action: "set",
-                  basis: "selected_room_total",
-                  rate: value.rate,
-                  targets: pickedTargets(),
-                  dates: overlayNights
-                    .map((night) => dateOfNight(month, night))
-                    .filter((date) => value.weekdays.includes(date.getDay()))
-                    .map(isoDay),
-                },
-              ]);
+              const dates = overlayNights
+                .map((night) => dateOfNight(month, night))
+                .filter((date) => value.weekdays.includes(date.getDay()))
+                .map(isoDay);
+              const targets = pickedTargets();
+              void previewNightRates(
+                value.priceChanged || !value.children.length
+                  ? [
+                      {
+                        action: "set",
+                        basis: "selected_room_total",
+                        rate: value.rate,
+                        targets,
+                        dates,
+                      },
+                    ]
+                  : [],
+                false,
+                value.children.length
+                  ? [
+                      {
+                        targets: [...new Set(targets.map((target) => target.variationId))].map(
+                          (variationId) => ({ variationId }),
+                        ),
+                        dates,
+                        childChanges: value.children.map((band) => ({
+                          ...band,
+                          action: "set" as const,
+                        })),
+                      },
+                    ]
+                  : [],
+              );
               return;
             }
             setOverlay(null);

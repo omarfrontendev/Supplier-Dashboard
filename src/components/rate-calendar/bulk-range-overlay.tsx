@@ -100,6 +100,8 @@ import type {
 } from "@/api/modules/rates-availability/types";
 import { ReleasePreview } from "@/components/rate-calendar/release-live";
 import { RateReviewPanel, rateReviewCopy } from "@/components/rate-calendar/rate-overlays";
+import { ChildBandsFields } from "@/components/rate-calendar/child-bands";
+import { useChildBands } from "@/components/rate-calendar/use-child-bands";
 import {
   createReleaseOperation,
   editReleaseOperation,
@@ -498,9 +500,6 @@ export function BulkRangeOverlay({
   const [mealDraft, setMealDraft] = useState<
     Partial<Record<SupplementMealType, { price: string; basis: MealBasis }>>
   >({});
-  const [childDraft, setChildDraft] = useState<
-    Partial<Record<ChildCategory, { from: string; to: string; price: string }>>
-  >({});
   /* Stop sale */
   const [setTo, setSetTo] = useState("stopSale");
   /* The API rule being edited (its persistent id); null for a change that is not a saved rule. */
@@ -712,42 +711,9 @@ export function BulkRangeOverlay({
     const price = amountText(mealShown(meal).price);
     return price !== null && (!Number.isFinite(price) || price < 0);
   });
-  const childShown = (band: (typeof childOptions)[number]) =>
-    childDraft[band.category] ?? {
-      from: textOf(band.from),
-      to: textOf(band.to),
-      price: textOf(band.price),
-    };
-  const childTouched = childOptions.some((band) => {
-    const shown = childShown(band);
-    return (
-      amountText(shown.from) !== band.from ||
-      amountText(shown.to) !== band.to ||
-      (band.category !== "sharing_parents" && amountText(shown.price) !== band.price)
-    );
-  });
-  const childValues = childTouched
-    ? childOptions.map((band) => {
-        const shown = childShown(band);
-        const from = amountText(shown.from);
-        const to = amountText(shown.to);
-        const price = band.category === "sharing_parents" ? 0 : amountText(shown.price);
-        return { category: band.category, from, to, price };
-      })
-    : [];
-  const childBad = childValues.some(
-    ({ from, to, price }) =>
-      from === null ||
-      to === null ||
-      price === null ||
-      !Number.isInteger(from) ||
-      !Number.isInteger(to) ||
-      from < 0 ||
-      to > 17 ||
-      from > to ||
-      !Number.isFinite(price) ||
-      price < 0,
-  );
+  const children = useChildBands(childOptions);
+  const childValues = children.values;
+  const childBad = children.bad;
   const supplementsGiven = mealValues.length > 0 || childValues.length > 0;
   const fixedLive = liveRt?.fixedPrice === true;
   const roomSupplementShown = (room: LiveSupplementRoom) =>
@@ -1194,7 +1160,7 @@ export function BulkRangeOverlay({
     setPriceTouched(false);
     setSupplements({});
     setMealDraft({});
-    setChildDraft({});
+    children.reset();
     setRoomSupplementDraft({});
     setOfferDraft({});
     setMinNights("");
@@ -1499,9 +1465,7 @@ export function BulkRangeOverlay({
           weekdays: days,
           rooms: realRooms.map((room) => room.en),
           meals: mealValues,
-          children: childValues.flatMap(({ category, from, to, price }) =>
-            from === null || to === null || price === null ? [] : [{ category, from, to, price }],
-          ),
+          children: childValues,
         })
       : undefined;
 
@@ -2830,70 +2794,11 @@ export function BulkRangeOverlay({
 
           {childOptions.length > 0 && (
             <Section label={bs.childrenTitle[k]}>
-              <div className="grid gap-4">
-                {childOptions.map((band) => {
-                  const shown = childShown(band);
-                  const value = childValues.find((item) => item.category === band.category);
-                  const bandBad =
-                    value !== undefined &&
-                    (value.from === null ||
-                      value.to === null ||
-                      !Number.isInteger(value.from) ||
-                      !Number.isInteger(value.to) ||
-                      value.from < 0 ||
-                      value.to > 17 ||
-                      value.from > value.to);
-                  const priceBad =
-                    value !== undefined &&
-                    (value.price === null || !Number.isFinite(value.price) || value.price < 0);
-                  const setDraft = (field: "from" | "to" | "price", text: string) =>
-                    setChildDraft((current) => ({
-                      ...current,
-                      [band.category]: { ...shown, [field]: text },
-                    }));
-                  return (
-                    <div key={band.category}>
-                      <p className="mb-2 text-[12.5px] font-semibold text-text-primary">
-                        {bs.childLabels[band.category][k]}
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <Input
-                          id={`bulk-child-${band.category}-from`}
-                          label={bs.fromAge[k]}
-                          inputMode="numeric"
-                          value={shown.from}
-                          onChange={(e) => setDraft("from", e.target.value)}
-                          {...(bandBad ? { error: bs.badAges[k] } : {})}
-                        />
-                        <Input
-                          id={`bulk-child-${band.category}-to`}
-                          label={bs.toAge[k]}
-                          inputMode="numeric"
-                          value={shown.to}
-                          onChange={(e) => setDraft("to", e.target.value)}
-                        />
-                        <Input
-                          id={`bulk-child-${band.category}-price`}
-                          label={bs.childPrice[k]}
-                          inputMode="decimal"
-                          value={band.category === "sharing_parents" ? "0" : shown.price}
-                          disabled={band.category === "sharing_parents"}
-                          onChange={(e) => setDraft("price", e.target.value)}
-                          suffix={liveRt?.currency ?? ""}
-                          {...(band.category === "sharing_parents"
-                            ? { hint: bs.alwaysFree[k] }
-                            : priceBad
-                              ? { error: bs.badPrice[k] }
-                              : {})}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
-                {bs.childrenHint[k]}
-              </p>
+              <ChildBandsFields
+                state={children}
+                currency={liveRt?.currency ?? ""}
+                idPrefix="bulk-child"
+              />
             </Section>
           )}
 

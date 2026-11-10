@@ -35,6 +35,12 @@ import {
   nationalityGroups,
 } from "@/lib/nationality-price-data";
 import { bulkSupplements, sellingFloor } from "@/lib/rate-overlay-data";
+import { ChildBandsFields } from "@/components/rate-calendar/child-bands";
+import {
+  useChildBands,
+  type ChildBand,
+  type ChildBandValue,
+} from "@/components/rate-calendar/use-child-bands";
 import { fill, useLanguage } from "@/lib/i18n";
 import {
   calendarGroups,
@@ -2038,7 +2044,9 @@ export function OneNightOverlay({
   onConfirmReview,
   onBackFromReview,
   onRetryReview,
+  childBands,
 }: {
+  childBands?: ChildBand[] | undefined;
   /**
    * Live: set while the supplier reviews the backend preview of this change.
    * Save and Undo only preview; onConfirmReview is the save.
@@ -2109,6 +2117,8 @@ export function OneNightOverlay({
     | ((value: {
         rate: { amount: number } | { weekday: number; weekend: number };
         weekdays: number[];
+        priceChanged: boolean;
+        children: ChildBandValue[];
       }) => void)
     | undefined;
   saving?: boolean | undefined;
@@ -2160,6 +2170,7 @@ export function OneNightOverlay({
       setWeekdayPrice(k === "ar" ? arNum(currentWeekday) : String(currentWeekday));
   }, [current, currentWeekday]);
   const [view, setView] = useState<"night" | "supplements">("night");
+  const nightChildren = useChildBands(childBands ?? []);
   const [perNight, setPerNight] = useState<Record<string, string>>({});
   const [split, setSplit] = useState(false);
   const [perWeekend, setPerWeekend] = useState<Record<string, string>>({});
@@ -2411,7 +2422,7 @@ export function OneNightOverlay({
             {c.cancel[k]}
           </Button>
           <Button
-            disabled={missing || saving || saveBlocked !== undefined}
+            disabled={missing || saving || saveBlocked !== undefined || nightChildren.bad}
             title={saveBlocked}
             onClick={() =>
               onSave
@@ -2420,6 +2431,8 @@ export function OneNightOverlay({
                       ? { weekday: amountOf(weekdayPrice), weekend: priced }
                       : { amount: priced },
                     weekdays: days,
+                    priceChanged: typed,
+                    children: nightChildren.values,
                   })
                 : onClose()
             }
@@ -2581,6 +2594,12 @@ export function OneNightOverlay({
         </div>
       )}
 
+      {live && !fixed && (
+        <p className="mt-3.5 text-[11.5px] leading-4 text-text-quiet">
+          {bulkSupplements.nightPriceIncludes[k]}
+        </p>
+      )}
+
       {/* The prices themselves: one column, or the contract's two. */}
       <div
         className={cn(
@@ -2689,6 +2708,17 @@ export function OneNightOverlay({
           )}
         </div>
       </div>
+
+      {live && (childBands?.length ?? 0) > 0 && (
+        <div className="mt-3.5">
+          <FieldLabel>{bulkSupplements.childrenTitle[k]}</FieldLabel>
+          <ChildBandsFields
+            state={nightChildren}
+            currency={currency ?? ""}
+            idPrefix="night-child"
+          />
+        </div>
+      )}
 
       {/*
         * OV 04.6H — what the picked nights already carry, before this

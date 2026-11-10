@@ -1436,6 +1436,10 @@ export const bulkSupplements = {
     "Ages 0 to 17, From no higher than To.",
     "الأعمار من ٠ إلى ١٧، و«من» لا يزيد عن «إلى».",
   ),
+  nightPriceIncludes: t(
+    "This is the room's full price for the night: the base price plus this room's supplement. Meal plans and children are added on top.",
+    "هذا هو السعر الكامل للغرفة في الليلة: سعر الأساس مع فرق هذه الغرفة. وتُضاف الوجبات والأطفال فوقه.",
+  ),
   mealPrices: t("Meal prices", "أسعار الوجبات"),
   childPrices: t("Child prices", "أسعار الأطفال"),
   counts: t(
