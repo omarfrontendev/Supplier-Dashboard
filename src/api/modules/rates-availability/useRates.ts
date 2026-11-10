@@ -9,6 +9,7 @@ import type {
   RateOverridesData,
   SupplementsContextData,
   RateContextData,
+  RateBatch,
   RateOperation,
   RateSelection,
   RateTargetsData,
@@ -25,10 +26,23 @@ const rateKeys = {
 /* ---------------------------------------------------------------- services */
 
 /** Guide p.3 - validates and reviews the operations; nothing is saved. */
-export const previewRateOverrides = async (contractId: number, operations: RateOperation[]) => {
+export const rateBatchBody = (batch: RateOperation[] | RateBatch) =>
+  Array.isArray(batch)
+    ? { operations: batch }
+    : {
+        ...(batch.operations.length ? { operations: batch.operations } : {}),
+        ...(batch.supplementOperations.length
+          ? { supplementOperations: batch.supplementOperations }
+          : {}),
+      };
+
+export const previewRateOverrides = async (
+  contractId: number,
+  batch: RateOperation[] | RateBatch,
+) => {
   const response = await api.post<RatesEnvelope<RateChangesData>>(
     endpoints.ratesAndAvailability.rateOverridesPreview(contractId),
-    { operations },
+    rateBatchBody(batch),
   );
   return response.data.data;
 };
@@ -121,7 +135,7 @@ export const useSupplementsContext = (
  */
 export const usePreviewRateOverrides = (contractId: number | undefined) => {
   return useMutation({
-    mutationFn: (operations: RateOperation[]) => previewRateOverrides(contractId!, operations),
+    mutationFn: (batch: RateOperation[] | RateBatch) => previewRateOverrides(contractId!, batch),
   });
 };
 

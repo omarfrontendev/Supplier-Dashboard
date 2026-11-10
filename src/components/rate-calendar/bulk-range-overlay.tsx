@@ -60,6 +60,7 @@ import {
   type BulkKind,
 } from "@/lib/bulk-range-data";
 import {
+  bulkSupplements as bs,
   liveGrid,
   liveRelease as lrel,
   liveRestrictions as lr,
@@ -82,6 +83,8 @@ import {
   type NightChecks,
 } from "@/lib/restriction-format";
 import type {
+  ChildCategory,
+  RateBatch,
   RateChangesData,
   RateOperation,
   RatesMealPlan,
@@ -91,6 +94,8 @@ import type {
   RestrictionChangesData,
   RestrictionOperation,
   RestrictionScope,
+  SupplementMealType,
+  SupplementOperation,
 } from "@/api/modules/rates-availability/types";
 import { ReleasePreview } from "@/components/rate-calendar/release-live";
 import { RateReviewPanel, rateReviewCopy } from "@/components/rate-calendar/rate-overlays";
@@ -166,6 +171,26 @@ export interface RateApplyValue {
   rate: { amount: number } | { weekday: number; weekend: number };
 }
 
+export type MealBasis = "per_person" | "per_room";
+
+export interface SupplementApplyValue {
+  range: DayRange;
+  weekdays: number[];
+  rooms: string[];
+  meals: Array<{ type: SupplementMealType; price: number; pricingBasis: MealBasis }>;
+  children: Array<{ category: ChildCategory; from: number; to: number; price: number }>;
+}
+
+export interface SupplementDefaults {
+  meals: Array<{ type: SupplementMealType; price: number | null; pricingBasis: MealBasis | null }>;
+  children: Array<{
+    category: ChildCategory;
+    from: number | null;
+    to: number | null;
+    price: number | null;
+  }>;
+}
+
 /**
  * The live Bulk rates overlay (guide p.3): operations are built by the page,
  * previewed for review, and saved exactly as reviewed with that preview's
@@ -173,13 +198,16 @@ export interface RateApplyValue {
  */
 export interface LiveRatesProps {
   currency: string;
+  fixedPrice: boolean;
+  supplementDefaults: SupplementDefaults | null;
   operationsFor: (value: RateApplyValue) => RateOperation[];
+  supplementOperationsFor: (value: SupplementApplyValue) => SupplementOperation[];
   /** A row of the existing-overrides list as remove operations; null when it cannot be read. */
   removeOperationsFor: (row: AlreadySet) => RateOperation[] | null;
   roomName: (variationId: number, mealPlan: RatesMealPlan | null) => Bi;
-  preview: (operations: RateOperation[]) => Promise<RateChangesData>;
+  preview: (batch: RateBatch) => Promise<RateChangesData>;
   /** "stale" when ratesRevision moved on: the overlay previews again and waits for review. */
-  save: (operations: RateOperation[], expectedRevision: number) => Promise<"saved" | "stale">;
+  save: (batch: RateBatch, expectedRevision: number) => Promise<"saved" | "stale">;
 }
 
 const isoOf = (date: Date) =>
@@ -215,6 +243,7 @@ interface Line {
   release?: ReleaseOperation[] | undefined;
   /** Live bulk rates: the operations this line stages. */
   rates?: RateOperation[] | undefined;
+  supplements?: SupplementOperation[] | undefined;
   ruleId?: number | undefined;
   /** Stop sale / On Request: the form this line was added from, so Edit can put it back. */
   stopSale?: StopSaleDraft | undefined;
@@ -446,6 +475,12 @@ export function BulkRangeOverlay({
      emptied again, the weekend as soon as the weekday has an answer. */
   const [priceTouched, setPriceTouched] = useState(false);
   const [supplements, setSupplements] = useState<Record<string, string>>({});
+  const [mealDraft, setMealDraft] = useState<
+    Partial<Record<SupplementMealType, { price: string; basis: MealBasis }>>
+  >({});
+  const [childDraft, setChildDraft] = useState<
+    Partial<Record<ChildCategory, { from: string; to: string; price: string }>>
+  >({});
   /* Stop sale */
   const [setTo, setSetTo] = useState("stopSale");
   /* The API rule being edited (its persistent id); null for a change that is not a saved rule. */
@@ -511,7 +546,7 @@ export function BulkRangeOverlay({
   /* The rate preview, kept with the exact operations it was run for. */
   const [ratePreview, setRatePreview] = useState<{
     data: RateChangesData;
-    operations: RateOperation[];
+    batch: RateBatch;
     key: string;
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -632,19 +667,72 @@ export function BulkRangeOverlay({
     releaseDays.trim() !== "" &&
     !isReleaseDays(releaseDaysValue);
   const releaseTimeBad = liveRel !== undefined && releaseAt !== "" && !isReleaseTime(releaseAt);
+  const supplementDefaults = liveRt?.supplementDefaults ?? null;
+  const mealOptions = liveRt && !liveRt.fixedPrice ? (supplementDefaults?.meals ?? []) : [];
+  const childOptions = liveRt ? (supplementDefaults?.children ?? []) : [];
+  const amountText = (value: string) => {
+    const text = value.trim();
+    return text === "" ? null : Number(text);
+  };
+  const mealValues = mealOptions.flatMap((meal) => {
+    const draft = mealDraft[meal.type];
+    const basis = draft?.basis ?? meal.pricingBasis ?? "per_person";
+    const price = draft ? amountText(draft.price) : null;
+    if (price === null && basis === (meal.pricingBasis ?? "per_person")) return [];
+    const value = price ?? meal.price;
+    return value === null ? [] : [{ type: meal.type, price: value, pricingBasis: basis }];
+  });
+  const mealBad = mealOptions.some((meal) => {
+    const price = amountText(mealDraft[meal.type]?.price ?? "");
+    return price !== null && (!Number.isFinite(price) || price < 0);
+  });
+  const childTouched = childOptions.some((band) =>
+    Object.values(childDraft[band.category] ?? {}).some((value) => value.trim() !== ""),
+  );
+  const childValues = childTouched
+    ? childOptions.map((band) => {
+        const draft = childDraft[band.category];
+        const from = amountText(draft?.from ?? "") ?? band.from;
+        const to = amountText(draft?.to ?? "") ?? band.to;
+        const price =
+          band.category === "sharing_parents" ? 0 : (amountText(draft?.price ?? "") ?? band.price);
+        return { category: band.category, from, to, price };
+      })
+    : [];
+  const childBad = childValues.some(
+    ({ from, to, price }) =>
+      from === null ||
+      to === null ||
+      price === null ||
+      !Number.isInteger(from) ||
+      !Number.isInteger(to) ||
+      from < 0 ||
+      to > 17 ||
+      from > to ||
+      !Number.isFinite(price) ||
+      price < 0,
+  );
+  const supplementsGiven = mealValues.length > 0 || childValues.length > 0;
+  const priceOptional =
+    liveRt !== undefined &&
+    supplementsGiven &&
+    weekdayPrice.trim() === "" &&
+    weekendPrice.trim() === "";
   /* Add stays shut while a price is missing, but the box only says
      "fix the field in red" once there is a red field to fix. */
   const priceMissing =
     kind === "bulkRates" &&
+    !priceOptional &&
     (weekdayPrice.trim() === "" ||
       (priceMode === "apart" && weekendPrice.trim() === ""));
   const priceRed =
     kind === "bulkRates" &&
-    ((priceTouched && weekdayPrice.trim() === "") ||
+    ((priceTouched && weekdayPrice.trim() === "" && !priceOptional) ||
       (priceMode === "apart" &&
         weekdayPrice.trim() !== "" &&
         weekendPrice.trim() === ""));
-  const broken = releaseTooMany || priceRed || releaseDaysBad || releaseTimeBad;
+  const broken =
+    releaseTooMany || priceRed || releaseDaysBad || releaseTimeBad || mealBad || childBad;
 
   /** The rooms the change reaches, once "all rooms" is resolved. */
   const roomList = roomOptions ? [bulkRooms[0]!, ...roomOptions] : bulkRooms;
@@ -813,7 +901,20 @@ export function BulkRangeOverlay({
         ar: describeRestriction(definition, "ar") || c.restrictionsTitle.ar,
       };
     }
-    if (kind === "bulkRates") return c.newPrice;
+    if (kind === "bulkRates") {
+      if (!liveRt) return c.newPrice;
+      const parts = [
+        ...(weekdayPrice.trim() !== "" ? [c.newPrice] : []),
+        ...(mealValues.length ? [bs.mealPrices] : []),
+        ...(childValues.length ? [bs.childPrices] : []),
+      ];
+      return parts.length
+        ? {
+            en: parts.map((part) => part.en).join(" · "),
+            ar: parts.map((part) => part.ar).join(" · "),
+          }
+        : c.newPrice;
+    }
     if (kind === "stopSale") {
       return setTo === "stopSale"
         ? c.stopSale
@@ -982,6 +1083,8 @@ export function BulkRangeOverlay({
     setWeekendPrice("");
     setPriceTouched(false);
     setSupplements({});
+    setMealDraft({});
+    setChildDraft({});
     setMinNights("");
     if (live) {
       setAppliesOn("every");
@@ -1260,7 +1363,7 @@ export function BulkRangeOverlay({
 
   /* Live bulk rates: the page builds the operations from exactly what the form holds. */
   const rateOperations = (): RateOperation[] | undefined =>
-    liveRt && picked[0]
+    liveRt && picked[0] && weekdayPrice.trim() !== ""
       ? liveRt.operationsFor({
           range: picked[0].range,
           weekdays: days,
@@ -1269,6 +1372,18 @@ export function BulkRangeOverlay({
             priceMode === "apart"
               ? { weekday: amountOf(weekdayPrice), weekend: amountOf(weekendPrice) }
               : { amount: amountOf(weekdayPrice) },
+        })
+      : undefined;
+  const supplementOperations = (): SupplementOperation[] | undefined =>
+    liveRt && picked[0] && supplementsGiven
+      ? liveRt.supplementOperationsFor({
+          range: picked[0].range,
+          weekdays: days,
+          rooms: realRooms.map((room) => room.en),
+          meals: mealValues,
+          children: childValues.flatMap(({ category, from, to, price }) =>
+            from === null || to === null || price === null ? [] : [{ category, from, to, price }],
+          ),
         })
       : undefined;
 
@@ -1285,6 +1400,7 @@ export function BulkRangeOverlay({
       payload: statusPayload(),
       restrictions: restrictionOperations(),
       rates: rateOperations(),
+      supplements: supplementOperations(),
       ...(live && editingRule !== null ? { ruleId: editingRule } : {}),
     };
   };
@@ -1558,7 +1674,8 @@ export function BulkRangeOverlay({
               : null;
   /* Live bulk rates: the staged batch, and its preview only while it still matches it. */
   const stagedRates = lines.flatMap((line) => line.rates ?? []);
-  const stagedRatesKey = JSON.stringify(stagedRates);
+  const stagedSupplements = lines.flatMap((line) => line.supplements ?? []);
+  const stagedRatesKey = JSON.stringify([stagedRates, stagedSupplements]);
   const currentRatePreview = ratePreview && ratePreview.key === stagedRatesKey ? ratePreview : null;
   const batchIssue: Bi | null = restrictionBatchIssue ?? releaseBatchIssue;
   const unknownOwnership =
@@ -1580,13 +1697,16 @@ export function BulkRangeOverlay({
       const run = ++previewRun.current;
       setRatePreview(null);
       setPreviewError(null);
-      if (stagedRates.length === 0) return;
-      const operations = stagedRates;
+      if (stagedRates.length === 0 && stagedSupplements.length === 0) return;
+      const batch: RateBatch = {
+        operations: stagedRates,
+        supplementOperations: stagedSupplements,
+      };
       const key = stagedRatesKey;
       setPreviewing(true);
       try {
-        const data = await liveRt.preview(operations);
-        if (run === previewRun.current) setRatePreview({ data, operations, key });
+        const data = await liveRt.preview(batch);
+        if (run === previewRun.current) setRatePreview({ data, batch, key });
       } catch (error) {
         if (run === previewRun.current)
           setPreviewError(getApiErrorMessage(error, rateReviewCopy.previewFailed[k]));
@@ -1650,7 +1770,7 @@ export function BulkRangeOverlay({
       let outcome: "saved" | "stale";
       try {
         outcome = await liveRt.save(
-          currentRatePreview.operations,
+          currentRatePreview.batch,
           currentRatePreview.data.ratesRevision,
         );
       } catch {
@@ -2287,16 +2407,23 @@ export function BulkRangeOverlay({
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
               {/* "All rooms" still stores only its own entry, exactly as before;
                   every room just shows as covered by it. */}
-              <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
-                <Checkbox
-                  checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
-                  /* Release: a saved rule's layer and rooms are fixed while it is edited. */
-                  disabled={releaseRuleRooms !== null}
-                  onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
-                  className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
-                />
-                {roomList[0]![k]}
-              </label>
+              {!liveRt?.fixedPrice && (
+                <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
+                  <Checkbox
+                    checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
+                    /* Release: a saved rule's layer and rooms are fixed while it is edited. */
+                    disabled={releaseRuleRooms !== null}
+                    onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
+                    className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
+                  />
+                  {roomList[0]![k]}
+                </label>
+              )}
+              {liveRt?.fixedPrice && (
+                <p className="text-[11.5px] leading-4 text-text-quiet sm:col-span-2">
+                  {bs.pickOneRoom[k]}
+                </p>
+              )}
               {roomChoices.map((room) => (
                 <label
                   key={room.en}
@@ -2307,12 +2434,16 @@ export function BulkRangeOverlay({
                     disabled={releaseRuleRooms !== null}
                     onCheckedChange={(value) =>
                       setRooms((current) =>
-                        value === true
-                          ? [...current, room.en]
-                          : /* Leaving "All rooms" by one room keeps the others picked. */
-                            current.includes(roomList[0]!.en)
-                            ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
-                            : current.filter((r) => r !== room.en)
+                        liveRt?.fixedPrice
+                          ? value === true
+                            ? [room.en]
+                            : []
+                          : value === true
+                            ? [...current, room.en]
+                            : /* Leaving "All rooms" by one room keeps the others picked. */
+                              current.includes(roomList[0]!.en)
+                              ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
+                              : current.filter((r) => r !== room.en),
                       )
                     }
                   />
@@ -2379,9 +2510,11 @@ export function BulkRangeOverlay({
                   />
                 )}
               </div>
-              <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
-                {c.othersFollow[k]}
-              </p>
+              {!liveRt?.fixedPrice && (
+                <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
+                  {c.othersFollow[k]}
+                </p>
+              )}
             </Section>
           )}
 
@@ -2417,6 +2550,149 @@ export function BulkRangeOverlay({
                 </div>
               </Section>
             ))}
+
+          {liveRt && !supplementDefaults && (
+            <p className="text-[11.5px] leading-4 text-text-quiet">{bs.loading[k]}</p>
+          )}
+
+          {liveRt?.fixedPrice && (
+            <p className="max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
+              {bs.fixedIncluded[k]}
+            </p>
+          )}
+
+          {mealOptions.length > 0 && (
+            <Section label={bs.mealsTitle[k]}>
+              <div className="grid gap-4">
+                {mealOptions.map((meal) => {
+                  const draft = mealDraft[meal.type];
+                  const basis = draft?.basis ?? meal.pricingBasis ?? "per_person";
+                  const price = amountText(draft?.price ?? "");
+                  const setDraft = (next: Partial<{ price: string; basis: MealBasis }>) =>
+                    setMealDraft((current) => ({
+                      ...current,
+                      [meal.type]: { price: draft?.price ?? "", basis, ...next },
+                    }));
+                  return (
+                    <div key={meal.type} className="grid gap-2 sm:grid-cols-2 sm:items-start">
+                      <Input
+                        id={`bulk-meal-${meal.type}`}
+                        label={liveGrid.meals[meal.type][k]}
+                        inputMode="decimal"
+                        value={draft?.price ?? ""}
+                        placeholder={meal.price === null ? "" : n(meal.price)}
+                        onChange={(e) => setDraft({ price: e.target.value })}
+                        suffix={liveRt?.currency ?? ""}
+                        hint={fill(bs.contractMeal[k], {
+                          price: meal.price === null ? "-" : n(meal.price),
+                          basis: bs.basis[meal.pricingBasis ?? "per_person"][k],
+                        })}
+                        {...(price !== null && (!Number.isFinite(price) || price < 0)
+                          ? { error: bs.badPrice[k] }
+                          : {})}
+                      />
+                      <RadioGroup
+                        className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:pt-8"
+                        value={basis}
+                        onValueChange={(value) => setDraft({ basis: value as MealBasis })}
+                      >
+                        {(["per_person", "per_room"] as const).map((value) => (
+                          <label
+                            key={value}
+                            className="flex cursor-pointer items-center gap-2 text-[12.5px] text-text-primary"
+                          >
+                            <RadioGroupItem value={value} />
+                            {bs.basis[value][k]}
+                          </label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
+                {bs.mealsHint[k]}
+              </p>
+            </Section>
+          )}
+
+          {childOptions.length > 0 && (
+            <Section label={bs.childrenTitle[k]}>
+              <div className="grid gap-4">
+                {childOptions.map((band) => {
+                  const draft = childDraft[band.category];
+                  const value = childValues.find((item) => item.category === band.category);
+                  const bandBad =
+                    value !== undefined &&
+                    (value.from === null ||
+                      value.to === null ||
+                      !Number.isInteger(value.from) ||
+                      !Number.isInteger(value.to) ||
+                      value.from < 0 ||
+                      value.to > 17 ||
+                      value.from > value.to);
+                  const priceBad =
+                    value !== undefined &&
+                    (value.price === null || !Number.isFinite(value.price) || value.price < 0);
+                  const setDraft = (field: "from" | "to" | "price", text: string) =>
+                    setChildDraft((current) => ({
+                      ...current,
+                      [band.category]: {
+                        from: draft?.from ?? "",
+                        to: draft?.to ?? "",
+                        price: draft?.price ?? "",
+                        [field]: text,
+                      },
+                    }));
+                  const shown = (number: number | null) => (number === null ? "" : n(number));
+                  return (
+                    <div key={band.category}>
+                      <p className="mb-2 text-[12.5px] font-semibold text-text-primary">
+                        {bs.childLabels[band.category][k]}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <Input
+                          id={`bulk-child-${band.category}-from`}
+                          label={bs.fromAge[k]}
+                          inputMode="numeric"
+                          value={draft?.from ?? ""}
+                          placeholder={shown(band.from)}
+                          onChange={(e) => setDraft("from", e.target.value)}
+                          {...(bandBad ? { error: bs.badAges[k] } : {})}
+                        />
+                        <Input
+                          id={`bulk-child-${band.category}-to`}
+                          label={bs.toAge[k]}
+                          inputMode="numeric"
+                          value={draft?.to ?? ""}
+                          placeholder={shown(band.to)}
+                          onChange={(e) => setDraft("to", e.target.value)}
+                        />
+                        <Input
+                          id={`bulk-child-${band.category}-price`}
+                          label={bs.childPrice[k]}
+                          inputMode="decimal"
+                          value={band.category === "sharing_parents" ? n(0) : (draft?.price ?? "")}
+                          placeholder={shown(band.price)}
+                          disabled={band.category === "sharing_parents"}
+                          onChange={(e) => setDraft("price", e.target.value)}
+                          suffix={liveRt?.currency ?? ""}
+                          {...(band.category === "sharing_parents"
+                            ? { hint: bs.alwaysFree[k] }
+                            : priceBad
+                              ? { error: bs.badPrice[k] }
+                              : {})}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
+                {bs.childrenHint[k]}
+              </p>
+            </Section>
+          )}
 
           {kind === "stopSale" && (
             <Section label={c.setTo[k]}>

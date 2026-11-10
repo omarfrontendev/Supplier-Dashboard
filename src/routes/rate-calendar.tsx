@@ -43,6 +43,7 @@ import {
   BulkRangeOverlay,
   type LiveReleaseProps,
   type LiveRestrictionsProps,
+  type SupplementDefaults,
 } from "@/components/rate-calendar/bulk-range-overlay";
 import {
   describeReleaseTiming,
@@ -113,6 +114,7 @@ import {
   useSupplementsContext,
   usePreviewRateOverrides,
   useSaveReviewedRateOverrides,
+  rateBatchBody,
 } from "@/api/modules/rates-availability/useRates";
 import type { AlreadySet } from "@/lib/bulk-range-data";
 import type {
@@ -667,6 +669,37 @@ function RateCalendarPage() {
     | null
   >(null);
   const overridesQuery = useRateOverrides(pickedContract?.id, live && overlay === "bulk");
+  const bulkFirstNight = (() => {
+    if (!rateTargets) return null;
+    const today = todayIn(rateTargets.timezone);
+    const start = rateTargets.startDate.slice(0, 10);
+    const first = today > start ? today : start;
+    return first <= rateTargets.endDate.slice(0, 10) ? first : null;
+  })();
+  const bulkSupplementsQuery = useSupplementsContext(
+    pickedContract?.id,
+    live && overlay === "bulk" && bulkFirstNight
+      ? { targets: [{ variationId: rateTargets.targets[0]!.variationId }], dates: [bulkFirstNight] }
+      : null,
+  );
+  const bulkSupplementNight = bulkSupplementsQuery.data?.nights[0];
+  const bulkSupplementDefaults: SupplementDefaults | null = bulkSupplementNight
+    ? {
+        meals: bulkSupplementNight.meals
+          .filter((meal) => meal.enabled)
+          .map((meal) => ({
+            type: meal.type,
+            price: meal.price,
+            pricingBasis: meal.pricingBasis,
+          })),
+        children: (bulkSupplementNight.childPricing ?? []).map((band) => ({
+          category: band.category,
+          from: band.from,
+          to: band.to,
+          price: band.price,
+        })),
+      }
+    : null;
   const sellTargets = useSellControlTargets(
     live && (overlay === "stopSale" || overlay === "status") ? pickedContract?.id : undefined,
   );
@@ -1939,6 +1972,8 @@ function RateCalendarPage() {
                 existing: overrideRuns(overridesQuery.data ?? [], allRows, rateTargets.currency),
                 liveRates: {
                   currency: rateTargets.currency,
+                  fixedPrice,
+                  supplementDefaults: bulkSupplementDefaults,
                   roomName: rateRoomName,
                   /* The same set operation as before; only now it is previewed and confirmed. */
                   operationsFor: (value) => [
@@ -1971,15 +2006,63 @@ function RateCalendarPage() {
                       },
                     ];
                   },
-                  preview: (operations) => previewRates.mutateAsync(operations),
-                  save: async (operations, expectedRevision) => {
-                    const removal = allRemovals(operations);
+                  supplementOperationsFor: (value) => {
+                    const dates: string[] = [];
+                    const day = new Date(`${value.range.start}T00:00:00`);
+                    const last = new Date(`${value.range.end ?? value.range.start}T00:00:00`);
+                    while (day <= last) {
+                      if (value.weekdays.includes(day.getDay())) dates.push(isoDay(day));
+                      day.setDate(day.getDate() + 1);
+                    }
+                    const variationIds = [
+                      ...new Set(
+                        allRows
+                          .filter((row) => value.rooms.includes(row.name))
+                          .flatMap((row) => (row.target ? [row.target.variationId] : [])),
+                      ),
+                    ];
+                    return [
+                      {
+                        targets: variationIds.map((variationId) => ({ variationId })),
+                        dates,
+                        ...(value.meals.length
+                          ? {
+                              mealChanges: value.meals.map((meal) => ({
+                                type: meal.type,
+                                action: "set" as const,
+                                enabled: true,
+                                price: meal.price,
+                                pricingBasis: meal.pricingBasis,
+                              })),
+                            }
+                          : {}),
+                        ...(value.children.length
+                          ? {
+                              childChanges: value.children.map((band) => ({
+                                ...band,
+                                action: "set" as const,
+                              })),
+                            }
+                          : {}),
+                      },
+                    ];
+                  },
+                  preview: (batch) => previewRates.mutateAsync(batch),
+                  save: async (batch, expectedRevision) => {
+                    const { operations } = batch;
+                    const removal =
+                      operations.length > 0 &&
+                      batch.supplementOperations.length === 0 &&
+                      allRemovals(operations);
                     if (!removal && !rateTargets.eligible) {
                       notify.error(liveGrid.notEligible[k]);
                       throw new Error("not eligible");
                     }
                     try {
-                      await saveReviewedRates.mutateAsync({ expectedRevision, operations });
+                      await saveReviewedRates.mutateAsync({
+                        expectedRevision,
+                        ...rateBatchBody(batch),
+                      });
                       notify.success(removal ? liveGrid.restored[k] : liveGrid.saved[k]);
                       return "saved" as const;
                     } catch (error) {

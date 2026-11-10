@@ -144,12 +144,48 @@ export type RateOperation = RateSelection &
     | { action: "remove" }
   );
 
+export type ChildCategory = "sharing_parents" | "shared_bed" | "extra_bed";
+
+export type SupplementMealType = Exclude<RatesMealPlan, "room_only">;
+
+export type MealChange =
+  | {
+      type: SupplementMealType;
+      action: "set";
+      enabled?: boolean;
+      price?: number;
+      pricingBasis?: "per_person" | "per_room";
+    }
+  | { type: SupplementMealType; action: "reset" };
+
+export type ChildChange =
+  | { category: ChildCategory; action: "set"; from: number; to: number; price: number }
+  | { category: ChildCategory; action: "reset" };
+
+export interface SupplementOperation {
+  targets: Array<{ variationId: number }>;
+  dates: string[];
+  mealChanges?: MealChange[];
+  childChanges?: ChildChange[];
+}
+
+export interface RateBatch {
+  operations: RateOperation[];
+  supplementOperations: SupplementOperation[];
+}
+
 export interface RateChangesData {
   ratesRevision: number;
   affectedCount: number;
   replacedCount: number;
   removedCount: number;
   nights: Array<RateNight & { action: "set" | "remove"; proposedAmount: number; proposedSource: RateSource }>;
+  supplementCounts?: {
+    affectedCount: number;
+    changedComponentCount: number;
+    replacedCount: number;
+    resetCount: number;
+  };
 }
 
 /**
@@ -159,7 +195,8 @@ export interface RateChangesData {
  */
 export interface SaveRateOverridesBody {
   expectedRevision: number;
-  operations: RateOperation[];
+  operations?: RateOperation[];
+  supplementOperations?: SupplementOperation[];
 }
 
 export interface RatesEnvelope<T> {
@@ -369,11 +406,19 @@ export interface SupplementMeal {
   dailyOverride: unknown;
 }
 
+export interface SupplementChildBand {
+  category: ChildCategory;
+  from: number | null;
+  to: number | null;
+  price: number | null;
+}
+
 export interface SupplementNight {
   variationId: number;
   stayDate: string;
   currency: string;
   meals: SupplementMeal[];
+  childPricing?: SupplementChildBand[];
 }
 
 export interface SupplementsContextData {

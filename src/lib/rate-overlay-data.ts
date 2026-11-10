@@ -1370,6 +1370,56 @@ export const liveRestrictions = {
  * Manage Release - live copy for the Release overlay. Generic batch, preview
  * and source wording is shared with liveRestrictions.
  */
+export const bulkSupplements = {
+  loading: t(
+    "Loading the contract's meal and child prices…",
+    "جارٍ تحميل أسعار الوجبات والأطفال من العقد…",
+  ),
+  fixedIncluded: t(
+    "Fixed price: the room price already includes its meal plan. Child prices below are set apart.",
+    "سعر ثابت: سعر الغرفة يشمل خطة وجباتها. أسعار الأطفال أدناه تُضبط بشكل منفصل.",
+  ),
+  pickOneRoom: t(
+    "Fixed price: pick one room and meal plan at a time.",
+    "سعر ثابت: اختر غرفة واحدة مع خطة وجباتها في كل مرة.",
+  ),
+  mealsTitle: t("MEAL PLANS · PER NIGHT", "خطط الوجبات · لكل ليلة"),
+  mealsHint: t(
+    "Leave a price empty to keep the contract price. Only the meal plans this contract offers are listed.",
+    "اترك السعر فارغًا لتُبقي سعر العقد. تظهر فقط خطط الوجبات التي يقدمها هذا العقد.",
+  ),
+  contractMeal: t("Contract: {price} · {basis}", "العقد: {price} · {basis}"),
+  basis: {
+    per_person: t("Per person", "للشخص"),
+    per_room: t("Per room", "للغرفة"),
+  },
+  badPrice: t("Enter a price of 0 or more.", "اكتب سعرًا يساوي ٠ أو أكثر."),
+  childrenTitle: t("CHILDREN · PER CHILD PER NIGHT", "الأطفال · لكل طفل في الليلة"),
+  childrenHint: t(
+    "Empty fields keep the contract value. Once you change one, all three bands are saved together for these nights.",
+    "الحقول الفارغة تُبقي قيمة العقد. وعند تغيير أي حقل، تُحفظ الفئات الثلاث معًا لهذه الليالي.",
+  ),
+  childLabels: {
+    sharing_parents: t("Sharing parents' bed", "سرير الوالدين"),
+    shared_bed: t("Shared bed", "سرير مشترك"),
+    extra_bed: t("Extra bed", "سرير إضافي"),
+  },
+  fromAge: t("From age", "من عمر"),
+  toAge: t("To age", "إلى عمر"),
+  childPrice: t("Price", "السعر"),
+  alwaysFree: t("Always free.", "مجاني دائمًا."),
+  badAges: t(
+    "Ages 0 to 17, From no higher than To.",
+    "الأعمار من ٠ إلى ١٧، و«من» لا يزيد عن «إلى».",
+  ),
+  mealPrices: t("Meal prices", "أسعار الوجبات"),
+  childPrices: t("Child prices", "أسعار الأطفال"),
+  counts: t(
+    "Meals and children: {affected} room-nights affected · {changed} prices changed",
+    "الوجبات والأطفال: {affected} ليلة-غرفة متأثرة · {changed} سعر يتغير",
+  ),
+};
+
 export const liveRelease = {
   /* The form. */
   daysRange: t("1 to 365 days", "من ١ إلى ٣٦٥ يومًا"),
