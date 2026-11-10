@@ -1380,13 +1380,37 @@ export const bulkSupplements = {
     "سعر ثابت: سعر الغرفة يشمل خطة وجباتها. أسعار الأطفال أدناه تُضبط بشكل منفصل.",
   ),
   pickOneRoom: t(
-    "Fixed price: pick one room and meal plan at a time.",
-    "سعر ثابت: اختر غرفة واحدة مع خطة وجباتها في كل مرة.",
+    "Fixed price: pick one room type at a time. Its meal plans show below with their own price.",
+    "سعر ثابت: اختر نوع غرفة واحد في كل مرة. تظهر خطط وجباتها بالأسفل ولكل منها سعره.",
   ),
+  pickRoomFirst: t(
+    "Pick a room above to see the meal plans it is sold with.",
+    "اختر غرفة بالأعلى لتظهر خطط الوجبات التي تُباع بها.",
+  ),
+  offerTitle: t("{meal} · price includes the meal plan", "{meal} · السعر يشمل خطة الوجبات"),
+  everyNight: t("Every night", "كل ليلة"),
+  weekdays: t("Weekdays", "أيام الأسبوع"),
+  weekend: t("Weekend", "نهاية الأسبوع"),
+  contractOffer: t("Contract: {price}.", "العقد: {price}."),
+  badOffer: t(
+    "Enter a price of 0 or more for every night type.",
+    "اكتب سعرًا يساوي ٠ أو أكثر لكل نوع ليلة.",
+  ),
+  roomSupplementsTitle: t("SUPPLEMENTS · ROOMS AND VIEWS", "الفروق · الغرف والإطلالات"),
+  contractSupplement: t("Contract: +{amount} on the base", "العقد: +{amount} على الأساس"),
+  roomSupplementsHint: t(
+    "The amount each room adds on top of the base for these nights, filled in from the contract. Change it to set it for these nights.",
+    "المبلغ الذي تضيفه كل غرفة فوق الأساس في هذه الليالي، معبأ من العقد. غيّره لتضبطه لهذه الليالي.",
+  ),
+  supplementNeedsBase: t(
+    "Enter the base price above to change a supplement.",
+    "اكتب سعر الأساس بالأعلى لتغيير الفرق.",
+  ),
+  roomSupplements: t("Supplements", "الفروق"),
   mealsTitle: t("MEAL PLANS · PER NIGHT", "خطط الوجبات · لكل ليلة"),
   mealsHint: t(
-    "Leave a price empty to keep the contract price. Only the meal plans this contract offers are listed.",
-    "اترك السعر فارغًا لتُبقي سعر العقد. تظهر فقط خطط الوجبات التي يقدمها هذا العقد.",
+    "Filled in from the contract. Change a price to set it for these nights. Only the meal plans this contract offers are listed.",
+    "معبأة من العقد. غيّر السعر لتضبطه لهذه الليالي. تظهر فقط خطط الوجبات التي يقدمها هذا العقد.",
   ),
   contractMeal: t("Contract: {price} · {basis}", "العقد: {price} · {basis}"),
   basis: {
@@ -1396,8 +1420,8 @@ export const bulkSupplements = {
   badPrice: t("Enter a price of 0 or more.", "اكتب سعرًا يساوي ٠ أو أكثر."),
   childrenTitle: t("CHILDREN · PER CHILD PER NIGHT", "الأطفال · لكل طفل في الليلة"),
   childrenHint: t(
-    "Empty fields keep the contract value. Once you change one, all three bands are saved together for these nights.",
-    "الحقول الفارغة تُبقي قيمة العقد. وعند تغيير أي حقل، تُحفظ الفئات الثلاث معًا لهذه الليالي.",
+    "Filled in from the contract. Once you change one, all three bands are saved together for these nights.",
+    "معبأة من العقد. وعند تغيير أي حقل، تُحفظ الفئات الثلاث معًا لهذه الليالي.",
   ),
   childLabels: {
     sharing_parents: t("Sharing parents' bed", "سرير الوالدين"),

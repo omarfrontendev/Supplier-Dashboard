@@ -84,6 +84,7 @@ import {
 } from "@/lib/restriction-format";
 import type {
   ChildCategory,
+  RateAmount,
   RateBatch,
   RateChangesData,
   RateOperation,
@@ -168,7 +169,20 @@ export interface RateApplyValue {
   range: DayRange;
   weekdays: number[];
   rooms: string[];
-  rate: { amount: number } | { weekday: number; weekend: number };
+  rate: RateAmount | null;
+  supplements: Array<{ room: string; amount: number }>;
+  offers: Array<{ variationId: number; mealPlan: RatesMealPlan; rate: RateAmount }>;
+}
+
+export interface LiveSupplementRoom {
+  name: Bi;
+  supplement: number | null;
+}
+
+export interface LiveRoomType {
+  name: Bi;
+  variationId: number;
+  offers: Array<{ mealPlan: RatesMealPlan; meal: Bi; contract: RateAmount | null }>;
 }
 
 export type MealBasis = "per_person" | "per_room";
@@ -200,6 +214,8 @@ export interface LiveRatesProps {
   currency: string;
   fixedPrice: boolean;
   supplementDefaults: SupplementDefaults | null;
+  supplementRooms: LiveSupplementRoom[];
+  roomTypes: LiveRoomType[];
   operationsFor: (value: RateApplyValue) => RateOperation[];
   supplementOperationsFor: (value: SupplementApplyValue) => SupplementOperation[];
   /** A row of the existing-overrides list as remove operations; null when it cannot be read. */
@@ -475,6 +491,10 @@ export function BulkRangeOverlay({
      emptied again, the weekend as soon as the weekday has an answer. */
   const [priceTouched, setPriceTouched] = useState(false);
   const [supplements, setSupplements] = useState<Record<string, string>>({});
+  const [roomSupplementDraft, setRoomSupplementDraft] = useState<Record<string, string>>({});
+  const [offerDraft, setOfferDraft] = useState<
+    Partial<Record<RatesMealPlan, { weekday: string; weekend: string }>>
+  >({});
   const [mealDraft, setMealDraft] = useState<
     Partial<Record<SupplementMealType, { price: string; basis: MealBasis }>>
   >({});
@@ -674,28 +694,44 @@ export function BulkRangeOverlay({
     const text = value.trim();
     return text === "" ? null : Number(text);
   };
+  const textOf = (value: number | null | undefined) =>
+    value === null || value === undefined ? "" : String(value);
+  const mealShown = (meal: (typeof mealOptions)[number]) =>
+    mealDraft[meal.type] ?? {
+      price: textOf(meal.price),
+      basis: meal.pricingBasis ?? "per_person",
+    };
   const mealValues = mealOptions.flatMap((meal) => {
-    const draft = mealDraft[meal.type];
-    const basis = draft?.basis ?? meal.pricingBasis ?? "per_person";
-    const price = draft ? amountText(draft.price) : null;
-    if (price === null && basis === (meal.pricingBasis ?? "per_person")) return [];
-    const value = price ?? meal.price;
-    return value === null ? [] : [{ type: meal.type, price: value, pricingBasis: basis }];
+    const shown = mealShown(meal);
+    const price = amountText(shown.price);
+    if (price === null || !Number.isFinite(price) || price < 0) return [];
+    const changed = price !== meal.price || shown.basis !== (meal.pricingBasis ?? "per_person");
+    return changed ? [{ type: meal.type, price, pricingBasis: shown.basis }] : [];
   });
   const mealBad = mealOptions.some((meal) => {
-    const price = amountText(mealDraft[meal.type]?.price ?? "");
+    const price = amountText(mealShown(meal).price);
     return price !== null && (!Number.isFinite(price) || price < 0);
   });
-  const childTouched = childOptions.some((band) =>
-    Object.values(childDraft[band.category] ?? {}).some((value) => value.trim() !== ""),
-  );
+  const childShown = (band: (typeof childOptions)[number]) =>
+    childDraft[band.category] ?? {
+      from: textOf(band.from),
+      to: textOf(band.to),
+      price: textOf(band.price),
+    };
+  const childTouched = childOptions.some((band) => {
+    const shown = childShown(band);
+    return (
+      amountText(shown.from) !== band.from ||
+      amountText(shown.to) !== band.to ||
+      (band.category !== "sharing_parents" && amountText(shown.price) !== band.price)
+    );
+  });
   const childValues = childTouched
     ? childOptions.map((band) => {
-        const draft = childDraft[band.category];
-        const from = amountText(draft?.from ?? "") ?? band.from;
-        const to = amountText(draft?.to ?? "") ?? band.to;
-        const price =
-          band.category === "sharing_parents" ? 0 : (amountText(draft?.price ?? "") ?? band.price);
+        const shown = childShown(band);
+        const from = amountText(shown.from);
+        const to = amountText(shown.to);
+        const price = band.category === "sharing_parents" ? 0 : amountText(shown.price);
         return { category: band.category, from, to, price };
       })
     : [];
@@ -713,6 +749,66 @@ export function BulkRangeOverlay({
       price < 0,
   );
   const supplementsGiven = mealValues.length > 0 || childValues.length > 0;
+  const fixedLive = liveRt?.fixedPrice === true;
+  const roomSupplementShown = (room: LiveSupplementRoom) =>
+    roomSupplementDraft[room.name.en] ?? textOf(room.supplement);
+  const supplementRoomInputs = (liveRt && !fixedLive ? liveRt.supplementRooms : []).map((room) => ({
+    room,
+    amount: amountText(roomSupplementShown(room)),
+  }));
+  const supplementRoomValues = supplementRoomInputs.flatMap(({ room, amount }) =>
+    amount === null || amount === room.supplement || !Number.isFinite(amount) || amount < 0
+      ? []
+      : [{ room: room.name.en, amount }],
+  );
+  const roomSupplementBad = supplementRoomInputs.some(
+    ({ amount }) => amount !== null && (!Number.isFinite(amount) || amount < 0),
+  );
+  const roomSupplementNeedsBase = supplementRoomValues.length > 0 && weekdayPrice.trim() === "";
+  const pickedRoomType = fixedLive
+    ? liveRt.roomTypes.find((type) => rooms.includes(type.name.en))
+    : undefined;
+  const contractNights = (contract: RateAmount | null) =>
+    contract
+      ? "weekday" in contract
+        ? { weekday: contract.weekday, weekend: contract.weekend }
+        : { weekday: contract.amount, weekend: contract.amount }
+      : null;
+  const offerShown = (offer: LiveRoomType["offers"][number]) => {
+    const nights = contractNights(offer.contract);
+    return (
+      offerDraft[offer.mealPlan] ?? {
+        weekday: textOf(nights?.weekday),
+        weekend: textOf(nights?.weekend),
+      }
+    );
+  };
+  const offerRate = (draft: { weekday: string; weekend: string }) => {
+    const weekday = amountText(draft.weekday);
+    const weekend = amountText(draft.weekend);
+    if (weekday === null && weekend === null) return null;
+    if (priceMode !== "apart") return weekday === null ? undefined : { amount: weekday };
+    return weekday === null || weekend === null ? undefined : { weekday, weekend };
+  };
+  const sameAsContract = (rate: RateAmount, contract: RateAmount | null) => {
+    const nights = contractNights(contract);
+    if (!nights) return false;
+    return "weekday" in rate
+      ? rate.weekday === nights.weekday && rate.weekend === nights.weekend
+      : rate.amount === nights.weekday && rate.amount === nights.weekend;
+  };
+  const offerValues = (pickedRoomType?.offers ?? []).flatMap((offer) => {
+    const rate = offerRate(offerShown(offer));
+    return offerDraft[offer.mealPlan] && rate && !sameAsContract(rate, offer.contract)
+      ? [{ variationId: pickedRoomType!.variationId, mealPlan: offer.mealPlan, rate }]
+      : [];
+  });
+  const offerBad = (pickedRoomType?.offers ?? []).some((offer) => {
+    const rate = offerRate(offerShown(offer));
+    if (rate === undefined) return true;
+    if (rate === null) return false;
+    return Object.values(rate).some((value) => !Number.isFinite(value) || value < 0);
+  });
   const priceOptional =
     liveRt !== undefined &&
     supplementsGiven &&
@@ -722,23 +818,34 @@ export function BulkRangeOverlay({
      "fix the field in red" once there is a red field to fix. */
   const priceMissing =
     kind === "bulkRates" &&
-    !priceOptional &&
-    (weekdayPrice.trim() === "" ||
-      (priceMode === "apart" && weekendPrice.trim() === ""));
+    (fixedLive
+      ? offerValues.length === 0 && !supplementsGiven
+      : !priceOptional &&
+        (weekdayPrice.trim() === "" || (priceMode === "apart" && weekendPrice.trim() === "")));
   const priceRed =
     kind === "bulkRates" &&
-    ((priceTouched && weekdayPrice.trim() === "" && !priceOptional) ||
-      (priceMode === "apart" &&
-        weekdayPrice.trim() !== "" &&
-        weekendPrice.trim() === ""));
+    (fixedLive
+      ? offerBad
+      : (priceTouched && weekdayPrice.trim() === "" && !priceOptional) ||
+        (priceMode === "apart" && weekdayPrice.trim() !== "" && weekendPrice.trim() === ""));
   const broken =
-    releaseTooMany || priceRed || releaseDaysBad || releaseTimeBad || mealBad || childBad;
+    releaseTooMany ||
+    priceRed ||
+    releaseDaysBad ||
+    releaseTimeBad ||
+    mealBad ||
+    childBad ||
+    roomSupplementBad ||
+    roomSupplementNeedsBase;
 
   /** The rooms the change reaches, once "all rooms" is resolved. */
   const roomList = roomOptions ? [bulkRooms[0]!, ...roomOptions] : bulkRooms;
-  const realRooms = rooms.includes(roomList[0]!.en)
-    ? roomList.slice(1)
-    : roomList.filter((room) => rooms.includes(room.en));
+  const realRooms =
+    liveRt && !liveRt.fixedPrice
+      ? roomList.slice(1)
+      : rooms.includes(roomList[0]!.en)
+        ? roomList.slice(1)
+        : roomList.filter((room) => rooms.includes(room.en));
   const roomNames = (list: Bi[]) => ({
     en: list.map((r) => r.en).join(", "),
     ar: list.map((r) => r.ar).join("، "),
@@ -904,7 +1011,10 @@ export function BulkRangeOverlay({
     if (kind === "bulkRates") {
       if (!liveRt) return c.newPrice;
       const parts = [
-        ...(weekdayPrice.trim() !== "" ? [c.newPrice] : []),
+        ...((liveRt.fixedPrice ? offerValues.length > 0 : weekdayPrice.trim() !== "")
+          ? [c.newPrice]
+          : []),
+        ...(supplementRoomValues.length ? [bs.roomSupplements] : []),
         ...(mealValues.length ? [bs.mealPrices] : []),
         ...(childValues.length ? [bs.childPrices] : []),
       ];
@@ -1085,6 +1195,8 @@ export function BulkRangeOverlay({
     setSupplements({});
     setMealDraft({});
     setChildDraft({});
+    setRoomSupplementDraft({});
+    setOfferDraft({});
     setMinNights("");
     if (live) {
       setAppliesOn("every");
@@ -1363,15 +1475,21 @@ export function BulkRangeOverlay({
 
   /* Live bulk rates: the page builds the operations from exactly what the form holds. */
   const rateOperations = (): RateOperation[] | undefined =>
-    liveRt && picked[0] && weekdayPrice.trim() !== ""
+    liveRt &&
+    picked[0] &&
+    ((!liveRt.fixedPrice && weekdayPrice.trim() !== "") || offerValues.length > 0)
       ? liveRt.operationsFor({
           range: picked[0].range,
           weekdays: days,
           rooms: realRooms.map((room) => room.en),
           rate:
-            priceMode === "apart"
-              ? { weekday: amountOf(weekdayPrice), weekend: amountOf(weekendPrice) }
-              : { amount: amountOf(weekdayPrice) },
+            liveRt.fixedPrice || weekdayPrice.trim() === ""
+              ? null
+              : priceMode === "apart"
+                ? { weekday: amountOf(weekdayPrice), weekend: amountOf(weekendPrice) }
+                : { amount: amountOf(weekdayPrice) },
+          supplements: supplementRoomValues,
+          offers: offerValues,
         })
       : undefined;
   const supplementOperations = (): SupplementOperation[] | undefined =>
@@ -2403,60 +2521,62 @@ export function BulkRangeOverlay({
             </p>
           </Section>
 
-          <Section label={c.rooms[k]}>
-            <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-              {/* "All rooms" still stores only its own entry, exactly as before;
-                  every room just shows as covered by it. */}
-              {!liveRt?.fixedPrice && (
-                <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
-                  <Checkbox
-                    checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
-                    /* Release: a saved rule's layer and rooms are fixed while it is edited. */
-                    disabled={releaseRuleRooms !== null}
-                    onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
-                    className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
-                  />
-                  {roomList[0]![k]}
-                </label>
-              )}
-              {liveRt?.fixedPrice && (
-                <p className="text-[11.5px] leading-4 text-text-quiet sm:col-span-2">
-                  {bs.pickOneRoom[k]}
+          {!(liveRt && !liveRt.fixedPrice) && (
+            <Section label={c.rooms[k]}>
+              <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                {/* "All rooms" still stores only its own entry, exactly as before;
+                    every room just shows as covered by it. */}
+                {!liveRt?.fixedPrice && (
+                  <label className="flex cursor-pointer items-center gap-2.5 border-b border-border-subtle pb-2 text-[12.5px] font-semibold text-text-primary sm:col-span-2">
+                    <Checkbox
+                      checked={everyRoomShown ? true : someRoomShown ? "indeterminate" : false}
+                      /* Release: a saved rule's layer and rooms are fixed while it is edited. */
+                      disabled={releaseRuleRooms !== null}
+                      onCheckedChange={(value) => setRooms(value === true ? [roomList[0]!.en] : [])}
+                      className="data-[state=indeterminate]:after:h-0.5 data-[state=indeterminate]:after:w-2 data-[state=indeterminate]:after:rounded-full data-[state=indeterminate]:after:bg-primary data-[state=indeterminate]:after:content-[''] [&[data-state=indeterminate]_svg]:hidden"
+                    />
+                    {roomList[0]![k]}
+                  </label>
+                )}
+                {liveRt?.fixedPrice && (
+                  <p className="text-[11.5px] leading-4 text-text-quiet sm:col-span-2">
+                    {bs.pickOneRoom[k]}
+                  </p>
+                )}
+                {roomChoices.map((room) => (
+                  <label
+                    key={room.en}
+                    className="flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary"
+                  >
+                    <Checkbox
+                      checked={allRoomsPicked || rooms.includes(room.en)}
+                      disabled={releaseRuleRooms !== null}
+                      onCheckedChange={(value) =>
+                        setRooms((current) =>
+                          liveRt?.fixedPrice
+                            ? value === true
+                              ? [room.en]
+                              : []
+                            : value === true
+                              ? [...current, room.en]
+                              : /* Leaving "All rooms" by one room keeps the others picked. */
+                                current.includes(roomList[0]!.en)
+                                ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
+                                : current.filter((r) => r !== room.en),
+                        )
+                      }
+                    />
+                    {room[k]}
+                  </label>
+                ))}
+              </div>
+              {releaseRuleRooms !== null && (
+                <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
+                  {lrel.roomsFixed[k]}
                 </p>
               )}
-              {roomChoices.map((room) => (
-                <label
-                  key={room.en}
-                  className="flex cursor-pointer items-center gap-2.5 text-[12.5px] text-text-primary"
-                >
-                  <Checkbox
-                    checked={allRoomsPicked || rooms.includes(room.en)}
-                    disabled={releaseRuleRooms !== null}
-                    onCheckedChange={(value) =>
-                      setRooms((current) =>
-                        liveRt?.fixedPrice
-                          ? value === true
-                            ? [room.en]
-                            : []
-                          : value === true
-                            ? [...current, room.en]
-                            : /* Leaving "All rooms" by one room keeps the others picked. */
-                              current.includes(roomList[0]!.en)
-                              ? roomChoices.map((r) => r.en).filter((r) => r !== room.en)
-                              : current.filter((r) => r !== room.en),
-                      )
-                    }
-                  />
-                  {room[k]}
-                </label>
-              ))}
-            </div>
-            {releaseRuleRooms !== null && (
-              <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
-                {lrel.roomsFixed[k]}
-              </p>
-            )}
-          </Section>
+            </Section>
+          )}
 
           {kind === "bulkRates" && (
             <Section label={c.price[k]}>
@@ -2480,41 +2600,134 @@ export function BulkRangeOverlay({
                   </label>
                 ))}
               </RadioGroup>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Input
-                  label={
-                    priceMode === "one" ? c.baseEvery[k] : c.baseWeekday[k]
-                  }
-                  inputMode="numeric"
-                  value={weekdayPrice}
-                  onChange={(e) => {
-                    setPriceTouched(true);
-                    setWeekdayPrice(e.target.value);
-                  }}
-                  {...(priceTouched && weekdayPrice.trim() === ""
-                    ? { error: c.needPrice[k] }
-                    : {})}
-                />
-                {priceMode === "apart" && (
+              {liveRt?.fixedPrice ? (
+                <div className="mt-3 grid gap-4">
+                  {!pickedRoomType && (
+                    <p className="text-[11.5px] leading-4 text-text-quiet">{bs.pickRoomFirst[k]}</p>
+                  )}
+                  {pickedRoomType?.offers.map((offer) => {
+                    const shown = offerShown(offer);
+                    const rate = offerRate(shown);
+                    const bad =
+                      rate === undefined ||
+                      (rate !== null &&
+                        Object.values(rate).some((value) => !Number.isFinite(value) || value < 0));
+                    const contract = offer.contract
+                      ? "weekday" in offer.contract
+                        ? `${n(offer.contract.weekday)} / ${n(offer.contract.weekend)}`
+                        : n(offer.contract.amount)
+                      : "-";
+                    const setDraft = (field: "weekday" | "weekend", text: string) =>
+                      setOfferDraft((current) => ({
+                        ...current,
+                        [offer.mealPlan]: { ...shown, [field]: text },
+                      }));
+                    return (
+                      <div key={offer.mealPlan}>
+                        <p className="mb-2 text-[12.5px] font-semibold text-text-primary">
+                          {fill(bs.offerTitle[k], { meal: offer.meal[k] })}
+                        </p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Input
+                            id={`bulk-offer-${offer.mealPlan}-weekday`}
+                            label={priceMode === "one" ? bs.everyNight[k] : bs.weekdays[k]}
+                            inputMode="decimal"
+                            value={shown.weekday}
+                            onChange={(e) => setDraft("weekday", e.target.value)}
+                            suffix={liveRt.currency}
+                            hint={fill(bs.contractOffer[k], { price: contract })}
+                            {...(bad ? { error: bs.badOffer[k] } : {})}
+                          />
+                          {priceMode === "apart" && (
+                            <Input
+                              id={`bulk-offer-${offer.mealPlan}-weekend`}
+                              label={bs.weekend[k]}
+                              inputMode="decimal"
+                              value={shown.weekend}
+                              onChange={(e) => setDraft("weekend", e.target.value)}
+                              suffix={liveRt.currency}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
                   <Input
-                    label={c.baseWeekend[k]}
+                    label={priceMode === "one" ? c.baseEvery[k] : c.baseWeekday[k]}
                     inputMode="numeric"
-                    value={weekendPrice}
+                    value={weekdayPrice}
                     onChange={(e) => {
                       setPriceTouched(true);
-                      setWeekendPrice(e.target.value);
+                      setWeekdayPrice(e.target.value);
                     }}
-                    {...(weekdayPrice.trim() !== "" && weekendPrice.trim() === ""
-                      ? { error: c.needWeekendPrice[k] }
+                    {...(priceTouched && weekdayPrice.trim() === ""
+                      ? { error: c.needPrice[k] }
                       : {})}
                   />
-                )}
-              </div>
+                  {priceMode === "apart" && (
+                    <Input
+                      label={c.baseWeekend[k]}
+                      inputMode="numeric"
+                      value={weekendPrice}
+                      onChange={(e) => {
+                        setPriceTouched(true);
+                        setWeekendPrice(e.target.value);
+                      }}
+                      {...(weekdayPrice.trim() !== "" && weekendPrice.trim() === ""
+                        ? { error: c.needWeekendPrice[k] }
+                        : {})}
+                    />
+                  )}
+                </div>
+              )}
               {!liveRt?.fixedPrice && (
                 <p className="mt-2 max-w-[560px] text-[11.5px] leading-4 text-text-quiet">
                   {c.othersFollow[k]}
                 </p>
               )}
+            </Section>
+          )}
+
+          {liveRt && !liveRt.fixedPrice && liveRt.supplementRooms.length > 0 && (
+            <Section label={bs.roomSupplementsTitle[k]}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {liveRt.supplementRooms.map((room) => {
+                  const amount = amountText(roomSupplementShown(room));
+                  return (
+                    <Input
+                      key={room.name.en}
+                      id={`bulk-supplement-${room.name.en}`}
+                      label={room.name[k]}
+                      inputMode="decimal"
+                      value={roomSupplementShown(room)}
+                      onChange={(e) =>
+                        setRoomSupplementDraft((current) => ({
+                          ...current,
+                          [room.name.en]: e.target.value,
+                        }))
+                      }
+                      suffix={liveRt.currency}
+                      hint={fill(bs.contractSupplement[k], {
+                        amount: room.supplement === null ? "-" : n(room.supplement),
+                      })}
+                      {...(amount !== null && (!Number.isFinite(amount) || amount < 0)
+                        ? { error: bs.badPrice[k] }
+                        : {})}
+                    />
+                  );
+                })}
+              </div>
+              <p
+                className={cn(
+                  "mt-2 max-w-[560px] text-[11.5px] leading-4",
+                  roomSupplementNeedsBase ? "text-status-danger" : "text-text-quiet",
+                )}
+              >
+                {(roomSupplementNeedsBase ? bs.supplementNeedsBase : bs.roomSupplementsHint)[k]}
+              </p>
             </Section>
           )}
 
@@ -2565,13 +2778,13 @@ export function BulkRangeOverlay({
             <Section label={bs.mealsTitle[k]}>
               <div className="grid gap-4">
                 {mealOptions.map((meal) => {
-                  const draft = mealDraft[meal.type];
-                  const basis = draft?.basis ?? meal.pricingBasis ?? "per_person";
-                  const price = amountText(draft?.price ?? "");
+                  const shown = mealShown(meal);
+                  const basis = shown.basis;
+                  const price = amountText(shown.price);
                   const setDraft = (next: Partial<{ price: string; basis: MealBasis }>) =>
                     setMealDraft((current) => ({
                       ...current,
-                      [meal.type]: { price: draft?.price ?? "", basis, ...next },
+                      [meal.type]: { ...shown, ...next },
                     }));
                   return (
                     <div key={meal.type} className="grid gap-2 sm:grid-cols-2 sm:items-start">
@@ -2579,8 +2792,7 @@ export function BulkRangeOverlay({
                         id={`bulk-meal-${meal.type}`}
                         label={liveGrid.meals[meal.type][k]}
                         inputMode="decimal"
-                        value={draft?.price ?? ""}
-                        placeholder={meal.price === null ? "" : n(meal.price)}
+                        value={shown.price}
                         onChange={(e) => setDraft({ price: e.target.value })}
                         suffix={liveRt?.currency ?? ""}
                         hint={fill(bs.contractMeal[k], {
@@ -2620,7 +2832,7 @@ export function BulkRangeOverlay({
             <Section label={bs.childrenTitle[k]}>
               <div className="grid gap-4">
                 {childOptions.map((band) => {
-                  const draft = childDraft[band.category];
+                  const shown = childShown(band);
                   const value = childValues.find((item) => item.category === band.category);
                   const bandBad =
                     value !== undefined &&
@@ -2637,14 +2849,8 @@ export function BulkRangeOverlay({
                   const setDraft = (field: "from" | "to" | "price", text: string) =>
                     setChildDraft((current) => ({
                       ...current,
-                      [band.category]: {
-                        from: draft?.from ?? "",
-                        to: draft?.to ?? "",
-                        price: draft?.price ?? "",
-                        [field]: text,
-                      },
+                      [band.category]: { ...shown, [field]: text },
                     }));
-                  const shown = (number: number | null) => (number === null ? "" : n(number));
                   return (
                     <div key={band.category}>
                       <p className="mb-2 text-[12.5px] font-semibold text-text-primary">
@@ -2655,8 +2861,7 @@ export function BulkRangeOverlay({
                           id={`bulk-child-${band.category}-from`}
                           label={bs.fromAge[k]}
                           inputMode="numeric"
-                          value={draft?.from ?? ""}
-                          placeholder={shown(band.from)}
+                          value={shown.from}
                           onChange={(e) => setDraft("from", e.target.value)}
                           {...(bandBad ? { error: bs.badAges[k] } : {})}
                         />
@@ -2664,16 +2869,14 @@ export function BulkRangeOverlay({
                           id={`bulk-child-${band.category}-to`}
                           label={bs.toAge[k]}
                           inputMode="numeric"
-                          value={draft?.to ?? ""}
-                          placeholder={shown(band.to)}
+                          value={shown.to}
                           onChange={(e) => setDraft("to", e.target.value)}
                         />
                         <Input
                           id={`bulk-child-${band.category}-price`}
                           label={bs.childPrice[k]}
                           inputMode="decimal"
-                          value={band.category === "sharing_parents" ? n(0) : (draft?.price ?? "")}
-                          placeholder={shown(band.price)}
+                          value={band.category === "sharing_parents" ? "0" : shown.price}
                           disabled={band.category === "sharing_parents"}
                           onChange={(e) => setDraft("price", e.target.value)}
                           suffix={liveRt?.currency ?? ""}

@@ -1916,7 +1916,9 @@ export function RateReviewPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-text-quiet">
             {r.impact[k]}
           </p>
-          {(!data.supplementCounts || data.nights.length > 0 || data.affectedCount > 0) && (
+          {(!data.supplementCounts?.affectedCount ||
+            data.nights.length > 0 ||
+            data.affectedCount > 0) && (
             <p className="mt-1 text-[12.5px] font-semibold text-text-primary">
               {fill(r.counts[k], {
                 affected: num(data.affectedCount),
@@ -1925,16 +1927,16 @@ export function RateReviewPanel({
               })}
             </p>
           )}
-          {data.supplementCounts && (
+          {Boolean(data.supplementCounts?.affectedCount) && (
             <p className="mt-1 text-[12.5px] font-semibold text-text-primary">
               {fill(bulkSupplements.counts[k], {
-                affected: num(data.supplementCounts.affectedCount),
-                changed: num(data.supplementCounts.changedComponentCount),
+                affected: num(data.supplementCounts!.affectedCount),
+                changed: num(data.supplementCounts!.changedComponentCount),
               })}
             </p>
           )}
           {data.nights.length === 0 ? (
-            data.supplementCounts ? null : (
+            data.supplementCounts?.affectedCount ? null : (
               <p className="mt-2 text-[12px] text-text-body">{r.noNights[k]}</p>
             )
           ) : (
