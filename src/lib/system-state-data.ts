@@ -239,7 +239,7 @@ export const systemStates:Record<SystemStateKey,SystemStateView>={
    ["no","Create, edit, publish, confirm, cancel, invite or settle.","إنشاء أو تعديل أو نشر أو تأكيد أو إلغاء أو دعوة أو تسوية."],
    ["info","Every screen shows the same thing - no screen hides a button that would work.","وكل شاشة تعرض الشيء نفسه - ولا تخفي شاشة زرًا كان سيعمل."],
    ["info","What you can see is set by the Owner, and can be narrower than the whole account.","وما تراه يضبطه المالك، وقد يكون أضيق من الحساب كله."],
-   ["info","The contract itself is read-only - expired or terminated. Nobody can edit it, whatever their role.","والعقد نفسه للقراءة فقط - منتهٍ أو مُنهى. ولا يعدّله أحد مهما كان دوره."],
+   ["info","The contract itself is read-only - expired or terminated. Nobody can edit it, whatever their role.","والعقد نفسه للقراءة فقط - منتهي أو تم إنهاؤه. ولا يعدّله أحد مهما كان دوره."],
    ["info","A pause from Hoteliana blocks selling, not editing. That one does not send you here.","وإيقاف هوتيليانا يحجب البيع لا التعديل. وذلك لا يرسلك إلى هنا."],
   ],
   actions:[{label:"Ask the Owner for edit access",labelAr:"اطلب صلاحية التعديل من المالك",primary:true},{label:"Back to dashboard",labelAr:"العودة إلى لوحة اليوم"}],

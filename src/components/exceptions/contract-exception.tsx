@@ -54,12 +54,12 @@ export function ContractException({state,ar}:{state:ContractExceptionState;ar:bo
 
     {state==="terminated"&&<SectionCard
       className="mt-5"
-      title={ar?"المنتهي والموقوف والمُنهى ليست شيئًا واحدًا":"Expired, Paused and Terminated are not the same thing"}
+      title={ar?"الحالات منتهي وموقوف وتم إنهاؤه ليست شيئًا واحدًا":"Expired, Paused and Terminated are not the same thing"}
       description={ar?"لكل واحد منها قواعده.":"Each one has its own rules."}>
       <div className="space-y-3">{[
-        ["Expired - the term ended on its own date. Renew or copy to a new period.","منتهٍ - انتهت المدة في تاريخها. جدّد أو انسخ إلى فترة جديدة."],
+        ["Expired - the term ended on its own date. Renew or copy to a new period.","منتهي - انتهت المدة في تاريخها. جدّد أو انسخ إلى فترة جديدة."],
         ["Paused - a temporary hold by Hoteliana. Reversible in one step.","موقوف - حجب مؤقت من هوتيليانا. ويُرفع بخطوة واحدة."],
-        ["Terminated - ended early and permanently. Not reversible.","مُنهى - أُنهي مبكرًا ونهائيًا. وغير قابل للرجوع."],
+        ["Terminated - ended early and permanently. Not reversible.","تم إنهاؤه - أُنهي مبكرًا ونهائيًا. وغير قابل للرجوع."],
       ].map(([en,arabic])=><div key={en} className="flex gap-3 text-sm text-text-primary">
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-status-neutral-bg text-xs text-text-secondary">i</span>
         <span className="leading-5">{ar?arabic:en}</span>

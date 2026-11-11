@@ -87,7 +87,7 @@ export const statusAr: Record<string, string> = {
   "Amendment asked": "طلب تعديل",
   Rejected: "مرفوض",
   Cancelled: "ملغي",
-  Terminated: "منتهٍ بالإنهاء",
+  Terminated: "تم إنهاؤه",
   Suspended: "موقوف",
   Declined: "مرفوض الطلب",
   "Expired invitation": "دعوة منتهية",
