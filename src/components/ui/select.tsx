@@ -105,7 +105,8 @@ export function Select(props: SelectProps) {
   const loadError = remote ? remoteError : props.loadError;
   // Keep already loaded options visible while background requests are running.
   const initialLoading = loading && options.length === 0;
-  const showBottomLoading = !initialLoading && (props.loadingMore || (loading && options.length > 0));
+  const showBottomLoading =
+    !initialLoading && (props.loadingMore || (loading && options.length > 0));
   const [cursor, setCursor] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -419,7 +420,7 @@ export function Select(props: SelectProps) {
                     className={cn("h-3.5 w-3.5", props.refreshing && "animate-spin")}
                     aria-hidden="true"
                   />
-                  <span>{props.refreshing ? "Updating…" : (props.refreshLabel ?? "Refresh data")}</span>
+                  <span>{props.refreshing ? t.updating : (props.refreshLabel ?? t.refresh)}</span>
                 </button>
               </div>
             )}
@@ -530,17 +531,24 @@ export function Select(props: SelectProps) {
                 ))}
 
               {showBottomLoading && (
-                <li className="flex items-center justify-center gap-2 border-t border-border-subtle px-3 py-3 text-sm text-text-muted" aria-live="polite">
+                <li
+                  className="flex items-center justify-center gap-2 border-t border-border-subtle px-3 py-3 text-sm text-text-muted"
+                  aria-live="polite"
+                >
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
-                  <span>{props.loadingMoreLabel ?? "Loading more…"}</span>
+                  <span>{props.loadingMoreLabel ?? t.loadingMore}</span>
                 </li>
               )}
 
-              {!loading && !loadError && props.hasMore && !props.loadingMore && filtered.length > 0 && (
-                <li className="px-3 py-2 text-center text-xs text-text-muted">
-                  {"Scroll to load more"}
-                </li>
-              )}
+              {!loading &&
+                !loadError &&
+                props.hasMore &&
+                !props.loadingMore &&
+                filtered.length > 0 && (
+                  <li className="px-3 py-2 text-center text-xs text-text-muted">
+                    {"Scroll to load more"}
+                  </li>
+                )}
 
               {canAddTag && (
                 <li>

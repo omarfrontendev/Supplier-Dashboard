@@ -342,6 +342,7 @@ export const extraEn = {
     requestReplacement: "Request replacement",
   },
   select: {
+    refresh: "Refresh data",
     placeholder: "Select",
     multiPlaceholder: "Select one or more",
     tagsPlaceholder: "Type and press Enter",
@@ -353,6 +354,8 @@ export const extraEn = {
     addTag: 'Add "{value}"',
     typeToSearch: "Type at least {count} characters",
     loading: "Loading…",
+    loadingMore: "Loading more…",
+    updating: "Updating…",
   },
   toast: {
     accessRequested: "Access request sent",
@@ -722,6 +725,7 @@ export const extraAr: typeof extraEn = {
     requestReplacement: "\u0637\u0644\u0628 \u0627\u0633\u062a\u0628\u062f\u0627\u0644",
   },
   select: {
+    refresh: "تحديث البيانات",
     placeholder: "اختر",
     multiPlaceholder: "اختر واحدًا أو أكثر",
     tagsPlaceholder: "اكتب ثم اضغط Enter",
@@ -733,6 +737,8 @@ export const extraAr: typeof extraEn = {
     addTag: 'إضافة "{value}"',
     typeToSearch: "اكتب {count} أحرف على الأقل",
     loading: "جارٍ التحميل…",
+    loadingMore: "جاري تحميل المزيد…",
+    updating: "جاري التحديث…",
   },
   toast: {
     accessRequested: "تم إرسال طلب الوصول",
