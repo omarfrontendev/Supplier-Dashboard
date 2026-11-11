@@ -79,7 +79,6 @@ type TagsProps = Base & {
   maxTags?: number;
 };
 
-
 export type SelectProps = SingleProps | MultiProps | TagsProps;
 
 const heights = { sm: "min-h-9", md: "min-h-11" } as const;
