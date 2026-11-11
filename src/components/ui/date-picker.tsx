@@ -97,6 +97,11 @@ export interface DatePickerProps {
   countNights?: boolean | undefined;
   /** "Use 20 - 26 Sep" reads as an edit; a filter shows. */
   actionLabel?: string | undefined;
+  /**
+   * Opt-in: print the allowed range (min .. max, the same values that close
+   * the days) in the summary box, before and after a pick.
+   */
+  showRange?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -124,6 +129,7 @@ export function DatePicker({
   hint,
   countNights = true,
   actionLabel,
+  showRange = false,
   className,
 }: DatePickerProps) {
   const { lang, dir } = useLanguage();
@@ -262,6 +268,17 @@ export function DatePicker({
     };
   })();
 
+  /* "11 Nov 2026" - the summary's own day, month and digits; an unknown end reads "…". */
+  const fullDay = (key: DayKey | undefined) => {
+    if (!key) return "…";
+    const d = dateOf(key);
+    return `${n(d.getDate())} ${t.monthsShort[d.getMonth()]} ${n(d.getFullYear())}`;
+  };
+  const rangeLine =
+    showRange && (min || max)
+      ? t.availableRange.replace("{from}", fullDay(min)).replace("{to}", fullDay(max))
+      : null;
+
   const Prev = dir === "rtl" ? ChevronRight : ChevronLeft;
   const Next = dir === "rtl" ? ChevronLeft : ChevronRight;
 
@@ -388,6 +405,9 @@ export function DatePicker({
         <p className="text-[13px] font-semibold leading-4 text-text-primary">
           {label ? label.head : t.pickFirst}
         </p>
+        {rangeLine && (
+          <p className="mt-0.5 text-[12px] leading-[15px] text-text-body">{rangeLine}</p>
+        )}
       </div>
 
       {/* Legend */}

@@ -2598,6 +2598,7 @@ export function OneNightOverlay({
               /* Today (local day) through the selected contract's endDate, both inclusive. */
               min={pickToday}
               {...(term ? { max: term.end } : {})}
+              showRange
               onApply={(range) => {
                 onNights?.(range);
                 setPicking(false);

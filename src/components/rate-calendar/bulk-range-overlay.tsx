@@ -3932,6 +3932,7 @@ export function BulkRangeOverlay({
             {...(pickMin ? { min: pickMin } : {})}
             {...(pickMax ? { max: pickMax } : {})}
             {...(pickMin || pickMax ? { clampShortcuts: true } : {})}
+            showRange={kind === "bulkRates"}
             {...(openOn ? { openOn: pickMin && openOn < pickMin ? pickMin : openOn } : {})}
             onApply={(range) => {
               const item = { id: `R-${Date.now()}`, range, nights: nightsIn(range) };
