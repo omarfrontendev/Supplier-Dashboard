@@ -131,6 +131,7 @@ const copy = {
     hotelLabel: "Hotel",
     searchLabel: "SEARCH",
     allHotels: "All hotels",
+    selectHotel: "Select a hotel",
     allStatuses: "All statuses",
     anyPeriod: "Any period",
     anyAttention: "Any",
@@ -246,6 +247,7 @@ const copy = {
     hotelLabel: "الفندق",
     searchLabel: "البحث",
     allHotels: "كل الفنادق",
+    selectHotel: "اختر الفندق",
     allStatuses: "كل الحالات",
     anyPeriod: "أي فترة",
     anyAttention: "الكل",
@@ -518,8 +520,28 @@ function RateContractsPage() {
   const [hotelPage, setHotelPage] = useState(1);
   const HOTEL_PAGE_SIZE = 20; // Keep it small for pagination testing.
 
-  const [hotelOptions, setHotelOptions] = useState<SelectOption[]>([]);
-  const [hotelLabels, setHotelLabels] = useState<Record<string, string>>({});
+  /* Both names are kept so the list can switch language without refetching. */
+  type HotelNames = { value: string; nameEn: string; nameAr: string };
+  const [hotelItems, setHotelItems] = useState<HotelNames[]>([]);
+  const [hotelNames, setHotelNames] = useState<Record<string, HotelNames>>({});
+
+  const localizedHotelName = useCallback(
+    (hotel: HotelNames) => (lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn),
+    [lang],
+  );
+
+  const hotelOptions = useMemo<SelectOption[]>(
+    () => hotelItems.map((hotel) => ({ value: hotel.value, label: localizedHotelName(hotel) })),
+    [hotelItems, localizedHotelName],
+  );
+
+  const hotelLabels = useMemo<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        Object.entries(hotelNames).map(([value, hotel]) => [value, localizedHotelName(hotel)]),
+      ),
+    [hotelNames, localizedHotelName],
+  );
 
   const previousSearchRef = useRef(debouncedHotelSearch);
   const resettingSearchRef = useRef(false);
@@ -548,7 +570,7 @@ function RateContractsPage() {
     resettingSearchRef.current = true;
 
     setHotelPage(1);
-    setHotelOptions([]);
+    setHotelItems([]);
   }, [debouncedHotelSearch]);
 
   // Accumulate the current page without removing previously loaded options.
@@ -563,24 +585,25 @@ function RateContractsPage() {
     // Wait for page 1 when a new search is being initialized.
     if (resettingSearchRef.current && hotelPage !== 1) return;
 
-    const incomingOptions: SelectOption[] = hotelsData.hotels.map((hotel) => ({
+    const incomingOptions: HotelNames[] = hotelsData.hotels.map((hotel) => ({
       value: String(hotel.id),
-      label: hotel.nameEn,
+      nameEn: hotel.nameEn,
+      nameAr: hotel.nameAr,
     }));
 
-    // Preserve labels for selected hotels, even after the options are reset.
-    setHotelLabels((current) => ({
+    // Preserve names for selected hotels, even after the options are reset.
+    setHotelNames((current) => ({
       ...current,
-      ...Object.fromEntries(incomingOptions.map((option) => [option.value, option.label])),
+      ...Object.fromEntries(incomingOptions.map((option) => [option.value, option])),
     }));
 
     if (hotelPage === 1) {
-      setHotelOptions(incomingOptions);
+      setHotelItems(incomingOptions);
       resettingSearchRef.current = false;
       return;
     }
 
-    setHotelOptions((currentOptions) => {
+    setHotelItems((currentOptions) => {
       const existingValues = new Set(currentOptions.map((option) => option.value));
 
       const uniqueIncomingOptions = incomingOptions.filter(
@@ -700,7 +723,7 @@ function RateContractsPage() {
           </FilterField>
           <FilterField label={t.hotelLabel}>
             <Select
-              placeholder="Select a hotel"
+              placeholder={t.selectHotel}
               value={filters?.hotelId}
               onChange={(e) => {
                 dispatch({
