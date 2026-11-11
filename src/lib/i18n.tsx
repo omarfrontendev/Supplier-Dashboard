@@ -66,6 +66,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export function useTextDirection(): "rtl" | "ltr" | undefined {
+  return useContext(LanguageContext)?.dir;
+}
+
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (!context) {

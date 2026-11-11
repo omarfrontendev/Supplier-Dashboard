@@ -3723,7 +3723,9 @@ export function ExportOverlay({
   formats,
   overline,
   note = true,
+  waiting,
 }: {
+  waiting?: string | undefined;
   onClose: () => void;
   onDownload?: (format: string) => void;
   formats?: string[];
@@ -3753,6 +3755,7 @@ export function ExportOverlay({
           }
         >
           <Button
+            disabled={waiting !== undefined}
             onClick={() => {
               onDownload?.(format);
               onClose();
@@ -3810,6 +3813,11 @@ export function ExportOverlay({
           />
           <p className="text-[11.5px] leading-4 text-text-muted">{c.note[k]}</p>
         </div>
+      )}
+      {waiting && (
+        <p role="status" className="text-[11.5px] leading-4 text-text-muted">
+          {waiting}
+        </p>
       )}
     </IconModal>
   );

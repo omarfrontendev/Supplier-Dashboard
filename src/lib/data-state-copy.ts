@@ -29,6 +29,8 @@ export const dataStateCopy = {
     perPage: "{count} per page",
     /* Export — a long list arrives by email instead of downloading. */
     exportReady: "Exported {count} rows with your current filters.",
+    exportBlocked:
+      "Your browser blocked the print window. Allow pop-ups for this site and try again.",
     exportByEmail:
       "{count} rows is too many to download here. We are emailing the file to {email}.",
   },
@@ -50,6 +52,8 @@ export const dataStateCopy = {
     lastPage: "أنت في الصفحة الأخيرة.",
     perPage: "{count} في الصفحة",
     exportReady: "صُدِّر {count} صفًا بالمرشّحات الحالية.",
+    exportBlocked:
+      "منع المتصفح نافذة الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع ثم حاول مرة أخرى.",
     exportByEmail:
       "{count} صفًا أكثر من أن تُنزَّل هنا. نرسل الملف إلى {email} بالبريد.",
   },
