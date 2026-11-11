@@ -388,9 +388,6 @@ export function DatePicker({
         <p className="text-[13px] font-semibold leading-4 text-text-primary">
           {label ? label.head : t.pickFirst}
         </p>
-        <p className="mt-0.5 text-[12px] leading-[15px] text-text-body">
-          {label ? label.hint : oneHint}
-        </p>
       </div>
 
       {/* Legend */}

@@ -28,6 +28,7 @@ import { DateField } from "@/components/ui/date-field";
 import {
   DatePicker,
   dateOf,
+  keyOf,
   type DayRange,
 } from "@/components/ui/date-picker";
 import { datePickerCopy } from "@/lib/date-picker-copy";
@@ -2064,6 +2065,7 @@ export function OneNightOverlay({
   live,
   weekendNames,
   weekendDays = null,
+  term,
   review,
   reviewRoomName,
   onConfirmReview,
@@ -2085,6 +2087,11 @@ export function OneNightOverlay({
   weekendNames?: { en: string; ar: string } | undefined;
   /** The selected contract's weekend (detail.weekPricing.weekendDays); null while unknown. */
   weekendDays?: ContractWeekend;
+  /**
+   * The selected contract's term, inclusive YYYY-MM-DD, from its own details;
+   * undefined while they load. The nights field allows today .. term.end.
+   */
+  term?: { start: string; end: string } | undefined;
   live?:
     | {
         contract: { weekday: number; weekend: number } | { amount: number } | null;
@@ -2268,6 +2275,7 @@ export function OneNightOverlay({
      and not a different overlay. */
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [picking, setPicking] = useState(false);
+  const pickToday = keyOf(new Date());
   /* OV 04.6N - a fixed-price group is the only one you can type into. */
   const [groupPrice, setGroupPrice] = useState<Record<string, string>>({});
 
@@ -2587,6 +2595,9 @@ export function OneNightOverlay({
             <DatePicker
               className="w-[300px]"
               weekend={weekendDays}
+              /* Today (local day) through the selected contract's endDate, both inclusive. */
+              min={pickToday}
+              {...(term ? { max: term.end } : {})}
               onApply={(range) => {
                 onNights?.(range);
                 setPicking(false);

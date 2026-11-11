@@ -2573,6 +2573,7 @@ function RateCalendarPage() {
           {...(live ? { childBands: nightChildBands } : {})}
           weekendNames={formatWeekendBi(contractWeekend)}
           weekendDays={contractWeekend}
+          term={contractTerm}
           {...(live && !rateTargets.eligible ? { saveBlocked: liveGrid.notEligible[k] } : {})}
           {...(nightSeason
             ? {

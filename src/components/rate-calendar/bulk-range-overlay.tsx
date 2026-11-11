@@ -26,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { StatusPill } from "@/components/layout/page-shell";
-import { DatePicker, dateOf, type DayRange } from "@/components/ui/date-picker";
+import { DatePicker, dateOf, keyOf, type DayRange } from "@/components/ui/date-picker";
 import { CheckDays } from "@/components/rate-calendar/check-days";
 import { datePickerCopy } from "@/lib/date-picker-copy";
 import { fill, useLanguage } from "@/lib/i18n";
@@ -467,17 +467,27 @@ export function BulkRangeOverlay({
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [rooms, setRooms] = useState<string[]>([]);
 
-  /* A new term trims the picked nights to it; nights still inside are kept as they are. */
+  /*
+   * What can be picked: the selected contract's term. Bulk rates also starts
+   * today (local day, inclusive) and ends on the contract's endDate (inclusive).
+   * term is undefined until the selected contract's own details load, so no
+   * other contract's dates are ever used.
+   */
+  const today = keyOf(new Date());
   const termStart = term?.start;
   const termEnd = term?.end;
+  const pickMin =
+    kind === "bulkRates" ? (termStart && termStart > today ? termStart : today) : termStart;
+  const pickMax = termEnd;
+  /* A new allowed range trims the picked nights to it; nights still inside are kept as they are. */
   useEffect(() => {
-    if (!termStart || !termEnd) return;
+    if (!pickMin && !pickMax) return;
     setPicked((current) => {
       let changed = false;
       const next = current.flatMap((item) => {
         const end = item.range.end ?? item.range.start;
-        const from = item.range.start < termStart ? termStart : item.range.start;
-        const to = end > termEnd ? termEnd : end;
+        const from = pickMin && item.range.start < pickMin ? pickMin : item.range.start;
+        const to = pickMax && end > pickMax ? pickMax : end;
         if (from === item.range.start && to === end) return [item];
         changed = true;
         if (from > to) return [];
@@ -489,7 +499,7 @@ export function BulkRangeOverlay({
       });
       return changed ? next : current;
     });
-  }, [termStart, termEnd]);
+  }, [pickMin, pickMax]);
 
   /* Bulk rates */
   const [priceMode, setPriceMode] = useState("apart");
@@ -3919,8 +3929,10 @@ export function BulkRangeOverlay({
           <DatePicker
             className="w-[300px]"
             weekend={contractWeekend}
-            {...(term ? { min: term.start, max: term.end, clampShortcuts: true } : {})}
-            {...(openOn ? { openOn } : {})}
+            {...(pickMin ? { min: pickMin } : {})}
+            {...(pickMax ? { max: pickMax } : {})}
+            {...(pickMin || pickMax ? { clampShortcuts: true } : {})}
+            {...(openOn ? { openOn: pickMin && openOn < pickMin ? pickMin : openOn } : {})}
             onApply={(range) => {
               const item = { id: `R-${Date.now()}`, range, nights: nightsIn(range) };
               setPicked((current) => (oneRange ? [item] : [...current, item]));
