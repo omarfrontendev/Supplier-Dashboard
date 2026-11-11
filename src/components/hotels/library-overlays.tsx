@@ -81,6 +81,7 @@ export function HotelQuickView({
   onRequest?: (() => void) | undefined;
   onSeeRequest?: (() => void) | undefined;
 }) {
+
   const { lang, c: c2 } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = quickView;
@@ -88,7 +89,11 @@ export function HotelQuickView({
   const { hotel: selectedHotel } = useSingleHotelOption(hotel?.id);
   const tone = badgeTone[hotel?.linkingStatus];
 
-  const { rooms, meta: roomsMeta } = useHotelRooms(hotel?.id);
+  const { rooms, meta: roomsMeta } = useHotelRooms({
+    id: hotel?.id,
+    page:1,
+    limit:10
+  });
 
   const getRoomDetails = (room: any) => {
     const ar = lang === "ar";
