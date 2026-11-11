@@ -35,7 +35,7 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
  * OV 02.2 / 02.2D — everything Hoteliana holds about a library hotel,
  * and the one thing you can do about it.
  */
-const QUICK_VIEW_ROOMS = 100;
+const QUICK_VIEW_ROOMS = 10;
 
 const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
   not_requested: {
@@ -83,6 +83,7 @@ export function HotelQuickView({
   onRequest?: (() => void) | undefined;
   onSeeRequest?: (() => void) | undefined;
 }) {
+
   const { lang, c: c2 } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = quickView;
