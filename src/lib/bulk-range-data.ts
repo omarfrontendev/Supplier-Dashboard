@@ -391,10 +391,8 @@ export const bulkCopy = {
    */
   appliesOn: t("Applies on", "ينطبق على"),
   appliesEvery: t("Every day in the range", "كل يوم في المدى"),
-  appliesWeekend: t(
-    "Weekend days only · Thu, Fri",
-    "أيام نهاية الأسبوع فقط · الخميس، الجمعة"
-  ),
+  /* {days} = the selected contract's weekend, filled by the overlay. */
+  appliesWeekend: t("Weekend days only · {days}", "أيام نهاية الأسبوع فقط · {days}"),
   appliesOnHint: t(
     "Weekend days come from the contract. On the other nights guests book as if this rule did not exist.",
     "أيام نهاية الأسبوع تأتي من العقد. وفي الليالي الأخرى يحجز النزلاء كأن هذه القاعدة غير موجودة."
