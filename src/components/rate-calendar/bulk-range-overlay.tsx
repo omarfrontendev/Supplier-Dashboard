@@ -3046,7 +3046,12 @@ export function BulkRangeOverlay({
                   {(
                     [
                       ["every", c.appliesEvery[k]],
-                      ["weekend", c.appliesWeekend[k]],
+                      [
+                        "weekend",
+                        fill(c.appliesWeekend[k], {
+                          days: weekendDays.map((day) => dp.daysShort[day]).join(ar ? "، " : ", "),
+                        }),
+                      ],
                     ] as Array<["every" | "weekend", string]>
                   ).map(([value, label]) => (
                     <button
