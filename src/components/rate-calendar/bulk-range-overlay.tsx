@@ -27,7 +27,8 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { StatusPill } from "@/components/layout/page-shell";
 import { DatePicker, dateOf, keyOf, type DayRange } from "@/components/ui/date-picker";
-import { CheckDays } from "@/components/rate-calendar/check-days";
+import { CheckDays, type InheritedChecks } from "@/components/rate-calendar/check-days";
+import { useRestrictionsContext } from "@/api/modules/rates-availability/useRestrictions";
 import { datePickerCopy } from "@/lib/date-picker-copy";
 import { fill, useLanguage } from "@/lib/i18n";
 import { formatWeekend, type ContractWeekend } from "@/lib/contract-weekend";
@@ -944,6 +945,39 @@ export function BulkRangeOverlay({
     if (!target || pickedIsos.length === 0) return null;
     return pickedRange ? { ...target, ...pickedRange } : { ...target, dates: pickedIsos };
   };
+  /*
+   * What applies now, for the calendar's Inherit chips. Same query (and so the
+   * same cache entry) as the WHAT APPLIES NOW table below: the backend resolves
+   * contract defaults, weekend days and override precedence; nothing is
+   * recomputed here. A night whose picked rooms disagree stays "mixed".
+   */
+  const restrictionTooMany = pickedIsos.length > RESTRICTION_LIMITS.dates;
+  const showRestrictionEffective = Boolean(live) && nights > 0 && realRooms.length > 0;
+  const restrictionContext = useRestrictionsContext(
+    live?.contractId,
+    showRestrictionEffective && !restrictionTooMany ? restrictionScope() : null,
+  );
+  const inheritedChecks = useMemo(() => {
+    const out: Record<string, InheritedChecks> = {};
+    for (const cell of restrictionContext.data?.cells ?? []) {
+      const key = calendarKey(new Date(`${cell.stayDate}T00:00:00`));
+      const night = (out[key] ??= {});
+      for (const [what, field] of [
+        ["in", "checkIn"],
+        ["out", "checkOut"],
+      ] as const) {
+        const value = cell.restrictions[field];
+        const seen = night[what];
+        night[what] = seen === undefined || seen === value ? value : "mixed";
+      }
+      /* Min stay: the lowest and highest the picked rooms resolve to; 0 = no minimum. */
+      const min = cell.restrictions.minNights;
+      night.min = night.min
+        ? { lo: Math.min(night.min.lo, min), hi: Math.max(night.min.hi, min) }
+        : { lo: min, hi: min };
+    }
+    return out;
+  }, [restrictionContext.data]);
   const restrictionPlan = (() => {
     const target = restrictionTarget();
     if (!live || !target || pickedIsos.length === 0) return null;
@@ -3118,6 +3152,10 @@ export function BulkRangeOverlay({
                         live
                           ? {
                               states: nightChecks,
+                              inherited: inheritedChecks,
+                              /* The draft minimum lands where the rule will: every night, or the contract's weekend. */
+                              draftMin: (date: Date) =>
+                                minimumStay && covered(date) ? minimumStay.minNights : undefined,
                               onSet: (keys, what, value) =>
                                 setNightChecks((current) => {
                                   const next = { ...current };
@@ -3135,6 +3173,11 @@ export function BulkRangeOverlay({
                                 legendOpen: lr.legendOpen,
                                 legendClosed: lr.legendClosed,
                                 legendTap: lr.legendTap,
+                                valueOpen: lr.open,
+                                valueClosed: lr.closed,
+                                minStay: lr.colMin,
+                                minNights: lr.nightsValue,
+                                noMinimum: lr.noMinimumValue,
                               },
                             }
                           : undefined
@@ -3165,11 +3208,11 @@ export function BulkRangeOverlay({
                 )}
               </Section>
 
-              {live && nights > 0 && realRooms.length > 0 && (
+              {live && showRestrictionEffective && (
                 <RestrictionEffective
                   contractId={live.contractId}
                   scope={restrictionScope()}
-                  tooMany={pickedIsos.length > RESTRICTION_LIMITS.dates}
+                  tooMany={restrictionTooMany}
                   roomName={live.roomName}
                   k={k}
                 />

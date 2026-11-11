@@ -17,6 +17,8 @@
  * decision and clicking four Fridays is four chances to miss one.
  */
 
+import { Moon } from "lucide-react";
+import { fill } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /** Saturday first, so Thu and Fri close the row rather than straddle it. */
@@ -26,17 +28,39 @@ type Shut = Record<string, { in?: boolean; out?: boolean }>;
 type Tri = "open" | "closed";
 
 /**
+ * What a night inherits when the supplier leaves it on Inherit - the same
+ * effective values the WHAT APPLIES NOW table shows, already resolved by the
+ * backend. "mixed": the picked rooms disagree on that night.
+ */
+export type InheritedChecks = {
+  in?: Tri | "mixed";
+  out?: Tri | "mixed";
+  /** Effective minimum stay across the picked rooms; lo !== hi when they disagree. 0 = none. */
+  min?: { lo: number; hi: number };
+};
+
+/**
  * Live contracts: three states per side - Inherit (neutral, nothing sent),
  * Open and Closed (both sent explicitly). Same calendar, same chips.
  */
 export interface TriStateChecks {
   states: Record<string, { in?: Tri; out?: Tri }>;
+  /** Effective values per night, shown on Inherit chips. Absent while loading. */
+  inherited?: Record<string, InheritedChecks> | undefined;
+  /** The minimum the draft would set on this night, or undefined to inherit. */
+  draftMin?: ((date: Date) => number | undefined) | undefined;
   onSet: (keys: string[], what: "in" | "out", value: Tri | undefined) => void;
   copy: {
     legendInherit: { en: string; ar: string };
     legendOpen: { en: string; ar: string };
     legendClosed: { en: string; ar: string };
     legendTap: { en: string; ar: string };
+    valueOpen: { en: string; ar: string };
+    valueClosed: { en: string; ar: string };
+    minStay?: { en: string; ar: string };
+    /** "{n} nights" */
+    minNights?: { en: string; ar: string };
+    noMinimum?: { en: string; ar: string };
   };
 }
 
@@ -44,12 +68,17 @@ export interface TriStateChecks {
 const nextTri = (value: Tri | undefined): Tri | undefined =>
   value === undefined ? "closed" : value === "closed" ? "open" : undefined;
 
-const chipTone = (value: Tri | undefined) =>
+const chipTone = (value: Tri | undefined, inherited?: Tri | "mixed") =>
   value === "closed"
     ? "bg-status-danger-bg text-status-danger"
     : value === "open"
       ? "bg-[#e3f4e8] text-[#1d6b3f]"
-      : "border border-dashed border-border-default bg-surface-subtle text-text-muted";
+      : /* Inherit keeps its dashed edge; the fill says what it inherits. */
+        inherited === "closed"
+        ? "border border-dashed border-status-danger/40 bg-status-danger-bg text-status-danger"
+        : inherited === "open"
+          ? "border border-dashed border-[#1d6b3f]/30 bg-[#e3f4e8] text-[#1d6b3f]"
+          : "border border-dashed border-border-default bg-surface-subtle text-text-muted";
 
 export function CheckDays({
   dates,
@@ -172,6 +201,13 @@ export function CheckDays({
                             ] as Array<["in" | "out", string]>
                           ).map(([what, label]) => {
                             const value = tri.states[key]?.[what];
+                            const inherited = tri.inherited?.[key]?.[what];
+                            const inheritedWord =
+                              inherited === "closed"
+                                ? ` (${tri.copy.valueClosed[k]})`
+                                : inherited === "open"
+                                  ? ` (${tri.copy.valueOpen[k]})`
+                                  : "";
                             return (
                               <button
                                 key={what}
@@ -181,18 +217,25 @@ export function CheckDays({
                                     ? tri.copy.legendClosed[k]
                                     : value === "open"
                                       ? tri.copy.legendOpen[k]
-                                      : tri.copy.legendInherit[k]
+                                      : `${tri.copy.legendInherit[k]}${inheritedWord}`
                                 }`}
                                 onClick={() => tri.onSet([key], what, nextTri(value))}
                                 className={cn(
                                   "rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium transition-colors",
-                                  chipTone(value),
+                                  chipTone(value, inherited),
                                 )}
                               >
                                 {label}
                               </button>
                             );
                           })}
+                          <MinChip
+                            draft={tri.draftMin?.(date)}
+                            inherited={tri.inherited?.[key]?.min}
+                            copy={tri.copy}
+                            k={k}
+                            n={n}
+                          />
                         </>
                       )}
                       {inRule && !tri && (
@@ -243,6 +286,15 @@ export function CheckDays({
             {c.inTag[k]}
           </span>
           {tri.copy.legendClosed[k]}
+          {tri.copy.minStay && (
+            <>
+              <span className="ms-1.5 inline-flex items-center gap-0.5 rounded-[5px] border border-dashed border-border-default bg-surface-subtle px-1 py-0.5 text-[10.5px] font-medium text-text-body">
+                <Moon aria-hidden="true" className="h-2.5 w-2.5" />
+                {n(2)}
+              </span>
+              {tri.copy.minStay[k]}
+            </>
+          )}
           <span className="ms-1 text-text-quiet">{tri.copy.legendTap[k]}</span>
         </p>
       ) : (
@@ -259,5 +311,51 @@ export function CheckDays({
       </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Min stay for one live night: solid when the draft sets it, dashed when it
+ * inherits what applies now. "–" is no minimum (0). Read-only - the minimum is
+ * set by the field above, not per night.
+ */
+function MinChip({
+  draft,
+  inherited,
+  copy,
+  k,
+  n,
+}: {
+  draft: number | undefined;
+  inherited: { lo: number; hi: number } | undefined;
+  copy: TriStateChecks["copy"];
+  k: "en" | "ar";
+  n: (value: number) => string;
+}) {
+  if (!copy.minStay || !copy.minNights || !copy.noMinimum) return null;
+  const range = draft !== undefined ? { lo: draft, hi: draft } : inherited;
+  if (!range) return null;
+  const words = (value: number) =>
+    value > 0 ? fill(copy.minNights![k], { n: n(value) }) : copy.noMinimum![k];
+  const short = (value: number) => (value > 0 ? n(value) : "–");
+  const same = range.lo === range.hi;
+  const text = same ? short(range.lo) : `${short(range.lo)}-${short(range.hi)}`;
+  const said = same ? words(range.lo) : `${words(range.lo)} - ${words(range.hi)}`;
+  const label = `${copy.minStay[k]}: ${said}${draft === undefined ? ` (${copy.legendInherit[k]})` : ""}`;
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-[5px] px-1 py-0.5 text-[10.5px] font-medium",
+        draft !== undefined
+          ? "bg-primary-subtle text-brand-deep"
+          : "border border-dashed border-border-default bg-surface-subtle text-text-body",
+      )}
+    >
+      <Moon aria-hidden="true" className="h-2.5 w-2.5" />
+      {text}
+    </span>
   );
 }
