@@ -70,8 +70,9 @@ export const bulkRates = {
 
   priceTitle: t("Price", "السعر"),
   colRoom: t("Room", "الغرفة"),
-  colWeekday: t("Weekdays · Sat - Wed", "أيام الأسبوع · السبت - الأربعاء"),
-  colWeekend: t("Weekend · Thu, Fri", "نهاية الأسبوع · الخميس والجمعة"),
+  colWeekday: t("Weekdays", "أيام الأسبوع"),
+  /* {days} = the selected contract's weekend. */
+  colWeekend: t("Weekend · {days}", "نهاية الأسبوع · {days}"),
   allSelectedRooms: t("All selected rooms", "كل الغرف المختارة"),
   fillsEvery: t("fills every row below", "يملأ كل صفّ أدناه"),
   samePrice: t("Same price for all", "السعر نفسه للجميع"),
@@ -261,9 +262,10 @@ export const oneNight = {
   contractPrice: t("Contract 500", "العقد ٥٠٠"),
 
   /* OV 04.6A-F - what the frames put around the two fields. */
+  /* {days} = the selected contract's weekend. */
   weekendNightHint: t(
-    "Weekend night (Thu, Fri in your contract)",
-    "ليلة نهاية أسبوع (الخميس والجمعة في عقدك)",
+    "Weekend night ({days} in your contract)",
+    "ليلة نهاية أسبوع ({days} في عقدك)",
   ),
   weekdayNightHint: t("Weekday night", "ليلة يوم أسبوع"),
   /* The split, as two cards rather than two radios on a line. */
@@ -663,8 +665,8 @@ export const reviewPublish = {
 /** OV 04.1B / 04.1I / 04.1K / 04.1O / 04.1V — the states bulk rates moves through. */
 export const bulkRateStates = {
   rangeMeta: t(
-    "{nights} nights · {weekdays} weekdays (Sat - Wed) + {weekend} weekend ({days})",
-    "{nights} ليالٍ · {weekdays} أيام أسبوع (السبت - الأربعاء) + {weekend} نهاية أسبوع ({days})",
+    "{nights} nights · {weekdays} weekdays + {weekend} weekend ({days})",
+    "{nights} ليالٍ · {weekdays} أيام أسبوع + {weekend} نهاية أسبوع ({days})",
   ),
   oneNight: t("{nights} night", "{nights} ليلة"),
   followsBase: t("base + {amount} · follows the base", "الأساس + {amount} · يتبع الأساس"),
@@ -779,9 +781,10 @@ export const oneNightStates = {
   perNightWeekday: t("Price per night · weekdays · SAR", "السعر لليلة · أيام الأسبوع · ر.س"),
   perNightWeekend: t("Price per night · weekend · SAR", "السعر لليلة · نهاية الأسبوع · ر.س"),
   weekdayPrice: t("Weekdays · Sat · contract {price}", "أيام الأسبوع · السبت · العقد {price}"),
+  /* {days} = the selected contract's weekend. */
   weekendPrice: t(
-    "Weekend · Thu, Fri · contract {price}",
-    "نهاية الأسبوع · الخميس والجمعة · العقد {price}",
+    "Weekend · {days} · contract {price}",
+    "نهاية الأسبوع · {days} · العقد {price}",
   ),
   editMany: t("Edit for these nights", "تعديل لهذه الليالي"),
   poolMany: t("2 · 0 · 16 left of 50 (24 · 25 · 26)", "٢ · ٠ · ١٦ متبقية من ٥٠ (٢٤ · ٢٥ · ٢٦)"),
@@ -822,8 +825,9 @@ export const oneNightStates = {
     "الفرق · السعر نفسه في الليالي الـ{count}  (قيمة العقد بالرمادي)",
   ),
   supHeadPlain: t("Supplement", "الفرق"),
-  colWeekdays: t("Weekdays · Sat", "أيام الأسبوع · السبت"),
-  colWeekend: t("Weekend · Thu, Fri", "نهاية الأسبوع · الخميس والجمعة"),
+  colWeekdays: t("Weekdays", "أيام الأسبوع"),
+  /* {days} = the selected contract's weekend. */
+  colWeekend: t("Weekend · {days}", "نهاية الأسبوع · {days}"),
   perPerson: t("/ person", "/ شخص"),
   contractValue: t("contract {value}", "العقد {value}"),
   differentWeekend: t("+ Different weekend price", "+ سعر مختلف لنهاية الأسبوع"),

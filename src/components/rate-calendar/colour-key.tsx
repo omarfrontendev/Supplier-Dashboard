@@ -3,6 +3,7 @@ import { IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n";
+import { formatWeekend, type ContractWeekend } from "@/lib/contract-weekend";
 
 /** The swatch beside each line, drawn the way the cell itself is drawn. */
 const SWATCH: Record<string, string> = {
@@ -20,15 +21,28 @@ const SWATCH: Record<string, string> = {
 /** Figma OV 04.12 — what every colour in the grid means. */
 export function ColourKeyDialog({
   threshold,
+  weekend,
   onClose,
   onChangeThreshold,
 }: {
   threshold: number;
+  /** The selected contract's weekend (detail.weekPricing.weekendDays); null while it loads. */
+  weekend: ContractWeekend;
   onClose: () => void;
   onChangeThreshold: () => void;
 }) {
   const { lang } = useLanguage();
   const ar = lang === "ar";
+  const k = ar ? "ar" : "en";
+  /* The selected contract's own weekend; a contract without one says so. */
+  const weekendLine =
+    weekend && !weekend.length
+      ? ar
+        ? "لا أيام عطلة محددة في هذا العقد"
+        : "No weekend days set on this contract"
+      : ar
+        ? `${formatWeekend(weekend, k, "long")} - سعر نهاية الأسبوع`
+        : `${formatWeekend(weekend, k, "long")} - weekend price`;
 
   const rows = ar
     ? [
@@ -38,7 +52,7 @@ export function ColourKeyDialog({
         ["520", "غير منشور", "غيّرته - لا يعمل حتى تنشره", "draft"],
         ["SS", "إيقاف البيع", "مغلق للبيع - يظهر سعر تلك الليلة مشطوبًا", "danger"],
         ["RQ", "عند الطلب", "يمكن للضيوف الطلب، وأنت تؤكد كل حجز", "info"],
-        ["", "نهاية الأسبوع", "الخميس والجمعة - سعر نهاية الأسبوع", "weekend"],
+        ["", "نهاية الأسبوع", weekendLine, "weekend"],
         ["", "اليوم", "تاريخ اليوم", "today"],
       ]
     : [
@@ -48,7 +62,7 @@ export function ColourKeyDialog({
         ["520", "Not published", "You changed it - not live until you publish", "draft"],
         ["SS", "Stop sale", "Closed for sale - the price that night shows struck through", "danger"],
         ["RQ", "On Request", "Guests can ask; you confirm each booking", "info"],
-        ["", "Weekend", "Thursday and Friday - weekend price", "weekend"],
+        ["", "Weekend", weekendLine, "weekend"],
         ["", "Today", "Today’s date", "today"],
       ];
 

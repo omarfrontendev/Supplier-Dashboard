@@ -329,9 +329,9 @@ export function FilterPanel({
             )} */}
         </section>
 
-        {panel.note && (
+        {/* {panel.note && (
           <p className="text-xs leading-5 text-text-muted">{ar ? panel.noteAr : panel.note}</p>
-        )}
+        )} */}
       </div>
     </IconModal>
   );

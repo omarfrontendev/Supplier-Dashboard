@@ -59,8 +59,13 @@ export interface DatePickerProps {
   value?: DayRange | undefined;
   onApply: (range: DayRange) => void;
   onCancel: () => void;
-  /** Weekday numbers the contract sells as weekend — 0 is Sunday. */
-  weekend?: number[] | undefined;
+  /**
+   * Weekday numbers the contract sells as weekend — 0 is Sunday. Rates &
+   * Availability always passes the selected contract's weekend: `[]` when the
+   * contract has none (said in the legend), `null` while it is unknown (no
+   * weekend is drawn, never a guessed one). Omitted keeps the old default.
+   */
+  weekend?: number[] | null | undefined;
   /** Nights that already carry an unpublished change — they get the dot. */
   changed?: DayKey[] | undefined;
   /** Nights that cannot be picked at all, drawn closed. */
@@ -92,6 +97,11 @@ export interface DatePickerProps {
   countNights?: boolean | undefined;
   /** "Use 20 - 26 Sep" reads as an edit; a filter shows. */
   actionLabel?: string | undefined;
+  /**
+   * Opt-in: print the allowed range (min .. max, the same values that close
+   * the days) in the summary box, before and after a pick.
+   */
+  showRange?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -119,6 +129,7 @@ export function DatePicker({
   hint,
   countNights = true,
   actionLabel,
+  showRange = false,
   className,
 }: DatePickerProps) {
   const { lang, dir } = useLanguage();
@@ -181,16 +192,23 @@ export function DatePicker({
   };
 
   const oneHint = single ? t.singleHint : t.oneHint;
-  const weekendNames = weekend.map((d) => t.weekdays[d]).join(ar ? "، " : ", ");
+  /* null = the contract's weekend is not known yet: nothing is called weekend. */
+  const weekendKnown = weekend !== null;
+  const weekendSet = weekend ?? [];
+  const weekendNames = weekendSet.map((d) => t.weekdays[d]).join(ar ? "، " : ", ");
 
   // ---- what the summary box says -------------------------------------
   const label = (() => {
     if (!range) return null;
     const a = dateOf(range.start);
     if (!range.end) {
-      const kind = weekend.includes(a.getDay()) ? t.weekendNight : t.weekdayNight;
+      const kind = !weekendKnown
+        ? ""
+        : weekendSet.includes(a.getDay())
+          ? ` · ${t.weekendNight}`
+          : ` · ${t.weekdayNight}`;
       return {
-        head: `${t.daysShort[a.getDay()]} ${n(a.getDate())} ${t.monthsShort[a.getMonth()]} ${n(a.getFullYear())} · ${kind}`,
+        head: `${t.daysShort[a.getDay()]} ${n(a.getDate())} ${t.monthsShort[a.getMonth()]} ${n(a.getFullYear())}${kind}`,
         hint:
           hint ??
           ((min && min > keyOf(new Date(year, month, 1))) ||
@@ -209,12 +227,14 @@ export function DatePicker({
     const spanned = eachDay(range);
     const days = spanned.filter((k) => !closed(k));
     const dropped = spanned.length - days.length;
-    const weekendDays = days.filter((k) => weekend.includes(dateOf(k).getDay()));
+    const weekendDays = days.filter((k) => weekendSet.includes(dateOf(k).getDay()));
     const changedDays = days.filter((k) => changedSet.has(k));
     const list = weekendDays
       .map((k) => `${t.daysShort[dateOf(k).getDay()]} ${n(dateOf(k).getDate())}`)
       .join(ar ? "، " : ", ");
-    const parts = [t.weekdaysCount.replace("{count}", n(days.length - weekendDays.length))];
+    const parts: string[] = weekendKnown
+      ? [t.weekdaysCount.replace("{count}", n(days.length - weekendDays.length))]
+      : [];
     if (weekendDays.length === 1) {
       parts.push(t.oneWeekendNight.replace("{list}", list));
     } else if (weekendDays.length > 1) {
@@ -247,6 +267,17 @@ export function DatePicker({
           : `${n(a.getDate())} ${t.monthsShort[a.getMonth()]} - ${n(b.getDate())} ${t.monthsShort[b.getMonth()]}`,
     };
   })();
+
+  /* "11 Nov 2026" - the summary's own day, month and digits; an unknown end reads "…". */
+  const fullDay = (key: DayKey | undefined) => {
+    if (!key) return "…";
+    const d = dateOf(key);
+    return `${n(d.getDate())} ${t.monthsShort[d.getMonth()]} ${n(d.getFullYear())}`;
+  };
+  const rangeLine =
+    showRange && (min || max)
+      ? t.availableRange.replace("{from}", fullDay(min)).replace("{to}", fullDay(max))
+      : null;
 
   const Prev = dir === "rtl" ? ChevronRight : ChevronLeft;
   const Next = dir === "rtl" ? ChevronLeft : ChevronRight;
@@ -288,7 +319,7 @@ export function DatePicker({
               key={day}
               className={cn(
                 "grid h-5 place-items-center text-[12px] leading-5",
-                weekend.includes(index)
+                weekendSet.includes(index)
                   ? "font-semibold text-brand-deep"
                   : "text-text-muted"
               )}
@@ -320,7 +351,7 @@ export function DatePicker({
                     "cursor-not-allowed border border-dashed border-[#db7093] bg-[#fdecf1] text-[#b02a5a]",
                   !isClosed &&
                     !picked &&
-                    (weekend.includes(date.getDay())
+                    (weekendSet.includes(date.getDay())
                       ? "text-brand-deep hover:bg-surface-subtle"
                       : "text-text-primary hover:bg-surface-subtle"),
                   picked && !edge && "rounded-[4px] bg-primary-subtle text-brand-deep",
@@ -374,17 +405,21 @@ export function DatePicker({
         <p className="text-[13px] font-semibold leading-4 text-text-primary">
           {label ? label.head : t.pickFirst}
         </p>
-        <p className="mt-0.5 text-[12px] leading-[15px] text-text-body">
-          {label ? label.hint : oneHint}
-        </p>
+        {rangeLine && (
+          <p className="mt-0.5 text-[12px] leading-[15px] text-text-body">{rangeLine}</p>
+        )}
       </div>
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-secondary">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-brand-deep" aria-hidden="true" />
-          {t.legendWeekend.replace("{days}", weekendNames)}
-        </span>
+        {weekendKnown && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-brand-deep" aria-hidden="true" />
+            {weekendSet.length
+              ? t.legendWeekend.replace("{days}", weekendNames)
+              : t.legendNoWeekend}
+          </span>
+        )}
         {/* <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-status-warning" aria-hidden="true" />
           {t.legendChanged}

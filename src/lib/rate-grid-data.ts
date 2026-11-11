@@ -10,8 +10,12 @@ export const GRID_MONTH_AR = "سبتمبر ٢٠٢٦";
 export const GRID_NIGHTS = 30;
 /** 1 Sep 2026 is a Tuesday. */
 export const GRID_FIRST_WEEKDAY = 2;
-/** Thursday and Friday, per the contract's weekend days. */
-export const WEEKEND_DAYS = [4, 5];
+/**
+ * Demo fixture only: the weekday a sample night is priced as weekend when
+ * generating the static sample prices below. Never a weekend source for the
+ * live module - that is the selected contract's details (lib/contract-weekend).
+ */
+const DEMO_WEEKEND_DAYS = [4, 5];
 export const TODAY_NIGHT = 20;
 
 export const POOL_LEFT = [
@@ -206,10 +210,6 @@ export function weekdayOf(night: number) {
   return (GRID_FIRST_WEEKDAY + night - 1) % 7;
 }
 
-export function isWeekend(night: number) {
-  return WEEKEND_DAYS.includes(weekdayOf(night));
-}
-
 
 export type InventoryModel = "pool" | "perRoom" | "free" | "onRequest";
 
@@ -264,6 +264,8 @@ const BASE_LINE_AR =
   "الأساس + الإضافات · الأساس غرفة ستاندرد إطلالة المدينة ٤٠٠ / ٥٠٠";
 const WEEKEND_LINE = "Weekend Thu, Fri";
 const WEEKEND_LINE_AR = "نهاية الأسبوع الخميس والجمعة";
+/** The sample summaries' weekend line: the page swaps it for the selected contract's own weekend. */
+export const DEMO_WEEKEND_LINES: readonly string[] = [WEEKEND_LINE, WEEKEND_LINE_AR];
 
 const KNOW_PRICES =
   "Prices are the room only, per night. Meals add the per-person supplement from the contract - open “+ meals” under a room to see B&B and HB totals.";
@@ -749,7 +751,7 @@ export function windowFor(fromKey: string, toKey: string): GridMonth {
     gridMonths.find((month) => month.key === monthKeyOf(day));
   /** A month the design never drew still sells at the contract's own base. */
   const fallbackBase = (day: Date) =>
-    WEEKEND_DAYS.includes(day.getDay()) ? 500 : 400;
+    DEMO_WEEKEND_DAYS.includes(day.getDay()) ? 500 : 400;
 
   const at = <T,>(day: Date, list: T[] | undefined, spare: T): T => {
     const value = list?.[day.getDate() - 1];
