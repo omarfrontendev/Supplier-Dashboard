@@ -2831,6 +2831,12 @@ function RateCalendarPage() {
                 email = "";
               }
               const cols = liveGrid.exportCols;
+              const sourceAt = new Map(
+                (contextQuery.data?.nights ?? []).map((item) => [
+                  `${item.variationId}|${item.mealPlan ?? ""}|${item.stayDate}`,
+                  item.source,
+                ]),
+              );
               const showInventory =
                 show.inventory && gridModel !== "free" && gridModel !== "onRequest";
               const mealColumns = show.rate
@@ -2861,10 +2867,14 @@ function RateCalendarPage() {
                       { head: cols.currency[k], value: () => rateTargets.currency },
                       {
                         head: cols.source[k],
-                        value: (row: GridRow, night: number) =>
-                          row.edited?.includes(night)
-                            ? liveGrid.exportEdited[k]
-                            : liveGrid.exportContract[k],
+                        value: (row: GridRow, _: number, day: string) => {
+                          const source = row.target
+                            ? sourceAt.get(
+                                `${row.target.variationId}|${row.target.mealPlan ?? ""}|${day}`,
+                              )
+                            : undefined;
+                          return source ? liveGrid.exportSources[source][k] : "";
+                        },
                       },
                       ...mealColumns.map((line) => ({
                         head: line.name[k],

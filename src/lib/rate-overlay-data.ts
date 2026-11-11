@@ -1060,7 +1060,7 @@ export const liveGrid = {
     rate: t("Rate", "السعر"),
     currency: t("Currency", "العملة"),
     source: t("Price from", "مصدر السعر"),
-    poolLeft: t("Left in pool", "المتبقي في المخزون"),
+    poolLeft: t("Capacity", "السعة"),
     roomLeft: t("Left for this room", "المتبقي لهذه الغرفة"),
     status: t("Status", "الحالة"),
     minNights: t("Min nights", "أقل عدد ليالٍ"),
@@ -1074,8 +1074,11 @@ export const liveGrid = {
   exportOpen: t("Open", "مفتوح"),
   exportTitle: t("Rates & Availability", "الأسعار والإتاحة"),
   exportClosed: t("Closed", "مغلق"),
-  exportEdited: t("Changed for this night", "معدّل لهذه الليلة"),
-  exportContract: t("Contract or season", "العقد أو الموسم"),
+  exportSources: {
+    daily_override: t("Changed for this night", "معدّل لهذه الليلة"),
+    season: t("Season", "الموسم"),
+    contract: t("Contract", "العقد"),
+  },
   exportRooms: t("{count} rooms", "{count} غرف"),
   terms: {
     basePlus: t(

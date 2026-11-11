@@ -107,15 +107,18 @@ export function exportRows({
       `${base}.xlsx`,
     );
   } else if (format === "pdf") {
-    const view = window.open("", "_blank");
-    if (!view) {
-      notify.error(c.exportBlocked);
-      return;
-    }
-    view.document.write(printable(title ?? base, head, groupsOf(rows, groupBy), rtl));
-    view.document.close();
-    view.focus();
-    view.setTimeout(() => view.print(), 300);
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    frame.srcdoc = printable(title ?? base, head, groupsOf(rows, groupBy), rtl);
+    frame.onload = () => {
+      const view = frame.contentWindow;
+      if (!view) return;
+      view.addEventListener("afterprint", () => frame.remove());
+      view.focus();
+      view.print();
+    };
+    document.body.appendChild(frame);
   } else {
     download(
       new Blob(["\uFEFF", csv([head, ...rows])], { type: "text/csv;charset=utf-8" }),
