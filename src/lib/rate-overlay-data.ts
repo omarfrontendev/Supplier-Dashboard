@@ -531,9 +531,9 @@ export const contractPicker = {
     draft: t("Draft", "مسودة"),
     active: t("Active", "نشط"),
     paused: t("Paused", "موقوف مؤقتًا"),
-    terminated: t("Terminated", "منتهٍ بالإلغاء"),
+    terminated: t("Terminated", "تم إنهاؤه"),
     scheduled: t("Scheduled", "مجدول"),
-    expired: t("Expired", "منتهٍ"),
+    expired: t("Expired", "منتهي"),
   },
   model: {
     base_plus_supplements: t("Base + supplements", "أساس + فروق"),

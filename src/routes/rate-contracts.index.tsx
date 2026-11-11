@@ -219,8 +219,8 @@ const copy = {
     scheduled: "مجدول",
     activated: "نشط",
     paused: "متوقف مؤقتًا",
-    expired: "منتهي الصلاحية",
-    terminated: "منهي",
+    expired: "منتهي",
+    terminated: "تم إنهاؤه",
     allotmentBlock: "حجز بحصة محددة",
     basePlusSupplements: "سعر أساسي مع إضافات",
     fixedPerRoom: "سعر ثابت للغرفة",
@@ -1495,7 +1495,7 @@ function StatusFilter({
         <DropdownMenuSeparator />
         <p className="px-2 py-2 text-[11px] leading-4 text-text-muted">
           {ar
-            ? "المنتهي والمُنهى مخفيان افتراضيًا - أشّر عليهما لرؤية الأرشيف."
+            ? "الحالتان منتهي وتم إنهاؤه مخفيتان افتراضيًا - أشّر عليهما لرؤية الأرشيف."
             : "Expired and Terminated are hidden by default - tick them to see the archive."}
         </p>
         <DropdownMenuSeparator />

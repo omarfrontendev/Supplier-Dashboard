@@ -98,7 +98,7 @@ export const contractExceptions: Record<ContractExceptionState, ContractExceptio
   },
   ended: {
     name:"Makkah Annual Block", nameAr:"حصة مكة السنوية",
-    pill:"Expired", pillAr:"منتهٍ",
+    pill:"Expired", pillAr:"منتهي",
     meta:"Hilton Makkah · Term 01 Jan 2026 → 31 Dec 2026 · SAR", metaAr:"هيلتون مكة · المدة ١ يناير ٢٠٢٦ ← ٣١ ديسمبر ٢٠٢٦ · ر.س",
     actions:[{label:"Renew for a new period",labelAr:"التجديد لفترة جديدة",primary:true},{label:"Open statements",labelAr:"فتح كشوف الحساب"}],
     title:"This contract ended on 31 Dec 2026. New sales are closed - nothing else is.", titleAr:"انتهى هذا العقد في ٣١ ديسمبر ٢٠٢٦. المبيعات الجديدة مغلقة - ولا شيء سواها.",
@@ -141,7 +141,7 @@ export const contractExceptions: Record<ContractExceptionState, ContractExceptio
   },
   terminated: {
     name:"Jeddah Corporate 2026", nameAr:"جدة للشركات ٢٠٢٦",
-    pill:"Terminated", pillAr:"مُنهى",
+    pill:"Terminated", pillAr:"تم إنهاؤه",
     meta:"Movenpick City Star · Term 01 Mar 2026 → 28 Feb 2027 · SAR", metaAr:"موفنبيك سيتي ستار · المدة ١ مارس ٢٠٢٦ ← ٢٨ فبراير ٢٠٢٧ · ر.س",
     actions:[{label:"Open statements",labelAr:"فتح كشوف الحساب",primary:true},{label:"Start a new contract with this hotel",labelAr:"بدء عقد جديد مع هذا الفندق"}],
     title:"This contract was ended early on 30 Sep 2026.", titleAr:"أُنهي هذا العقد مبكرًا في ٣٠ سبتمبر ٢٠٢٦.",
