@@ -138,7 +138,7 @@ import type {
 } from "@/api/modules/rates-availability/types";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { notify } from "@/lib/notify";
-import { exportRows } from "@/lib/export-rows";
+import { exportRows, type ExportFormat } from "@/lib/export-rows";
 import {
   contractWeekendDays,
   formatWeekend,
@@ -2802,7 +2802,7 @@ function RateCalendarPage() {
       {overlay === "export" &&
         (live ? (
           <ExportOverlay
-            formats={["csv"]}
+            formats={["xlsx", "csv"]}
             note={false}
             overline={[
               contractLabel,
@@ -2810,7 +2810,7 @@ function RateCalendarPage() {
               `${span.start} - ${span.end}`,
             ].join(" · ")}
             onClose={() => setOverlay(null)}
-            onDownload={() => {
+            onDownload={(format) => {
               const shown = monthDates
                 .map((day, index) => ({ day, night: index + 1 }))
                 .filter(
@@ -2823,28 +2823,125 @@ function RateCalendarPage() {
               } catch {
                 email = "";
               }
+              const cols = liveGrid.exportCols;
+              const showInventory =
+                show.inventory && gridModel !== "free" && gridModel !== "onRequest";
+              const mealColumns = show.rate
+                ? [
+                    ...new Map(
+                      rows.flatMap((row) =>
+                        (row.meals ?? []).map((line) => [line.key, line] as const),
+                      ),
+                    ).values(),
+                  ]
+                : [];
+              const anyPoolLeft = shown.some(({ night }) => poolLeftAt(night) !== null);
+              const anyRoomLeft = rows.some((row) =>
+                shown.some(({ night }) => roomLeftAt(row, night) !== null),
+              );
+              const columns: Array<{
+                head: string;
+                value: (row: GridRow, night: number, day: string) => string;
+              }> = [
+                { head: cols.room[k], value: (row) => (ar ? row.nameAr : row.name) },
+                { head: cols.night[k], value: (_, __, day) => day },
+                ...(show.rate
+                  ? [
+                      {
+                        head: cols.rate[k],
+                        value: (row: GridRow, night: number) => String(row.rate[night - 1] ?? ""),
+                      },
+                      { head: cols.currency[k], value: () => rateTargets.currency },
+                      {
+                        head: cols.source[k],
+                        value: (row: GridRow, night: number) =>
+                          row.edited?.includes(night)
+                            ? liveGrid.exportEdited[k]
+                            : liveGrid.exportContract[k],
+                      },
+                      ...mealColumns.map((line) => ({
+                        head: line.name[k],
+                        value: (row: GridRow, night: number) => {
+                          const total = row.meals?.find((item) => item.key === line.key)?.totals[
+                            night - 1
+                          ];
+                          return total === null || total === undefined ? "" : String(total);
+                        },
+                      })),
+                    ]
+                  : []),
+                ...(showInventory && anyPoolLeft
+                  ? [
+                      {
+                        head: cols.poolLeft[k],
+                        value: (_: GridRow, night: number) => String(poolLeftAt(night) ?? ""),
+                      },
+                    ]
+                  : []),
+                ...(showInventory && anyRoomLeft
+                  ? [
+                      {
+                        head: cols.roomLeft[k],
+                        value: (row: GridRow, night: number) =>
+                          String(roomLeftAt(row, night) ?? ""),
+                      },
+                    ]
+                  : []),
+                ...(show.status
+                  ? [
+                      {
+                        head: cols.status[k],
+                        value: (row: GridRow, night: number) =>
+                          (row.status[night - 1] === "SS"
+                            ? liveGrid.stopSaleValue
+                            : row.status[night - 1] === "RQ"
+                              ? liveGrid.onRequestValue
+                              : liveGrid.openSaleValue)[k],
+                      },
+                    ]
+                  : []),
+                ...(show.restrictions && restrictionsQuery.data
+                  ? (() => {
+                      const rule = (row: GridRow, day: string) =>
+                        row.target
+                          ? restrictionAt.get(`${row.target.variationId}|${day}`)
+                          : undefined;
+                      const openClosed = (value: string | undefined) =>
+                        value === undefined
+                          ? ""
+                          : (value === "closed" ? liveGrid.exportClosed : liveGrid.exportOpen)[k];
+                      return [
+                        {
+                          head: cols.minNights[k],
+                          value: (row: GridRow, _: number, day: string) => {
+                            const minNights = rule(row, day)?.minNights;
+                            return minNights ? String(minNights) : "";
+                          },
+                        },
+                        {
+                          head: cols.checkIn[k],
+                          value: (row: GridRow, _: number, day: string) =>
+                            openClosed(rule(row, day)?.checkIn),
+                        },
+                        {
+                          head: cols.checkOut[k],
+                          value: (row: GridRow, _: number, day: string) =>
+                            openClosed(rule(row, day)?.checkOut),
+                        },
+                      ];
+                    })()
+                  : []),
+              ];
               exportRows({
-                head: liveGrid.exportHead[k],
+                head: columns.map((item) => item.head),
                 rows: rows.flatMap((row) =>
                   shown
                     .filter(({ night }) => !fade?.(night, row.name))
-                    .map(({ day, night }) => [
-                      ar ? row.nameAr : row.name,
-                      day,
-                      String(row.rate[night - 1] ?? ""),
-                      rateTargets.currency,
-                      row.edited?.includes(night)
-                        ? liveGrid.exportEdited[k]
-                        : liveGrid.exportContract[k],
-                      String(poolLeftAt(night) ?? roomLeftAt(row, night) ?? ""),
-                      (row.status[night - 1] === "SS"
-                        ? liveGrid.stopSaleValue
-                        : row.status[night - 1] === "RQ"
-                          ? liveGrid.onRequestValue
-                          : liveGrid.openSaleValue)[k],
-                    ]),
+                    .map(({ day, night }) => columns.map((item) => item.value(row, night, day))),
                 ),
-                filename: `rates-${pickedContract!.id}-${span.start}-${span.end}.csv`,
+                filename: `rates-${pickedContract!.id}-${span.start}-${span.end}`,
+                format: format as ExportFormat,
+                groupBy: 0,
                 lang,
                 email,
               });
