@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import { fill, useLanguage } from "@/lib/i18n";
 import { BASE_WEEKDAY, contractRooms, mealPlans, roomPrice } from "@/lib/contract-data";
-import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function RoomGroup({
@@ -80,6 +81,10 @@ export function Section({
   locked = false,
   done = false,
   tone,
+  expanded = true,
+  onToggle,
+  onContinue,
+  continueDisabled = false,
   children,
 }: {
   id: number;
@@ -90,49 +95,108 @@ export function Section({
   done?: boolean;
   /** Overrides the head styling when the body is shown but not yet usable. */
   tone?: "locked" | "open" | "done";
+  /** Whether the body is shown. Collapsed bodies stay mounted so nothing typed is lost. */
+  expanded?: boolean;
+  /** Makes the head a toggle; omitted for a section that cannot be opened yet. */
+  onToggle?: (() => void) | undefined;
+  /** Shows a Continue action under the body that moves on to the next section. */
+  onContinue?: (() => void) | undefined;
+  continueDisabled?: boolean | undefined;
   children: React.ReactNode;
 }) {
+  const { c } = useLanguage();
   const head = tone ?? (locked ? "locked" : done ? "done" : "open");
+  const open = !locked && expanded;
+  const bodyId = `contract-section-${id}-body`;
+
+  /* A div rather than a button: the builder wraps every section in a
+     disabled fieldset for read-only contracts, and those should still
+     be browsable section by section. */
+  const toggleProps = onToggle
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        "aria-expanded": open,
+        "aria-controls": bodyId,
+        "aria-label": `${title} — ${open ? c.builder.sectionCollapse : c.builder.sectionExpand}`,
+        onClick: onToggle,
+        onKeyDown: (event: React.KeyboardEvent) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onToggle();
+          }
+        },
+      }
+    : {};
 
   return (
     <section
       id={`contract-section-${id}`}
       className="min-w-0 scroll-mt-24 rounded-2xl border border-border-subtle bg-surface-default px-5 py-5"
     >
-      <header className="mb-4 flex flex-wrap items-start gap-3">
-        {/* UI 03.1 — the number says where the section stands. */}
-        <span
+      <header className={cn("flex flex-wrap items-start gap-3", open && "mb-4")}>
+        <div
+          {...toggleProps}
           className={cn(
-            "font-data flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs",
-            head === "locked"
-              ? "bg-status-neutral-bg text-text-muted"
-              : head === "done"
-                ? "bg-brand-deep text-text-inverse"
-                : "bg-primary-subtle text-brand-deep"
+            "flex min-w-0 flex-1 items-start gap-3 rounded-lg",
+            onToggle &&
+              "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:ring-offset-2",
           )}
         >
-          {head === "done" ? (
-            <Check className="h-3.5 w-3.5" aria-hidden="true" />
-          ) : (
-            id
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2
+          {/* UI 03.1 — the number says where the section stands. */}
+          <span
             className={cn(
-              "text-base font-semibold",
-              head === "locked" ? "text-text-muted" : "text-text-primary"
+              "font-data flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs",
+              head === "locked"
+                ? "bg-status-neutral-bg text-text-muted"
+                : head === "done"
+                  ? "bg-brand-deep text-text-inverse"
+                  : "bg-primary-subtle text-brand-deep",
             )}
           >
-            {title}
-          </h2>
-          <p className="mt-1 text-sm leading-relaxed text-text-muted">{body}</p>
+            {head === "done" ? (
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              id
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2
+              className={cn(
+                "text-base font-semibold",
+                head === "locked" ? "text-text-muted" : "text-text-primary",
+              )}
+            >
+              {title}
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed text-text-muted">{body}</p>
+          </div>
+          {onToggle && (
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-default text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary"
+              aria-hidden="true"
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+            </span>
+          )}
         </div>
-        {!locked && right}
+        {open && right}
       </header>
       {/* A locked section shows its intent only — Figma UI 03.1 keeps the
-          body hidden until the hotel and term are set. */}
-      {!locked && children}
+          body hidden until the hotel and term are set. A collapsed one is
+          hidden, not unmounted, so its fields keep their state. */}
+      {!locked && (
+        <div id={bodyId} hidden={!open}>
+          {children}
+          {onContinue && (
+            <div className="mt-5 flex justify-end">
+              <Button type="button" onClick={onContinue} disabled={continueDisabled}>
+                {c.builder.sectionContinue}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }

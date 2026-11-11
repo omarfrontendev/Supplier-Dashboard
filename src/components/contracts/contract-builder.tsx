@@ -243,6 +243,9 @@ type FinalizationError =
   | { kind: "validation"; issues: FinalizationIssue[]; version?: number; detail?: string }
   | { kind: "conflict" | "unavailable" | "permission" | "generic" | "crypto"; detail?: string };
 
+/** Every section the builder shows, including the closing review. */
+type BuilderSection = ContractSectionKey | "review";
+
 /**
  * The one-page supply-contract builder — Figma UI 03.1 and its variants.
  * Ten sections down the page, a sticky rail on the left and a live summary
@@ -268,6 +271,10 @@ export function ContractBuilder({
   const { basics } = draft;
   const sourceName = source?.name;
   const [reviewOpen, setReviewOpen] = useState(false);
+  /** Sections whose bodies are shown; each opens and closes independently. */
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<BuilderSection>>(
+    () => new Set<BuilderSection>(["basics"]),
+  );
   const [reviewId, setReviewId] = useState<number | null>(null);
   const createdDraftRef = useRef<SupplierHotelContract | null>(null);
   const savedId =
@@ -426,10 +433,41 @@ export function ContractBuilder({
       : key === "review"
         ? seasonsDone
         : basicsDone;
-  const firstOpen = sectionList.findIndex(
-    (item) => !sectionLocked(item.key) && !sectionDone(item.key),
-  );
-  const currentSection = firstOpen === -1 ? sectionList.length - 1 : firstOpen;
+  /* Each section opens and closes on its own; opening one never closes
+     another. Every section past the basics can be opened once the hotel and
+     term are set — seasons included, since its body is where the
+     restriction and policy answers are asked for. */
+  const canOpenSection = (key: BuilderSection) => key === "basics" || basicsDone;
+  const isExpanded = (key: BuilderSection) => expandedSections.has(key) && canOpenSection(key);
+  const setExpanded = (key: BuilderSection, expanded: boolean) =>
+    setExpandedSections((open) => {
+      if (open.has(key) === expanded) return open;
+      const nextOpen = new Set(open);
+      if (expanded) nextOpen.add(key);
+      else nextOpen.delete(key);
+      return nextOpen;
+    });
+  const openSection = (key: BuilderSection) => {
+    setExpanded(key, true);
+    // Wait for the section to render open before scrolling to it.
+    requestAnimationFrame(() =>
+      document
+        .getElementById(`contract-section-${num(key)}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+  /** The rail's reading of a section: open now, finished, or still to do. */
+  const sectionStatus = (key: BuilderSection) =>
+    isExpanded(key) ? "active" : !sectionLocked(key) && sectionDone(key) ? "completed" : "pending";
+  const sectionFlow = (key: BuilderSection) => {
+    const next = sectionList[sectionList.findIndex((item) => item.key === key) + 1];
+    return {
+      expanded: isExpanded(key),
+      onToggle: canOpenSection(key) ? () => setExpanded(key, !isExpanded(key)) : undefined,
+      onContinue: next ? () => openSection(next.key) : undefined,
+      continueDisabled: next ? !canOpenSection(next.key) : undefined,
+    };
+  };
 
   /* UI 03.1F section 3 — the rooms are a checklist, so what is on sale
      is held here and section 2's base row follows it. */
@@ -1145,9 +1183,7 @@ export function ContractBuilder({
     });
   }
   function jumpTo(section: ContractSectionKey) {
-    document
-      .getElementById(`contract-section-${num(section)}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    openSection(section);
   }
 
   async function saveDraft(
@@ -1570,27 +1606,45 @@ export function ContractBuilder({
             </p>
             {sectionList.map(({ key, title: label }, index) => {
               const locked = sectionLocked(key);
-              const done = sectionDone(key);
+              const done = !locked && sectionDone(key);
+              const status = sectionStatus(key);
               return (
                 <a
                   key={key}
                   href={`#contract-section-${index + 1}`}
+                  onClick={(event) => {
+                    if (!canOpenSection(key)) return;
+                    event.preventDefault();
+                    openSection(key);
+                  }}
+                  aria-current={status === "active" ? "step" : undefined}
                   className={cn(
                     "flex items-center gap-3 border-b border-border-subtle px-4 py-3 text-sm last:border-0",
-                    index === currentSection ? "bg-primary-subtle" : "hover:bg-surface-subtle",
+                    status === "active" ? "bg-primary-subtle" : "hover:bg-surface-subtle",
                   )}
                 >
+                  {/* Active: highlighted row + brand ring (or the check, once
+                      finished). Completed: filled check. Pending: muted number. */}
                   <span
                     className={cn(
                       "font-data flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs",
-                      locked
-                        ? "bg-status-neutral-bg text-text-muted"
-                        : done
-                          ? "bg-brand-deep text-text-inverse"
-                          : "border border-brand-deep bg-surface-default text-brand-deep",
+                      done
+                        ? "bg-brand-deep text-text-inverse"
+                        : status === "active"
+                          ? "border border-brand-deep bg-surface-default text-brand-deep"
+                          : locked
+                            ? "bg-status-neutral-bg text-text-muted"
+                            : "border border-border-subtle bg-surface-default text-text-muted",
                     )}
                   >
-                    {done && !locked ? <Check className="h-3 w-3" aria-hidden="true" /> : index + 1}
+                    {done ? <Check className="h-3 w-3" aria-hidden="true" /> : index + 1}
+                  </span>
+                  <span className="sr-only">
+                    {status === "active"
+                      ? t.sectionStatusActive
+                      : status === "completed"
+                        ? t.sectionStatusCompleted
+                        : t.sectionStatusPending}
                   </span>
                   <span
                     className={cn(
@@ -1662,6 +1716,7 @@ export function ContractBuilder({
           {/* 1 — Contract basics */}
           <Section
             id={num("basics")}
+            {...sectionFlow("basics")}
             title={t.sections[0]!}
             body={t.basicsBody}
             done={sectionDone("basics")}
@@ -1680,6 +1735,7 @@ export function ContractBuilder({
           {/* 2 — Pricing model & base */}
           <Section
             id={num("pricing")}
+            {...sectionFlow("pricing")}
             title={fixed ? t.pricingFixedTitle : t.sections[1]!}
             body={fixed ? t.pricingFixedBody : basicsDone ? t.pricingBodyFilled : t.pricingBody}
             locked={!basicsDone}
@@ -1692,6 +1748,7 @@ export function ContractBuilder({
           {fixed && (
             <Section
               id={num("rooms")}
+              {...sectionFlow("rooms")}
               title={t.sections[2]!}
               body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
               locked={!basicsDone}
@@ -1710,6 +1767,7 @@ export function ContractBuilder({
           {!fixed && (
             <Section
               id={num("rooms")}
+              {...sectionFlow("rooms")}
               title={t.sections[2]!}
               body={
                 lang === "ar"
@@ -1732,6 +1790,7 @@ export function ContractBuilder({
             <>
               <Section
                 id={num("meals")}
+                {...sectionFlow("meals")}
                 title={t.sections[4]!}
                 body={t.mealsBody}
                 locked={!basicsDone}
@@ -1745,6 +1804,7 @@ export function ContractBuilder({
           {/* 4 — Children */}
           <Section
             id={num("children")}
+            {...sectionFlow("children")}
             title={t.sections[3]!}
             body={basicsDone ? t.childrenBody : t.childrenBodyShort}
             locked={!basicsDone}
@@ -1756,6 +1816,7 @@ export function ContractBuilder({
           {/* 6 — Inventory */}
           <Section
             id={num("inventory")}
+            {...sectionFlow("inventory")}
             title={t.sections[5]!}
             body={onRequest ? t.requestInvBody : t.inventoryBody}
             locked={!basicsDone}
@@ -2082,6 +2143,7 @@ export function ContractBuilder({
           {/* 7 — Rate seasons */}
           <Section
             id={num("seasons")}
+            {...sectionFlow("seasons")}
             title={t.sections[6]!}
             body={t.seasonsBody}
             locked={false}
@@ -2101,12 +2163,20 @@ export function ContractBuilder({
                 <div className="mt-3 flex flex-wrap gap-3">
                   <a
                     href={`#contract-section-${num("restrictions")}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openSection("restrictions");
+                    }}
                     className="text-xs font-medium text-text-link hover:underline"
                   >
                     {t.goRestrictions}
                   </a>
                   <a
                     href={`#contract-section-${num("policies")}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openSection("policies");
+                    }}
                     className="text-xs font-medium text-text-link hover:underline"
                   >
                     {t.goPolicies}
@@ -2203,6 +2273,7 @@ export function ContractBuilder({
           {/* 8 — Restrictions */}
           <Section
             id={num("restrictions")}
+            {...sectionFlow("restrictions")}
             title={t.sections[7]!}
             body={t.restrictionsBody}
             locked={!basicsDone}
@@ -2214,6 +2285,7 @@ export function ContractBuilder({
           {/* 9 — Policies */}
           <Section
             id={num("policies")}
+            {...sectionFlow("policies")}
             title={t.sections[8]!}
             body={t.policiesBody}
             locked={!basicsDone}
@@ -2319,6 +2391,7 @@ export function ContractBuilder({
 
           <Section
             id={num("booking")}
+            {...sectionFlow("booking")}
             title={f.bookingTitle}
             body={f.bookingBody}
             locked={!basicsDone}
@@ -2330,6 +2403,7 @@ export function ContractBuilder({
           {/* 10 — Review & activate */}
           <Section
             id={num("review")}
+            {...sectionFlow("review")}
             title={t.sections[9]!}
             body={t.reviewBody}
             locked={!basicsDone}
