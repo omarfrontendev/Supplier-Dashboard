@@ -4,9 +4,17 @@ import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronRight, Circle } from "lucide-react";
 
+import { useTextDirection } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+const DropdownMenu = ({
+  dir,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) => {
+  const textDirection = useTextDirection();
+  const direction = dir ?? textDirection;
+  return <DropdownMenuPrimitive.Root {...(direction ? { dir: direction } : {})} {...props} />;
+};
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
