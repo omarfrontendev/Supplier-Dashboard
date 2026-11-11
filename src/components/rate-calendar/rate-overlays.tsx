@@ -44,6 +44,11 @@ import {
 } from "@/components/rate-calendar/use-child-bands";
 import { fill, useLanguage } from "@/lib/i18n";
 import {
+  formatWeekend,
+  isWeekendDay,
+  type ContractWeekend,
+} from "@/lib/contract-weekend";
+import {
   calendarGroups,
   pricesForCopy,
   type CalendarGroupId,
@@ -268,9 +273,12 @@ function DateRow({
   onTo,
   onAdd,
   blocked = false,
+  weekend = null,
   k,
 }: {
   copy: { from: string; to: string; to2: string; add: string };
+  /** The selected contract's weekend, for the picker's hints; null while unknown. */
+  weekend?: ContractWeekend;
   days: number[];
   onToggleDay: (index: number) => void;
   from: string;
@@ -328,6 +336,7 @@ function DateRow({
           <div className="absolute z-50 mt-2 w-[393px] max-w-[calc(100vw-6.5rem)] start-0">
             <DatePicker
               className="w-full"
+              weekend={weekend}
               onCancel={() => setPicking(false)}
               onApply={(range) => {
                 onFrom(longDate(range.start));
@@ -492,8 +501,6 @@ const MONTHS_AR = [
 const DAY_SHORT_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_SHORT_AR = ["أحد", "إثن", "ثلا", "أرب", "خمي", "جمع", "سبت"];
 
-/** Thursday and Friday carry the weekend price. */
-const WEEKEND = [4, 5];
 const DAY = 86400000;
 
 export interface DateRange {
@@ -549,7 +556,7 @@ function labelOf(range: DateRange, k: "en" | "ar", short = false) {
 }
 
 /** OV 04.1B — what the range covers, split into weekdays and weekend. */
-function metaOf(range: DateRange, days: number[], k: "en" | "ar") {
+function metaOf(range: DateRange, days: number[], k: "en" | "ar", weekendDays: ContractWeekend) {
   const nights: number[] = [];
   for (let stamp = range.start; stamp <= range.end; stamp += DAY) {
     nights.push(stamp);
@@ -559,7 +566,7 @@ function metaOf(range: DateRange, days: number[], k: "en" | "ar") {
     days.includes(new Date(stamp).getUTCDay())
   );
   const weekend = chosen.filter((stamp) =>
-    WEEKEND.includes(new Date(stamp).getUTCDay())
+    isWeekendDay(weekendDays, new Date(stamp).getUTCDay())
   );
   const names = weekend
     .map(
@@ -621,10 +628,13 @@ const flip = (list: number[], index: number) =>
 export function BulkRatesOverlay({
   fixed = false,
   onClose,
+  weekendDays = null,
 }: {
   /** OV 04.1AF — a fixed-price contract prices whole lines. */
   fixed?: boolean;
   onClose: () => void;
+  /** The selected contract's weekend (detail.weekPricing.weekendDays); null while unknown. */
+  weekendDays?: ContractWeekend;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
@@ -737,6 +747,7 @@ export function BulkRatesOverlay({
       <Label>{c.datesTitle[k]}</Label>
       <div className="space-y-2">
         <DateRow
+          weekend={weekendDays}
           copy={{ from: c.from[k], to: c.to[k], to2: c.to2[k], add: c.add[k] }}
           days={days}
           onToggleDay={(index) => {
@@ -806,7 +817,7 @@ export function BulkRatesOverlay({
                   {labelOf(range, k)}
                 </span>
                 <span className="min-w-0 flex-1 text-[11.5px] text-text-muted">
-                  {metaOf(range, days, k)}
+                  {metaOf(range, days, k, weekendDays)}
                 </span>
                 <button
                   type="button"
@@ -833,7 +844,7 @@ export function BulkRatesOverlay({
             {c.colWeekday[k]}
           </span>
           <span className="w-[150px] shrink-0 text-[10px] text-text-muted">
-            {c.colWeekend[k]}
+            {fill(c.colWeekend[k], { days: formatWeekend(weekendDays, k) })}
           </span>
         </PanelRow>
 
@@ -1075,7 +1086,14 @@ function LockedRanges({
  * OV 04.2 — closing nights and opening them again, for many dates and
  * rooms, and optionally for every contract the hotel holds.
  */
-export function StopSaleOverlay({ onClose }: { onClose: () => void }) {
+export function StopSaleOverlay({
+  onClose,
+  weekendDays = null,
+}: {
+  onClose: () => void;
+  /** The selected contract's weekend, for the picker's hints; null while unknown. */
+  weekendDays?: ContractWeekend;
+}) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
   const c = stopSale;
@@ -1198,6 +1216,7 @@ export function StopSaleOverlay({ onClose }: { onClose: () => void }) {
       <Label>{c.datesTitle[k]}</Label>
       <div className="space-y-2">
         <DateRow
+          weekend={weekendDays}
           copy={{
             from: c.from[k],
             to: c.to[k],
@@ -1300,9 +1319,12 @@ export function StopSaleOverlay({ onClose }: { onClose: () => void }) {
 export function ReleaseRangeOverlay({
   onClose,
   onEditContract,
+  weekendDays = null,
 }: {
   onClose: () => void;
   onEditContract?: (() => void) | undefined;
+  /** The selected contract's weekend, for the picker's hints; null while unknown. */
+  weekendDays?: ContractWeekend;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
@@ -1494,6 +1516,7 @@ export function ReleaseRangeOverlay({
           <Label>{c.datesTitle[k]}</Label>
           <div className="space-y-2">
             <DateRow
+          weekend={weekendDays}
               copy={{
                 from: c.from[k],
                 to: c.to[k],
@@ -2040,6 +2063,7 @@ export function OneNightOverlay({
   onNights,
   live,
   weekendNames,
+  weekendDays = null,
   review,
   reviewRoomName,
   onConfirmReview,
@@ -2057,7 +2081,10 @@ export function OneNightOverlay({
   onConfirmReview?: (() => void) | undefined;
   onBackFromReview?: (() => void) | undefined;
   onRetryReview?: (() => void) | undefined;
+  /** The selected contract's weekend as words (shared helper), for every weekend label here. */
   weekendNames?: { en: string; ar: string } | undefined;
+  /** The selected contract's weekend (detail.weekPricing.weekendDays); null while unknown. */
+  weekendDays?: ContractWeekend;
   live?:
     | {
         contract: { weekday: number; weekend: number } | { amount: number } | null;
@@ -2079,7 +2106,7 @@ export function OneNightOverlay({
   date?: string | undefined;
   /** The base room says so on its overline. */
   base?: boolean;
-  /** A Thursday or Friday says so beside its date. */
+  /** A night on the contract's weekend says so beside its date. */
   weekend?: boolean;
   /** OV 04.5R — the same overlay over a run of nights. */
   nights?: number;
@@ -2151,10 +2178,9 @@ export function OneNightOverlay({
   const f = oneNightStates;
   const many = nights > 1;
   const count = k === "ar" ? arNum(nights) : nights;
-  const wk = (text: string) =>
-    weekendNames
-      ? text.replace("Thu, Fri", weekendNames.en).replace("الخميس والجمعة", weekendNames.ar)
-      : text;
+  /* Every weekend label names the selected contract's own days - never a fixed pair. */
+  const weekendText = weekendNames?.[k] ?? formatWeekend(weekendDays, k);
+  const wk = (text: string) => fill(text, { days: weekendText });
   const contractWeekday = live?.contract
     ? "weekday" in live.contract
       ? live.contract.weekday
@@ -2367,7 +2393,7 @@ export function OneNightOverlay({
                   {f.colWeekdays[k]}
                 </span>
                 <span className="w-[150px] shrink-0 text-[11px] text-text-muted">
-                  {f.colWeekend[k]}
+                  {wk(f.colWeekend[k])}
                 </span>
               </>
             )}
@@ -2560,6 +2586,7 @@ export function OneNightOverlay({
           <div className="absolute end-0 top-[72px] z-20">
             <DatePicker
               className="w-[300px]"
+              weekend={weekendDays}
               onApply={(range) => {
                 onNights?.(range);
                 setPicking(false);
@@ -3479,6 +3506,8 @@ export function ContractPickerOverlay({
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <DateField
               mode="range"
+              /* Filters across contracts: no single contract's weekend applies. */
+              weekend={null}
               className="min-w-0 flex-1"
               value={dates ? { start: dates.start, end: dates.end } : { start: "", end: null }}
               placeholder={pickerSearch.dates[k]}

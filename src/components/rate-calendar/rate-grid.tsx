@@ -5,7 +5,6 @@ import { fill, useLanguage } from "@/lib/i18n";
 import {
   WEEKDAYS_AR,
   WEEKDAYS_EN,
-  WEEKEND_DAYS,
   gridMonths,
   gridRows,
   type GridMonth,
@@ -63,7 +62,7 @@ export function RateGrid({
   onOpenPool,
   currency,
   fade,
-  weekendDays = WEEKEND_DAYS,
+  weekendDays,
   poolNote,
   poolCapacityLabel,
   nightSeasons,
@@ -79,7 +78,8 @@ export function RateGrid({
   /** Said in the season row instead of seasons, e.g. while they load. */
   seasonNote?: string | undefined;
   poolNote?: string | undefined;
-  weekendDays?: number[];
+  /** The selected contract's weekend (0 = Sunday), from contract details - no default. */
+  weekendDays: number[];
   currency?: string | undefined;
   fade?: ((night: number, room?: string) => boolean) | undefined;
   rows?: GridRow[];

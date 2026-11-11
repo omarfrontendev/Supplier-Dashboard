@@ -140,7 +140,14 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { notify } from "@/lib/notify";
 import { exportRows } from "@/lib/export-rows";
 import {
-  WEEKEND_DAYS,
+  contractWeekendDays,
+  formatWeekend,
+  formatWeekendBi,
+  weekendIndexesFromApi,
+  type ContractWeekend,
+} from "@/lib/contract-weekend";
+import {
+  DEMO_WEEKEND_LINES,
   gridContracts,
   gridMonths,
   dateOfNight,
@@ -186,12 +193,8 @@ export const Route = createFileRoute("/rate-calendar")({
   component: RateCalendarPage,
 });
 
-/** OV 04.4 / 04.5 / 04.6 name the weekday in full the way the frames do. */
-const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_AR = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-/** Guide p.11: a contract with no configured weekend uses Thursday and Friday. */
-const RESTRICTION_WEEKEND_FALLBACK = [4, 5];
 
 /**
  * Release only: today as YYYY-MM-DD in the contract's published time zone,
@@ -294,11 +297,6 @@ function RateCalendarPage() {
   const targetsQuery = useRateTargets(pickedContract?.id);
   const rateTargets = targetsQuery.data;
   const live = rateTargets !== undefined && rateTargets.targets.length > 0;
-  const weekendDays = live
-    ? (rateTargets.weekendDays ?? [])
-        .map((day) => DAY_NAMES.indexOf(day.toLowerCase()))
-        .filter((day) => day >= 0)
-    : WEEKEND_DAYS;
   const detailQuery = useRatesContractDetail(pickedContract?.id);
   const detail = detailQuery.data;
   // Seasons come only from the picked contract's details, never from rate targets.
@@ -335,6 +333,16 @@ function RateCalendarPage() {
   const detailEnd = contractDetails?.endDate.slice(0, 10);
   const contractTerm =
     detailStart && detailEnd ? { start: detailStart, end: detailEnd } : undefined;
+  /*
+   * The one weekend for the whole module: the selected contract's
+   * detail.weekPricing.weekendDays. null until that contract's own details
+   * have arrived, so a previous contract's weekend is never shown or used;
+   * [] when the contract has none configured. Pickers and labels take
+   * contractWeekend (to tell "unknown" from "none"); classification takes
+   * weekendDays, where both simply mean no night is a weekend night.
+   */
+  const contractWeekend = contractWeekendDays(contractDetails);
+  const weekendDays = contractWeekend ?? [];
 
   useEffect(() => {
     if (!detailStart || !detailEnd) return;
@@ -816,13 +824,6 @@ function RateCalendarPage() {
   const restrictionRules = useRestrictionOverrides(pickedContract?.id, restrictionsOpen);
   const previewRestrictions = usePreviewRestrictionOverrides(pickedContract?.id);
   const saveRestrictions = useSaveRestrictionOverrides(pickedContract?.id);
-  /* The contract's weekend from restriction targets; unset falls back to Thu/Fri, as the backend does. */
-  const restrictionWeekend = (() => {
-    const days = (restrictionTargets.data?.weekendDays ?? [])
-      .map((day) => DAY_NAMES.indexOf(day.toLowerCase()))
-      .filter((day) => day >= 0);
-    return days.length ? days : RESTRICTION_WEEKEND_FALLBACK;
-  })();
   const restrictionToday = todayIn(restrictionTargets.data?.timezone ?? null);
   /* All rooms = the contract's configured Room/Views from restriction targets, never a guess. */
   const restrictionVariationIds = (restrictionTargets.data?.targets ?? []).map(
@@ -833,7 +834,7 @@ function RateCalendarPage() {
       ? restrictionRuleRows(
           restrictionRules.data,
           allRows,
-          restrictionWeekend,
+          weekendDays,
           restrictionToday,
           restrictionVariationIds,
         )
@@ -1500,7 +1501,10 @@ function RateCalendarPage() {
                   ? ar
                     ? month.seasonLineAr
                     : month.seasonLine
-                  : line,
+                  : /* Never the sample's fixed weekend: the selected contract's own. */
+                    !liveDetail && DEMO_WEEKEND_LINES.includes(line)
+                    ? fill(liveGrid.terms.weekend[k], { days: formatWeekend(contractWeekend, k) })
+                    : line,
               )
               .map((line) => (
                 <span
@@ -1749,7 +1753,7 @@ function RateCalendarPage() {
                 edge="start"
                 span={span}
                 term={contractTerm}
-                weekend={weekendDays}
+                weekend={contractWeekend}
                 onPick={(next) => setSpan(next)}
               />
               <DayField
@@ -1758,7 +1762,7 @@ function RateCalendarPage() {
                 edge="end"
                 span={span}
                 term={contractTerm}
-                weekend={weekendDays}
+                weekend={contractWeekend}
                 onPick={(next) => setSpan(next)}
               />
             </div>
@@ -2046,11 +2050,7 @@ function RateCalendarPage() {
           {(liveDetail && rateTargets
             ? [
                 fill(liveGrid.knowPrices[k], { currency: rateTargets.currency }),
-                fill(liveGrid.knowWeekend[k], {
-                  days: weekendDays
-                    .map((day) => liveGrid.terms.days[DAY_NAMES[day]!]?.[k] ?? "")
-                    .join(ar ? " و" : ", "),
-                }),
+                fill(liveGrid.knowWeekend[k], { days: formatWeekend(contractWeekend, k) }),
                 contractTerms(liveDetail, rateTargets, k)[3]!,
                 liveGrid.knowEdited[k],
               ]
@@ -2072,6 +2072,7 @@ function RateCalendarPage() {
       {colourKey && (
         <ColourKeyDialog
           threshold={threshold}
+          weekend={contractWeekend}
           onClose={() => setColourKey(false)}
           onChangeThreshold={() => {
             setColourKey(false);
@@ -2103,6 +2104,7 @@ function RateCalendarPage() {
           contract={(live ? pickedContract!.name : ar ? grid.nameAr : grid.name).toUpperCase()}
           term={contractTerm}
           openOn={contractDetails ? span.start : undefined}
+          weekendDays={contractWeekend}
           {...(live && overlay === "bulk"
             ? {
                 roomOptions: fixedPrice
@@ -2391,7 +2393,6 @@ function RateCalendarPage() {
                   ? {
                       liveRestrictions: {
                         contractId: pickedContract!.id,
-                        weekendDays: restrictionWeekend,
                         eligible: restrictionTargets.data.eligible,
                         today: restrictionToday,
                         variationIds: (names: string[]) => [
@@ -2570,18 +2571,8 @@ function RateCalendarPage() {
             : {})}
           {...(live && nightRow?.target && liveDetail ? { live: nightFacts(nightRow) } : {})}
           {...(live ? { childBands: nightChildBands } : {})}
-          {...(live
-            ? {
-                weekendNames: {
-                  en: weekendDays
-                    .map((day) => liveGrid.terms.days[DAY_NAMES[day]!]?.en ?? "")
-                    .join(", "),
-                  ar: weekendDays
-                    .map((day) => liveGrid.terms.days[DAY_NAMES[day]!]?.ar ?? "")
-                    .join(" و"),
-                },
-              }
-            : {})}
+          weekendNames={formatWeekendBi(contractWeekend)}
+          weekendDays={contractWeekend}
           {...(live && !rateTargets.eligible ? { saveBlocked: liveGrid.notEligible[k] } : {})}
           {...(nightSeason
             ? {
@@ -2951,7 +2942,8 @@ export function DayField({
   span: { start: string; end: string };
   term?: { start: string; end: string } | undefined;
   onPick: (next: { start: string; end: string }) => void;
-  weekend?: number[] | undefined;
+  /** The selected contract's weekend; null while its details load (no weekend is drawn). */
+  weekend?: ContractWeekend | undefined;
 }) {
   const { lang } = useLanguage();
   const t = datePickerCopy[lang === "ar" ? "ar" : "en"];
@@ -3038,7 +3030,7 @@ export function DayField({
               className="w-full"
               single
               shortcuts={false}
-              {...(weekend ? { weekend } : {})}
+              {...(weekend !== undefined ? { weekend } : {})}
               {...(floor ? { min: floor } : {})}
               {...(term ? { max: term.end } : {})}
               {...(closedHint ? { closedHint } : {})}
@@ -3349,14 +3341,10 @@ function contractTerms(detail: RatesContractDetail, targets: RateTargetsData, k:
             amount: num(rate && "amount" in rate ? rate.amount : 0),
             currency: detail.currency,
           });
-  const weekendDays = detail.weekPricing?.weekendDays ?? [];
+  const weekendDays = weekendIndexesFromApi(detail.weekPricing?.weekendDays);
   const weekend =
     detail.weekPricing?.mode === "weekday_weekend" && weekendDays.length
-      ? fill(terms.weekend[k], {
-          days: weekendDays
-            .map((day) => terms.days[day]?.[k] ?? day)
-            .join(k === "ar" ? " و" : ", "),
-        })
+      ? fill(terms.weekend[k], { days: formatWeekend(weekendDays, k) })
       : terms.sameEveryNight[k];
   const rules = detail.inventoryRules;
   const overbooking = rules?.whenSoldOut?.overbookingLimitPerNight;

@@ -19,6 +19,8 @@ interface CalendarGridProps {
   lens: CalendarLens;
   compact: boolean;
   highlightWeekends: boolean;
+  /** The selected contract's weekend (0 = Sunday), from contract details. */
+  weekendDays: number[];
   changedOnly: boolean;
   selected: string[];
   published: Record<string, RateCellOverride>;
@@ -29,7 +31,7 @@ interface CalendarGridProps {
   onInlineEdit: (key: string, value: number) => void;
 }
 
-export function CalendarGrid({ contract, rooms, offers, days, lens, compact, highlightWeekends, changedOnly, selected, published, draft, lang, copy, onToggle, onInlineEdit }: CalendarGridProps) {
+export function CalendarGrid({ contract, rooms, offers, days, lens, compact, highlightWeekends, weekendDays, changedOnly, selected, published, draft, lang, copy, onToggle, onInlineEdit }: CalendarGridProps) {
   const locale = lang === "ar" ? "ar-SA" : "en-GB";
   const number = new Intl.NumberFormat(locale);
   const weekday = new Intl.DateTimeFormat(locale, { weekday: "short" });
@@ -39,7 +41,7 @@ export function CalendarGrid({ contract, rooms, offers, days, lens, compact, hig
 
   const cellValue = (offer: RoomOffer, day: Date, dayIndex: number): RateCellOverride & { rate: number; inventory: number; minStay: number; stopSale: boolean } => {
     const key = rateCellKey(contract.id, offer.id, calendarIso(day));
-    const weekend = day.getUTCDay() === 5 || day.getUTCDay() === 6;
+    const weekend = weekendDays.includes(day.getUTCDay());
     const seed = calendarBaseRates[offer.roomName] ?? 420;
     const base: { rate: number; inventory: number; minStay: number; stopSale: boolean } = {
       rate: seed + offer.adjustment + (weekend ? 60 : 0) + (dayIndex % 4) * 10,
@@ -65,7 +67,7 @@ export function CalendarGrid({ contract, rooms, offers, days, lens, compact, hig
       <div className="min-w-[1342px]">
         <div className="grid grid-cols-[254px_repeat(16,68px)] border-b border-border-default bg-surface-subtle">
           <div className="sticky start-0 z-20 flex items-end border-e border-border-default bg-surface-subtle px-4 py-3 text-[10px] font-bold uppercase text-text-muted shadow-[4px_0_12px_var(--calendar-sticky-shadow)]">{copy.roomOffer}</div>
-          {days.map((day) => { const iso = calendarIso(day); const weekend = day.getUTCDay() === 5 || day.getUTCDay() === 6; return <div key={iso} className={cn("border-e border-border-subtle py-2 text-center", highlightWeekends && weekend && "bg-cell-weekend-bg", iso === todayIso && "shadow-[inset_0_3px_0_var(--cell-today-border)]")}><p className="text-[9px] font-semibold uppercase text-text-muted">{weekday.format(day)}</p><p className="font-data text-sm font-semibold text-text-primary">{day.getUTCDate()}</p><p className="text-[9px] text-text-muted">{month.format(day)}</p></div>})}
+          {days.map((day) => { const iso = calendarIso(day); const weekend = weekendDays.includes(day.getUTCDay()); return <div key={iso} className={cn("border-e border-border-subtle py-2 text-center", highlightWeekends && weekend && "bg-cell-weekend-bg", iso === todayIso && "shadow-[inset_0_3px_0_var(--cell-today-border)]")}><p className="text-[9px] font-semibold uppercase text-text-muted">{weekday.format(day)}</p><p className="font-data text-sm font-semibold text-text-primary">{day.getUTCDate()}</p><p className="text-[9px] text-text-muted">{month.format(day)}</p></div>})}
         </div>
         {rooms.map((room) => {
           const roomOffers = visibleOffers.filter((offer) => offer.roomName === room.name);
@@ -78,7 +80,7 @@ export function CalendarGrid({ contract, rooms, offers, days, lens, compact, hig
             {roomOffers.map((offer) => <div key={offer.id} className="grid grid-cols-[254px_repeat(16,68px)] border-b border-border-subtle">
               <div className={cn("sticky start-0 z-10 border-e border-border-default bg-surface-default px-4 shadow-[4px_0_12px_var(--calendar-sticky-shadow)]", compact ? "py-2" : "py-3")}><p className="text-xs font-semibold text-text-primary">{lang === "ar" ? offer.nameAr : offer.name}</p><p className="mt-0.5 text-[10px] text-text-muted">{lang === "ar" ? offer.mealPlanAr : offer.mealPlan}</p></div>
               {days.map((day, index) => {
-                const iso = calendarIso(day); const key = rateCellKey(contract.id, offer.id, iso); const value = cellValue(offer, day, index); const edited = Boolean(draft[key]); const isSelected = selected.includes(key); const weekend = day.getUTCDay() === 5 || day.getUTCDay() === 6;
+                const iso = calendarIso(day); const key = rateCellKey(contract.id, offer.id, iso); const value = cellValue(offer, day, index); const edited = Boolean(draft[key]); const isSelected = selected.includes(key); const weekend = weekendDays.includes(day.getUTCDay());
                 return <Button key={key} variant="ghost" onClick={() => onToggle(key)} onDoubleClick={() => onInlineEdit(key, value.rate + 10)} aria-pressed={isSelected} title={copy.doubleClick} className={cn("relative h-auto min-h-16 w-[68px] rounded-none border-e border-border-subtle p-1 text-center", !compact && "min-h-[84px]", highlightWeekends && weekend && "bg-cell-weekend-bg", value.inventory <= 2 && !value.stopSale && "bg-cell-low-inventory-bg", value.inventory === 0 && "bg-cell-zero-inventory-bg", value.stopSale && "bg-cell-stop-sale-bg", edited && "shadow-[inset_0_0_0_2px_var(--cell-edited-border)]", isSelected && "bg-cell-selected-bg ring-2 ring-inset ring-brand-deep")}>
                   <span className="flex flex-col items-center gap-1 text-[10px] font-normal leading-tight text-text-muted">{value.stopSale ? <><Ban className="h-4 w-4 text-status-danger"/><em className="not-italic text-status-danger">{copy.stop}</em></> : display(value, index)}</span>
                   {edited && <span className="absolute end-1 top-1 h-1.5 w-1.5 rounded-full bg-cell-draft" />}

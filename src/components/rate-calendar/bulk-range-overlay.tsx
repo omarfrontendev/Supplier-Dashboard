@@ -30,6 +30,7 @@ import { DatePicker, dateOf, type DayRange } from "@/components/ui/date-picker";
 import { CheckDays } from "@/components/rate-calendar/check-days";
 import { datePickerCopy } from "@/lib/date-picker-copy";
 import { fill, useLanguage } from "@/lib/i18n";
+import { formatWeekend, type ContractWeekend } from "@/lib/contract-weekend";
 import {
   contractsWord,
   counted,
@@ -74,7 +75,6 @@ import {
   RestrictionPreview,
 } from "@/components/rate-calendar/restriction-live";
 import {
-  dayName,
   describeRestriction,
   planRestrictionOperations,
   RESTRICTION_LIMITS,
@@ -121,8 +121,6 @@ type Lang = "en" | "ar";
 /** The live Restrictions overlay: everything it reads and writes goes through these. */
 export interface LiveRestrictionsProps {
   contractId: number;
-  /** Contract weekend (0 = Sunday), already resolved with the backend's Thu/Fri fallback. */
-  weekendDays: number[];
   eligible: boolean;
   /** Today in the hotel's published time zone, YYYY-MM-DD. */
   today: string;
@@ -400,8 +398,15 @@ export function BulkRangeOverlay({
   liveRates,
   term,
   openOn,
+  weekendDays: contractWeekend,
 }: {
   kind: BulkKind;
+  /**
+   * The selected contract's weekend (detail.weekPricing.weekendDays, 0 = Sunday)
+   * - the only weekend this overlay knows. null while the contract's details
+   * load; [] when the contract has no weekend configured.
+   */
+  weekendDays: ContractWeekend;
   /**
    * The selected contract's term, inclusive YYYY-MM-DD. Nights outside it cannot
    * be picked. Undefined while unknown: the picker is then left unbounded.
@@ -613,7 +618,13 @@ export function BulkRangeOverlay({
 
   /* --------------------------------------------------- what is picked */
   const nights = picked.reduce((sum, item) => sum + item.nights, 0);
-  const weekendDays = live?.weekendDays ?? [4, 5];
+  const weekendDays = useMemo(() => contractWeekend ?? [], [contractWeekend]);
+  /* Weekend-only rules need a weekend to fall on: unknown or none disables the choice. */
+  const noWeekend = weekendDays.length === 0;
+  const weekendWords = formatWeekend(contractWeekend, k);
+  useEffect(() => {
+    if (noWeekend) setAppliesOn("every");
+  }, [noWeekend]);
   const weekendNights = useMemo(() => {
     const out: string[] = [];
     for (const item of picked) {
@@ -629,7 +640,7 @@ export function BulkRangeOverlay({
       }
     }
     return out;
-  }, [picked, k]);
+  }, [picked, k, weekendDays]);
 
   /** Every night that was picked, in order, as real dates. */
   const pickedDates = useMemo(() => {
@@ -2690,7 +2701,7 @@ export function BulkRangeOverlay({
                   />
                   {priceMode === "apart" && (
                     <Input
-                      label={c.baseWeekend[k]}
+                      label={fill(c.baseWeekend[k], { days: weekendWords })}
                       inputMode="numeric"
                       value={weekendPrice}
                       onChange={(e) => {
@@ -3048,9 +3059,7 @@ export function BulkRangeOverlay({
                       ["every", c.appliesEvery[k]],
                       [
                         "weekend",
-                        fill(c.appliesWeekend[k], {
-                          days: weekendDays.map((day) => dp.daysShort[day]).join(ar ? "، " : ", "),
-                        }),
+                        fill(c.appliesWeekend[k], { days: weekendWords }),
                       ],
                     ] as Array<["every" | "weekend", string]>
                   ).map(([value, label]) => (
@@ -3058,9 +3067,10 @@ export function BulkRangeOverlay({
                       key={value}
                       type="button"
                       aria-pressed={appliesOn === value}
+                      disabled={value === "weekend" && noWeekend}
                       onClick={() => setAppliesOn(value)}
                       className={cn(
-                        "rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors",
+                        "rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                         appliesOn === value
                           ? "bg-surface-default text-text-primary shadow-card"
                           : "text-text-muted hover:text-text-primary"
@@ -3072,11 +3082,7 @@ export function BulkRangeOverlay({
                 </div>
                 <p className="mt-1.5 max-w-[668px] text-[11.5px] leading-4 text-text-quiet">
                   {live
-                    ? fill(lr.weekendIs[k], {
-                        days: weekendDays
-                          .map((day) => dayName(day, k))
-                          .join(ar ? "، " : ", "),
-                      })
+                    ? fill(lr.weekendIs[k], { days: weekendWords })
                     : c.appliesOnHint[k]}
                 </p>
               </Section>
@@ -3912,6 +3918,7 @@ export function BulkRangeOverlay({
         <div className="absolute inset-0 z-10 flex items-start justify-end bg-brand-deep/10 p-4">
           <DatePicker
             className="w-[300px]"
+            weekend={contractWeekend}
             {...(term ? { min: term.start, max: term.end, clampShortcuts: true } : {})}
             {...(openOn ? { openOn } : {})}
             onApply={(range) => {
