@@ -1516,11 +1516,11 @@ function StatusFilter({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <p className="px-2 py-2 text-[11px] leading-4 text-text-muted">
+        {/* <p className="px-2 py-2 text-[11px] leading-4 text-text-muted">
           {ar
             ? "الحالتان منتهي وتم إنهاؤه مخفيتان افتراضيًا - أشّر عليهما لرؤية الأرشيف."
             : "Expired and Terminated are hidden by default - tick them to see the archive."}
-        </p>
+        </p> */}
         <DropdownMenuSeparator />
         <div className="flex justify-end gap-2 px-2 py-2">
           <Button size="sm" variant="ghost" onClick={() => onChange("")}>
