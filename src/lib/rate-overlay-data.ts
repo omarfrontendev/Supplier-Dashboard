@@ -1067,7 +1067,12 @@ export const liveGrid = {
     checkIn: t("Check-in", "الوصول"),
     checkOut: t("Check-out", "المغادرة"),
   },
+  exportWaiting: t(
+    "Loading this contract's prices for the dates shown. Download opens once they are in.",
+    "جارٍ تحميل أسعار هذا العقد للتواريخ المعروضة. يُفتح التنزيل بعد اكتمالها.",
+  ),
   exportOpen: t("Open", "مفتوح"),
+  exportTitle: t("Rates & Availability", "الأسعار والإتاحة"),
   exportClosed: t("Closed", "مغلق"),
   exportEdited: t("Changed for this night", "معدّل لهذه الليلة"),
   exportContract: t("Contract or season", "العقد أو الموسم"),

@@ -2802,8 +2802,15 @@ function RateCalendarPage() {
       {overlay === "export" &&
         (live ? (
           <ExportOverlay
-            formats={["xlsx", "csv"]}
+            formats={["xlsx", "csv", "pdf"]}
             note={false}
+            {...(!contextQuery.data ||
+            contextQuery.isFetching ||
+            (!fixedPrice && supplementsQuery.isFetching) ||
+            sellQuery.isFetching ||
+            restrictionsQuery.isFetching
+              ? { waiting: liveGrid.exportWaiting[k] }
+              : {})}
             overline={[
               contractLabel,
               fill(liveGrid.exportRooms[k], { count: ar ? arNum(rows.length) : rows.length }),
@@ -2942,6 +2949,9 @@ function RateCalendarPage() {
                 filename: `rates-${pickedContract!.id}-${span.start}-${span.end}`,
                 format: format as ExportFormat,
                 groupBy: 0,
+                title: [liveGrid.exportTitle[k], contractLabel, `${span.start} - ${span.end}`].join(
+                  " · ",
+                ),
                 lang,
                 email,
               });
