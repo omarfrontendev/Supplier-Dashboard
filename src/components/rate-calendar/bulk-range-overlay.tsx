@@ -228,6 +228,11 @@ export interface LiveRatesProps {
   preview: (batch: RateBatch) => Promise<RateChangesData>;
   /** "stale" when ratesRevision moved on: the overlay previews again and waits for review. */
   save: (batch: RateBatch, expectedRevision: number) => Promise<"saved" | "stale">;
+  /**
+   * The supplement operations not saved yet - every staged line's plus the form's own -
+   * reported as they change, so the grid can mark the meal lines they touch.
+   */
+  onPendingSupplements?: ((operations: SupplementOperation[]) => void) | undefined;
 }
 
 const isoOf = (date: Date) =>
@@ -1597,6 +1602,25 @@ export function BulkRangeOverlay({
     setLines([lineNow()]);
     setReviewing(true);
   };
+
+  /* Unsaved meal changes - the same operations Review sends - go to the grid as drafts. */
+  const pendingSupplements = liveRt
+    ? JSON.stringify([
+        ...lines.flatMap((line) => line.supplements ?? []),
+        ...(supplementOperations() ?? []),
+      ])
+    : "[]";
+  const reportPendingSupplements = liveRt?.onPendingSupplements;
+  useEffect(() => {
+    reportPendingSupplements?.(JSON.parse(pendingSupplements) as SupplementOperation[]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSupplements]);
+  /* Closing the overlay drops whatever it had not saved. */
+  useEffect(
+    () => () => reportPendingSupplements?.([]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   /**
    * Stop sale / On Request: + Add in Add mode, Save changes in Edit mode.

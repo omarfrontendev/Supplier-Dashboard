@@ -65,6 +65,8 @@ export interface GridRow {
     name: { en: string; ar: string };
     meta: { en: string; ar: string };
     totals: Array<number | null>;
+    /** Nights (1-based) whose meal price was changed - saved, or still a draft. */
+    edited?: number[];
   }>;
 }
 

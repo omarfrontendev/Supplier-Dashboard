@@ -127,6 +127,7 @@ import type {
   SellControlRule,
   RateAmount,
   RateOperation,
+  SupplementMealType,
   SupplementOperation,
   RateOverrideRow,
   RateTarget,
@@ -471,6 +472,12 @@ function RateCalendarPage() {
               (meal.pricingBasis === "per_room" ? meal.price : meal.price * guests)
             );
           }),
+          /* A saved meal price change, read the way the base rate reads its own. */
+          edited: days.flatMap((day, index) =>
+            byDay.get(day)?.meals.find((item) => item.type === type)?.source === "daily_override"
+              ? [index + 1]
+              : [],
+          ),
         };
       }),
     };
@@ -688,6 +695,17 @@ function RateCalendarPage() {
     return first <= rateTargets.endDate.slice(0, 10) ? first : null;
   })();
   const [bulkPicked, setBulkPicked] = useState<{ start: string; end: string } | null>(null);
+  /*
+   * Meal plan prices changed in an open overlay and not saved yet, kept apart
+   * from the base rate. Single Rate reports the meal types and weekdays (its
+   * nights and rooms are the page's); Bulk Rates reports the supplement
+   * operations it would send. Both clear on close and after a save.
+   */
+  const [nightMealDraft, setNightMealDraft] = useState<{
+    types: SupplementMealType[];
+    weekdays: number[];
+  } | null>(null);
+  const [bulkMealDraft, setBulkMealDraft] = useState<SupplementOperation[]>([]);
   const bulkWindow = (() => {
     const start = bulkPicked?.start ?? bulkFirstNight;
     if (!rateTargets || !start) return null;
@@ -1038,6 +1056,7 @@ function RateCalendarPage() {
               : liveGrid.saved[k],
           );
           closeNightReview();
+          setNightMealDraft(null);
           setOverlay(null);
           setTypedNights(null);
           setSelected([]);
@@ -1237,7 +1256,47 @@ function RateCalendarPage() {
    * Only the rate line changes: inventory, stop sale, restrictions and
    * release belong to the room, not to who is sleeping in it (BR-03-94).
    */
+  /* Single Rate: the overlay's nights that fall on the weekdays it prices. */
+  const overlayDatesOn = (weekdays: number[]) =>
+    overlayNights
+      .map((night) => dateOfNight(month, night))
+      .filter((date) => weekdays.includes(date.getDay()))
+      .map(isoDay);
+  /*
+   * Unsaved meal price changes as variationId|mealType|date - the same rooms,
+   * meal plans and nights the save would send, so nothing else is marked.
+   */
+  const mealDraftKeys = new Set<string>();
+  if (live && !fixedPrice && overlay === "night" && nightMealDraft?.types.length) {
+    const dates = overlayDatesOn(nightMealDraft.weekdays);
+    for (const variationId of new Set(pickedTargets().map((target) => target.variationId)))
+      for (const type of nightMealDraft.types)
+        for (const date of dates) mealDraftKeys.add(`${variationId}|${type}|${date}`);
+  }
+  if (live && overlay === "bulk")
+    for (const operation of bulkMealDraft)
+      for (const change of operation.mealChanges ?? [])
+        if (change.action === "set")
+          for (const target of operation.targets)
+            for (const date of operation.dates)
+              mealDraftKeys.add(`${target.variationId}|${change.type}|${date}`);
+  const withMealDrafts = (row: GridRow): GridRow => {
+    const variationId = row.target?.variationId;
+    if (!mealDraftKeys.size || variationId === undefined || !row.meals) return row;
+    return {
+      ...row,
+      meals: row.meals.map((line) => {
+        const drafted = monthDates.flatMap((day, index) =>
+          mealDraftKeys.has(`${variationId}|${line.key}|${day}`) ? [index + 1] : [],
+        );
+        return drafted.length
+          ? { ...line, edited: [...new Set([...(line.edited ?? []), ...drafted])] }
+          : line;
+      }),
+    };
+  };
   const rows = allRows
+    .map(withMealDrafts)
     .filter(
       (row) => visibleRooms.includes(row.name) && (!unpricedOnly || unpriced.includes(row.name)),
     )
@@ -2232,6 +2291,7 @@ function RateCalendarPage() {
                       },
                     ];
                   },
+                  onPendingSupplements: setBulkMealDraft,
                   preview: (batch) => previewRates.mutateAsync(batch),
                   save: async (batch, expectedRevision) => {
                     const { operations } = batch;
@@ -2584,17 +2644,16 @@ function RateCalendarPage() {
           {...(overlaySummary ? { summary: overlaySummary } : {})}
           {...(namedSpans.length > 1 ? { spans: namedSpans } : {})}
           already={already}
+          {...(live ? { onMealDraft: setNightMealDraft } : {})}
           onClose={() => {
             closeNightReview();
+            setNightMealDraft(null);
             setOverlay(null);
             setTypedNights(null);
           }}
           onSave={(value) => {
             if (live) {
-              const dates = overlayNights
-                .map((night) => dateOfNight(month, night))
-                .filter((date) => value.weekdays.includes(date.getDay()))
-                .map(isoDay);
+              const dates = overlayDatesOn(value.weekdays);
               const targets = pickedTargets();
               /* Fixed Price never edits meal plans here. */
               const meals = fixedPrice ? [] : value.meals;

@@ -2072,8 +2072,17 @@ export function OneNightOverlay({
   onBackFromReview,
   onRetryReview,
   childBands,
+  onMealDraft,
 }: {
   childBands?: ChildBand[] | undefined;
+  /**
+   * Live: the meal plans whose price is changed in the form right now, and the
+   * weekdays it applies on - so the grid can mark those meal lines before saving.
+   * Reverting a box to its current price takes its type out again.
+   */
+  onMealDraft?:
+    | ((draft: { types: SupplementMealType[]; weekdays: number[] }) => void)
+    | undefined;
   /**
    * Live: set while the supplier reviews the backend preview of this change.
    * Save and Undo only preview; onConfirmReview is the save.
@@ -2274,6 +2283,16 @@ export function OneNightOverlay({
   /* OV 04.6F - the seven days, so "October, Fridays only" is one screen
      and not a different overlay. */
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  /* The meal plans being changed, reported as they change (the same mealEdits Save sends). */
+  const mealDraftTypes = mealEdits.map((meal) => meal.type).join(",");
+  const mealDraftDays = days.join(",");
+  useEffect(() => {
+    onMealDraft?.({
+      types: mealDraftTypes ? (mealDraftTypes.split(",") as SupplementMealType[]) : [],
+      weekdays: mealDraftDays ? mealDraftDays.split(",").map(Number) : [],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mealDraftTypes, mealDraftDays]);
   const [picking, setPicking] = useState(false);
   const pickToday = keyOf(new Date());
   /* OV 04.6N - a fixed-price group is the only one you can type into. */

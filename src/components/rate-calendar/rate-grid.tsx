@@ -554,8 +554,7 @@ function RoomBlock({
                     "font-data w-full text-center text-[11px] font-medium",
                     cell,
                     isPast(night) ? "text-cell-past-text" : "text-text-primary",
-                    changedRate(row, night, month) &&
-                      "border border-dashed border-status-warning/70 bg-status-warning-bg font-semibold text-status-warning",
+                    changedRate(row, night, month) && EDITED_CELL,
                     isSelected && "bg-primary-subtle ring-1 ring-inset ring-brand-deep"
                   )}
                 >
@@ -592,7 +591,10 @@ function RoomBlock({
                       : isPast(night) && "bg-cell-past-bg"
                   )}
                 >
-                  {total === null || total === undefined ? "—" : figure(total, ar)}
+                  {/* The same box the base rate gets, on this meal line only. */}
+                  <span className={cn("block", line.edited?.includes(night) && EDITED_CELL)}>
+                    {total === null || total === undefined ? "—" : figure(total, ar)}
+                  </span>
                 </td>
               );
             })}
@@ -801,6 +803,10 @@ function RoomBlock({
 
 /** The release the contract sets, against which a night reads as changed. */
 const CONTRACT_RELEASE_DAYS = 3;
+
+/** UI 04.1 — the box an edited price carries: a base rate, or a meal plan line. */
+const EDITED_CELL =
+  "border border-dashed border-status-warning/70 bg-status-warning-bg font-semibold text-status-warning";
 
 /** UI 04.1 — a rate that no longer matches the contract's base is marked. */
 function changedRate(row: GridRow, night: number, month: GridMonth) {
