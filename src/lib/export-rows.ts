@@ -7,6 +7,7 @@
 import { dataStateCopy, EXPORT_EMAIL_ROWS } from "./data-state-copy";
 import { fill } from "./i18n";
 import { notify } from "./notify";
+import { pdfBlob } from "./pdf-writer";
 import { xlsxBlob } from "./xlsx-writer";
 
 function csv(rows: readonly (readonly string[])[]): string {
@@ -16,9 +17,6 @@ function csv(rows: readonly (readonly string[])[]): string {
 }
 
 export type ExportFormat = "csv" | "xlsx" | "pdf";
-
-const escapeHtml = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const download = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
@@ -38,30 +36,6 @@ const groupsOf = (rows: readonly (readonly string[])[], column: number | undefin
   }
   return [...groups].map(([name, list]) => ({ name, rows: list }));
 };
-
-const printable = (
-  title: string,
-  head: readonly string[],
-  groups: ReturnType<typeof groupsOf>,
-  rtl: boolean,
-) =>
-  `<!doctype html><html lang="${rtl ? "ar" : "en"}" dir="${rtl ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${escapeHtml(
-    title,
-  )}</title><style>body{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;margin:24px;color:#111}h1{font-size:16px;margin:0 0 12px}h2{font-size:13px;margin:18px 0 6px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #ccc;padding:4px 6px;text-align:start}th{background:#f2f2f2}tr{break-inside:avoid}@page{size:landscape;margin:12mm}</style></head><body><h1>${escapeHtml(
-    title,
-  )}</h1>${groups
-    .map(
-      (group) =>
-        `${group.name ? `<h2>${escapeHtml(group.name)}</h2>` : ""}<table><thead><tr>${head
-          .map((cell) => `<th>${escapeHtml(cell)}</th>`)
-          .join("")}</tr></thead><tbody>${group.rows
-          .map(
-            (row) =>
-              `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join("")}</tr>`,
-          )
-          .join("")}</tbody></table>`,
-    )
-    .join("")}</body></html>`;
 
 export function exportRows({
   head,
@@ -107,15 +81,15 @@ export function exportRows({
       `${base}.xlsx`,
     );
   } else if (format === "pdf") {
-    const view = window.open("", "_blank");
-    if (!view) {
-      notify.error(c.exportBlocked);
-      return;
-    }
-    view.document.write(printable(title ?? base, head, groupsOf(rows, groupBy), rtl));
-    view.document.close();
-    view.focus();
-    view.setTimeout(() => view.print(), 300);
+    download(
+      pdfBlob(
+        title ?? base,
+        head,
+        groupsOf(rows, groupBy).map((group) => ({ name: group.name, rows: group.rows })),
+        rtl,
+      ),
+      `${base}.pdf`,
+    );
   } else {
     download(
       new Blob(["\uFEFF", csv([head, ...rows])], { type: "text/csv;charset=utf-8" }),

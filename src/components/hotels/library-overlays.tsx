@@ -35,6 +35,8 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
  * OV 02.2 / 02.2D — everything Hoteliana holds about a library hotel,
  * and the one thing you can do about it.
  */
+const QUICK_VIEW_ROOMS = 10;
+
 const badgeTone: Record<HotelRelation, { wrap: string; text: string; dot: string }> = {
   not_requested: {
     wrap: "bg-status-neutral-bg",
@@ -89,11 +91,12 @@ export function HotelQuickView({
   const { hotel: selectedHotel } = useSingleHotelOption(hotel?.id);
   const tone = badgeTone[hotel?.linkingStatus];
 
-  const { rooms, meta: roomsMeta } = useHotelRooms({
-    id: hotel?.id,
-    page:1,
-    limit:10
-  });
+  const {
+    rooms,
+    meta: roomsMeta,
+    isLoading: roomsLoading,
+    isError: roomsError,
+  } = useHotelRooms({ id: hotel?.id, page: 1, limit: QUICK_VIEW_ROOMS });
 
   const getRoomDetails = (room: any) => {
     const ar = lang === "ar";
@@ -229,11 +232,19 @@ export function HotelQuickView({
         <div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <p className="text-overline text-text-muted">
-              {fill(c.cataloqueTitle[k], { count: roomsMeta?.total })}
+              {fill(c.cataloqueTitle[k], {
+                count: roomsLoading ? "…" : (roomsMeta?.total ?? rooms.length),
+              })}
             </p>
           </div>
           <div className="mt-2">
-            {rooms?.length ? (
+            {roomsLoading || roomsError ? (
+              <div className="flex items-center justify-center py-8 text-center">
+                <p className="text-sm text-text-muted">
+                  {(roomsLoading ? c.roomsLoading : c.roomsFailed)[k]}
+                </p>
+              </div>
+            ) : rooms?.length ? (
               rooms.map((room) => {
                 const details = getRoomDetails(room);
 

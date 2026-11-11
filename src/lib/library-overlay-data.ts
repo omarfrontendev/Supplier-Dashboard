@@ -99,6 +99,8 @@ export const quickView = {
   ],
 
   cataloqueTitle: t("Room catalogue · {count}", "دليل الغرف · {count}"),
+  roomsLoading: t("Loading rooms…", "جارٍ تحميل الغرف…"),
+  roomsFailed: t("Could not load this hotel's rooms.", "تعذّر تحميل غرف هذا الفندق."),
   catalogueNote: t(
     "Each room has one view · prices are set in your supply contract",
     "لكل غرفة إطلالة واحدة · وتُحدَّد الأسعار في عقد التوريد"
