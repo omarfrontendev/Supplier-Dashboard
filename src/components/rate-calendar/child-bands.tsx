@@ -1,3 +1,4 @@
+import type { ChildCategory } from "@/api/modules/rates-availability/types";
 import { Input } from "@/components/ui/input";
 import { OldPrice } from "@/components/rate-calendar/old-price";
 import { useLanguage } from "@/lib/i18n";
@@ -12,10 +13,13 @@ export function ChildBandsFields({
   state,
   currency,
   idPrefix,
+  contractPrices,
 }: {
   state: ChildBandsState;
   currency: string;
   idPrefix: string;
+  /** Old price: the contract's own child prices (contract childPricing), by band. */
+  contractPrices?: Partial<Record<ChildCategory, number | null>> | undefined;
 }) {
   const { lang } = useLanguage();
   const k = lang === "ar" ? "ar" : "en";
@@ -62,8 +66,10 @@ export function ChildBandsFields({
                         ? { error: bs.badPrice[k] }
                         : {})}
                   />
-                  {/* The band's own price, never the box: it holds while the box is edited. */}
-                  {!free && <OldPrice value={band.price} currency={currency} />}
+                  {/* The contract's own child price, never the box or a daily override. */}
+                  {!free && contractPrices && (
+                    <OldPrice value={contractPrices[band.category] ?? null} currency={currency} />
+                  )}
                 </div>
               </div>
             </div>

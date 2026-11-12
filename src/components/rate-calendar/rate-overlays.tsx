@@ -9,6 +9,7 @@ import type {
   RatesHotel,
   RatesMealPlan,
   SupplementMealType,
+  ChildCategory,
 } from "@/api/modules/rates-availability/types";
 import { withCurrency } from "@/lib/rate-grid-data";
 import {
@@ -2074,8 +2075,14 @@ export function OneNightOverlay({
   onRetryReview,
   childBands,
   onMealDraft,
+  contractMeals,
+  contractChildren,
 }: {
   childBands?: ChildBand[] | undefined;
+  /** Old price: the contract's own meal plan prices (contract pricing.mealPlans), by type. */
+  contractMeals?: Partial<Record<SupplementMealType, number | null>> | undefined;
+  /** Old price: the contract's own child prices (contract childPricing), by band. */
+  contractChildren?: Partial<Record<ChildCategory, number | null>> | undefined;
   /**
    * Live: the meal plans whose price is changed in the form right now, and the
    * weekdays it applies on - so the grid can mark those meal lines before saving.
@@ -2300,31 +2307,13 @@ export function OneNightOverlay({
   const [groupPrice, setGroupPrice] = useState<Record<string, string>>({});
 
   /*
-   * Old price and Reset. The originals are the props the boxes open on
-   * (current / currentWeekday / each meal line's price / each child band's
-   * price) - kept apart from the typed text, so editing never moves them.
+   * Old price: the selected contract's own price (resolvedRoomPrices, via
+   * live.contract) - never the box, the night's current price or a daily
+   * override. Only a live contract has one; the demo shows none.
    */
-  const asText = (value: number) => (k === "ar" ? arNum(value) : String(value));
-  const originalPrice = start;
-  const originalWeekday = currentWeekday ?? 400;
-  const pricesDirty =
-    typed ||
-    Object.keys(mealDraft).length > 0 ||
-    nightChildren.pricesTouched ||
-    Object.keys(perNight).length > 0 ||
-    Object.keys(perWeekend).length > 0 ||
-    Object.keys(groupPrice).length > 0;
-  /* Local only: no request. Nights, days, the split and other choices stay as they are. */
-  const resetPrices = () => {
-    setTyped(false);
-    setPrice(asText(originalPrice));
-    setWeekdayPrice(asText(originalWeekday));
-    setMealDraft({});
-    nightChildren.resetPrices();
-    setPerNight({});
-    setPerWeekend({});
-    setGroupPrice({});
-  };
+  const contractRate = live ? live.contract : undefined;
+  const contractOf = (side: "weekday" | "weekend") =>
+    contractRate ? ("amount" in contractRate ? contractRate.amount : contractRate[side]) : null;
 
   /**
    * OV 04.6J — a room cannot be given away.
@@ -2542,14 +2531,6 @@ export function OneNightOverlay({
             </>
           }
         >
-          <Button
-            variant="outline"
-            disabled={saving || !pricesDirty}
-            title={bulkSupplements.resetPricesHint[k]}
-            onClick={resetPrices}
-          >
-            {bulkSupplements.resetPrices[k]}
-          </Button>
           <Button variant="outline" onClick={onClose}>
             {c.cancel[k]}
           </Button>
@@ -2764,7 +2745,7 @@ export function OneNightOverlay({
                 setWeekdayPrice(next);
               }}
             />
-            <OldPrice value={originalWeekday} currency={currency} />
+            {live && <OldPrice value={contractOf("weekday")} currency={currency} />}
             <p className="mt-1.5 text-[11.5px] text-text-quiet">
               {fill(c.contractIs[k], {
                 price: k === "ar" ? arNum(fixed ? 490 : 400) : fixed ? "490" : "400",
@@ -2802,7 +2783,20 @@ export function OneNightOverlay({
             className={cn(!missing && "border-brand-deep")}
             invalid={missing}
           />
-          <OldPrice value={originalPrice} currency={currency} />
+          {/* The box prices the weekend when split, one night by its own kind,
+              and every night when one price covers both. */}
+          {/* {live && (
+            <OldPrice
+              value={
+                twoBoxes || uniform === "weekend" || (!many && weekend)
+                  ? contractOf("weekend")
+                  : uniform === "weekday" || !many
+                    ? contractOf("weekday")
+                    : [contractOf("weekday"), contractOf("weekend")]
+              }
+              currency={currency}
+            />
+          )} */}
           {/* One line under the field, and it is whichever matters most:
               the refusal, then the warning, then what it is being
               compared with. The under-floor warning is not shown. */}
@@ -2860,6 +2854,7 @@ export function OneNightOverlay({
             state={nightChildren}
             currency={currency ?? ""}
             idPrefix="night-child"
+            contractPrices={contractChildren ?? {}}
           />
         </div>
       )}
@@ -3079,7 +3074,7 @@ export function OneNightOverlay({
                     className="w-full"
                     invalid={amount !== null && Number.isNaN(amount)}
                   />
-                  <OldPrice value={meal.price} currency={currency} />
+                  <OldPrice value={contractMeals?.[meal.type] ?? null} currency={currency} />
                 </span>
               </PanelRow>
             );

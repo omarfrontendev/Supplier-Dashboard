@@ -234,6 +234,27 @@ export interface LiveRatesProps {
    * reported as they change, so the grid can mark the meal lines they touch.
    */
   onPendingSupplements?: ((operations: SupplementOperation[]) => void) | undefined;
+  /**
+   * Old price: the selected contract's own prices, for display under each field
+   * only - never used for change detection or the payload.
+   */
+  contractPrices?: ContractPrices | undefined;
+}
+
+/** The selected contract's original prices (contract details and its child pricing). */
+export interface ContractPrices {
+  /** The base room's contract rate (resolvedRoomPrices). */
+  base: RateAmount | null;
+  /** A room's contract price minus the base room's (resolvedRoomPrices). */
+  roomSupplement: (room: string) => number | null;
+  /** Fixed price: a room type + meal plan's contract rate (resolvedRoomPrices). */
+  offer: (variationId: number, mealPlan: RatesMealPlan) => RateAmount | null;
+  /** The contract's meal plan prices (pricing.mealPlans), by type. */
+  meals: Partial<
+    Record<SupplementMealType, { price: number | null; pricingBasis: MealBasis | null }>
+  >;
+  /** The contract's child prices (childPricing), by band. */
+  children: Partial<Record<ChildCategory, number | null>>;
 }
 
 const isoOf = (date: Date) =>
@@ -854,29 +875,12 @@ export function BulkRangeOverlay({
     : baseChanged || supplementRoomValues.length > 0;
 
   /*
-   * Old price and Reset. The originals are the live defaults the boxes open
-   * on (baseNow, each room's supplement, each offer's contract, each meal's
-   * and child band's price) - never the typed drafts, so editing never moves them.
+   * Old price: the selected contract's own prices (display only), never the
+   * boxes, the current night prices or daily overrides - those stay what
+   * change detection and the payload use, untouched.
    */
-  const baseLive = liveRt !== undefined && !liveRt.fixedPrice;
-  const pricesDirty =
-    priceTouched ||
-    Object.keys(roomSupplementDraft).length > 0 ||
-    Object.keys(offerDraft).length > 0 ||
-    Object.keys(mealDraft).length > 0 ||
-    Object.keys(supplements).length > 0 ||
-    children.pricesTouched;
-  /* Local only: no request. Nights, rooms, days and the price mode stay as they are. */
-  const resetPrices = () => {
-    setPriceTouched(false);
-    setWeekdayPrice(baseLive ? textOf(baseNow?.weekday) : "");
-    setWeekendPrice(baseLive ? textOf(baseNow?.weekend) : "");
-    setRoomSupplementDraft({});
-    setOfferDraft({});
-    setMealDraft({});
-    setSupplements({});
-    children.resetPrices();
-  };
+  const contractPrices = liveRt?.contractPrices;
+  const contractBase = contractNights(contractPrices?.base ?? null);
   const priceOptional =
     liveRt !== undefined &&
     supplementsGiven &&
@@ -2707,37 +2711,26 @@ export function BulkRangeOverlay({
 
           {kind === "bulkRates" && (
             <Section label={c.price[k]}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <RadioGroup
-                  className="flex flex-wrap items-center gap-x-5 gap-y-2"
-                  value={priceMode}
-                  onValueChange={setPriceMode}
-                >
-                  {(
-                    [
-                      ["one", c.onePrice[k]],
-                      ["apart", c.apartPrice[k]],
-                    ] as Array<[string, string]>
-                  ).map(([value, label]) => (
-                    <label
-                      key={value}
-                      className="flex cursor-pointer items-center gap-2 text-[12.5px] text-text-primary"
-                    >
-                      <RadioGroupItem value={value} />
-                      {label}
-                    </label>
-                  ))}
-                </RadioGroup>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!pricesDirty}
-                  title={bs.resetPricesHint[k]}
-                  onClick={resetPrices}
-                >
-                  {bs.resetPrices[k]}
-                </Button>
-              </div>
+              <RadioGroup
+                className="flex flex-wrap items-center gap-x-5 gap-y-2"
+                value={priceMode}
+                onValueChange={setPriceMode}
+              >
+                {(
+                  [
+                    ["one", c.onePrice[k]],
+                    ["apart", c.apartPrice[k]],
+                  ] as Array<[string, string]>
+                ).map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex cursor-pointer items-center gap-2 text-[12.5px] text-text-primary"
+                  >
+                    <RadioGroupItem value={value} />
+                    {label}
+                  </label>
+                ))}
+              </RadioGroup>
               {liveRt?.fixedPrice ? (
                 <div className="mt-3 grid gap-4">
                   {!pickedRoomType && (
@@ -2750,8 +2743,11 @@ export function BulkRangeOverlay({
                       rate === undefined ||
                       (rate !== null &&
                         Object.values(rate).some((value) => !Number.isFinite(value) || value < 0));
-                    /* The offer's own contract price: the original, apart from the draft. */
-                    const offerNights = contractNights(offer.contract);
+                    /* Old price: this room and meal plan's own contract price, not offer.contract
+                       (the nights as they stand now, which may carry an override). */
+                    const offerNights = contractNights(
+                      contractPrices?.offer(pickedRoomType.variationId, offer.mealPlan) ?? null,
+                    );
                     const setDraft = (field: "weekday" | "weekend", text: string) =>
                       setOfferDraft((current) => ({
                         ...current,
@@ -2815,15 +2811,15 @@ export function BulkRangeOverlay({
                         ? { error: c.needPrice[k] }
                         : {})}
                     />
-                    {/* The base room's price for these nights (baseNow), never the box. */}
-                    {baseLive && pickedRoom && supplementDefaults && (
+                    {/* The base room's contract price, never the box or baseNow. */}
+                    {contractPrices && (
                       <OldPrice
                         value={
                           priceMode === "one"
-                            ? [baseNow?.weekday, baseNow?.weekend]
-                            : baseNow?.weekday
+                            ? [contractBase?.weekday, contractBase?.weekend]
+                            : contractBase?.weekday
                         }
-                        currency={liveRt.currency}
+                        currency={liveRt?.currency}
                       />
                     )}
                   </div>
@@ -2841,8 +2837,8 @@ export function BulkRangeOverlay({
                           ? { error: c.needWeekendPrice[k] }
                           : {})}
                       />
-                      {baseLive && pickedRoom && supplementDefaults && (
-                        <OldPrice value={baseNow?.weekend} currency={liveRt.currency} />
+                      {contractPrices && (
+                        <OldPrice value={contractBase?.weekend} currency={liveRt?.currency} />
                       )}
                     </div>
                   )}
@@ -2879,7 +2875,10 @@ export function BulkRangeOverlay({
                           ? { error: bs.badPrice[k] }
                           : {})}
                       />
-                      <OldPrice value={room.supplement} currency={liveRt.currency} />
+                      <OldPrice
+                        value={contractPrices?.roomSupplement(room.name.en) ?? null}
+                        currency={liveRt.currency}
+                      />
                     </div>
                   );
                 })}
@@ -2964,11 +2963,18 @@ export function BulkRangeOverlay({
                             ? { error: bs.badPrice[k] }
                             : {})}
                         />
-                        <OldPrice
-                          value={meal.price}
-                          currency={liveRt?.currency}
-                          note={bs.basis[meal.pricingBasis ?? "per_person"][k]}
-                        />
+                        {/* The contract's meal plan price and basis, never the night's own. */}
+                        {contractPrices && (
+                          <OldPrice
+                            value={contractPrices.meals[meal.type]?.price ?? null}
+                            currency={liveRt?.currency}
+                            note={
+                              contractPrices.meals[meal.type]?.pricingBasis
+                                ? bs.basis[contractPrices.meals[meal.type]!.pricingBasis!][k]
+                                : undefined
+                            }
+                          />
+                        )}
                       </div>
                       <RadioGroup
                         className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:pt-8"
@@ -3001,6 +3007,7 @@ export function BulkRangeOverlay({
                 state={children}
                 currency={liveRt?.currency ?? ""}
                 idPrefix="bulk-child"
+                contractPrices={contractPrices?.children}
               />
             </Section>
           )}

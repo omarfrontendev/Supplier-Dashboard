@@ -45,7 +45,9 @@ import {
   type LiveRestrictionsProps,
   type LiveRoomType,
   type SupplementDefaults,
+  type ContractPrices,
 } from "@/components/rate-calendar/bulk-range-overlay";
+import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
 import {
   describeReleaseTiming,
   type ReleaseInheritedPolicy,
@@ -821,6 +823,71 @@ function RateCalendarPage() {
         }
       : null;
   };
+  /*
+   * Old price in Change prices (single and bulk): the selected contract's own
+   * prices - never the nights as they stand now, which carry daily overrides.
+   * Room rates and meal plans come from the contract details already loaded
+   * (resolvedRoomPrices, pricing.mealPlans); child prices from the contract
+   * itself (the existing supplier hotel contract endpoint). Display only.
+   */
+  const contractRecord = useHotelContract(live ? (pickedContract?.id ?? null) : null).data;
+  const contractRoomRate = (
+    variationId: number | undefined,
+    mealPlan?: RatesMealPlan | string | null,
+  ): RateAmount | null =>
+    variationId === undefined
+      ? null
+      : (liveDetail?.resolvedRoomPrices?.find(
+          (item) =>
+            item.variationId === variationId &&
+            (!mealPlan || !item.mealPlan || item.mealPlan === mealPlan),
+        )?.price ?? null);
+  const rateSide = (rate: RateAmount | null, side: "weekday" | "weekend") =>
+    rate === null ? null : "amount" in rate ? rate.amount : rate[side];
+  const contractMealPrices: ContractPrices["meals"] = Object.fromEntries(
+    (liveDetail?.pricing?.mealPlans ?? []).flatMap((meal) =>
+      meal.type === "room_only"
+        ? []
+        : [
+            [
+              meal.type,
+              {
+                price: meal.price ?? null,
+                pricingBasis:
+                  meal.pricingBasis === "per_room" || meal.pricingBasis === "per_person"
+                    ? meal.pricingBasis
+                    : null,
+              },
+            ],
+          ],
+    ),
+  );
+  const contractChildPrices: ContractPrices["children"] = contractRecord?.childPricing
+    ? {
+        sharing_parents: contractRecord.childPricing.sharing_parents?.price ?? null,
+        shared_bed: contractRecord.childPricing.shared_bed?.price ?? null,
+        extra_bed: contractRecord.childPricing.extra_bed?.price ?? null,
+      }
+    : {};
+  const contractPrices: ContractPrices | undefined = liveDetail
+    ? {
+        base: fixedPrice ? null : contractRoomRate(bulkBaseVariation),
+        roomSupplement: (room) => {
+          const row = allRows.find((item) => item.name === room);
+          const rate = contractRoomRate(row?.target?.variationId, row?.target?.mealPlan);
+          const base = contractRoomRate(bulkBaseVariation);
+          for (const side of ["weekday", "weekend"] as const) {
+            const own = rateSide(rate, side);
+            const from = rateSide(base, side);
+            if (own !== null && from !== null) return own - from;
+          }
+          return null;
+        },
+        offer: (variationId, mealPlan) => contractRoomRate(variationId, mealPlan),
+        meals: contractMealPrices,
+        children: contractChildPrices,
+      }
+    : undefined;
   const sellTargets = useSellControlTargets(
     live && (overlay === "stopSale" || overlay === "status") ? pickedContract?.id : undefined,
   );
@@ -2187,6 +2254,7 @@ function RateCalendarPage() {
                       supplement: bulkSupplementNow(row.target?.variationId),
                     })),
                   roomTypes: bulkRoomTypes,
+                  contractPrices,
                   onRangeChange: setBulkPicked,
                   roomName: rateRoomName,
                   /* The same set operation as before; only now it is previewed and confirmed. */
@@ -2631,6 +2699,14 @@ function RateCalendarPage() {
             : {})}
           {...(live && nightRow?.target && liveDetail ? { live: nightFacts(nightRow) } : {})}
           {...(live ? { childBands: nightChildBands } : {})}
+          {...(live && contractPrices
+            ? {
+                contractMeals: Object.fromEntries(
+                  Object.entries(contractPrices.meals).map(([type, meal]) => [type, meal.price]),
+                ),
+                contractChildren: contractPrices.children,
+              }
+            : {})}
           weekendNames={formatWeekendBi(contractWeekend)}
           weekendDays={contractWeekend}
           term={contractTerm}
