@@ -231,6 +231,7 @@ export function toInventoryRules(
   variations: InventoryVariation[],
   requireOverbookingLimit = false,
 ): ContractInventoryRules | null {
+  if (inventory.model === null) return null;
   if (inventory.model === "free") return { mode: "free_sale" };
 
   const action = inventoryActionToApi[inventory.soldOut];
@@ -317,7 +318,11 @@ export function inventoryDraftFromRules(rules: ContractInventoryRules | null): I
     soldOut: "overbooking",
     sharedOverbookingLimitPerNight: "2",
   };
-  if (!rules) return initial;
+  // No saved rules: inventory is not configured. Select no mode and fill no quantities;
+  // only an explicit choice in the inventory step configures it.
+  if (!rules) {
+    return { ...initial, model: null, roomsPerNight: "", sharedOverbookingLimitPerNight: "" };
+  }
   if (rules.mode === "free_sale") return { ...initial, model: "free" };
   // whenSoldOut / action can be missing on an incomplete saved configuration. The editor
   // then keeps its own form default (same as for a contract with no inventory rules); that
@@ -390,11 +395,15 @@ const inventoryRuleKey = (rules: ContractInventoryRules | null | undefined) => {
   ]);
 };
 
+/**
+ * Inventory rules apply to every booking type. `next`: the rules to write; `null` = the
+ * user's configuration is incomplete (counts as a change, and saving is blocked);
+ * `undefined` = inventory is left unconfigured, so nothing is written.
+ */
 export const inventoryRulesChanged = (
-  bookingType: BookingType,
   next: ContractInventoryRules | null | undefined,
   saved: ContractInventoryRules | null | undefined,
-) => bookingType !== "on_request" && (!next || inventoryRuleKey(next) !== inventoryRuleKey(saved));
+) => next !== undefined && (!next || inventoryRuleKey(next) !== inventoryRuleKey(saved));
 
 export const basicsReady = ({ basics }: ContractDraftState) =>
   basics.hotelId !== null &&
@@ -653,7 +662,7 @@ export function toCreateContractBody(
     bookingType: bookingToApi[basics.bookingType],
     pricingModel: pricingToApi[draft.pricingModel],
     ...(onRequestSettings ? { onRequestSettings } : {}),
-    ...(basics.bookingType === "on_request" || !inventoryRules ? {} : { inventoryRules }),
+    ...(inventoryRules ? { inventoryRules } : {}),
     ...(childPricing ? { childPricing } : {}),
     restrictions: toRestrictions(draft).map(({ isActive: _isActive, ...rule }) => rule),
     ...(toCancellationPolicy(draft) ? { cancellationPolicy: toCancellationPolicy(draft)! } : {}),
@@ -700,11 +709,7 @@ export function toUpdateContractBody(
     next.pricing !== undefined &&
     contract.pricingStatus !== "incomplete";
   const seasons = seasonsChanged(draft, contract);
-  const inventory = inventoryRulesChanged(
-    draft.basics.bookingType,
-    inventoryRules,
-    contract.inventoryRules ?? null,
-  );
+  const inventory = inventoryRulesChanged(inventoryRules, contract.inventoryRules ?? null);
   if (
     fields.length === 0 &&
     !children &&
@@ -722,9 +727,7 @@ export function toUpdateContractBody(
     (body, field) => ({ ...body, [field]: next[field] }),
     {
       expectedVersion: contract.version,
-      ...(inventory && draft.basics.bookingType !== "on_request" && inventoryRules
-        ? { inventoryRules }
-        : {}),
+      ...(inventory && inventoryRules ? { inventoryRules } : {}),
       ...(children && next.childPricing ? { childPricing: next.childPricing } : {}),
       ...(restrictions ? { restrictions: toRestrictions(draft) } : {}),
       ...(cancellation ? { cancellationPolicy: toCancellationPolicy(draft) } : {}),
@@ -913,11 +916,7 @@ export const sameSavedDraft = (
   !requestSettingsChanged(draft, contract) &&
   !pricingChanged(draft, contract) &&
   !seasonsChanged(draft, contract) &&
-  !inventoryRulesChanged(
-    draft.basics.bookingType,
-    inventoryRules,
-    contract.inventoryRules ?? null,
-  ) &&
+  !inventoryRulesChanged(inventoryRules, contract.inventoryRules ?? null) &&
   (baseRoomView === undefined ||
     pricingFromDraft(draft, baseRoomView) !== null ||
     !hasPricingInput(draft));

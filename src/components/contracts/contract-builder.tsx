@@ -588,11 +588,13 @@ export function ContractBuilder({
   const additionalInventoryVariations = inventoryVariations;
   const payloadInventoryVariations =
     inventory.model === "shared" ? additionalInventoryVariations : inventoryVariations;
-  const inventoryRules = onRequest
+  // Inventory applies to every booking type. A saved contract without inventory rules stays
+  // unconfigured until a mode is picked: `undefined` means saves leave its inventory alone.
+  const inventoryUnconfigured = inventory.model === null;
+  const inventoryRules = inventoryUnconfigured
     ? undefined
     : toInventoryRules(inventory, payloadInventoryVariations);
   const baseRoomViewMissing =
-    !onRequest &&
     draft.baseSupplements.baseRoomId !== null &&
     !baseRoomDataAvailable &&
     !selectedRoomDetailsLoading;
@@ -909,7 +911,9 @@ export function ContractBuilder({
             ? t.invShared
             : inventory.model === "perRoom"
               ? t.invPerRoom
-              : t.invFree,
+              : inventory.model === "free"
+                ? t.invFree
+                : t.reviewInventoryNotConfigured,
           ...(inventory.model === "shared"
             ? [fill(t.invNightsValue, { count: Number(inventory.roomsPerNight) || 0 })]
             : []),
@@ -1141,8 +1145,10 @@ export function ContractBuilder({
       return;
     }
     const issues = validateContract(draft, f.v, childMaxAge);
+    // Allotment contracts must configure inventory before review (as before); On Request
+    // ones may leave it unconfigured, but a mode they do pick is validated the same way.
     if (
-      !onRequest &&
+      (!onRequest || !inventoryUnconfigured) &&
       (baseRoomViewMissing || !toInventoryRules(inventory, payloadInventoryVariations, true))
     ) {
       issues.push({ section: "inventory", message: f.v.inventory });
@@ -1202,7 +1208,7 @@ export function ContractBuilder({
       return false;
     }
 
-    if (!onRequest && !inventoryRules) {
+    if (!inventoryUnconfigured && !inventoryRules) {
       notify.error(f.v.inventory);
       jumpTo("inventory");
       return false;
@@ -1698,10 +1704,10 @@ export function ContractBuilder({
                   t.summaryStock,
                   !basicsDone
                     ? t.summaryEmpty
-                    : onRequest
-                      ? t.summaryNoStock
-                      : inventory.model === "free"
-                        ? t.invFree
+                    : inventory.model === "free"
+                      ? t.invFree
+                      : inventory.model === null
+                        ? t.summaryEmpty
                         : fill(t.summaryStockValue, { count: inventoryQuantity }),
                 ],
               ].map(([label, value]) => (
@@ -1823,30 +1829,28 @@ export function ContractBuilder({
             id={num("inventory")}
             {...sectionFlow("inventory")}
             title={t.sections[5]!}
-            body={onRequest ? t.requestInvBody : t.inventoryBody}
+            body={t.inventoryBody}
             locked={!basicsDone}
             tone={basicsDone ? "done" : "locked"}
           >
-            {/* UI 03.1B — an On Request contract commits no rooms at all. */}
-            {onRequest ? (
-              <p className="text-sm leading-relaxed text-text-secondary">{t.requestInvShort}</p>
-            ) : (
-              <>
-                {baseRoomViewMissing && (
-                  <div className="mb-3 flex flex-wrap items-center gap-3">
-                    <p className="text-sm text-status-danger">{t.invRoomDetailsError}</p>
-                  </div>
-                )}
-                <p className="text-sm font-medium text-text-primary">{t.inventoryModel}</p>
-                <ChoiceRow
-                  value={inventory.model}
-                  onChange={(next) => dispatch(updateInventory({ model: next as InventoryModel }))}
-                  options={[
-                    { value: "shared", label: t.invShared },
-                    { value: "perRoom", label: t.invPerRoom },
-                    { value: "free", label: t.invFree },
-                  ]}
-                />
+            {/* Inventory rules apply to both booking types. */}
+            <>
+              {baseRoomViewMissing && (
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-status-danger">{t.invRoomDetailsError}</p>
+                </div>
+              )}
+              <p className="text-sm font-medium text-text-primary">{t.inventoryModel}</p>
+              <ChoiceRow
+                value={inventory.model ?? ""}
+                onChange={(next) => dispatch(updateInventory({ model: next as InventoryModel }))}
+                options={[
+                  { value: "shared", label: t.invShared },
+                  { value: "perRoom", label: t.invPerRoom },
+                  { value: "free", label: t.invFree },
+                ]}
+              />
+              {inventory.model !== null && (
                 <p className="mt-2 text-xs leading-relaxed text-text-muted">
                   {inventory.model === "shared"
                     ? t.invSharedHint
@@ -1854,197 +1858,126 @@ export function ContractBuilder({
                       ? t.invPerRoomHint
                       : t.invFreeHint}
                 </p>
+              )}
 
-                {/* UI 03.1L — free sale has no number, so it has no table. */}
-                {inventory.model === "free" && (
-                  <div className="mt-3 space-y-2">
-                    {[t.invFreeNote1, t.invFreeNote2, t.invFreeNote3].map((note) => (
-                      <p key={note} className="text-xs leading-relaxed text-text-muted">
-                        {note}
-                      </p>
-                    ))}
-                  </div>
-                )}
-
-                {inventory.model === "shared" && (
-                  <>
-                    <div className="mt-4 max-w-xs">
-                      <Input
-                        id="contract-inventory-shared-rooms-per-night"
-                        label={t.colRoomsNight}
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={inventory.roomsPerNight}
-                        onChange={(e) =>
-                          dispatch(updateInventory({ roomsPerNight: e.target.value }))
-                        }
-                        suffix="/ night"
-                      />
-                    </div>
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                      {t.invNightsHint}
+              {/* UI 03.1L — free sale has no number, so it has no table. */}
+              {inventory.model === "free" && (
+                <div className="mt-3 space-y-2">
+                  {[t.invFreeNote1, t.invFreeNote2, t.invFreeNote3].map((note) => (
+                    <p key={note} className="text-xs leading-relaxed text-text-muted">
+                      {note}
                     </p>
+                  ))}
+                </div>
+              )}
 
-                    <Table
-                      head={[c.roomDetails.roomSize, t.colCap, t.colSellsShort]}
-                      rows={additionalInventoryVariations.map((variation) => {
-                        const roomName = contractRoomLabel(
-                          {
-                            id: variation.roomId,
-                            roomSizeId: selectedDetailsById[variation.roomId]?.roomSizeId ?? null,
-                          },
-                          lang,
-                        );
-                        const viewName = f.views[variation.view as RoomView] ?? variation.view;
-                        const label = `${roomName} · ${viewName}`;
-                        const planNames = variation.plans
-                          .map((plan) => {
-                            const metadataPlan = contractMetadata.data?.mealPlans.find(
-                              (option) => option.value === plan,
-                            );
-                            return (
-                              (lang === "ar" ? metadataPlan?.labelAr : metadataPlan?.labelEn) ||
-                              plan
-                            );
-                          })
-                          .join(lang === "ar" ? "، " : ", ");
-                        const key = inventoryVariationKey(variation);
-                        return [
-                          <span key={`${key}-room`}>{label}</span>,
+              {inventory.model === "shared" && (
+                <>
+                  <div className="mt-4 max-w-xs">
+                    <Input
+                      id="contract-inventory-shared-rooms-per-night"
+                      label={t.colRoomsNight}
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={inventory.roomsPerNight}
+                      onChange={(e) => dispatch(updateInventory({ roomsPerNight: e.target.value }))}
+                      suffix="/ night"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.invNightsHint}</p>
+
+                  <Table
+                    head={[c.roomDetails.roomSize, t.colCap, t.colSellsShort]}
+                    rows={additionalInventoryVariations.map((variation) => {
+                      const roomName = contractRoomLabel(
+                        {
+                          id: variation.roomId,
+                          roomSizeId: selectedDetailsById[variation.roomId]?.roomSizeId ?? null,
+                        },
+                        lang,
+                      );
+                      const viewName = f.views[variation.view as RoomView] ?? variation.view;
+                      const label = `${roomName} · ${viewName}`;
+                      const planNames = variation.plans
+                        .map((plan) => {
+                          const metadataPlan = contractMetadata.data?.mealPlans.find(
+                            (option) => option.value === plan,
+                          );
+                          return (
+                            (lang === "ar" ? metadataPlan?.labelAr : metadataPlan?.labelEn) || plan
+                          );
+                        })
+                        .join(lang === "ar" ? "، " : ", ");
+                      const key = inventoryVariationKey(variation);
+                      return [
+                        <span key={`${key}-room`}>{label}</span>,
+                        <Input
+                          key={`${key}-cap`}
+                          className="max-w-32"
+                          type="number"
+                          min={1}
+                          step={1}
+                          aria-label={`${label} · ${t.colCap}`}
+                          placeholder={t.invNoCap}
+                          value={inventory.roomCaps[key] ?? ""}
+                          onChange={(event) =>
+                            dispatch(setInventoryRoomCap({ key, value: event.target.value }))
+                          }
+                        />,
+                        planNames || "—",
+                      ];
+                    })}
+                  />
+                  {inventoryVariations.length === 0 && (
+                    <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
+                  )}
+                  <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.capHint}</p>
+                </>
+              )}
+
+              {/* UI 03.1N — a number per room type, and what draws from it. */}
+              {inventory.model === "perRoom" && (
+                <>
+                  <Table
+                    head={[c.roomDetails.roomSize, t.colRoomsNight, t.colDrawsFrom]}
+                    rows={additionalInventoryVariations.map((variation, index) => {
+                      const roomName = contractRoomLabel(
+                        {
+                          id: variation.roomId,
+                          roomSizeId: selectedDetailsById[variation.roomId]?.roomSizeId ?? null,
+                        },
+                        lang,
+                      );
+                      const viewName = f.views[variation.view as RoomView] ?? variation.view;
+                      const label = `${roomName} · ${viewName}`;
+                      const planNames = variation.plans
+                        .map((plan) => {
+                          const metadataPlan = contractMetadata.data?.mealPlans.find(
+                            (option) => option.value === plan,
+                          );
+                          return (
+                            (lang === "ar" ? metadataPlan?.labelAr : metadataPlan?.labelEn) || plan
+                          );
+                        })
+                        .join(lang === "ar" ? "، " : ", ");
+                      const key = inventoryVariationKey(variation);
+                      return [
+                        <span key={`${key}-room`}>{label}</span>,
+                        <div key={`${key}-quantity`} className="flex space-y-2 gap-2">
                           <Input
-                            key={`${key}-cap`}
-                            className="max-w-32"
+                            className="flex-1 w-full"
                             type="number"
-                            min={1}
-                            step={1}
-                            aria-label={`${label} · ${t.colCap}`}
-                            placeholder={t.invNoCap}
-                            value={inventory.roomCaps[key] ?? ""}
-                            onChange={(event) =>
-                              dispatch(setInventoryRoomCap({ key, value: event.target.value }))
-                            }
-                          />,
-                          planNames || "—",
-                        ];
-                      })}
-                    />
-                    {inventoryVariations.length === 0 && (
-                      <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
-                    )}
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.capHint}</p>
-                  </>
-                )}
-
-                {/* UI 03.1N — a number per room type, and what draws from it. */}
-                {inventory.model === "perRoom" && (
-                  <>
-                    <Table
-                      head={[c.roomDetails.roomSize, t.colRoomsNight, t.colDrawsFrom]}
-                      rows={additionalInventoryVariations.map((variation, index) => {
-                        const roomName = contractRoomLabel(
-                          {
-                            id: variation.roomId,
-                            roomSizeId: selectedDetailsById[variation.roomId]?.roomSizeId ?? null,
-                          },
-                          lang,
-                        );
-                        const viewName = f.views[variation.view as RoomView] ?? variation.view;
-                        const label = `${roomName} · ${viewName}`;
-                        const planNames = variation.plans
-                          .map((plan) => {
-                            const metadataPlan = contractMetadata.data?.mealPlans.find(
-                              (option) => option.value === plan,
-                            );
-                            return (
-                              (lang === "ar" ? metadataPlan?.labelAr : metadataPlan?.labelEn) ||
-                              plan
-                            );
-                          })
-                          .join(lang === "ar" ? "، " : ", ");
-                        const key = inventoryVariationKey(variation);
-                        return [
-                          <span key={`${key}-room`}>{label}</span>,
-                          <div key={`${key}-quantity`} className="flex space-y-2 gap-2">
-                            <Input
-                              className="flex-1 w-full"
-                              type="number"
-                              id={`contract-inventory-rooms-per-night-${variation.roomId}-${index}`}
-                              label={t.colRoomsNight}
-                              min={1}
-                              step={1}
-                              aria-label={`${label} · ${t.colRoomsNight}`}
-                              value={inventory.rooms[key]?.roomsPerNight ?? ""}
-                              onChange={(event) =>
-                                dispatch(
-                                  setPerRoomInventory({
-                                    key,
-                                    field: "roomsPerNight",
-                                    value: event.target.value,
-                                  }),
-                                )
-                              }
-                            />
-                            {inventory.soldOut === "overbooking" && (
-                              <Input
-                                className="flex-1 w-full"
-                                type="number"
-                                label={t.overbooking}
-                                min={1}
-                                step={1}
-                                aria-label={`${label} · ${t.overLimit}`}
-                                placeholder={t.overLimit}
-                                value={inventory.rooms[key]?.overbookingLimitPerNight ?? ""}
-                                onChange={(event) =>
-                                  dispatch(
-                                    setPerRoomInventory({
-                                      key,
-                                      field: "overbookingLimitPerNight",
-                                      value: event.target.value,
-                                    }),
-                                  )
-                                }
-                              />
-                            )}
-                          </div>,
-                          planNames || "—",
-                        ];
-                      })}
-                    />
-                    {/* {baseInventoryVariation && (
-                      <div className="mt-4 rounded-lg border border-border-subtle p-4">
-                        <p className="mb-3 text-sm font-medium text-text-primary">
-                          {contractRoomLabel(
-                            {
-                              id: baseInventoryVariation.roomId,
-                              roomSizeId:
-                                selectedDetailsById[baseInventoryVariation.roomId]?.roomSizeId ??
-                                null,
-                            },
-                            lang,
-                          )}
-                          {" · "}
-                          {f.views[baseInventoryVariation.view as RoomView] ??
-                            baseInventoryVariation.view}
-                          {" · "}
-                          {f.baseTag}
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                          <Input
-                            className="max-w-32"
+                            id={`contract-inventory-rooms-per-night-${variation.roomId}-${index}`}
                             label={t.colRoomsNight}
-                            type="number"
                             min={1}
                             step={1}
-                            aria-label={`${f.baseTag} · ${t.colRoomsNight}`}
-                            value={
-                              inventory.rooms[inventoryVariationKey(baseInventoryVariation)]
-                                ?.roomsPerNight ?? ""
-                            }
+                            aria-label={`${label} · ${t.colRoomsNight}`}
+                            value={inventory.rooms[key]?.roomsPerNight ?? ""}
                             onChange={(event) =>
                               dispatch(
                                 setPerRoomInventory({
-                                  key: inventoryVariationKey(baseInventoryVariation),
+                                  key,
                                   field: "roomsPerNight",
                                   value: event.target.value,
                                 }),
@@ -2053,21 +1986,18 @@ export function ContractBuilder({
                           />
                           {inventory.soldOut === "overbooking" && (
                             <Input
-                              className=""
-                              label={t.overLimit}
+                              className="flex-1 w-full"
                               type="number"
+                              label={t.overbooking}
                               min={1}
                               step={1}
-                              aria-label={`${f.baseTag} · ${t.overLimit}`}
+                              aria-label={`${label} · ${t.overLimit}`}
                               placeholder={t.overLimit}
-                              value={
-                                inventory.rooms[inventoryVariationKey(baseInventoryVariation)]
-                                  ?.overbookingLimitPerNight ?? ""
-                              }
+                              value={inventory.rooms[key]?.overbookingLimitPerNight ?? ""}
                               onChange={(event) =>
                                 dispatch(
                                   setPerRoomInventory({
-                                    key: inventoryVariationKey(baseInventoryVariation),
+                                    key,
                                     field: "overbookingLimitPerNight",
                                     value: event.target.value,
                                   }),
@@ -2075,78 +2005,146 @@ export function ContractBuilder({
                               }
                             />
                           )}
-                        </div>
-                      </div>
-                    )} */}
-                    {inventoryVariations.length === 0 && (
-                      <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
-                    )}
-                  </>
-                )}
-
-                {inventory.model !== "free" && (
-                  <>
-                    <p className="mt-5 text-sm font-medium text-text-primary">{t.soldOut}</p>
-                    <ChoiceRow
-                      value={inventory.soldOut}
-                      onChange={(next) =>
-                        dispatch(updateInventory({ soldOut: next as SoldOutAction }))
-                      }
-                      options={[
-                        { value: "stop", label: t.soldOutStop },
-                        { value: "request", label: t.soldOutRequest },
-                        { value: "overbooking", label: t.soldOutOver },
-                      ]}
-                    />
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.overHint}</p>
-                    {inventory.soldOut === "stop" && (
-                      <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                        {t.soldOutStopHint}
-                      </p>
-                    )}
-                    {inventory.soldOut === "request" && (
-                      <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                        {t.soldOutRequestHint}
-                      </p>
-                    )}
-                    {inventory.soldOut === "overbooking" && (
-                      <>
-                        {inventory.model === "shared" ? (
-                          <>
-                            <div className="mt-3 max-w-xs">
-                              <Input
-                                label={t.overLimit}
-                                type="number"
-                                min={1}
-                                step={1}
-                                value={inventory.sharedOverbookingLimitPerNight}
-                                onChange={(event) =>
-                                  dispatch(
-                                    updateInventory({
-                                      sharedOverbookingLimitPerNight: event.target.value,
-                                    }),
-                                  )
-                                }
-                              />
-                            </div>
-                            <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                              {fill(t.overLimitHint, {
-                                stock: inventory.roomsPerNight || "0",
-                                limit: inventory.sharedOverbookingLimitPerNight || "—",
-                              })}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                            {t.perRoomLimitHint}
-                          </p>
+                        </div>,
+                        planNames || "—",
+                      ];
+                    })}
+                  />
+                  {/* {baseInventoryVariation && (
+                    <div className="mt-4 rounded-lg border border-border-subtle p-4">
+                      <p className="mb-3 text-sm font-medium text-text-primary">
+                        {contractRoomLabel(
+                          {
+                            id: baseInventoryVariation.roomId,
+                            roomSizeId:
+                              selectedDetailsById[baseInventoryVariation.roomId]?.roomSizeId ??
+                              null,
+                          },
+                          lang,
                         )}
-                      </>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+                        {" · "}
+                        {f.views[baseInventoryVariation.view as RoomView] ??
+                          baseInventoryVariation.view}
+                        {" · "}
+                        {f.baseTag}
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        <Input
+                          className="max-w-32"
+                          label={t.colRoomsNight}
+                          type="number"
+                          min={1}
+                          step={1}
+                          aria-label={`${f.baseTag} · ${t.colRoomsNight}`}
+                          value={
+                            inventory.rooms[inventoryVariationKey(baseInventoryVariation)]
+                              ?.roomsPerNight ?? ""
+                          }
+                          onChange={(event) =>
+                            dispatch(
+                              setPerRoomInventory({
+                                key: inventoryVariationKey(baseInventoryVariation),
+                                field: "roomsPerNight",
+                                value: event.target.value,
+                              }),
+                            )
+                          }
+                        />
+                        {inventory.soldOut === "overbooking" && (
+                          <Input
+                            className=""
+                            label={t.overLimit}
+                            type="number"
+                            min={1}
+                            step={1}
+                            aria-label={`${f.baseTag} · ${t.overLimit}`}
+                            placeholder={t.overLimit}
+                            value={
+                              inventory.rooms[inventoryVariationKey(baseInventoryVariation)]
+                                ?.overbookingLimitPerNight ?? ""
+                            }
+                            onChange={(event) =>
+                              dispatch(
+                                setPerRoomInventory({
+                                  key: inventoryVariationKey(baseInventoryVariation),
+                                  field: "overbookingLimitPerNight",
+                                  value: event.target.value,
+                                }),
+                              )
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )} */}
+                  {inventoryVariations.length === 0 && (
+                    <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
+                  )}
+                </>
+              )}
+
+              {inventory.model !== null && inventory.model !== "free" && (
+                <>
+                  <p className="mt-5 text-sm font-medium text-text-primary">{t.soldOut}</p>
+                  <ChoiceRow
+                    value={inventory.soldOut}
+                    onChange={(next) =>
+                      dispatch(updateInventory({ soldOut: next as SoldOutAction }))
+                    }
+                    options={[
+                      { value: "stop", label: t.soldOutStop },
+                      { value: "request", label: t.soldOutRequest },
+                      { value: "overbooking", label: t.soldOutOver },
+                    ]}
+                  />
+                  <p className="mt-2 text-xs leading-relaxed text-text-muted">{t.overHint}</p>
+                  {inventory.soldOut === "stop" && (
+                    <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                      {t.soldOutStopHint}
+                    </p>
+                  )}
+                  {inventory.soldOut === "request" && (
+                    <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                      {t.soldOutRequestHint}
+                    </p>
+                  )}
+                  {inventory.soldOut === "overbooking" && (
+                    <>
+                      {inventory.model === "shared" ? (
+                        <>
+                          <div className="mt-3 max-w-xs">
+                            <Input
+                              label={t.overLimit}
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={inventory.sharedOverbookingLimitPerNight}
+                              onChange={(event) =>
+                                dispatch(
+                                  updateInventory({
+                                    sharedOverbookingLimitPerNight: event.target.value,
+                                  }),
+                                )
+                              }
+                            />
+                          </div>
+                          <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                            {fill(t.overLimitHint, {
+                              stock: inventory.roomsPerNight || "0",
+                              limit: inventory.sharedOverbookingLimitPerNight || "—",
+                            })}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                          {t.perRoomLimitHint}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </>
           </Section>
 
           {/* 7 — Rate seasons */}

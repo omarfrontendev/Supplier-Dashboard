@@ -17,7 +17,8 @@ export interface PerRoomInventoryDraft {
 }
 
 export interface InventoryDraft {
-  model: InventoryModel;
+  /** `null` = a saved contract with no inventory rules; no mode until the user picks one. */
+  model: InventoryModel | null;
   roomsPerNight: string;
   roomCaps: Record<string, string>;
   rooms: Record<string, PerRoomInventoryDraft>;
