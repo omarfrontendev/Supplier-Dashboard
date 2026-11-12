@@ -299,9 +299,9 @@ export function ActivateDrawer({
                     <p className="mt-1 text-[12.5px] leading-5 text-text-primary">
                       {issue.message}
                     </p>
-                    <p className="mt-1 break-words text-[11px] leading-4 text-text-muted">
+                    {/* <p className="mt-1 break-words text-[11px] leading-4 text-text-muted">
                       {metadata}
-                    </p>
+                    </p> */}
                   </article>
                 );
               })}
