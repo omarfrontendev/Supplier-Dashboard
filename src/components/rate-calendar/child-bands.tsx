@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { OldPrice } from "@/components/rate-calendar/old-price";
 import { useLanguage } from "@/lib/i18n";
 import { bulkSupplements as bs } from "@/lib/rate-overlay-data";
 import {
@@ -46,20 +47,24 @@ export function ChildBandsFields({
                   value={shown.to}
                   onChange={(e) => state.edit(band, "to", e.target.value)}
                 />
-                <Input
-                  id={`${idPrefix}-${band.category}-price`}
-                  label={bs.childPrice[k]}
-                  inputMode="decimal"
-                  value={free ? "0" : shown.price}
-                  disabled={free}
-                  onChange={(e) => state.edit(band, "price", e.target.value)}
-                  suffix={currency}
-                  {...(free
-                    ? { hint: bs.alwaysFree[k] }
-                    : entry && priceBad(entry.price)
-                      ? { error: bs.badPrice[k] }
-                      : {})}
-                />
+                <div>
+                  <Input
+                    id={`${idPrefix}-${band.category}-price`}
+                    label={bs.childPrice[k]}
+                    inputMode="decimal"
+                    value={free ? "0" : shown.price}
+                    disabled={free}
+                    onChange={(e) => state.edit(band, "price", e.target.value)}
+                    suffix={currency}
+                    {...(free
+                      ? { hint: bs.alwaysFree[k] }
+                      : entry && priceBad(entry.price)
+                        ? { error: bs.badPrice[k] }
+                        : {})}
+                  />
+                  {/* The band's own price, never the box: it holds while the box is edited. */}
+                  {!free && <OldPrice value={band.price} currency={currency} />}
+                </div>
               </div>
             </div>
           );

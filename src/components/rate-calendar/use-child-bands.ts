@@ -72,6 +72,26 @@ export function useChildBands(bands: ChildBand[]) {
       );
   const edit = (band: ChildBand, field: keyof BandText, text: string) =>
     setDraft((current) => ({ ...current, [band.category]: { ...shownOf(band), [field]: text } }));
+  /* A price box that no longer reads its original price (ages are not prices). */
+  const pricesTouched = bands.some(
+    (band) =>
+      band.category !== "sharing_parents" &&
+      draft[band.category] !== undefined &&
+      draft[band.category]!.price !== textOf(band.price),
+  );
+  /* Puts only the price boxes back to their original values; typed ages stay. */
+  const resetPrices = () =>
+    setDraft((current) => {
+      const next: Partial<Record<ChildCategory, BandText>> = {};
+      for (const band of bands) {
+        const text = current[band.category];
+        if (!text) continue;
+        const restored = { ...text, price: textOf(band.price) };
+        if (restored.from !== textOf(band.from) || restored.to !== textOf(band.to))
+          next[band.category] = restored;
+      }
+      return next;
+    });
   return {
     bands,
     shownOf,
@@ -80,6 +100,8 @@ export function useChildBands(bands: ChildBand[]) {
     touched,
     bad,
     values,
+    pricesTouched,
+    resetPrices,
     reset: () => setDraft({}),
   };
 }

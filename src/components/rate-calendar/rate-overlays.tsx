@@ -38,6 +38,7 @@ import {
 } from "@/lib/nationality-price-data";
 import { bulkSupplements, sellingFloor } from "@/lib/rate-overlay-data";
 import { ChildBandsFields } from "@/components/rate-calendar/child-bands";
+import { OldPrice } from "@/components/rate-calendar/old-price";
 import {
   useChildBands,
   type ChildBand,
@@ -2298,6 +2299,33 @@ export function OneNightOverlay({
   /* OV 04.6N - a fixed-price group is the only one you can type into. */
   const [groupPrice, setGroupPrice] = useState<Record<string, string>>({});
 
+  /*
+   * Old price and Reset. The originals are the props the boxes open on
+   * (current / currentWeekday / each meal line's price / each child band's
+   * price) - kept apart from the typed text, so editing never moves them.
+   */
+  const asText = (value: number) => (k === "ar" ? arNum(value) : String(value));
+  const originalPrice = start;
+  const originalWeekday = currentWeekday ?? 400;
+  const pricesDirty =
+    typed ||
+    Object.keys(mealDraft).length > 0 ||
+    nightChildren.pricesTouched ||
+    Object.keys(perNight).length > 0 ||
+    Object.keys(perWeekend).length > 0 ||
+    Object.keys(groupPrice).length > 0;
+  /* Local only: no request. Nights, days, the split and other choices stay as they are. */
+  const resetPrices = () => {
+    setTyped(false);
+    setPrice(asText(originalPrice));
+    setWeekdayPrice(asText(originalWeekday));
+    setMealDraft({});
+    nightChildren.resetPrices();
+    setPerNight({});
+    setPerWeekend({});
+    setGroupPrice({});
+  };
+
   /**
    * OV 04.6J — a room cannot be given away.
    *
@@ -2514,6 +2542,14 @@ export function OneNightOverlay({
             </>
           }
         >
+          <Button
+            variant="outline"
+            disabled={saving || !pricesDirty}
+            title={bulkSupplements.resetPricesHint[k]}
+            onClick={resetPrices}
+          >
+            {bulkSupplements.resetPrices[k]}
+          </Button>
           <Button variant="outline" onClick={onClose}>
             {c.cancel[k]}
           </Button>
@@ -2728,6 +2764,7 @@ export function OneNightOverlay({
                 setWeekdayPrice(next);
               }}
             />
+            <OldPrice value={originalWeekday} currency={currency} />
             <p className="mt-1.5 text-[11.5px] text-text-quiet">
               {fill(c.contractIs[k], {
                 price: k === "ar" ? arNum(fixed ? 490 : 400) : fixed ? "490" : "400",
@@ -2765,6 +2802,7 @@ export function OneNightOverlay({
             className={cn(!missing && "border-brand-deep")}
             invalid={missing}
           />
+          <OldPrice value={originalPrice} currency={currency} />
           {/* One line under the field, and it is whichever matters most:
               the refusal, then the warning, then what it is being
               compared with. The under-floor warning is not shown. */}
@@ -3033,13 +3071,16 @@ export function OneNightOverlay({
             return (
               <PanelRow key={line.label}>
                 <span className="min-w-0 flex-1 text-[12.5px] text-text-primary">{line.label}</span>
-                <Box
-                  value={mealShown(meal)}
-                  onChange={(next) => setMealDraft((prev) => ({ ...prev, [meal.type]: next }))}
-                  suffix={meal.unit}
-                  className="w-[190px]"
-                  invalid={amount !== null && Number.isNaN(amount)}
-                />
+                <span className="w-[190px] shrink-0">
+                  <Box
+                    value={mealShown(meal)}
+                    onChange={(next) => setMealDraft((prev) => ({ ...prev, [meal.type]: next }))}
+                    suffix={meal.unit}
+                    className="w-full"
+                    invalid={amount !== null && Number.isNaN(amount)}
+                  />
+                  <OldPrice value={meal.price} currency={currency} />
+                </span>
               </PanelRow>
             );
           })}

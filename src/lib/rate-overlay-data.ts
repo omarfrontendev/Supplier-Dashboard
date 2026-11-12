@@ -1358,6 +1358,14 @@ export const bulkSupplements = {
   weekdays: t("Weekdays", "أيام الأسبوع"),
   weekend: t("Weekend", "نهاية الأسبوع"),
   contractOffer: t("Now: {price}.", "الآن: {price}."),
+  /** Change prices (single and bulk): the price before this unsaved edit. */
+  oldPrice: t("Old price: {price}", "السعر السابق: {price}"),
+  /** Change prices (single and bulk): put every price back as it opened. */
+  resetPrices: t("Reset", "إعادة تعيين"),
+  resetPricesHint: t(
+    "Put every price back to what it was when you opened this.",
+    "أعد كل الأسعار إلى ما كانت عليه عند الفتح.",
+  ),
   badOffer: t(
     "Enter a price of 0 or more for every night type.",
     "اكتب سعرًا يساوي ٠ أو أكثر لكل نوع ليلة.",
