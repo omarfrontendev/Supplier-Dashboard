@@ -1965,12 +1965,12 @@ export function ContractBuilder({
                         const key = inventoryVariationKey(variation);
                         return [
                           <span key={`${key}-room`}>{label}</span>,
-                          <div key={`${key}-quantity`} className="max-w-44 space-y-2">
+                          <div key={`${key}-quantity`} className="flex space-y-2 gap-2">
                             <Input
+                              className="flex-1 w-full"
+                              type="number"
                               id={`contract-inventory-rooms-per-night-${variation.roomId}-${index}`}
                               label={t.colRoomsNight}
-                              className="max-w-32"
-                              type="number"
                               min={1}
                               step={1}
                               aria-label={`${label} · ${t.colRoomsNight}`}
@@ -1987,7 +1987,7 @@ export function ContractBuilder({
                             />
                             {inventory.soldOut === "overbooking" && (
                               <Input
-                                className="max-w-32"
+                                className="flex-1 w-full"
                                 type="number"
                                 label={t.overbooking}
                                 min={1}
