@@ -2308,7 +2308,7 @@ export function ContractBuilder({
               }}
               options={[
                 { value: "add", label: t.addToContract },
-                { value: "none", label: t.noPoliciesOnContract },
+                // { value: "none", label: t.noPoliciesOnContract },
               ]}
             />
             {!hasPolicies && (
