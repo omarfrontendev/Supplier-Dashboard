@@ -52,10 +52,11 @@ export function RestrictionsFields() {
     (a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate),
   );
 
-  const roomOptions = rooms.map((room) => ({
-    value: String(room.id),
-    label: roomLabel(room, lang, f),
-  }));
+  const roomOptions = rooms.map((room) => {
+    const size = roomLabel(room, lang, f);
+    const view = room.view && room.view !== "no_view" ? (f.views[room.view] ?? room.view) : "";
+    return { value: String(room.id), label: view ? `${size} · ${view}` : size };
+  });
   const roomName = (rule: RestrictionRule) =>
     rule.roomId === null
       ? r.roomPh
