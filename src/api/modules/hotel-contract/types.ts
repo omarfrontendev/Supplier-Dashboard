@@ -337,10 +337,11 @@ export type ContractInventoryRules =
         view: string;
         maxRoomsPerNight: number;
       }>;
-      whenSoldOut: {
-        action: InventorySoldOutAction;
+      // Not guaranteed by the API on read; may be absent or null on an incomplete configuration.
+      whenSoldOut?: {
+        action?: InventorySoldOutAction | null;
         overbookingLimitPerNight?: number;
-      };
+      } | null;
     }
   | {
       mode: "per_room_type";
@@ -350,9 +351,10 @@ export type ContractInventoryRules =
         roomsPerNight: number;
         overbookingLimitPerNight?: number;
       }>;
-      whenSoldOut: {
-        action: InventorySoldOutAction;
-      };
+      // Not guaranteed by the API on read; may be absent or null on an incomplete configuration.
+      whenSoldOut?: {
+        action?: InventorySoldOutAction | null;
+      } | null;
     };
 
 export type SeasonChildPrices = Partial<Record<keyof ContractChildPricing, number>>;

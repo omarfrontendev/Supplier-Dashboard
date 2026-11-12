@@ -319,7 +319,14 @@ export function inventoryDraftFromRules(rules: ContractInventoryRules | null): I
   };
   if (!rules) return initial;
   if (rules.mode === "free_sale") return { ...initial, model: "free" };
-  const soldOut = inventoryActionFromApi[rules.whenSoldOut.action];
+  // whenSoldOut / action can be missing on an incomplete saved configuration. The editor
+  // then keeps its own form default (same as for a contract with no inventory rules); that
+  // value is only sent once the user saves the inventory step.
+  const savedAction = rules.whenSoldOut?.action;
+  const soldOut =
+    savedAction && savedAction in inventoryActionFromApi
+      ? inventoryActionFromApi[savedAction]
+      : initial.soldOut;
   if (rules.mode === "shared_pool") {
     return {
       ...initial,
@@ -332,14 +339,14 @@ export function inventoryDraftFromRules(rules: ContractInventoryRules | null): I
         ]),
       ),
       soldOut,
-      sharedOverbookingLimitPerNight: String(rules.whenSoldOut.overbookingLimitPerNight ?? ""),
+      sharedOverbookingLimitPerNight: String(rules.whenSoldOut?.overbookingLimitPerNight ?? ""),
     };
   }
   return {
     ...initial,
     model: "perRoom",
     rooms: Object.fromEntries(
-      rules.rooms.map((room) => [
+      (rules.rooms ?? []).map((room) => [
         inventoryVariationKey(room),
         {
           roomsPerNight: String(room.roomsPerNight),
@@ -363,13 +370,13 @@ const inventoryRuleKey = (rules: ContractInventoryRules | null | undefined) => {
         .sort(([aRoom, aView], [bRoom, bView]) =>
           `${aRoom}:${aView}`.localeCompare(`${bRoom}:${bView}`),
         ),
-      rules.whenSoldOut.action,
-      rules.whenSoldOut.overbookingLimitPerNight ?? null,
+      rules.whenSoldOut?.action ?? null,
+      rules.whenSoldOut?.overbookingLimitPerNight ?? null,
     ]);
   }
   return JSON.stringify([
     rules.mode,
-    [...rules.rooms]
+    [...(rules.rooms ?? [])]
       .map((room) => [
         room.roomId,
         room.view,
@@ -379,7 +386,7 @@ const inventoryRuleKey = (rules: ContractInventoryRules | null | undefined) => {
       .sort(([aRoom, aView], [bRoom, bView]) =>
         `${aRoom}:${aView}`.localeCompare(`${bRoom}:${bView}`),
       ),
-    rules.whenSoldOut.action,
+    rules.whenSoldOut?.action ?? null,
   ]);
 };
 

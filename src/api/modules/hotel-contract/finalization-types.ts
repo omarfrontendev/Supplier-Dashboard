@@ -33,10 +33,11 @@ export type FinalizationInventoryRules =
         variationId?: number;
         maxRoomsPerNight: number;
       }>;
-      whenSoldOut: {
-        action: "stop_sale" | "on_request" | "controlled_overbooking";
+      // Not guaranteed by the API; may be absent or null on an incomplete configuration.
+      whenSoldOut?: {
+        action?: "stop_sale" | "on_request" | "controlled_overbooking" | null;
         overbookingLimitPerNight?: number;
-      };
+      } | null;
     }
   | {
       mode: "per_room_type";
@@ -47,9 +48,10 @@ export type FinalizationInventoryRules =
         roomsPerNight: number;
         overbookingLimitPerNight?: number;
       }>;
-      whenSoldOut: {
-        action: "stop_sale" | "on_request" | "controlled_overbooking";
-      };
+      // Not guaranteed by the API; may be absent or null on an incomplete configuration.
+      whenSoldOut?: {
+        action?: "stop_sale" | "on_request" | "controlled_overbooking" | null;
+      } | null;
     };
 
 export type FinalizationRate =
@@ -205,12 +207,14 @@ export interface FinalizationInventoryPreview {
   startDate: string;
   endDate: string;
   nights: number;
-  mode: string;
+  /** null while inventory is not configured (inventoryStatus "not_configured"). */
+  mode: string | null;
   poolCount: number;
   poolNights: number;
   capNights: number;
   estimatedRecords: number;
-  rules: FinalizationInventoryRules;
+  /** null while inventory is not configured; the review then carries an inventory_required issue. */
+  rules: FinalizationInventoryRules | null;
 }
 
 export interface FinalizationConfirmation {

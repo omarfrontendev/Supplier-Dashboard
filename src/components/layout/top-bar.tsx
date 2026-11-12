@@ -41,6 +41,22 @@ export function TopBar() {
   /* OV CH.1 - the search the glass opens, and the "/" the guide asks for. */
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
+  /* Signed-in user saved at login. localStorage only exists in the browser, so it is read
+     after mount (same pattern as useStoredPref): the server render and the first client
+     render both start empty and match, then the name/email fill in. */
+  const [userData, setUserData] = useState<{
+    username?: string;
+    email?: string;
+    role?: string;
+  } | null>(null);
+  useEffect(() => {
+    try {
+      setUserData(JSON.parse(window.localStorage.getItem("userData") || "null"));
+    } catch {
+      /* unreadable storage or malformed value - show no user details */
+      setUserData(null);
+    }
+  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -222,8 +238,6 @@ export function TopBar() {
       </div>
     </>
   );
-
-  const userData = JSON?.parse(localStorage.getItem("userData") || "null");
 
   const profile = (
     <DropdownMenu>

@@ -560,7 +560,7 @@ export function ContractBuilder({
                 }),
           }))
         : saved?.inventoryRules?.mode === "per_room_type"
-          ? saved.inventoryRules.rooms.map((variation) => ({
+          ? (saved.inventoryRules.rooms ?? []).map((variation) => ({
               ...variation,
               plans: [],
               isBase:
@@ -827,77 +827,83 @@ export function ContractBuilder({
     const mealSummary = mealValues.length > 0 ? mealValues.join(" · ") : f.policies.notSet;
 
     const preview = review?.inventoryPreview;
+    // The review API returns `inventoryPreview.rules: null` (and `mode: null`) while the
+    // contract's inventory is not configured. Nothing is assumed in that case: the summary
+    // says "not configured" and the backend's inventory_required issue blocks finalization.
+    const previewRules = preview?.rules ?? null;
+    const soldOutLabel = (action: string | null | undefined) =>
+      action === "stop_sale"
+        ? t.soldOutStop
+        : action === "on_request"
+          ? t.soldOutRequest
+          : action === "controlled_overbooking"
+            ? t.soldOutOver
+            : t.reviewSoldOutNotSet;
+    const previewModeLabel = (mode: string | null | undefined) =>
+      mode === "shared_pool"
+        ? t.invShared
+        : mode === "per_room_type"
+          ? t.invPerRoom
+          : mode === "free_sale"
+            ? t.invFree
+            : (mode ?? t.reviewInventoryNotConfigured);
     const inventorySummary = preview
-      ? [
-          fill(t.reviewInventoryMetrics, {
-            nights: preview.nights,
-            mode:
-              preview.mode === "shared_pool"
-                ? t.invShared
-                : preview.mode === "per_room_type"
-                  ? t.invPerRoom
-                  : preview.mode === "free_sale"
-                    ? t.invFree
-                    : preview.mode,
-            pools: preview.poolCount,
-            poolNights: preview.poolNights,
-            capNights: preview.capNights,
-            records: preview.estimatedRecords,
-          }),
-          ...(() => {
-            const rules = preview.rules;
-            if (rules.mode === "free_sale") return [];
-            if (rules.mode === "shared_pool") {
-              const action =
-                rules.whenSoldOut.action === "stop_sale"
-                  ? t.soldOutStop
-                  : rules.whenSoldOut.action === "on_request"
-                    ? t.soldOutRequest
-                    : t.soldOutOver;
-              return [
-                fill(t.invNightsValue, { count: rules.roomsPerNight }),
-                action,
-                ...(rules.whenSoldOut.overbookingLimitPerNight === undefined
-                  ? []
-                  : [
-                      fill(t.reviewOverbooking, {
-                        count: rules.whenSoldOut.overbookingLimitPerNight,
-                      }),
-                    ]),
-                ...(rules.roomCaps ?? []).map((cap) =>
-                  fill(t.reviewCap, {
-                    room: roomName(cap.roomId, cap.view),
-                    count: cap.maxRoomsPerNight,
-                  }),
-                ),
-              ];
-            }
-            const action =
-              rules.whenSoldOut.action === "stop_sale"
-                ? t.soldOutStop
-                : rules.whenSoldOut.action === "on_request"
-                  ? t.soldOutRequest
-                  : t.soldOutOver;
-            return [
-              action,
-              ...rules.rooms.map((room) =>
-                [
-                  fill(t.reviewRoomStock, {
-                    room: roomName(room.roomId, room.view),
-                    count: room.roomsPerNight,
-                  }),
-                  ...(room.overbookingLimitPerNight === undefined
+      ? previewRules === null
+        ? t.reviewInventoryNotConfigured
+        : [
+            fill(t.reviewInventoryMetrics, {
+              nights: preview.nights,
+              mode: previewModeLabel(preview.mode ?? previewRules.mode),
+              pools: preview.poolCount,
+              poolNights: preview.poolNights,
+              capNights: preview.capNights,
+              records: preview.estimatedRecords,
+            }),
+            ...(() => {
+              const rules = previewRules;
+              if (rules.mode === "free_sale") return [];
+              if (rules.mode === "shared_pool") {
+                const whenSoldOut = rules.whenSoldOut ?? null;
+                const overbookingLimit = whenSoldOut?.overbookingLimitPerNight;
+                return [
+                  ...(rules.roomsPerNight == null
                     ? []
-                    : [
-                        fill(t.reviewOverbooking, {
-                          count: room.overbookingLimitPerNight,
-                        }),
-                      ]),
-                ].join(" · "),
-              ),
-            ];
-          })(),
-        ].join(" · ")
+                    : [fill(t.invNightsValue, { count: rules.roomsPerNight })]),
+                  soldOutLabel(whenSoldOut?.action),
+                  ...(overbookingLimit == null
+                    ? []
+                    : [fill(t.reviewOverbooking, { count: overbookingLimit })]),
+                  ...(rules.roomCaps ?? []).map((cap) =>
+                    fill(t.reviewCap, {
+                      room: roomName(cap.roomId, cap.view),
+                      count: cap.maxRoomsPerNight,
+                    }),
+                  ),
+                ];
+              }
+              if (rules.mode === "per_room_type") {
+                return [
+                  soldOutLabel(rules.whenSoldOut?.action),
+                  ...(rules.rooms ?? []).map((room) =>
+                    [
+                      fill(t.reviewRoomStock, {
+                        room: roomName(room.roomId, room.view),
+                        count: room.roomsPerNight,
+                      }),
+                      ...(room.overbookingLimitPerNight == null
+                        ? []
+                        : [
+                            fill(t.reviewOverbooking, {
+                              count: room.overbookingLimitPerNight,
+                            }),
+                          ]),
+                    ].join(" · "),
+                  ),
+                ];
+              }
+              return [];
+            })(),
+          ].join(" · ")
       : [
           inventory.model === "shared"
             ? t.invShared

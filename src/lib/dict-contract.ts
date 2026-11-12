@@ -458,6 +458,8 @@ export const contractEn = {
     reviewOverbooking: "+{count} overbooking / night",
     reviewCutoff: "Booking cut-off · {days} days before · {time}",
     reviewAllRooms: "All rooms",
+    reviewInventoryNotConfigured: "Inventory not configured",
+    reviewSoldOutNotSet: "When sold out · not set",
     invPerRoomHint: "Per room type \u00b7 each room type has its own number of rooms a night.",
     invPerRoomNote:
       "Each room type has its own number: Standard 20 \u00b7 Deluxe City View 12 \u00b7 Deluxe Partial Haram View 8. A deluxe booking never uses a standard room.",
@@ -1374,6 +1376,8 @@ export const contractAr: typeof contractEn = {
     reviewOverbooking: "+{count} حجز زائد / ليلة",
     reviewCutoff: "آخر وقت للحجز · قبل {days} يومًا · {time}",
     reviewAllRooms: "كل الغرف",
+    reviewInventoryNotConfigured: "لم يتم إعداد المخزون",
+    reviewSoldOutNotSet: "عند نفاد الغرف · غير محدد",
     invPerRoomHint:
       "\u0644\u0643\u0644 \u0646\u0648\u0639 \u063a\u0631\u0641\u0629 \u00b7 \u0643\u0644 \u0646\u0648\u0639 \u0644\u0647 \u0639\u062f\u062f \u063a\u0631\u0641\u0647 \u0627\u0644\u062e\u0627\u0635 \u0644\u064a\u0644\u064b\u0627.",
     invPerRoomNote:
