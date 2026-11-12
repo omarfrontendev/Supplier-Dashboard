@@ -1196,7 +1196,6 @@ export function ContractBuilder({
     leaving = false,
     onSavedForReview?: (id: number) => void,
   ): Promise<boolean> {
-
     if (!basicsReady(draft)) {
       notify.error(f.saveNeedsBasics);
       jumpTo("basics");
@@ -1371,7 +1370,9 @@ export function ContractBuilder({
       void remote.refetch().then(({ data: latest }) => {
         if (latest && latest.status !== "draft") {
           notify.error(
-            fill(f.saveNotDraft, { status: statusName(latest.status, lang === "ar" ? "ar" : "en") }),
+            fill(f.saveNotDraft, {
+              status: statusName(latest.status, lang === "ar" ? "ar" : "en"),
+            }),
           );
           return;
         }
@@ -1727,9 +1728,7 @@ export function ContractBuilder({
             body={t.basicsBody}
             done={sectionDone("basics")}
           >
-            <BasicsFields
-              currencyLocked={saved !== null && hasRoomPricing(saved)}
-            />
+            <BasicsFields currencyLocked={saved !== null && hasRoomPricing(saved)} />
             {!basicsDone && (
               <div className="mt-4 flex gap-2 rounded-xl border border-border-subtle bg-surface-subtle p-3.5">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
@@ -1871,7 +1870,8 @@ export function ContractBuilder({
                   <>
                     <div className="mt-4 max-w-xs">
                       <Input
-                        label={t.invNights}
+                        id="contract-inventory-shared-rooms-per-night"
+                        label={t.colRoomsNight}
                         type="number"
                         min={1}
                         step={1}
@@ -1941,7 +1941,7 @@ export function ContractBuilder({
                   <>
                     <Table
                       head={[c.roomDetails.roomSize, t.colRoomsNight, t.colDrawsFrom]}
-                      rows={additionalInventoryVariations.map((variation) => {
+                      rows={additionalInventoryVariations.map((variation, index) => {
                         const roomName = contractRoomLabel(
                           {
                             id: variation.roomId,
@@ -1967,6 +1967,8 @@ export function ContractBuilder({
                           <span key={`${key}-room`}>{label}</span>,
                           <div key={`${key}-quantity`} className="max-w-44 space-y-2">
                             <Input
+                              id={`contract-inventory-rooms-per-night-${variation.roomId}-${index}`}
+                              label={t.colRoomsNight}
                               className="max-w-32"
                               type="number"
                               min={1}
@@ -1987,6 +1989,7 @@ export function ContractBuilder({
                               <Input
                                 className="max-w-32"
                                 type="number"
+                                label={t.overbooking}
                                 min={1}
                                 step={1}
                                 aria-label={`${label} · ${t.overLimit}`}
@@ -2008,7 +2011,7 @@ export function ContractBuilder({
                         ];
                       })}
                     />
-                    {baseInventoryVariation && (
+                    {/* {baseInventoryVariation && (
                       <div className="mt-4 rounded-lg border border-border-subtle p-4">
                         <p className="mb-3 text-sm font-medium text-text-primary">
                           {contractRoomLabel(
@@ -2074,7 +2077,7 @@ export function ContractBuilder({
                           )}
                         </div>
                       </div>
-                    )}
+                    )} */}
                     {inventoryVariations.length === 0 && (
                       <p className="mt-2 text-xs text-text-muted">{t.invNoVariations}</p>
                     )}

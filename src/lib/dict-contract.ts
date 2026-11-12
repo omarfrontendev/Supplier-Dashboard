@@ -170,6 +170,7 @@ export const contractEn = {
     releaseNote: "Then Switch to On Request",
   },
   builder: {
+    overbooking: "Overbooking",
     back: "Hotel supply contracts",
     overline: "CREATE SUPPLY CONTRACT",
     overlineEdit: "EDIT SUPPLY CONTRACT",
@@ -1100,6 +1101,7 @@ export const contractAr: typeof contractEn = {
     releaseNote: "ثم التحويل إلى عند الطلب",
   },
   builder: {
+    overbooking: "الحد الأقصى للحجز",
     back: "عقود توريد الفنادق",
     overline: "إنشاء عقد توريد",
     overlineEdit: "تعديل عقد التوريد",
