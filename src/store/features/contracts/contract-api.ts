@@ -527,6 +527,18 @@ const isContractWeekPricing = (value: unknown): value is ContractWeekPricing => 
   );
 };
 
+/**
+ * A contract's weekend as date-picker weekday numbers (0 = Sunday), read only from its
+ * saved weekPricing.weekendDays. `[]` = the contract prices the whole week the same (or
+ * lists no weekend days); `null` = weekPricing is missing or unreadable, so no weekend is
+ * known. Never falls back to a default weekend.
+ */
+export const contractWeekendNumbers = (weekPricing: unknown): number[] | null => {
+  if (!isContractWeekPricing(weekPricing)) return null;
+  if (weekPricing.mode !== "weekday_weekend") return [];
+  return draftWeekPricing(weekPricing).weekendDays.map((day) => WEEKDAY_NUMBER[day]);
+};
+
 function pricingFieldsFromContract(contract: SupplierHotelContract) {
   const pricing = contract.pricing;
   const pricingModel: PricingModel =

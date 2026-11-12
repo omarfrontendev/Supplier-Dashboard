@@ -2050,7 +2050,7 @@ export function ContractBuilder({
                           />
                           {inventory.soldOut === "overbooking" && (
                             <Input
-                              className="max-w-32"
+                              className=""
                               label={t.overLimit}
                               type="number"
                               min={1}

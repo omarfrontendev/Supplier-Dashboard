@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CopyPlus, OctagonX } from "lucide-react";
 import { isAxiosError, type AxiosError } from "axios";
@@ -6,7 +6,7 @@ import { isAxiosError, type AxiosError } from "axios";
 import { Drawer, IconModal } from "@/components/layout/overlay";
 import { Button } from "@/components/ui/button";
 import { DateField, readableDay } from "@/components/ui/date-field";
-import type { DayRange } from "@/components/ui/date-picker";
+import { keyOf, type DayRange } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
 import { ConfirmOverlay } from "@/components/contracts/contract-overlays";
@@ -43,6 +43,7 @@ import {
 } from "@/lib/contract-actions-data";
 import { fill, useLanguage } from "@/lib/i18n";
 import { notify } from "@/lib/notify";
+import { contractWeekendNumbers } from "@/store/features/contracts/contract-api";
 
 export type ContractAction =
   | "pause"
@@ -177,6 +178,11 @@ function CopyPeriodOverlay({
   const nameTaken = failure?.response?.data?.data?.code === "contract_name_conflict";
   const conflicts = failure?.response?.data?.data?.conflicts ?? [];
   const complete = Boolean(period.start && period.end);
+  /* No new period may start before today (today stays pickable) — same local-day key the
+     date picker uses for "today". */
+  const today = keyOf(new Date());
+  /* The source contract's own weekend; recomputed whenever the source contract changes. */
+  const weekend = useMemo(() => contractWeekendNumbers(contract.weekPricing), [contract.weekPricing]);
 
   const submit = () => {
     if (!period.start || !period.end) {
@@ -235,6 +241,8 @@ function CopyPeriodOverlay({
           label={c.period[k]}
           placeholder={c.periodPlaceholder[k]}
           value={period}
+          min={today}
+          weekend={weekend}
           invalid={(showRequired && !complete) || conflicts.length > 0}
           onChange={(next) => {
             setPeriod(next);
