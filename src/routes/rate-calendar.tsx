@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { isAxiosError } from "axios";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Ban,
@@ -75,6 +76,7 @@ import {
 import { useRatesAvailabilityHotels } from "@/api/modules/rates&availability/useRatesAvailabilityHotels";
 import { useRatesAvailabilityMetadata } from "@/api/modules/rates&availability/useRatesAvailabilityMetadata";
 import { useRatesAvailabilityContracts } from "@/api/modules/rates&availability/useRatesAvailabilityContracts";
+import { useRatesHotels } from "@/api/modules/rates-availability/useRatesHotels";
 import { useDebounce } from "@/routes/my-hotels";
 import {
   usePreviewRestrictionOverrides,
@@ -159,14 +161,38 @@ import {
   windowFor,
 } from "@/lib/rate-grid-data";
 
+/** A positive integer id from the URL (`?hotelId=172` or `?hotelId="172"`); else undefined. */
+const searchId = (value: unknown) => {
+  const id =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && /^\d+$/.test(value)
+        ? Number(value)
+        : Number.NaN;
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+};
+
+const RATE_CALENDAR_SEARCH_KEYS = ["contract", "state", "rooms", "hotelId", "contractId"];
+
+type RateCalendarSearch = Record<string, unknown> & {
+  contract?: string;
+  state?: "draft" | "published";
+  rooms?: "unpriced";
+  /** The selected hotel and contract; the URL is their only source of truth. */
+  hotelId?: number | undefined;
+  contractId?: number | undefined;
+};
+
 export const Route = createFileRoute("/rate-calendar")({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    contract?: string;
-    state?: "draft" | "published";
-    rooms?: "unpriced";
-  } => ({
+  validateSearch: (search: Record<string, unknown>): RateCalendarSearch => ({
+    // Unrelated query parameters are kept as they are.
+    ...Object.fromEntries(
+      Object.entries(search).filter(([key]) => !RATE_CALENDAR_SEARCH_KEYS.includes(key)),
+    ),
+    // Always set, even to undefined: the router merges the raw URL search underneath, so a
+    // malformed value would otherwise reach the page as-is.
+    hotelId: searchId(search["hotelId"]),
+    contractId: searchId(search["contractId"]),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(search["state"] === "draft" || search["state"] === "published"
       ? { state: search["state"] }
@@ -245,8 +271,10 @@ function RateCalendarPage() {
   const t = c.rateGrid;
   const ar = lang === "ar";
   const k = ar ? "ar" : "en";
-  const { contract: contractParam, state, rooms: roomsParam } = Route.useSearch();
+  const search = Route.useSearch();
+  const { contract: contractParam, state, rooms: roomsParam } = search;
   const navigate = useNavigate();
+  const searchStr = useRouterState({ select: (router) => router.location.searchStr });
   const { contracts } = usePortal();
 
   // The grid is drawn per contract shape (UI 04.1, F, P, S, Q, E).
@@ -269,10 +297,28 @@ function RateCalendarPage() {
   });
   const metadataQuery = useRatesAvailabilityMetadata();
   const ratesHotels = hotelsQuery.hotels as RatesHotel[];
-  // No default hotel: contracts wait for the user's pick. The picked row is
-  // kept whole, since a later search or page may not contain it.
-  const [pickedHotel, setPickedHotel] = useState<RatesHotel | null>(null);
-  const hotelId = pickedHotel?.id ?? null;
+  /*
+   * The selected hotel and contract live only in the URL (?hotelId=&contractId=), so
+   * refresh, links and Back/Forward restore them. Rows below are looked up for display;
+   * they never decide what is selected. A contract id without a hotel is ignored.
+   */
+  const hotelId = search.hotelId ?? null;
+  const urlContractId = hotelId === null ? undefined : search.contractId;
+  // No default hotel: contracts wait for the user's pick. The resolved row is kept,
+  // since a later search or page in the hotel picker may not contain it.
+  const [hotelRow, setHotelRow] = useState<RatesHotel | null>(null);
+  const cachedHotel = hotelRow?.id === hotelId ? hotelRow : undefined;
+  const pageHotel = ratesHotels.find((item) => item.id === hotelId);
+  // Only a hotel that is neither cached nor on the picker's page is looked up in the
+  // full list (the existing all-hotels query), and only once that page has loaded.
+  const lookUpHotel = hotelId !== null && !cachedHotel && !pageHotel && !hotelsQuery.isLoading;
+  const allHotelsQuery = useRatesHotels({ enabled: lookUpHotel });
+  const listedHotel = lookUpHotel
+    ? (allHotelsQuery.data as RatesHotel[] | undefined)?.find((item) => item.id === hotelId)
+    : undefined;
+  const pickedHotel = cachedHotel ?? pageHotel ?? listedHotel ?? null;
+  if (pickedHotel && pickedHotel !== hotelRow) setHotelRow(pickedHotel);
+  const hotelUnknown = lookUpHotel && allHotelsQuery.isSuccess && !listedHotel;
   const [contractSearch, setContractSearch] = useState("");
   const [contractPage, setContractPage] = useState(1);
   const debouncedContractSearch = useDebounce(contractSearch.trim(), SEARCH_DEBOUNCE_MS);
@@ -289,7 +335,98 @@ function RateCalendarPage() {
     includeExpired: includeEnded,
   });
   const hotelContracts = contractsQuery.contracts as RatesContract[];
-  const [chosenContract, setChosenContract] = useState<RatesContract | null>(null);
+  // The URL's contract is selected only once it is known to belong to the URL's hotel:
+  // from the hotel's contract list, or else from its own details (which carry hotelId).
+  // The details request is the one the grid makes for the picked contract anyway.
+  const urlContractDetailQuery = useRatesContractDetail(urlContractId);
+  const urlContractDetail =
+    urlContractDetailQuery.data?.id === urlContractId ? urlContractDetailQuery.data : undefined;
+  const listedContract = hotelContracts.find((item) => item.id === urlContractId);
+  const chosenContract: RatesContract | null =
+    urlContractId === undefined
+      ? null
+      : (listedContract ??
+        (urlContractDetail && urlContractDetail.hotelId === hotelId
+          ? {
+              id: urlContractDetail.id,
+              hotelId: urlContractDetail.hotelId,
+              hotelNameEn: pickedHotel?.nameEn ?? null,
+              hotelNameAr: pickedHotel?.nameAr ?? null,
+              name: urlContractDetail.name,
+              startDate: urlContractDetail.startDate,
+              endDate: urlContractDetail.endDate,
+              currency: urlContractDetail.currency,
+              bookingType: urlContractDetail.bookingType,
+              pricingModel: urlContractDetail.pricingModel,
+              status: urlContractDetail.status,
+            }
+          : null));
+  const urlContractStatus = isAxiosError(urlContractDetailQuery.error)
+    ? urlContractDetailQuery.error.response?.status
+    : undefined;
+  const contractNotOfHotel =
+    urlContractId !== undefined &&
+    !listedContract &&
+    ((urlContractDetail !== undefined && urlContractDetail.hotelId !== hotelId) ||
+      (urlContractStatus !== undefined && urlContractStatus >= 400 && urlContractStatus < 500));
+
+  /*
+   * Invalid selections are removed from the URL (replace, so Back skips them): a
+   * malformed or empty hotelId/contractId, a contractId without a hotelId, a hotel the
+   * supplier does not have, or a contract of another hotel. The update re-checks the
+   * URL it is applied to, so a quick Back/Forward in between is never overwritten.
+   */
+  useEffect(() => {
+    const raw = new URLSearchParams(searchStr);
+    const dropHotel = (raw.has("hotelId") && search.hotelId === undefined) || hotelUnknown;
+    const dropContract =
+      dropHotel ||
+      (raw.has("contractId") && search.contractId === undefined) ||
+      (search.contractId !== undefined && search.hotelId === undefined) ||
+      contractNotOfHotel;
+    if (!dropHotel && !dropContract) return;
+    const seenHotel = search.hotelId;
+    const seenContract = search.contractId;
+    void navigate({
+      from: Route.fullPath,
+      to: "/rate-calendar",
+      replace: true,
+      search: (prev) =>
+        prev.hotelId !== seenHotel || prev.contractId !== seenContract
+          ? prev
+          : {
+              ...prev,
+              hotelId: dropHotel ? undefined : prev.hotelId,
+              contractId: dropContract ? undefined : prev.contractId,
+            },
+    });
+  }, [searchStr, search.hotelId, search.contractId, hotelUnknown, contractNotOfHotel, navigate]);
+
+  /** Hotel pick: a new hotel clears the contract, which may not belong to it. */
+  const pickHotel = (id: number) => {
+    if (id === hotelId) return;
+    const row = ratesHotels.find((item) => item.id === id);
+    if (row) setHotelRow(row);
+    void navigate({
+      from: Route.fullPath,
+      to: "/rate-calendar",
+      search: (prev) => ({ ...prev, hotelId: id, contractId: undefined }),
+    });
+  };
+  /** Contract pick (null clears it): only contractId changes. */
+  const pickContract = (id: number | null) => {
+    if (id === (urlContractId ?? null)) return;
+    void navigate({
+      from: Route.fullPath,
+      to: "/rate-calendar",
+      search: (prev) => ({ ...prev, contractId: id ?? undefined }),
+    });
+  };
+  /** Keeps the selection when this page navigates to itself for its own filters. */
+  const selectionSearch = {
+    ...(hotelId !== null ? { hotelId } : {}),
+    ...(urlContractId !== undefined ? { contractId: urlContractId } : {}),
+  };
   // No default contract either; an ended pick hides when ended ones are excluded.
   const pickedContract =
     chosenContract &&
@@ -1588,7 +1725,7 @@ function RateCalendarPage() {
             label={t.contract}
             value={contractLabel}
             placeholder={contractPicker.placeholder[k]}
-            disabled={!pickedHotel}
+            disabled={hotelId === null}
             onClick={() => {
               setContractSearch("");
               setContractPage(1);
@@ -1985,8 +2122,9 @@ function RateCalendarPage() {
               navigate({
                 to: "/rate-calendar",
                 search: unpricedOnly
-                  ? { ...(contractParam ? { contract: contractParam } : {}) }
+                  ? { ...selectionSearch, ...(contractParam ? { contract: contractParam } : {}) }
                   : {
+                      ...selectionSearch,
                       ...(contractParam ? { contract: contractParam } : {}),
                       rooms: "unpriced" as const,
                     },
@@ -2783,6 +2921,7 @@ function RateCalendarPage() {
             navigate({
               to: "/rate-calendar",
               search: {
+                ...selectionSearch,
                 ...(contractParam ? { contract: contractParam } : {}),
                 state: "draft" as const,
               },
@@ -2863,7 +3002,7 @@ function RateCalendarPage() {
           loading={hotelsQuery.isLoading}
           error={Boolean(hotelsQuery.isError)}
           onRetry={() => void hotelsQuery.refetch()}
-          value={pickedHotel?.id ?? null}
+          value={hotelId}
           search={hotelSearch}
           searchActive={hotelSearch.trim() !== "" || debouncedHotelSearch !== ""}
           onSearch={(next) => {
@@ -2873,11 +3012,7 @@ function RateCalendarPage() {
           page={hotelPage}
           totalPages={hotelsQuery.meta?.totalPages ?? 1}
           onPageChange={setHotelPage}
-          onPick={(id) => {
-            if (id === pickedHotel?.id) return;
-            setChosenContract(null);
-            setPickedHotel(ratesHotels.find((item) => item.id === id) ?? null);
-          }}
+          onPick={pickHotel}
           onClose={() => setOverlay(null)}
         />
       )}
@@ -2915,7 +3050,7 @@ function RateCalendarPage() {
           page={contractPage}
           totalPages={contractsQuery.meta?.totalPages ?? 1}
           onPageChange={setContractPage}
-          onPick={(id) => setChosenContract(hotelContracts.find((item) => item.id === id) ?? null)}
+          onPick={pickContract}
           onClose={() => setOverlay(null)}
         />
       )}

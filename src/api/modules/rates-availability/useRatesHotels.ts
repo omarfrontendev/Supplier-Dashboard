@@ -20,9 +20,10 @@ export const fetchAllRatesHotels = () =>
     return { items: data.hotels, meta: data.meta };
   });
 
-export const useRatesHotels = () => {
+export const useRatesHotels = ({ enabled = true }: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: ["rates-availability", "hotels"],
     queryFn: fetchAllRatesHotels,
+    enabled,
   });
 };
