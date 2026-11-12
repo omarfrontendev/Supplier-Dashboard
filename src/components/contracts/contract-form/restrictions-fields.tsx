@@ -52,16 +52,32 @@ export function RestrictionsFields() {
     (a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate),
   );
 
-  const roomOptions = rooms.map((room) => {
+  const roomLabels = rooms.map((room) => {
     const size = roomLabel(room, lang, f);
     const view = room.view && room.view !== "no_view" ? (f.views[room.view] ?? room.view) : "";
     return { value: String(room.id), label: view ? `${size} · ${view}` : size };
   });
+  const usedRoomIds = new Set(restrictions.rules.map((rule) => String(rule.roomId)));
+  const rank = (value: string) =>
+    usedRoomIds.has(value)
+      ? 0
+      : rooms.find((room) => String(room.id) === value)?.status === "active"
+        ? 1
+        : 2;
+  const roomOptions = [...roomLabels]
+    .sort((a, b) => rank(a.value) - rank(b.value))
+    .filter(
+      (option, index, list) => list.findIndex((item) => item.label === option.label) === index,
+    )
+    .sort(
+      (a, b) =>
+        roomLabels.findIndex((item) => item.value === a.value) -
+        roomLabels.findIndex((item) => item.value === b.value),
+    );
   const roomName = (rule: RestrictionRule) =>
     rule.roomId === null
       ? r.roomPh
-      : (roomOptions.find((room) => room.value === String(rule.roomId))?.label ??
-        `#${rule.roomId}`);
+      : (roomLabels.find((room) => room.value === String(rule.roomId))?.label ?? `#${rule.roomId}`);
 
   const dayNames = (days: RestrictionRule["closedCheckIn"]) =>
     days.map((day) => f.days[day]).join(lang === "ar" ? "، " : ", ");
