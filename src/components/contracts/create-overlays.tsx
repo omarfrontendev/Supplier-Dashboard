@@ -173,7 +173,12 @@ export function TermOverlay({
   });
   const start = watch("start");
   const end = watch("end");
-  const endMin = start ? addDays(start, 1) : undefined;
+  /* No new term date before today (today stays pickable). Saved past dates are still shown
+     as-is; the pickers just won't let a past day be picked again. Same local-day key the
+     date picker uses for "today". */
+  const today = keyOf(new Date());
+  const dayAfterStart = start ? addDays(start, 1) : undefined;
+  const endMin = dayAfterStart && dayAfterStart > today ? dayAfterStart : today;
 
   const pickEnd = (next: string) => setValue("end", next, { shouldValidate: true });
   const pickRange = (range: { start: string; end: string }) => {
@@ -224,6 +229,7 @@ export function TermOverlay({
             showStart
             weekend={weekendNumbers}
             label={ar ? p.startLabelAr : p.startLabel}
+            min={today}
             value={{ start, end: end || null }}
             placeholder={ar ? p.startPhAr : p.startPh}
             onChange={pickRange}
