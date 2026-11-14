@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { BackLink, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
+import { RowsSkeleton } from "@/components/ui/skeletons";
 import { readableDay } from "@/components/ui/date-field";
 import { DatePicker, dateOf } from "@/components/ui/date-picker";
 import { datePickerCopy } from "@/lib/date-picker-copy";
@@ -172,7 +173,51 @@ const searchId = (value: unknown) => {
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 };
 
-const RATE_CALENDAR_SEARCH_KEYS = ["contract", "state", "rooms", "hotelId", "contractId"];
+/** A real calendar day as YYYY-MM-DD from the URL; else undefined. */
+const searchDay = (value: unknown) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+    ? value
+    : undefined;
+};
+
+/** The same day one calendar month later (31 Jan → 28/29 Feb), as YYYY-MM-DD. */
+const oneMonthAfter = (day: string) => {
+  const [year, month, date] = day.split("-").map(Number) as [number, number, number];
+  const lastOfNext = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(date, lastOfNext))).toISOString().slice(0, 10);
+};
+
+/**
+ * The From/To window for a contract term. URL days are kept when they are valid and
+ * inside the term (To on or after From); otherwise From is the contract's start and
+ * To is the earlier of the contract's end and one calendar month after From.
+ */
+const spanForTerm = (
+  term: { start: string; end: string },
+  urlFrom: string | undefined,
+  urlTo: string | undefined,
+) => {
+  const start = urlFrom && urlFrom >= term.start && urlFrom <= term.end ? urlFrom : term.start;
+  const monthOn = oneMonthAfter(start);
+  const end =
+    urlTo && urlTo >= start && urlTo <= term.end ? urlTo : monthOn < term.end ? monthOn : term.end;
+  return { start, end };
+};
+
+const RATE_CALENDAR_SEARCH_KEYS = [
+  "contract",
+  "state",
+  "rooms",
+  "hotelId",
+  "contractId",
+  "from",
+  "to",
+];
 
 type RateCalendarSearch = Record<string, unknown> & {
   contract?: string;
@@ -181,6 +226,9 @@ type RateCalendarSearch = Record<string, unknown> & {
   /** The selected hotel and contract; the URL is their only source of truth. */
   hotelId?: number | undefined;
   contractId?: number | undefined;
+  /** The calendar's From and To days (YYYY-MM-DD) for the selected contract. */
+  from?: string | undefined;
+  to?: string | undefined;
 };
 
 export const Route = createFileRoute("/rate-calendar")({
@@ -193,6 +241,8 @@ export const Route = createFileRoute("/rate-calendar")({
     // malformed value would otherwise reach the page as-is.
     hotelId: searchId(search["hotelId"]),
     contractId: searchId(search["contractId"]),
+    from: searchDay(search["from"]),
+    to: searchDay(search["to"]),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(search["state"] === "draft" || search["state"] === "published"
       ? { state: search["state"] }
@@ -284,6 +334,9 @@ function RateCalendarPage() {
   /* The grid starts and ends on a day, so From and To pick days. */
 
   const [span, setSpan] = useState(() => wholeMonth(grid.month ?? "2026-09"));
+  // The contract whose term last set `span` (the user's own From/To keep it). Until it is
+  // the picked contract, `span` may still be a previous contract's window.
+  const [spanContractId, setSpanContractId] = useState<number | null>(null);
   const month = windowFor(span.start, span.end);
   const holdsNothing = grid.model === "free" || grid.model === "onRequest";
   // Hotel and contract pickers search and page on the backend.
@@ -410,22 +463,30 @@ function RateCalendarPage() {
     void navigate({
       from: Route.fullPath,
       to: "/rate-calendar",
-      search: (prev) => ({ ...prev, hotelId: id, contractId: undefined }),
+      search: (prev) => ({
+        ...prev,
+        hotelId: id,
+        contractId: undefined,
+        from: undefined,
+        to: undefined,
+      }),
     });
   };
-  /** Contract pick (null clears it): only contractId changes. */
+  /** Contract pick (null clears it): the new contract starts from its own default dates. */
   const pickContract = (id: number | null) => {
     if (id === (urlContractId ?? null)) return;
     void navigate({
       from: Route.fullPath,
       to: "/rate-calendar",
-      search: (prev) => ({ ...prev, contractId: id ?? undefined }),
+      search: (prev) => ({ ...prev, contractId: id ?? undefined, from: undefined, to: undefined }),
     });
   };
   /** Keeps the selection when this page navigates to itself for its own filters. */
   const selectionSearch = {
     ...(hotelId !== null ? { hotelId } : {}),
     ...(urlContractId !== undefined ? { contractId: urlContractId } : {}),
+    ...(search.from !== undefined ? { from: search.from } : {}),
+    ...(search.to !== undefined ? { to: search.to } : {}),
   };
   // No default contract either; an ended pick hides when ended ones are excluded.
   const pickedContract =
@@ -484,10 +545,31 @@ function RateCalendarPage() {
   const contractWeekend = contractWeekendDays(contractDetails);
   const weekendDays = contractWeekend ?? [];
 
+  /*
+   * `span` follows the picked contract and the URL's ?from=&to=: valid URL days inside
+   * the term are kept, else the contract's default window (see spanForTerm). Runs again
+   * on a new contract and when the URL's days change (Back/Forward, shared links).
+   */
+  const urlFrom = search.from;
+  const urlTo = search.to;
   useEffect(() => {
     if (!detailStart || !detailEnd) return;
-    setSpan({ start: detailStart, end: detailEnd });
-  }, [contractDetails?.id, detailStart, detailEnd]);
+    const next = spanForTerm({ start: detailStart, end: detailEnd }, urlFrom, urlTo);
+    setSpan((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+    setSpanContractId(contractDetails?.id ?? null);
+  }, [contractDetails?.id, detailStart, detailEnd, urlFrom, urlTo]);
+  /** A From/To pick: drawn at once and written to the URL (replace, so Back skips it). */
+  const pickSpan = (next: { start: string; end: string }) => {
+    setSpan(next);
+    void navigate({
+      from: Route.fullPath,
+      to: "/rate-calendar",
+      replace: true,
+      search: (prev) => ({ ...prev, from: next.start, to: next.end }),
+    });
+  };
+  /** `span` belongs to the picked contract, so the context requests below may use it. */
+  const termReady = pickedContract !== undefined && spanContractId === pickedContract.id;
 
   const monthDates = Array.from({ length: month.base.length }, (_, index) =>
     isoDay(dateOfNight(month, index + 1)),
@@ -507,9 +589,11 @@ function RateCalendarPage() {
   const termDates = rateTargets
     ? monthDates.filter((day) => day >= rateTargets.startDate && day <= rateTargets.endDate)
     : [];
+  /** The grid's context requests run only once `span` is this contract's own window. */
+  const needsContext = live && termReady && termDates.length > 0;
   const contextQuery = useRatesContext(
     pickedContract?.id,
-    live && termDates.length
+    needsContext
       ? {
           targets: rateTargets.targets.map((target) => ({
             variationId: target.variationId,
@@ -522,7 +606,7 @@ function RateCalendarPage() {
   );
   const supplementsQuery = useSupplementsContext(
     pickedContract?.id,
-    live && !fixedPrice && termDates.length
+    needsContext && !fixedPrice
       ? {
           targets: [...new Set(rateTargets.targets.map((target) => target.variationId))].map(
             (variationId) => ({ variationId }),
@@ -537,16 +621,50 @@ function RateCalendarPage() {
   const saveReviewedRates = useSaveReviewedRateOverrides(pickedContract?.id);
   const sellQuery = useSellControlsContext(
     pickedContract?.id,
-    live && termDates.length
+    needsContext
       ? { allRooms: true, startDate: termDates[0]!, endDate: termDates[termDates.length - 1]! }
       : null,
   );
   const restrictionsQuery = useRestrictionsContext(
     pickedContract?.id,
-    live && termDates.length
+    needsContext
       ? { allRooms: true, startDate: termDates[0]!, endDate: termDates[termDates.length - 1]! }
       : null,
   );
+  /*
+   * The calendar is drawn only from data of the URL's validated contract: its rate
+   * targets, its details (term, seasons, inventory, weekend), `span` set from that term,
+   * and every context request that applies. Queries are keyed by contract (and window),
+   * so a previous selection's data never fills these. Cached data for the same key
+   * counts as ready; an empty success counts as ready; a failure with no data blocks.
+   */
+  const calendarQueries = [
+    targetsQuery,
+    detailQuery,
+    ...(needsContext
+      ? [contextQuery, sellQuery, restrictionsQuery, ...(fixedPrice ? [] : [supplementsQuery])]
+      : []),
+  ];
+  const contractValidating = urlContractId !== undefined && chosenContract === null;
+  const calendarFailed =
+    (pickedContract !== undefined &&
+      calendarQueries.some((query) => query.data === undefined && query.isError)) ||
+    (contractValidating &&
+      !contractNotOfHotel &&
+      urlContractDetailQuery.isError &&
+      (contractsQuery.isError || !contractsQuery.isLoading));
+  const calendarReady =
+    pickedContract !== undefined &&
+    rateTargets !== undefined &&
+    contractDetails !== undefined &&
+    termReady &&
+    calendarQueries.every((query) => query.data !== undefined);
+  const calendarLoading =
+    !calendarReady && !calendarFailed && (pickedContract !== undefined || contractValidating);
+  const retryCalendar = () => {
+    if (contractValidating) void urlContractDetailQuery.refetch();
+    calendarQueries.filter((query) => query.isError).forEach((query) => void query.refetch());
+  };
   const restrictionAt = new Map(
     (restrictionsQuery.data?.cells ?? []).map((cell) => [
       `${cell.variationId}|${cell.stayDate}`,
@@ -800,6 +918,13 @@ function RateCalendarPage() {
   const [selectCells, setSelectCells] = useState(false);
   const hasPast = month.today > 1;
   const [selected, setSelected] = useState<string[]>([]);
+  // Picked cells and opened meal rows belong to one contract's calendar.
+  const [calendarContractId, setCalendarContractId] = useState(pickedContract?.id);
+  if (calendarContractId !== pickedContract?.id) {
+    setCalendarContractId(pickedContract?.id);
+    setSelected([]);
+    setOpenMeals([]);
+  }
   const [filter, setFilter] = useState("all");
   const hotelLabel = pickedHotel
     ? (ar ? pickedHotel.nameAr : pickedHotel.nameEn) ||
@@ -2017,7 +2142,7 @@ function RateCalendarPage() {
                 span={span}
                 term={contractTerm}
                 weekend={contractWeekend}
-                onPick={(next) => setSpan(next)}
+                onPick={pickSpan}
               />
               <DayField
                 label={t.to}
@@ -2026,7 +2151,7 @@ function RateCalendarPage() {
                 span={span}
                 term={contractTerm}
                 weekend={contractWeekend}
-                onPick={(next) => setSpan(next)}
+                onPick={pickSpan}
               />
             </div>
 
@@ -2223,7 +2348,27 @@ function RateCalendarPage() {
         </div>
       )}
 
-      {pickedContract && (
+      {calendarFailed && (
+        <SectionCard bodyClassName="p-5">
+          <div role="alert" className="flex flex-wrap items-center gap-3">
+            <p className="min-w-0 flex-1 text-sm text-status-danger">{liveGrid.calendarError[k]}</p>
+            <Button size="sm" variant="outline" onClick={retryCalendar}>
+              {hotelPicker.retry[k]}
+            </Button>
+          </div>
+        </SectionCard>
+      )}
+
+      {calendarLoading && (
+        <SectionCard bodyClassName="p-5">
+          <p role="status" aria-live="polite" className="text-sm text-text-muted">
+            {liveGrid.calendarLoading[k]}
+          </p>
+          <RowsSkeleton rows={6} />
+        </SectionCard>
+      )}
+
+      {calendarReady && (
         <RateGrid
           rows={rows}
           fade={fade}
@@ -3061,7 +3206,7 @@ function RateCalendarPage() {
           onPick={(index) => {
             const next = monthPicker.keys[index] ?? monthKey;
             setMonthKey(next);
-            setSpan(wholeMonth(next));
+            pickSpan(wholeMonth(next));
           }}
           onClose={() => setOverlay(null)}
         />
@@ -4187,9 +4332,9 @@ function releaseLayerOf(layer: unknown): "all" | "room" | null {
 }
 
 /** A rule's own timing, exactly as an edit would resend it; null when it can't be read. */
-function releaseTimingOf(rule: ReleaseRule): NonNullable<
-  NonNullable<AlreadySet["release"]>["seed"]
->["timing"] | null {
+function releaseTimingOf(
+  rule: ReleaseRule,
+): NonNullable<NonNullable<AlreadySet["release"]>["seed"]>["timing"] | null {
   if (!isReleaseTime(rule.releaseTime)) return null;
   if (rule.type === "same_day") return { type: "same_day", releaseTime: rule.releaseTime };
   if (rule.type === "number_of_days" && isReleaseDays(rule.daysBeforeCheckIn)) {
@@ -4251,8 +4396,7 @@ function releaseRuleRows(
          rule owns exactly those. A room rule keeps its own rooms, all of them offered. */
       const roomsExact =
         layer === "all"
-          ? allVariationIds.length === ids.length &&
-            allVariationIds.every((id) => ids.includes(id))
+          ? allVariationIds.length === ids.length && allVariationIds.every((id) => ids.includes(id))
           : ids.every((id) => allVariationIds.includes(id));
       const editLocked = !owned
         ? liveRelease.lockedScope

@@ -966,6 +966,8 @@ export const liveGrid = {
   roomsLoading: t("Loading rooms…", "جارٍ تحميل الغرف…"),
   roomsError: t("We couldn't load this contract's rooms.", "تعذّر تحميل غرف هذا العقد."),
   roomsEmpty: t("This contract has no rooms yet.", "لا توجد غرف في هذا العقد بعد."),
+  calendarLoading: t("Loading this contract's calendar…", "جارٍ تحميل تقويم هذا العقد…"),
+  calendarError: t("We couldn't load this contract's calendar.", "تعذّر تحميل تقويم هذا العقد."),
   seasonNights: t(
     "Season price on {count} of these nights",
     "سعر الموسم في {count} من هذه الليالي",
