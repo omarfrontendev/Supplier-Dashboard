@@ -21,6 +21,7 @@ import {
 import { BackLink, PageShell, SectionCard, StatusPill } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { RowsSkeleton } from "@/components/ui/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { readableDay } from "@/components/ui/date-field";
 import { DatePicker, dateOf } from "@/components/ui/date-picker";
 import { datePickerCopy } from "@/lib/date-picker-copy";
@@ -1971,26 +1972,34 @@ function RateCalendarPage() {
             <div className="grid gap-x-6 gap-y-5 lg:grid-cols-[minmax(240px,32fr)_1px_minmax(0,51fr)_1px_minmax(204px,17fr)]">
               <PanelSection icon={PanelsTopLeft} title={t.showRows} hint={t.showRowsHint}>
                 {/* Sized to their labels: these five are not a column of equals. */}
-                <div className="flex flex-wrap gap-x-2.5 gap-y-3">
-                  {(
-                    [
-                      ["rate", t.rowRates],
-                      /* UI 04.1S / 04.1Q - both rows stay, named for what they
+                {calendarLoading ? (
+                  <div className="flex flex-wrap gap-x-2.5 gap-y-3" aria-hidden="true">
+                    {[40, 60, 44, 76, 52].map((width, index) => (
+                      <CheckRowSkeleton key={index} labelWidth={width} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-x-2.5 gap-y-3">
+                    {(
+                      [
+                        ["rate", t.rowRates],
+                        /* UI 04.1S / 04.1Q - both rows stay, named for what they
                      cannot do on a contract that holds no rooms. */
-                      ["inventory", holdsNothing ? t.rowInventoryUnused : t.rowInventory],
-                      ["status", t.rowStatus],
-                      ["restrictions", t.rowRestrictions],
-                      ["release", holdsNothing ? t.rowReleaseUnused : t.rowRelease],
-                    ] as Array<[GridRowKind, string]>
-                  ).map(([key, label]) => (
-                    <CheckRow
-                      key={key}
-                      checked={show[key]}
-                      onChange={() => setShow((prev) => ({ ...prev, [key]: !prev[key] }))}
-                      label={label}
-                    />
-                  ))}
-                </div>
+                        ["inventory", holdsNothing ? t.rowInventoryUnused : t.rowInventory],
+                        ["status", t.rowStatus],
+                        ["restrictions", t.rowRestrictions],
+                        ["release", holdsNothing ? t.rowReleaseUnused : t.rowRelease],
+                      ] as Array<[GridRowKind, string]>
+                    ).map(([key, label]) => (
+                      <CheckRow
+                        key={key}
+                        checked={show[key]}
+                        onChange={() => setShow((prev) => ({ ...prev, [key]: !prev[key] }))}
+                        label={label}
+                      />
+                    ))}
+                  </div>
+                )}
               </PanelSection>
 
               <PanelRule />
@@ -2009,7 +2018,16 @@ function RateCalendarPage() {
                  * different widths, and a room name you cannot read is worse
                  * than a panel one row taller. Logged in roadmap.md.
                  */}
-                {!pickedContract || targetsQuery.isError || !rateTargets || !allRows.length ? (
+                {calendarLoading ? (
+                  <div
+                    className="grid grid-cols-[repeat(auto-fill,minmax(244px,1fr))] gap-x-2 gap-y-3"
+                    aria-hidden="true"
+                  >
+                    {[72, 132, 156, 120, 176, 140].map((width, index) => (
+                      <CheckRowSkeleton key={index} labelWidth={width} />
+                    ))}
+                  </div>
+                ) : !pickedContract || targetsQuery.isError || !rateTargets || !allRows.length ? (
                   <p className="text-xs text-text-muted">
                     {
                       (!pickedContract
@@ -2056,32 +2074,40 @@ function RateCalendarPage() {
 
               <PanelSection icon={Eye} title={t.view} hint={t.viewHint} stacked>
                 {/* One under another, each the full width of the column. */}
-                <div className="grid gap-3">
-                  <CheckRow
-                    checked={compact}
-                    onChange={() => setCompact(!compact)}
-                    label={t.compact}
-                  />
-                  <CheckRow
-                    checked={hidePast && hasPast}
-                    onChange={() => setHidePast(!hidePast)}
-                    label={t.hidePast}
-                    disabled={!hasPast}
-                    hint={hasPast ? undefined : liveGrid.noPastNights[k]}
-                  />
-                  <CheckRow
-                    checked={pickup && !live}
-                    onChange={() => setPickup(!pickup)}
-                    label={t.pickup}
-                    disabled={live}
-                    hint={live ? liveGrid.noBookingData[k] : undefined}
-                  />
-                  <CheckRow
-                    checked={selectCells}
-                    onChange={() => setSelectCells(!selectCells)}
-                    label={t.selectCells}
-                  />
-                </div>
+                {calendarLoading ? (
+                  <div className="grid gap-3" aria-hidden="true">
+                    {[64, 96, 120, 84].map((width, index) => (
+                      <CheckRowSkeleton key={index} labelWidth={width} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    <CheckRow
+                      checked={compact}
+                      onChange={() => setCompact(!compact)}
+                      label={t.compact}
+                    />
+                    <CheckRow
+                      checked={hidePast && hasPast}
+                      onChange={() => setHidePast(!hidePast)}
+                      label={t.hidePast}
+                      disabled={!hasPast}
+                      hint={hasPast ? undefined : liveGrid.noPastNights[k]}
+                    />
+                    <CheckRow
+                      checked={pickup && !live}
+                      onChange={() => setPickup(!pickup)}
+                      label={t.pickup}
+                      disabled={live}
+                      hint={live ? liveGrid.noBookingData[k] : undefined}
+                    />
+                    <CheckRow
+                      checked={selectCells}
+                      onChange={() => setSelectCells(!selectCells)}
+                      label={t.selectCells}
+                    />
+                  </div>
+                )}
               </PanelSection>
             </div>
           </SectionCard>
@@ -3739,6 +3765,19 @@ function CheckRow({
         {hint && <span className="block text-[10.5px] leading-[14px] text-text-muted">{hint}</span>}
       </span>
     </label>
+  );
+}
+
+/**
+ * A CheckRow while the calendar loads: the same border, padding and 34px height,
+ * a box where the checkbox sits and a bar as wide as a typical label.
+ */
+function CheckRowSkeleton({ labelWidth }: { labelWidth: number }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border-subtle bg-surface-default px-2.5 py-2">
+      <Skeleton className="h-4 w-4 shrink-0 rounded-[5px]" />
+      <Skeleton className="h-3 max-w-full" style={{ width: labelWidth }} />
+    </div>
   );
 }
 
