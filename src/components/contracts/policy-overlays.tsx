@@ -187,12 +187,14 @@ export function CancellationDrawer({
   season,
   initial,
   currency,
+  stayNights,
   onSave,
   onClose,
 }: {
   season?: SeasonPolicy;
   initial?: CancellationPolicy | null;
   currency?: string | null;
+  stayNights?: number;
   onSave?: (policy: CancellationPolicy) => void;
   onClose: () => void;
 }) {
@@ -227,7 +229,7 @@ export function CancellationDrawer({
       : tiers;
     setTiers(sorted);
     const next = policyOf(sorted, noShow);
-    const found = cancellationIssues(next, dict.builder.form.v);
+    const found = cancellationIssues(next, dict.builder.form.v, stayNights);
     setIssues(found);
     if (found.length > 0) return;
     onSave?.(next);

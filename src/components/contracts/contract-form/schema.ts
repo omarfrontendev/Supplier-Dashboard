@@ -67,15 +67,26 @@ const wholeNumber = (value: string, min: number, max: number) => {
 
 const twoDecimals = (value: string) => /^\d+(\.\d{1,2})?$/.test(value.trim());
 
-const feeValid = ({ charge, value }: CancellationFee) => {
+const feeValid = ({ charge, value }: CancellationFee, maxNights: number) => {
   if (charge === "free") return true;
-  if (charge === "nights") return wholeNumber(value, 1, CANCELLATION_MAX_NIGHTS);
+  if (charge === "nights") return wholeNumber(value, 1, maxNights);
   const amount = toAmount(value);
   if (amount === null || !twoDecimals(value) || amount <= 0) return false;
   return charge === "percent" ? amount <= 100 : amount <= CANCELLATION_MAX_AMOUNT;
 };
 
-export function cancellationIssues({ tiers, noShow }: CancellationPolicy, m: Messages): string[] {
+const stayNights = (startDate: string, endDate: string) =>
+  startDate && endDate && endDate >= startDate
+    ? Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86_400_000) + 1
+    : undefined;
+
+export function cancellationIssues(
+  { tiers, noShow }: CancellationPolicy,
+  m: Messages,
+  nights?: number,
+): string[] {
+  const maxNights =
+    nights && nights > 0 ? Math.min(nights, CANCELLATION_MAX_NIGHTS) : CANCELLATION_MAX_NIGHTS;
   const issues: string[] = [];
   if (tiers.length === 0) issues.push(m.tiersEmpty);
   if (tiers.length > MAX_CANCELLATION_TIERS) {
@@ -85,15 +96,15 @@ export function cancellationIssues({ tiers, noShow }: CancellationPolicy, m: Mes
     issues.push(fill(m.tiersDays, { max: CANCELLATION_MAX_DAYS }));
   }
   if (tiers.some((tier) => !tier.charge)) issues.push(m.tiersCharge);
-  if (tiers.some((tier) => tier.charge && !feeValid(tier))) {
-    issues.push(fill(m.tiersValue, { nights: CANCELLATION_MAX_NIGHTS }));
+  if (tiers.some((tier) => tier.charge && !feeValid(tier, maxNights))) {
+    issues.push(fill(m.tiersValue, { nights: maxNights }));
   }
   const days = tiers.map((tier) => toAmount(tier.days));
   if (days.every((day) => day !== null) && days.some((day, i) => i > 0 && day! >= days[i - 1]!)) {
     issues.push(m.tiersOrder);
   }
   if (!noShow.charge) issues.push(m.noShowCharge);
-  else if (!feeValid(noShow)) issues.push(fill(m.noShowValue, { nights: CANCELLATION_MAX_NIGHTS }));
+  else if (!feeValid(noShow, maxNights)) issues.push(fill(m.noShowValue, { nights: maxNights }));
   return issues;
 }
 
@@ -385,7 +396,9 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
       if (!cancellation) {
         issue("policies", m.cancellationRequired);
       } else {
-        cancellationIssues(cancellation, m).forEach((message) => issue("policies", message));
+        cancellationIssues(cancellation, m, stayNights(basics.startDate, basics.endDate)).forEach(
+          (message) => issue("policies", message),
+        );
       }
       if (!release && basics.bookingType === "allotment") {
         issue("policies", m.releaseRequired);

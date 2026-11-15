@@ -1260,7 +1260,7 @@ export function ContractBuilder({
 
     const cancellationErrors =
       draft.policies.enabled && draft.policies.cancellation
-        ? cancellationIssues(draft.policies.cancellation, f.v)
+        ? cancellationIssues(draft.policies.cancellation, f.v, termNights)
         : [];
     if (cancellationErrors.length > 0) {
       notify.error(cancellationErrors[0]!);
@@ -2493,6 +2493,7 @@ export function ContractBuilder({
         <CancellationDrawer
           initial={draft.policies.cancellation}
           currency={basics.currency}
+          stayNights={termNights}
           onSave={(next) => {
             dispatch(saveCancellationPolicy(next));
             notify.success(f.policies.cancellationSaved);

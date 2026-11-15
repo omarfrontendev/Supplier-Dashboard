@@ -308,6 +308,7 @@ export function SeasonEditor({
           season={policyPanel}
           initial={draft.cancellation ?? contractPolicy}
           currency={currency}
+          stayNights={nights}
           onSave={(policy) => update({ cancellation: policy })}
           onClose={() => setPolicyOpen(false)}
         />
