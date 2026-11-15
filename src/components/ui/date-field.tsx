@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import {
   DatePicker,
@@ -66,6 +66,25 @@ export function DateField(props: DayProps | RangeProps) {
   const mode = props.mode ?? "day";
   const [open, setOpen] = useState(false);
   const holder = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [upward, setUpward] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setUpward(false);
+      return;
+    }
+    const box = panel.current;
+    const field = box?.parentElement;
+    if (!box || !field) return;
+    const gap = 8;
+    const height = box.offsetHeight;
+    const { top, bottom } = field.getBoundingClientRect();
+    const roomBelow = window.innerHeight - bottom - gap;
+    const roomAbove = top - gap;
+    if (height > roomBelow && height <= roomAbove) setUpward(true);
+    else box.scrollIntoView({ block: "nearest" });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,8 +150,10 @@ export function DateField(props: DayProps | RangeProps) {
 
         {open && (
           <div
+            ref={panel}
             className={cn(
-              "absolute z-50 mt-2 w-[393px] max-w-[calc(100vw-4rem)] start-0",
+              "absolute z-50 w-[393px] max-w-[calc(100vw-4rem)] start-0",
+              upward ? "bottom-full mb-2" : "top-full mt-2",
               props.panelClassName
             )}
           >
