@@ -39,9 +39,18 @@ export interface HotelContractMetadataOption {
   labelAr: string;
 }
 
+export interface HotelContractsMetadataSize {
+  id: number;
+  code: string;
+  nameEn: string;
+  nameAr: string;
+}
+
 export interface HotelContractsMetadataData {
   mealPlans: HotelContractMetadataOption[];
   roomViews: HotelContractMetadataOption[];
+  roomSizes?: HotelContractsMetadataSize[];
+  bedTypes?: HotelContractsMetadataSize[];
 }
 
 export interface HotelContractsMetadataResponse {

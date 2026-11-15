@@ -33,6 +33,8 @@ import { CreateRoomPayload } from "@/api/modules/requests/types";
 import { useUploadFile } from "@/api/modules/useUploads";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
+import { ROOM_SIZES } from "@/lib/room-sizes";
 import { useHotelRooms } from "@/api/modules/hotels/useHotelRooms";
 import { useSingleHotelOption } from "@/api/modules/hotels/useSinglHotelOption";
 import { badgeTone } from "@/components/hotels/hotel-card";
@@ -589,15 +591,17 @@ function AddRoomDrawer({
   //   setSent(true);
   // };
 
+  const metadata = useHotelContractsMetadata();
+  const roomSizes =
+    metadata.data?.roomSizes ??
+    ROOM_SIZES.map((size) => ({ id: size.id, nameEn: size.name_en, nameAr: size.name_ar }));
   const { mutateAsync: createRoom, isPending: isCreating } = useCreateRoom();
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
 
   const hookForm = useForm<RoomFormValues>({
     resolver: zodResolver(roomSchema()),
     defaultValues: {
-      hotelId: hotelId,
-      nameEn: "",
-      nameAr: "",
+      hotelId: Number(hotelId),
       maxOccupancy: 4,
       adults: 2,
       children: 2,
@@ -606,7 +610,6 @@ function AddRoomDrawer({
       roomSizeId: 2,
       areaSqm: 32.5,
       view: "",
-      images: [],
       note: "",
     },
     mode: "all",
@@ -654,7 +657,7 @@ function AddRoomDrawer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const objectUrlsRef = useRef<string[]>([]);
   const sending = isUploading || isCreating;
-  const ready = hookForm.formState.isValid && selectedFiles.length > 2 && rights;
+  const ready = hookForm.formState.isValid && selectedImages.length >= 2 && rights;
 
   const handleSelectImages = (files: FileList | null) => {
     if (!files) return;
@@ -725,8 +728,17 @@ function AddRoomDrawer({
         }),
       );
 
+      const size = roomSizes.find((item) => item.id === values.roomSizeId);
+      const view =
+        values.view === "no_view"
+          ? undefined
+          : metadata.data?.roomViews.find((item) => item.value === values.view);
       await createRoom({
         ...values,
+        nameEn: [size?.nameEn, view?.labelEn ?? (values.view === "no_view" ? "" : values.view)]
+          .filter(Boolean)
+          .join(" · "),
+        nameAr: [size?.nameAr, view?.labelAr].filter(Boolean).join(" · "),
         images,
       });
       refetchRooms();
@@ -939,20 +951,6 @@ function AddRoomDrawer({
           </div>
         )}
 
-        <Input
-          label={lang === "ar" ? "الاسم بالإنجليزية" : "English Name"}
-          placeholder={lang === "ar" ? "أدخل الاسم بالإنجليزية" : "Enter English name"}
-          {...hookForm.register("nameEn")}
-          error={hookForm.formState.errors.nameEn?.message ?? ""}
-        />
-
-        <Input
-          label={lang === "ar" ? "الاسم بالعربية" : "Arabic Name"}
-          placeholder={lang === "ar" ? "أدخل الاسم بالعربية" : "Enter Arabic name"}
-          {...hookForm.register("nameAr")}
-          error={hookForm.formState.errors.nameAr?.message ?? ""}
-        />
-
         <div className="grid grid-cols-3 gap-2.5">
           <Input
             label={d.occupancy}
@@ -988,20 +986,42 @@ function AddRoomDrawer({
             error={hookForm.formState.errors.maxChildAge?.message ?? ""}
           />
 
-          <Input
-            label={d.bed}
-            placeholder={d.bedPh}
-            type="number"
-            {...hookForm.register("bedTypeId", { valueAsNumber: true })}
-            error={hookForm.formState.errors.bedTypeId?.message ?? ""}
+          <Controller
+            name="bedTypeId"
+            control={hookForm.control}
+            render={({ field, fieldState }) => (
+              <Select
+                label={d.bed}
+                placeholder={d.bedPh}
+                value={field.value ? String(field.value) : ""}
+                onChange={(value) => field.onChange(value ? Number(value) : undefined)}
+                loading={metadata.isLoading}
+                error={fieldState.error?.message ?? ""}
+                options={(metadata.data?.bedTypes ?? []).map((bed) => ({
+                  value: String(bed.id),
+                  label: lang === "ar" ? bed.nameAr : bed.nameEn,
+                }))}
+              />
+            )}
           />
 
-          <Input
-            label={d.size}
-            placeholder={d.sizePh}
-            type="number"
-            {...hookForm.register("roomSizeId", { valueAsNumber: true })}
-            error={hookForm.formState.errors.roomSizeId?.message ?? ""}
+          <Controller
+            name="roomSizeId"
+            control={hookForm.control}
+            render={({ field, fieldState }) => (
+              <Select
+                label={d.size}
+                placeholder={d.sizeListPh}
+                value={field.value ? String(field.value) : ""}
+                onChange={(value) => field.onChange(value ? Number(value) : undefined)}
+                loading={metadata.isLoading}
+                error={fieldState.error?.message ?? ""}
+                options={roomSizes.map((size) => ({
+                  value: String(size.id),
+                  label: lang === "ar" ? size.nameAr : size.nameEn,
+                }))}
+              />
+            )}
           />
         </div>
 

@@ -9,22 +9,6 @@ export const roomSchema =  () => {
     z.object({
      hotelId: z.number().int().positive("Hotel is required"),
    
-     nameEn: z
-       .string()
-       .trim()
-       .nonempty({ message: c.common.fieldRequired })
-       .refine((val) => !/[\u0600-\u06FF]/.test(val), {
-         message: c.common.arabicLettersNotAllowed,
-       }),
-   
-     nameAr: z
-       .string()
-       .trim()
-       .nonempty({ message: c.common.fieldRequired })
-       .refine((val) => !/[A-Za-z]/.test(val), {
-         message: c.common.englishLettersNotAllowed,
-       }),
-   
      maxOccupancy: z.number().int().positive("Maximum occupancy must be greater than 0"),
    
      adults: z.number().int().min(1, "At least one adult is required"),
@@ -58,4 +42,4 @@ export const roomSchema =  () => {
   )
 }
 
-export type RoomFormValues = z.infer<typeof roomSchema>;
+export type RoomFormValues = z.infer<ReturnType<typeof roomSchema>>;
