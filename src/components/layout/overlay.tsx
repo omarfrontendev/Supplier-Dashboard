@@ -281,9 +281,10 @@ export function IconModal({
   width = "660px",
   dirty = false,
   onGuard,
+  align = "start",
 }: {
   icon?: ReactNode;
-  tone?: "brand" | "danger";
+  tone?: "brand" | "danger" | "warning";
   overline: string;
   title: string;
   body?: ReactNode;
@@ -293,10 +294,80 @@ export function IconModal({
   width?: string;
   dirty?: boolean;
   onGuard?: (() => void) | undefined;
+  /** "center" stacks a larger icon over a centred title, for short decision prompts. */
+  align?: "start" | "center";
 }) {
   const { c, dir } = useLanguage();
 
   const dismiss = useDismiss({ onClose, dirty, onGuard });
+  const toneClass =
+    tone === "danger"
+      ? "bg-status-danger-bg text-status-danger"
+      : tone === "warning"
+        ? "bg-status-warning-bg text-status-warning"
+        : "bg-primary-subtle text-brand-deep";
+  const closeButton = (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label={c.common.close}
+      className={cn(
+        "shrink-0 rounded-lg bg-surface-subtle px-2.5 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-border-subtle",
+        align === "center" && "absolute end-0 top-0",
+      )}
+    >
+      ✕
+    </button>
+  );
+
+  if (align === "center") {
+    return (
+      <div
+        dir={dir}
+        className={cn("fixed inset-0 z-50 overflow-y-auto bg-brand-deep/40 p-4", scrimMotion)}
+      >
+        <div className="flex min-h-full items-center justify-center">
+          <div
+            {...dismiss.panel}
+            style={{ maxWidth: width }}
+            className={cn(
+              "flex w-full flex-col gap-5 rounded-[16px] bg-surface-default px-6 pb-6 pt-[22px] shadow-overlay sm:px-8",
+              panelMotion,
+            )}
+          >
+            <div className="relative flex flex-col items-center gap-2 pt-2 text-center">
+              {closeButton}
+              {icon && (
+                <span
+                  className={cn(
+                    "mb-2 flex h-16 w-16 items-center justify-center rounded-full ring-8 ring-surface-subtle",
+                    toneClass,
+                  )}
+                >
+                  {icon}
+                </span>
+              )}
+              {overline && <p className="text-overline text-brand-deep">{overline}</p>}
+              <h2 className="text-2xl font-semibold tracking-tight text-text-primary">{title}</h2>
+              {body && (
+                <p className="max-w-[46ch] whitespace-pre-line text-sm leading-6 text-text-secondary">
+                  {body}
+                </p>
+              )}
+            </div>
+
+            {children}
+
+            {footer && (
+              <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:[&>*]:flex-1">
+                {footer}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -317,9 +388,7 @@ export function IconModal({
               <span
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]",
-                  tone === "danger"
-                    ? "bg-status-danger-bg text-status-danger"
-                    : "bg-primary-subtle text-brand-deep",
+                  toneClass,
                 )}
               >
                 {icon}
@@ -338,14 +407,7 @@ export function IconModal({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={c.common.close}
-              className="shrink-0 rounded-lg bg-surface-subtle px-2.5 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-border-subtle"
-            >
-              ✕
-            </button>
+            {closeButton}
           </div>
 
           {children}

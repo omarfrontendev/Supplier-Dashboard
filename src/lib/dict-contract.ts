@@ -535,6 +535,17 @@ export const contractEn = {
       saveStaleNone:
         "Someone saved this contract while you were editing. Your changes are kept - save again.",
       saveNotDraft: "Not saved: this contract is {status}, and only Draft contracts can be edited here.",
+      saveConflict: {
+        title: "A newer version of this contract is available",
+        body: "Another user has updated this contract since you opened it. Your changes could not be saved because of a version conflict.",
+        warningLabel: "Warning:",
+        warning:
+          "Reloading the latest version will permanently discard all your current unsaved changes and replace them with the latest saved version.",
+        reload: "Reload Latest Version",
+        reloading: "Reloading…",
+        keepEditing: "Continue Editing",
+        reloadFailed: "The latest version couldn't be loaded. Your changes are kept - try again.",
+      },
       noChanges: "No changes to save.",
       unavailable:
         "This contract or its hotel isn't available for changes right now. Your changes are kept.",
@@ -1465,6 +1476,17 @@ export const contractAr: typeof contractEn = {
         "حفظ أحدهم هذا العقد أثناء تعديلك ({fields}). تعديلاتك محفوظة في الصفحة - راجعها واحفظ مجددًا.",
       saveStaleNone: "حفظ أحدهم هذا العقد أثناء تعديلك. تعديلاتك محفوظة في الصفحة - احفظ مجددًا.",
       saveNotDraft: "لم يتم الحفظ: حالة هذا العقد {status}، ويمكن تعديل العقود المسودة فقط من هنا.",
+      saveConflict: {
+        title: "تتوفر نسخة أحدث من هذا العقد",
+        body: "قام مستخدم آخر بتحديث هذا العقد منذ أن فتحته. تعذّر حفظ تعديلاتك بسبب تعارض في الإصدارات.",
+        warningLabel: "تحذير:",
+        warning:
+          "إعادة تحميل أحدث نسخة ستؤدي إلى حذف جميع تعديلاتك الحالية غير المحفوظة نهائيًا واستبدالها بأحدث نسخة محفوظة.",
+        reload: "إعادة تحميل أحدث نسخة",
+        reloading: "جارٍ إعادة التحميل…",
+        keepEditing: "متابعة التعديل",
+        reloadFailed: "تعذّر تحميل أحدث نسخة. تعديلاتك محفوظة في الصفحة - حاول مجددًا.",
+      },
       noChanges: "لا توجد تغييرات للحفظ.",
       unavailable: "هذا العقد أو فندقه غير متاح للتعديل حاليًا. تعديلاتك محفوظة في الصفحة.",
       changedFields: {

@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 
 export const hotelContractKey = (id: number | null) => ["hotel-contracts", "detail", id];
 
-const fetchHotelContract = async (id: number) => {
+export const fetchHotelContract = async (id: number) => {
   const response = await api.get<SupplierHotelContractResponse>(
     endpoints.supplierHotelContracts.byId(id),
   );

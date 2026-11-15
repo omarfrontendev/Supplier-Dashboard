@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Check, ChevronRight, Lock, Plus, Save } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Check, ChevronRight, Lock, Plus, RefreshCw, Save } from "lucide-react";
 import { IconModal } from "@/components/layout/overlay";
 import { PageShell } from "@/components/layout/page-shell";
 import { useContractHotels } from "@/api/modules/hotel-contract/contrac-tHotels/useContractHotels";
-import { useHotelContract } from "@/api/modules/hotel-contract/useHotelContract";
+import {
+  fetchHotelContract,
+  hotelContractKey,
+  useHotelContract,
+} from "@/api/modules/hotel-contract/useHotelContract";
 import { useHotelContractFinalizationReview } from "@/api/modules/hotel-contract/useHotelContractFinalizationReview";
 import { useFinalizeHotelContract } from "@/api/modules/hotel-contract/useFinalizeHotelContract";
 import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
@@ -24,11 +29,9 @@ import {
   hasInactiveRestrictions,
   hasChildPricing,
   hasPricingInput,
-  mergeLatestDraft,
   pricingChanged,
   pricingFromDraft,
   toRestrictions,
-  contractDifferences,
   draftFromContract,
   hasRoomPricing,
   sameSavedDraft,
@@ -308,6 +311,12 @@ export function ContractBuilder({
   const finalizationInFlight = useRef(false);
   const saveContract = useSaveHotelContract();
   const savingDraft = saveContract.isPending;
+  const queryClient = useQueryClient();
+  /** Save Draft hit 409: the contract the supplier was saving, until they choose what to do. */
+  const [saveConflict, setSaveConflict] = useState<{ contractId: number } | null>(null);
+  const [conflictReloading, setConflictReloading] = useState(false);
+  const [conflictReloadError, setConflictReloadError] = useState<string | null>(null);
+  const conflictReloadInFlight = useRef(false);
   const childMaxAge = useChildAgeLimit(basics.hotelId);
   const loadedId = useRef<number | null>(null);
   useEffect(() => {
@@ -1371,31 +1380,9 @@ export function ContractBuilder({
   function onSaveError(error: Error, base: SupplierHotelContract | null = saved) {
     const status = isAxiosError(error) ? error.response?.status : undefined;
     if (status === 409 && base) {
-      const before = base;
-      const editing = draft;
-      void remote.refetch().then(({ data: latest }) => {
-        if (latest && latest.status !== "draft") {
-          notify.error(
-            fill(f.saveNotDraft, {
-              status: statusName(latest.status, lang === "ar" ? "ar" : "en"),
-            }),
-          );
-          return;
-        }
-        const fields = latest ? contractDifferences(before, latest) : [];
-        if (latest) {
-          dispatch(loadContract(mergeLatestDraft(editing, before, latest)));
-        }
-        notify.error(
-          fields.length > 0
-            ? fill(f.saveStale, {
-                fields: fields
-                  .map((field) => f.changedFields[field])
-                  .join(lang === "ar" ? "، " : ", "),
-              })
-            : f.saveStaleNone,
-        );
-      });
+      // Never reload on our own: the supplier decides whether to drop their edits.
+      setConflictReloadError(null);
+      setSaveConflict({ contractId: base.id });
       return;
     }
     if (status === 404 && base) {
@@ -1407,6 +1394,37 @@ export function ContractBuilder({
         errors: getApiErrorList(error).join(lang === "ar" ? "، " : " · "),
       }),
     );
+  }
+
+  async function reloadLatestContract() {
+    if (!saveConflict || conflictReloadInFlight.current) return;
+    conflictReloadInFlight.current = true;
+    setConflictReloading(true);
+    setConflictReloadError(null);
+    const id = saveConflict.contractId;
+    try {
+      // Writes the hotel-contracts detail cache, so `saved` (and its version) follows.
+      const latest = await queryClient.fetchQuery({
+        queryKey: hotelContractKey(id),
+        queryFn: () => fetchHotelContract(id),
+        staleTime: 0,
+      });
+      if (createdDraftRef.current?.id === latest.id) createdDraftRef.current = latest;
+      loadedId.current = latest.id;
+      dispatch(loadContract(draftFromContract(latest)));
+      setSaveConflict(null);
+    } catch (error) {
+      setConflictReloadError(getApiErrorMessage(error, f.saveConflict.reloadFailed));
+    } finally {
+      conflictReloadInFlight.current = false;
+      setConflictReloading(false);
+    }
+  }
+
+  function continueEditingAfterConflict() {
+    if (conflictReloadInFlight.current) return;
+    setConflictReloadError(null);
+    setSaveConflict(null);
   }
 
   const savedAt = saved
@@ -2554,6 +2572,55 @@ export function ContractBuilder({
           finalizationSuccess={finalizationSuccess}
           onClose={closeReview}
         />
+      )}
+
+      {saveConflict && (
+        <IconModal
+          align="center"
+          tone="warning"
+          width="560px"
+          icon={<AlertTriangle className="h-7 w-7" aria-hidden="true" />}
+          overline=""
+          title={f.saveConflict.title}
+          body={f.saveConflict.body}
+          onClose={continueEditingAfterConflict}
+          footer={
+            <>
+              <Button
+                variant="outline"
+                disabled={conflictReloading}
+                reason={f.saveConflict.reloading}
+                onClick={continueEditingAfterConflict}
+              >
+                {f.saveConflict.keepEditing}
+              </Button>
+              <Button loading={conflictReloading} onClick={() => void reloadLatestContract()}>
+                {!conflictReloading && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+                {conflictReloading ? f.saveConflict.reloading : f.saveConflict.reload}
+              </Button>
+            </>
+          }
+        >
+          <div
+            role="note"
+            className="flex items-start gap-3 rounded-xl border border-status-warning/25 bg-status-warning-bg p-4 text-[13px] leading-5 text-status-warning"
+          >
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <p className="border-s border-status-warning/25 ps-3 font-medium">
+              <strong className="font-semibold">{f.saveConflict.warningLabel}</strong>{" "}
+              {f.saveConflict.warning}
+            </p>
+          </div>
+          {conflictReloadError && (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-[10px] bg-status-danger-bg px-3.5 py-2.5 text-[13px] leading-5 text-status-danger"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              {conflictReloadError}
+            </p>
+          )}
+        </IconModal>
       )}
 
       {leaveBlocker.status === "blocked" && (
