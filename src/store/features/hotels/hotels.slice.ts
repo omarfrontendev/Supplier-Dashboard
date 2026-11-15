@@ -4,10 +4,31 @@ import { cleanAndTrim } from "@/lib/clean-data";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 import {
+  CONTRACT_STATUSES,
+  ContractCountsByStatus,
+} from "@/api/modules/hotel-contract/types";
+
+import {
   GetHotelsPayload,
   HotelsResponse,
   HotelsState,
+  LinkedHotel,
 } from "./types";
+
+// The API may omit statuses with no contracts; fill every status so the UI can trust the counts.
+const normalizeContractCounts = (
+  counts: Partial<ContractCountsByStatus> | null | undefined,
+): ContractCountsByStatus =>
+  CONTRACT_STATUSES.reduce((acc, status) => {
+    acc[status] = Number(counts?.[status]) || 0;
+    return acc;
+  }, {} as ContractCountsByStatus);
+
+const normalizeLinkedHotel = (item: LinkedHotel): LinkedHotel => ({
+  ...item,
+  hasContracts: item.hasContracts === true,
+  contractCountsByStatus: normalizeContractCounts(item.contractCountsByStatus),
+});
 
 interface ApiErrorResponse {
   status?: string;
@@ -99,7 +120,7 @@ const hotelsSlice = createSlice({
         state.loading = false;
         state.error = null;
 
-        state.hotels = action.payload.data.hotels;
+        state.hotels = (action.payload.data.hotels ?? []).map(normalizeLinkedHotel);
         state.meta = action.payload.data.meta;
         state.emptyState = action.payload.data.emptyState;
       })

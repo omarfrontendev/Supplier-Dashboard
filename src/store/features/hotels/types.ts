@@ -1,3 +1,5 @@
+import type { ContractCountsByStatus } from "@/api/modules/hotel-contract/types";
+
 export type BookingConfirmationType = "on_request";
 
 export type HotelLinkStatus = "approved" | "pending" | "rejected";
@@ -18,6 +20,8 @@ export interface LinkedHotel {
   bookingConfirmationType: BookingConfirmationType;
   status: HotelLinkStatus;
   statusChangedAt: string;
+  hasContracts: boolean;
+  contractCountsByStatus: ContractCountsByStatus;
 }
 
 export interface HotelsMeta {

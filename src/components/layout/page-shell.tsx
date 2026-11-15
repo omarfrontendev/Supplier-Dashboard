@@ -209,7 +209,11 @@ const pillTones = {
   info: "bg-status-info-bg text-status-info",
   neutral: "bg-status-neutral-bg text-status-neutral",
   brand: "bg-primary-subtle text-brand-deep",
+  /* Inset ring draws the border without adding height, so it lines up with the other pills. */
+  expired: "bg-[#E2E8F0] text-[#334155] ring-1 ring-inset ring-[#CBD5E1]",
 } as const;
+
+export type StatusPillTone = keyof typeof pillTones;
 
 export function StatusPill({
   tone,
@@ -217,7 +221,7 @@ export function StatusPill({
   children,
   className,
 }: {
-  tone?: keyof typeof pillTones | undefined;
+  tone?: StatusPillTone | undefined;
   /**
    * BR-00-27 — one badge component, five colours, and the colour comes from
    * the status dictionary rather than the call site. "أي حالة مش في القاموس

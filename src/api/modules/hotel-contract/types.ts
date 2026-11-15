@@ -1,4 +1,37 @@
-export type ContractStatus = "draft" | "scheduled" | "active" | "paused" | "expired" | "terminated";
+export const CONTRACT_STATUSES = [
+  "draft",
+  "scheduled",
+  "active",
+  "paused",
+  "expired",
+  "terminated",
+] as const;
+
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+export type ContractCountsByStatus = Record<ContractStatus, number>;
+
+/** StatusPill tones, matching the contract rows in rate-contracts.index.tsx. */
+export type ContractStatusTone =
+  | "success"
+  | "info"
+  | "warning"
+  | "danger"
+  | "neutral"
+  | "brand"
+  | "expired";
+
+export const CONTRACT_STATUS_CONFIG: Record<
+  ContractStatus,
+  { labelEn: string; labelAr: string; tone: ContractStatusTone }
+> = {
+  draft: { labelEn: "Draft", labelAr: "مسودة", tone: "neutral" },
+  scheduled: { labelEn: "Scheduled", labelAr: "مجدول", tone: "info" },
+  active: { labelEn: "Active", labelAr: "نشط", tone: "success" },
+  paused: { labelEn: "Paused", labelAr: "متوقف مؤقتًا", tone: "warning" },
+  expired: { labelEn: "Expired", labelAr: "منتهي", tone: "expired" },
+  terminated: { labelEn: "Terminated", labelAr: "تم إنهاؤه", tone: "danger" },
+};
 
 export interface HotelContractMetadataOption {
   value: string;

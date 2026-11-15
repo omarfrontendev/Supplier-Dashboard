@@ -21,6 +21,7 @@ import { HotelGridSkeleton } from "@/components/ui/skeletons";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { fetchHotels } from "@/store/features/hotels/hotels.slice";
+import { ContractStatusSummary } from "@/components/contracts/ContractStatusSummary";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
 
 // import countries from "i18n-iso-countries";
@@ -232,7 +233,7 @@ function MyHotelsPage() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {linkedHotels.map(({ hotel }) => {
+            {linkedHotels.map(({ hotel, hasContracts, contractCountsByStatus }) => {
               const contractStatus =
                 hotel.contract === "selling"
                   ? c.myHotels.status.selling
@@ -257,21 +258,23 @@ function MyHotelsPage() {
                       </p>
                     </div>
 
-                    <StatusPill
-                      tone={
-                        hotel.contract === "selling"
-                          ? "success"
-                          : hotel.contract === "draft"
-                            ? "warning"
-                            : "neutral"
-                      }
-                    >
-                      {hotel.needsAttention && (
-                        <AlertTriangle className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                      )}
+                    {/* {!hasContracts && (
+                      <StatusPill
+                        tone={
+                          hotel.contract === "selling"
+                            ? "success"
+                            : hotel.contract === "draft"
+                              ? "warning"
+                              : "neutral"
+                        }
+                      >
+                        {hotel.needsAttention && (
+                          <AlertTriangle className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                        )}
 
-                      {contractStatus}
-                    </StatusPill>
+                        {contractStatus}
+                      </StatusPill>
+                    )} */}
                   </div>
 
                   <div className="mt-3 flex items-center gap-1">
@@ -287,7 +290,28 @@ function MyHotelsPage() {
                       {hotel.starRating}
                     </span>
                   </div>
+                  {hasContracts && (
+                    <ContractStatusSummary counts={contractCountsByStatus} className="mt-4" />
+                  )}
 
+                  {!hasContracts && (
+                    <StatusPill
+                      className="mt-4"
+                      tone={
+                        hotel.contract === "selling"
+                          ? "success"
+                          : hotel.contract === "draft"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
+                      {hotel.needsAttention && (
+                        <AlertTriangle className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+
+                      {contractStatus}
+                    </StatusPill>
+                  )}
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link to="/rate-contracts" className="hidden">
                       <Button size="sm">
