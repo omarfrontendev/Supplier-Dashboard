@@ -178,7 +178,8 @@ export function CheckDays({
                     <div
                       key={day}
                       className={cn(
-                        "flex h-[34px] min-w-[86px] items-center gap-1 rounded-[8px] px-1.5",
+                        "flex min-h-[34px] min-w-[86px] rounded-[8px] px-1.5 py-1",
+                        inRule ? "flex-col items-start gap-1" : "items-center",
                         inRule
                           ? "border border-border-subtle bg-surface-default"
                           : "bg-surface-subtle"
@@ -186,14 +187,15 @@ export function CheckDays({
                     >
                       <span
                         className={cn(
-                          "w-4 text-center text-[11.5px] font-semibold",
+                          "text-[11.5px] font-semibold",
+                          !inRule && "w-4 text-center",
                           inRule ? "text-text-primary" : "text-text-muted/70"
                         )}
                       >
                         {n(day)}
                       </span>
                       {inRule && tri && (
-                        <>
+                        <div className="flex flex-wrap items-center gap-1">
                           {(
                             [
                               ["in", c.inTag[k]],
@@ -221,7 +223,7 @@ export function CheckDays({
                                 }`}
                                 onClick={() => tri.onSet([key], what, nextTri(value))}
                                 className={cn(
-                                  "rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium transition-colors",
+                                  "rounded-[5px] px-1 py-0.5 text-[10px] font-medium transition-colors",
                                   chipTone(value, inherited),
                                 )}
                               >
@@ -236,10 +238,10 @@ export function CheckDays({
                             k={k}
                             n={n}
                           />
-                        </>
+                        </div>
                       )}
                       {inRule && !tri && (
-                        <>
+                        <div className="flex flex-wrap items-center gap-1">
                           {(
                             [
                               ["in", c.inTag[k], state.in],
@@ -252,7 +254,7 @@ export function CheckDays({
                               aria-pressed={Boolean(closed)}
                               onClick={() => onToggle([key], what)}
                               className={cn(
-                                "rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-medium transition-colors",
+                                "rounded-[5px] px-1 py-0.5 text-[10px] font-medium transition-colors",
                                 closed
                                   ? "bg-status-danger-bg text-status-danger"
                                   : "bg-[#e3f4e8] text-[#1d6b3f]"
@@ -261,7 +263,7 @@ export function CheckDays({
                               {label}
                             </button>
                           ))}
-                        </>
+                        </div>
                       )}
                     </div>
                   );
