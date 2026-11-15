@@ -363,7 +363,7 @@ export function RateGrid({
             </tr>
           )}
 
-          {model === "pool" && (
+          {(model === "pool" || (model === "perRoom" && poolCapacityLabel !== undefined)) && (
             <tr className="border-t border-border-subtle">
               <th className={cn(label, "ps-3.5 pe-2.5 py-2 text-start align-top")}>
                 <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">

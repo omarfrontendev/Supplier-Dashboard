@@ -2462,7 +2462,18 @@ function RateCalendarPage() {
             inventoryDetail
               ? {
                   ...month,
-                  poolLeft: monthDates.map((day) => nightsOf(null).get(day)?.capacity ?? -1),
+                  poolLeft: monthDates.map((day) =>
+                    liveModel === "perRoom"
+                      ? livePools.some((pool) => pool.nights.some((night) => night.stayDate === day))
+                        ? livePools.reduce(
+                            (sum, pool) =>
+                              sum +
+                              (pool.nights.find((night) => night.stayDate === day)?.capacity ?? 0),
+                            0,
+                          )
+                        : -1
+                      : (nightsOf(null).get(day)?.capacity ?? -1),
+                  ),
                 }
               : month
           }
