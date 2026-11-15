@@ -248,6 +248,7 @@ export function FilterPanel({
                 value={span.start}
                 edge="start"
                 span={span}
+                weekend={null}
                 onPick={setSpan}
               />
 
@@ -256,6 +257,7 @@ export function FilterPanel({
                 value={span.end}
                 edge="end"
                 span={span}
+                weekend={null}
                 onPick={setSpan}
               />
             </div>

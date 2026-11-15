@@ -1068,6 +1068,7 @@ export const liveGrid = {
     minNights: t("Min nights", "أقل عدد ليالٍ"),
     checkIn: t("Check-in", "الوصول"),
     checkOut: t("Check-out", "المغادرة"),
+    release: t("Release", "الاسترجاع"),
   },
   exportWaiting: t(
     "Loading this contract's prices for the dates shown. Download opens once they are in.",

@@ -45,7 +45,7 @@ import {
 import type { SupplierHotelContract } from "@/api/modules/hotel-contract/types";
 import { UnsavedOverlay } from "@/components/contracts/create-overlays";
 import { BasicsFields } from "@/components/contracts/contract-form/basics-fields";
-import { BookingFields } from "@/components/contracts/contract-form/booking-fields";
+import { BookingFields, SlaFields } from "@/components/contracts/contract-form/booking-fields";
 import { ChildrenFields } from "@/components/contracts/contract-form/children-fields";
 import { MealsFields } from "@/components/contracts/contract-form/meals-fields";
 import { PoliciesSummary } from "@/components/contracts/contract-form/policies-summary";
@@ -60,6 +60,7 @@ import {
 } from "@/components/contracts/contract-form/shared";
 import {
   cancellationIssues,
+  soldOutOnRequest,
   childIssues,
   restrictionsIssues,
   seasonsIssues,
@@ -962,7 +963,9 @@ export function ContractBuilder({
                 }),
           ]
         : []),
-      ...(onRequest || draft.policies.release?.afterRelease === "on_request"
+      ...(onRequest ||
+      draft.policies.release?.afterRelease === "on_request" ||
+      soldOutOnRequest(draft)
         ? [`${f.slaMinutes}: ${basics.slaMinutes}`]
         : []),
       ...(review?.contract.bookingCutoff
@@ -2140,9 +2143,21 @@ export function ContractBuilder({
                     </p>
                   )}
                   {inventory.soldOut === "request" && (
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                      {t.soldOutRequestHint}
-                    </p>
+                    <>
+                      <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                        {t.soldOutRequestHint}
+                      </p>
+                      {basics.bookingType !== "on_request" && (
+                        <SlaFields
+                          minutes={basics.slaMinutes}
+                          expiry={basics.slaExpiryAction}
+                          onMinutesChange={(next) => dispatch(updateBasics({ slaMinutes: next }))}
+                          onExpiryChange={(next) =>
+                            dispatch(updateBasics({ slaExpiryAction: next }))
+                          }
+                        />
+                      )}
+                    </>
                   )}
                   {inventory.soldOut === "overbooking" && (
                     <>

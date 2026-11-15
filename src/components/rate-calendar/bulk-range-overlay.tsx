@@ -954,9 +954,9 @@ export function BulkRangeOverlay({
           appliesOn: appliesOn === "weekend" ? ("weekend_days" as const) : ("every_day" as const),
         }
       : undefined;
-  /* Check-in / check-out follow the calendar on every picked night; appliesOn never filters them. */
+  const checkDates = appliesOn === "weekend" ? pickedDates.filter(covered) : pickedDates;
   const checksByIso = new Map(
-    pickedDates.map((date) => [isoOf(date), nightChecks[calendarKey(date)] ?? {}]),
+    checkDates.map((date) => [isoOf(date), nightChecks[calendarKey(date)] ?? {}]),
   );
   const checksOf = (iso: string): NightChecks => checksByIso.get(iso) ?? {};
   const restrictionTarget = ():
@@ -3243,8 +3243,7 @@ export function BulkRangeOverlay({
                       {live ? lr.checkLead[k] : c.checkDaysLead[k]}
                     </p>
                     <CheckDays
-                      dates={pickedDates}
-                      /* Live: every picked night, whatever the minimum stay's weekend setting. */
+                      dates={checkDates}
                       covered={live ? () => true : covered}
                       tri={
                         live

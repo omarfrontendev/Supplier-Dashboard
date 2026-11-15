@@ -58,7 +58,7 @@ const initialState: ContractDraftState = {
     soldOut: "overbooking",
     sharedOverbookingLimitPerNight: "2",
   },
-  weekPricing: "weekday_weekend",
+  weekPricing: "one_price",
   baseSupplements: emptyBaseSupplements(),
   fixedRooms: [],
   roomVariationsEdited: false,

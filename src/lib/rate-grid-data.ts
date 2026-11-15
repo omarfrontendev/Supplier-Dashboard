@@ -55,10 +55,13 @@ export interface GridRow {
   inventory: number[];
   /** "SS" stop sale, "RQ" on request, "·" nothing. */
   status: string[];
-  release: number[];
+  release: (number | null)[];
+  releaseEdited?: number[];
   target?: { variationId: number; mealPlan?: string };
   edited?: number[];
   minNights?: string[];
+  closedIn?: boolean[];
+  closedOut?: boolean[];
   mealLabel?: { en: string; ar: string };
   meals?: Array<{
     key: string;

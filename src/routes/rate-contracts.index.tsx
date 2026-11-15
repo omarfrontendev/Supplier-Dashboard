@@ -137,6 +137,7 @@ const copy = {
     anyAttention: "Any",
     needAttention: "NEED ATTENTION",
     contract: "CONTRACT",
+    hotelColumn: "HOTEL",
     period: "PERIOD",
     allotment: "Pricing model",
     confirmation: "booking type",
@@ -253,6 +254,7 @@ const copy = {
     anyAttention: "الكل",
     needAttention: "تحتاج انتباهك",
     contract: "العقد",
+    hotelColumn: "الفندق",
     period: "الفترة",
     allotment: "نموذج التسعير",
     confirmation: "نوع الحجز",
@@ -558,6 +560,18 @@ function RateContractsPage() {
     search: debouncedHotelSearch,
   });
 
+  const allHotels = useContractHotels({ page: 1, limit: 100 });
+  const hotelNameById = useMemo(
+    () =>
+      new Map(
+        (allHotels.data?.hotels ?? []).map((hotel) => [
+          hotel.id,
+          lang === "ar" ? hotel.nameAr || hotel.nameEn : hotel.nameEn,
+        ]),
+      ),
+    [allHotels.data?.hotels, lang],
+  );
+
   const hotelsMeta = hotelsData?.meta;
 
   const hasNextHotelPage = hotelPage < (hotelsMeta?.totalPages ?? 1);
@@ -824,9 +838,10 @@ function RateContractsPage() {
           </FilterField>
         </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[1480px]">
-            <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.7fr_.7fr_.6fr_120px_1fr] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
+          <div className="min-w-[1640px]">
+            <div className="grid grid-cols-[1.25fr_1fr_1fr_.85fr_.8fr_.7fr_.7fr_.6fr_120px_1fr] bg-surface-subtle px-5 py-3 text-overline text-text-muted gap-x-4">
               <span>{t.contract}</span>
+              <span>{t.hotelColumn}</span>
               <span>{t.period}</span>
               <span>{t.allotment}</span>
               <span>{t.confirmation}</span>
@@ -840,6 +855,7 @@ function RateContractsPage() {
               <ContractRow
                 key={item.id}
                 item={item}
+                hotelName={hotelNameById.get(Number(item.hotelId))}
                 lang={lang}
                 t={t}
                 ask={(action) => setPending({ contract: item, action })}
@@ -1145,11 +1161,13 @@ function AllotmentPerNightCell({
 
 function ContractRow({
   item,
+  hotelName,
   lang,
   t,
   ask,
 }: {
   item: SupplyContract & Pick<HotelContractListItem, "releasePolicy" | "inventorySummary">;
+  hotelName: string | undefined;
   lang: "en" | "ar";
   t: typeof copy.en;
   ask: (a: ContractAction) => void;
@@ -1179,7 +1197,7 @@ function ContractRow({
             ? "danger"
             : "neutral";
   return (
-    <div className="grid grid-cols-[1.25fr_1fr_.85fr_.8fr_.7fr_.7fr_.6fr_120px_1fr] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
+    <div className="grid grid-cols-[1.25fr_1fr_1fr_.85fr_.8fr_.7fr_.7fr_.6fr_120px_1fr] items-center border-t border-border-subtle px-5 py-4 text-xs gap-x-4">
       <div className="min-w-0">
         <span
           // to="/rate-contracts/$contractId"
@@ -1188,7 +1206,9 @@ function ContractRow({
         >
           {item.name}
         </span>
+        <span className="font-data mt-0.5 block text-[11.5px] text-text-muted">#{item.id}</span>
       </div>
+      <span className="truncate text-text-secondary">{hotelName ?? "—"}</span>
       <span className="text-text-secondary">{contractPeriod}</span>
       <span className="font-data text-sm font-semibold text-text-primary">
         {pricingModelLabel(item.pricingModel, t)}
@@ -1228,7 +1248,7 @@ function ContractRow({
                 {lang === "ar" ? item.nameAr : item.name}
               </p>
               <p className="mt-0.5 truncate text-xs text-text-muted">
-                {label} · {hotel ? (lang === "ar" ? hotel.nameAr : hotel.nameEn) : "—"}
+                {label} · #{item.id} · {hotelName ?? (hotel ? (lang === "ar" ? hotel.nameAr : hotel.nameEn) : "—")}
               </p>
             </div>
             <div className="p-1">

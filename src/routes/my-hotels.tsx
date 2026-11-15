@@ -23,6 +23,7 @@ import { RootState } from "@/store";
 import { fetchHotels } from "@/store/features/hotels/hotels.slice";
 import { ContractStatusSummary } from "@/components/contracts/ContractStatusSummary";
 import { ReusablePagination } from "@/components/ui/ReusablePagination";
+import { useRatesMetadata } from "@/api/modules/rates-availability/useRatesMetadata";
 
 // import countries from "i18n-iso-countries";
 // import en from "i18n-iso-countries/langs/en.json";
@@ -79,6 +80,7 @@ function MyHotelsPage() {
   const { relations } = usePortal();
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
+  const countriesQuery = useRatesMetadata();
   const [state, setState] = useState(null);
   const [filter, setFilter] = useState(false);
 
@@ -180,10 +182,10 @@ function MyHotelsPage() {
                 value: null,
                 label: lang === "ar" ? "الكل" : "All",
               },
-              {
-                value: "SA",
-                label: lang === "ar" ? "السعودية" : "Saudi Arabia",
-              },
+              ...(countriesQuery.data?.countries ?? []).map((country) => ({
+                value: country.code,
+                label: lang === "ar" ? country.nameAr || country.nameEn : country.nameEn,
+              })),
             ]}
           />
           <Select

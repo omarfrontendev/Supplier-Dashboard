@@ -96,6 +96,7 @@ import {
 } from "@/lib/restriction-format";
 import {
   usePreviewReleaseOverrides,
+  useReleaseContext,
   useReleaseOverrides,
   useReleaseTargets,
   useSaveReleaseOverrides,
@@ -126,6 +127,7 @@ import {
 import type { AlreadySet } from "@/lib/bulk-range-data";
 import type {
   ReleaseRule,
+  ReleaseValue,
   RestrictionInheritedRule,
   RestrictionRule,
   SellControlSla,
@@ -632,6 +634,12 @@ function RateCalendarPage() {
       ? { allRooms: true, startDate: termDates[0]!, endDate: termDates[termDates.length - 1]! }
       : null,
   );
+  const releaseQuery = useReleaseContext(
+    pickedContract?.id,
+    needsContext
+      ? { allRooms: true, startDate: termDates[0]!, endDate: termDates[termDates.length - 1]! }
+      : null,
+  );
   /*
    * The calendar is drawn only from data of the URL's validated contract: its rate
    * targets, its details (term, seasons, inventory, weekend), `span` set from that term,
@@ -672,6 +680,14 @@ function RateCalendarPage() {
       cell.restrictions,
     ]),
   );
+  const releaseAt = new Map(
+    (releaseQuery.data?.cells ?? []).map((cell) => [
+      `${cell.variationId}|${cell.stayDate}`,
+      cell.release,
+    ]),
+  );
+  const releaseDays = (release: ReleaseValue | undefined) =>
+    !release?.type ? null : release.type === "same_day" ? 0 : release.daysBeforeCheckIn;
   const sellAt = new Map(
     (sellQuery.data?.cells ?? []).map((cell) => [
       `${cell.variationId}|${cell.stayDate}`,
@@ -834,16 +850,27 @@ function RateCalendarPage() {
                 ? "RQ"
                 : "·";
           }),
-          release: monthDates.map(() => 0),
+          release: monthDates.map((day) =>
+            releaseDays(releaseAt.get(`${target.variationId}|${day}`)),
+          ),
+          releaseEdited: monthDates.flatMap((day, index) => {
+            const source = releaseAt.get(`${target.variationId}|${day}`)?.source;
+            return source === "room_override" || source === "all_rooms_override"
+              ? [index + 1]
+              : [];
+          }),
           ...(restrictionsQuery.data
             ? {
                 minNights: monthDates.map((day) => {
                   const rule = restrictionAt.get(`${target.variationId}|${day}`);
-                  if (!rule) return "-";
-                  if (rule.checkIn === "closed") return "no in";
-                  if (rule.checkOut === "closed") return "no out";
-                  return rule.minNights > 0 ? String(rule.minNights) : "-";
+                  return rule && rule.minNights > 0 ? String(rule.minNights) : "-";
                 }),
+                closedIn: monthDates.map(
+                  (day) => restrictionAt.get(`${target.variationId}|${day}`)?.checkIn === "closed",
+                ),
+                closedOut: monthDates.map(
+                  (day) => restrictionAt.get(`${target.variationId}|${day}`)?.checkOut === "closed",
+                ),
               }
             : {}),
           target: {
@@ -1538,15 +1565,16 @@ function RateCalendarPage() {
           : statusCode === "RQ"
             ? liveGrid.onRequestValue[k]
             : liveGrid.openSaleValue[k],
-      minNights:
-        minValue === "no in"
-          ? liveGrid.checkInClosed[k]
-          : minValue === "no out"
-            ? liveGrid.checkOutClosed[k]
-            : minValue === "-"
-              ? liveGrid.poolNone[k]
-              : num(Number(minValue)),
-      release: contractTerms(liveDetail!, rateTargets!, k)[3]!,
+      minNights: row.closedIn?.[first - 1]
+        ? liveGrid.checkInClosed[k]
+        : row.closedOut?.[first - 1]
+          ? liveGrid.checkOutClosed[k]
+          : minValue === "-"
+            ? liveGrid.poolNone[k]
+            : num(Number(minValue)),
+      release:
+        releaseText(releaseAt.get(`${row.target!.variationId}|${day}`), k) ??
+        contractTerms(liveDetail!, rateTargets!, k)[3]!,
     };
   };
   const overlayRow = allRows.find((row) => row.name === (pickedRooms[0] ?? nightCell?.room));
@@ -2405,7 +2433,7 @@ function RateCalendarPage() {
                   inventory: show.inventory && liveDetail !== undefined,
                   status: show.status && sellQuery.data !== undefined,
                   restrictions: show.restrictions && restrictionsQuery.data !== undefined,
-                  release: false,
+                  release: show.release && releaseQuery.data !== undefined,
                 }
               : show
           }
@@ -3249,7 +3277,8 @@ function RateCalendarPage() {
             contextQuery.isFetching ||
             (!fixedPrice && supplementsQuery.isFetching) ||
             sellQuery.isFetching ||
-            restrictionsQuery.isFetching
+            restrictionsQuery.isFetching ||
+            (show.release && releaseQuery.isFetching)
               ? { waiting: liveGrid.exportWaiting[k] }
               : {})}
             overline={[
@@ -3388,6 +3417,20 @@ function RateCalendarPage() {
                         },
                       ];
                     })()
+                  : []),
+                ...(show.release && releaseQuery.data
+                  ? [
+                      {
+                        head: cols.release[k],
+                        value: (row: GridRow, _: number, day: string) =>
+                          row.target
+                            ? (releaseText(
+                                releaseAt.get(`${row.target.variationId}|${day}`),
+                                k,
+                              ) ?? "")
+                            : "",
+                      },
+                    ]
                   : []),
               ];
               exportRows({
@@ -3881,6 +3924,17 @@ function FilterChip({
       )}
     </button>
   );
+}
+
+function releaseText(release: ReleaseValue | undefined, k: "en" | "ar") {
+  if (!release?.type || !release.releaseTime) return null;
+  const terms = liveGrid.terms;
+  return release.type === "same_day"
+    ? fill(terms.releaseSameDay[k], { time: release.releaseTime })
+    : fill(terms.releaseDays[k], {
+        count: k === "ar" ? arNum(release.daysBeforeCheckIn ?? 0) : String(release.daysBeforeCheckIn ?? 0),
+        time: release.releaseTime,
+      });
 }
 
 function contractTerms(detail: RatesContractDetail, targets: RateTargetsData, k: "en" | "ar") {

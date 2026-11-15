@@ -108,6 +108,12 @@ export function cancellationIssues(
   return issues;
 }
 
+export const soldOutOnRequest = (draft: ContractDraftState) =>
+  draft.basics.bookingType !== "on_request" &&
+  draft.inventory.model !== null &&
+  draft.inventory.model !== "free" &&
+  draft.inventory.soldOut === "request";
+
 export function isValidSlaMinutes(value: string): boolean {
   const minutes = toAmount(value);
   return (
@@ -343,9 +349,17 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
 
     const releaseNeedsSla =
       Boolean(draft.policies?.enabled) && draft.policies?.release?.afterRelease === "on_request";
-    if ((basics.bookingType === "on_request" || releaseNeedsSla) && !isValidSlaMinutes(basics.slaMinutes)) {
+    const soldOutNeedsSla = soldOutOnRequest(draft);
+    if (
+      (basics.bookingType === "on_request" || releaseNeedsSla || soldOutNeedsSla) &&
+      !isValidSlaMinutes(basics.slaMinutes)
+    ) {
       issue(
-        basics.bookingType === "on_request" ? "booking" : "policies",
+        basics.bookingType === "on_request"
+          ? "booking"
+          : soldOutNeedsSla
+            ? "inventory"
+            : "policies",
         fill(m.sla, { min: SLA_MIN_MINUTES, max: SLA_MAX_MINUTES }),
       );
     }

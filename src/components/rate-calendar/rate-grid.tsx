@@ -729,44 +729,78 @@ function RoomBlock({
       )}
 
       {show.restrictions && (
-        <tr className="border-t border-border-subtle">
-          <th className={cn(labelClass, "ps-3.5 pe-2.5 py-[7px] text-start align-top")}>
-            <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">
-              {t.minNights}
-            </span>
-            {month.noRule && (
-              <span className="block text-[10px] leading-[13px] tracking-[-0.04em] text-text-muted">
-                {t.noRuleMonth}
+        <>
+          <tr className="border-t border-border-subtle">
+            <th className={cn(labelClass, "ps-3.5 pe-2.5 py-[7px] text-start align-top")}>
+              <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">
+                {t.minNights}
               </span>
-            )}
-          </th>
-          {nights.map((night) => {
-            const value = (row.minNights ?? month.minNights)[night - 1] ?? "";
-            return (
-              <td
-                key={night}
-                className={cn(
-                  "font-data h-7 border-s border-border-subtle px-1 text-center text-[11px] font-medium",
-                  fade?.(night, row.name) && "opacity-30",
-                  isWeekend(night)
-                    ? "bg-cell-weekend-bg"
-                    : isPast(night) && "bg-cell-past-bg",
-                  value === "no in" || value === "no out"
-                    ? "bg-status-warning-bg font-semibold text-status-warning"
-                    : "text-text-secondary"
-                )}
-              >
-                {value === "no in"
-                  ? t.noCheckIn
-                  : value === "no out"
-                    ? t.noCheckOut
-                    : value === "-"
-                      ? "—"
-                      : figure(value, ar)}
-              </td>
-            );
-          })}
-        </tr>
+              {month.noRule && (
+                <span className="block text-[10px] leading-[13px] tracking-[-0.04em] text-text-muted">
+                  {t.noRuleMonth}
+                </span>
+              )}
+            </th>
+            {nights.map((night) => {
+              const value = (row.minNights ?? month.minNights)[night - 1] ?? "";
+              return (
+                <td
+                  key={night}
+                  className={cn(
+                    "font-data h-7 border-s border-border-subtle px-1 text-center text-[11px] font-medium",
+                    fade?.(night, row.name) && "opacity-30",
+                    isWeekend(night)
+                      ? "bg-cell-weekend-bg"
+                      : isPast(night) && "bg-cell-past-bg",
+                    value === "no in" || value === "no out"
+                      ? "bg-status-warning-bg font-semibold text-status-warning"
+                      : "text-text-secondary"
+                  )}
+                >
+                  {value === "no in"
+                    ? t.noCheckIn
+                    : value === "no out"
+                      ? t.noCheckOut
+                      : value === "-"
+                        ? "—"
+                        : figure(value, ar)}
+                </td>
+              );
+            })}
+          </tr>
+          {row.closedIn && row.closedOut &&
+            (
+              [
+                [t.checkInRow, row.closedIn],
+                [t.checkOutRow, row.closedOut],
+              ] as const
+            ).map(([label, closed]) => (
+              <tr key={label} className="border-t border-border-subtle">
+                <th className={cn(labelClass, "ps-3.5 pe-2.5 py-[7px] text-start")}>
+                  <span className="block text-[11.5px] font-medium leading-[14px] text-text-primary">
+                    {label}
+                  </span>
+                </th>
+                {nights.map((night) => (
+                  <td
+                    key={night}
+                    className={cn(
+                      "h-7 border-s border-border-subtle px-1 text-center text-[11px] font-medium",
+                      fade?.(night, row.name) && "opacity-30",
+                      isWeekend(night)
+                        ? "bg-cell-weekend-bg"
+                        : isPast(night) && "bg-cell-past-bg",
+                      closed[night - 1]
+                        ? "bg-status-warning-bg font-semibold text-status-warning"
+                        : "text-text-muted"
+                    )}
+                  >
+                    {closed[night - 1] ? t.closedDay : "—"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+        </>
       )}
 
       {show.release && model !== "free" && model !== "onRequest" && (
@@ -785,14 +819,16 @@ function RoomBlock({
                 isWeekend(night)
                     ? "bg-cell-weekend-bg"
                     : isPast(night) && "bg-cell-past-bg",
-                row.release[night - 1] !== CONTRACT_RELEASE_DAYS
+                (row.releaseEdited
+                  ? row.releaseEdited.includes(night)
+                  : row.release[night - 1] !== CONTRACT_RELEASE_DAYS)
                   ? "font-semibold text-status-warning"
                   : isPast(night)
                     ? "text-text-muted"
                     : "text-text-secondary"
               )}
             >
-              {figure(row.release[night - 1] ?? 0, ar)}
+              {row.release[night - 1] == null ? "—" : figure(row.release[night - 1]!, ar)}
             </td>
           ))}
         </tr>
