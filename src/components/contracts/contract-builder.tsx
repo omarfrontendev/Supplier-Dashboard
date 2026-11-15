@@ -16,6 +16,7 @@ import { useFinalizeHotelContract } from "@/api/modules/hotel-contract/useFinali
 import { useHotelContractsMetadata } from "@/api/modules/hotel-contract/useHotelContractsMetadata";
 import { useSaveHotelContract } from "@/api/modules/hotel-contract/useSaveHotelContract";
 import { getApiErrorList, getApiErrorMessage } from "@/lib/api-error";
+import { classifyContractConflict } from "@/api/modules/hotel-contract/contract-conflict";
 import { statusName } from "@/lib/contract-actions-data";
 import type {
   FinalizationApiErrorResponse,
@@ -312,7 +313,7 @@ export function ContractBuilder({
   const saveContract = useSaveHotelContract();
   const savingDraft = saveContract.isPending;
   const queryClient = useQueryClient();
-  /** Save Draft hit 409: the contract the supplier was saving, until they choose what to do. */
+  /** A save or finalize hit a version-conflict 409: the contract involved, until the supplier chooses. */
   const [saveConflict, setSaveConflict] = useState<{ contractId: number } | null>(null);
   const [conflictReloading, setConflictReloading] = useState(false);
   const [conflictReloadError, setConflictReloadError] = useState<string | null>(null);
@@ -1040,8 +1041,14 @@ export function ContractBuilder({
         }
         if (response.status === 409) {
           setAcceptedReviewKey(null);
-          setFinalizationError({ kind: "conflict", ...(detail ? { detail } : {}) });
-          await reviewQuery.refetch();
+          if (classifyContractConflict(error) === "version") {
+            // Same overlay as Save Draft: close the review and let the supplier choose.
+            setReviewOpen(false);
+            showVersionConflict(snapshot.contractId);
+            return;
+          }
+          // Duplicate name or any other 409: a toast only, no refetch.
+          notify.error(detail || t.finalizationGenericFailure);
           return;
         }
         if (response.status === 503) {
@@ -1379,12 +1386,17 @@ export function ContractBuilder({
 
   function onSaveError(error: Error, base: SupplierHotelContract | null = saved) {
     const status = isAxiosError(error) ? error.response?.status : undefined;
-    if (status === 409 && base) {
-      // Never reload on our own: the supplier decides whether to drop their edits.
-      setConflictReloadError(null);
-      setSaveConflict({ contractId: base.id });
+    const conflict = classifyContractConflict(error);
+    if (conflict === "version" && base) {
+      showVersionConflict(base.id);
       return;
     }
+    if (conflict === "duplicate_name") {
+      // The backend's own message; the form keeps every unsaved value.
+      notify.error(getApiErrorMessage(error, fill(f.saveFailedList, { errors: "" })));
+      return;
+    }
+    // Any other 409 falls through to the normal error toast below.
     if (status === 404 && base) {
       notify.error(f.unavailable);
       return;
@@ -1394,6 +1406,12 @@ export function ContractBuilder({
         errors: getApiErrorList(error).join(lang === "ar" ? "، " : " · "),
       }),
     );
+  }
+
+  /** Opens the Version Conflict overlay. Never reloads on its own: the supplier decides. */
+  function showVersionConflict(contractId: number) {
+    setConflictReloadError(null);
+    setSaveConflict({ contractId });
   }
 
   async function reloadLatestContract() {
