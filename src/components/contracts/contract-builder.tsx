@@ -53,6 +53,7 @@ import { RestrictionsFields } from "@/components/contracts/contract-form/restric
 import { PricingFields } from "@/components/contracts/contract-form/pricing-fields";
 import { RoomsFields } from "@/components/contracts/contract-form/rooms-fields";
 import { AvailableHotelRooms } from "@/components/contracts/available-hotel-rooms";
+import { AddRoomDrawer } from "@/components/hotels/add-missing-room/add-room-drawer";
 import {
   useAppDispatch,
   useChildAgeLimit,
@@ -337,6 +338,7 @@ export function ContractBuilder({
     Record<number, { roomSizeId: number | null; view: string | null }>
   >({});
   const [selectedRoomDetailsLoading, setSelectedRoomDetailsLoading] = useState(true);
+  const [addRoomOpen, setAddRoomOpen] = useState(false);
   const receiveSelectedRoomDetails = useCallback(
     (
       details: Record<number, { roomSizeId: number | null; view: string | null }>,
@@ -649,6 +651,14 @@ export function ContractBuilder({
     : basics.hotelId
       ? `#${basics.hotelId}`
       : "";
+
+  /* The same Request Room drawer the hotel profile opens (OV 02.R1). */
+  const addMissingRoomButton = basics.hotelId ? (
+    <Button variant="outline" size="sm" onClick={() => setAddRoomOpen(true)}>
+      <Plus className="h-4 w-4" aria-hidden="true" />
+      {c.hotelProfile.addMissingRoom}
+    </Button>
+  ) : undefined;
 
   const displayAmount = (amount: number | null | undefined) =>
     amount === null || amount === undefined
@@ -1801,6 +1811,7 @@ export function ContractBuilder({
               {...sectionFlow("rooms")}
               title={t.sections[2]!}
               body={fixed ? t.roomsFixedBody : basicsDone ? t.roomsBody : t.roomsBodyEmpty}
+              right={addMissingRoomButton}
               locked={!basicsDone}
               tone={basicsDone ? "done" : "locked"}
             >
@@ -1824,6 +1835,7 @@ export function ContractBuilder({
                   ? "الغرف المسجلة للفندق المحدد."
                   : "Rooms registered for the selected hotel."
               }
+              right={addMissingRoomButton}
               locked={!basicsDone}
               tone={basicsDone ? "done" : "locked"}
             >
@@ -2535,6 +2547,18 @@ export function ContractBuilder({
             notify.success(f.policies.cancellationSaved);
           }}
           onClose={() => setPolicy(null)}
+        />
+      )}
+      {addRoomOpen && basics.hotelId && (
+        <AddRoomDrawer
+          hotelId={basics.hotelId}
+          hotelName={hotelName}
+          onClose={() => setAddRoomOpen(false)}
+          refetchRooms={() =>
+            void queryClient.invalidateQueries({
+              queryKey: ["hotel-contracts", basics.hotelId, "rooms"],
+            })
+          }
         />
       )}
       {confirmNoPolicies && (
