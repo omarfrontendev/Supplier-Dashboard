@@ -41,26 +41,20 @@ export function OptionRow({
         "flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-start transition-colors",
         on
           ? "border-primary-subtle-border bg-primary-subtle"
-          : "border-border-subtle hover:bg-surface-subtle"
+          : "border-border-subtle hover:bg-surface-subtle",
       )}
     >
       <span
         className={cn(
           "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-surface-default",
-          on ? "border-brand-deep" : "border-border-strong"
+          on ? "border-brand-deep" : "border-border-strong",
         )}
       >
-        {on && (
-          <span className="h-2 w-2 rounded-full bg-brand-deep" aria-hidden="true" />
-        )}
+        {on && <span className="h-2 w-2 rounded-full bg-brand-deep" aria-hidden="true" />}
       </span>
       <span className="min-w-0">
-        <span className="block text-[13px] font-medium text-text-primary">
-          {label}
-        </span>
-        <span className="mt-0.5 block text-[11.5px] leading-4 text-text-muted">
-          {hint}
-        </span>
+        <span className="block text-[13px] font-medium text-text-primary">{label}</span>
+        <span className="mt-0.5 block text-[11.5px] leading-4 text-text-muted">{hint}</span>
       </span>
     </button>
   );
@@ -285,7 +279,6 @@ export function TermOverlay({
           </p>
         </div>
       )}
-
     </IconModal>
   );
 }
@@ -303,9 +296,8 @@ export function WeekendOverlay({
   const { lang } = useLanguage();
   const ar = lang === "ar";
   const p = weekendPanel;
-  const [picked, setPicked] = useState<string[]>(
-    initial?.length ? initial : [...p.selected]
-  );
+  // An empty list is a real choice (no weekend): only fall back to the suggested days when nothing was passed.
+  const [picked, setPicked] = useState<string[]>(initial ?? [...p.selected]);
 
   return (
     <IconModal
@@ -319,7 +311,7 @@ export function WeekendOverlay({
           <Button variant="outline" onClick={onClose}>
             {ar ? p.cancelAr : p.cancel}
           </Button>
-          <Button disabled={picked.length === 0} onClick={() => onConfirm(picked)}>
+          <Button onClick={() => onConfirm(picked)}>
             {ar ? p.confirmAr : p.confirm}
           </Button>
         </>
@@ -336,14 +328,14 @@ export function WeekendOverlay({
                 setPicked((prev) =>
                   prev.includes(day.label)
                     ? prev.filter((x) => x !== day.label)
-                    : [...prev, day.label]
+                    : [...prev, day.label],
                 )
               }
               className={cn(
                 "min-w-[62px] rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
                 on
                   ? "border-brand-deep bg-brand-deep text-primary"
-                  : "border-border-strong bg-surface-default text-text-primary hover:bg-surface-subtle"
+                  : "border-border-strong bg-surface-default text-text-primary hover:bg-surface-subtle",
               )}
             >
               {ar ? day.labelAr : day.label}
@@ -351,9 +343,7 @@ export function WeekendOverlay({
           );
         })}
       </div>
-      <p className="text-[11.5px] leading-4 text-text-muted">
-        {ar ? p.noteAr : p.note}
-      </p>
+      <p className="text-[11.5px] leading-4 text-text-muted">{ar ? p.noteAr : p.note}</p>
     </IconModal>
   );
 }
@@ -430,10 +420,7 @@ export function SeasonOverlapOverlay({
             {ar ? p.cancelAr : p.cancel}
           </Button>
           {/* BR-00-22 - off because the dates overlap; the panel says so. */}
-          <Button
-            disabled
-            reason={ar ? p.bodyAr : p.body}
-          >
+          <Button disabled reason={ar ? p.bodyAr : p.body}>
             {ar ? p.confirmAr : p.confirm}
           </Button>
         </>
@@ -441,32 +428,19 @@ export function SeasonOverlapOverlay({
     >
       <div className="rounded-xl bg-surface-subtle p-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-text-primary">
-            {ar ? p.monthAr : p.month}
-          </p>
-          <p className="text-[11.5px] text-text-muted">
-            {ar ? p.pickedAr : p.picked}
-          </p>
+          <p className="text-sm font-semibold text-text-primary">{ar ? p.monthAr : p.month}</p>
+          <p className="text-[11.5px] text-text-muted">{ar ? p.pickedAr : p.picked}</p>
         </div>
         <div className="mt-2 grid grid-cols-7 gap-1">
           {(ar ? p.weekdaysAr : p.weekdays).map((day) => (
-            <span
-              key={day}
-              className="text-center text-[10px] font-semibold text-text-muted"
-            >
+            <span key={day} className="text-center text-[10px] font-semibold text-text-muted">
               {day}
             </span>
           ))}
           {nights.map((night) => {
             const kind = p.dayKind(night);
             return (
-              <span
-                key={night}
-                className={cn(
-                  "rounded px-1 py-1 text-center",
-                  DAY_TONE[kind]
-                )}
-              >
+              <span key={night} className={cn("rounded px-1 py-1 text-center", DAY_TONE[kind])}>
                 <span className="block text-[10px] font-semibold">
                   {String(night).padStart(2, "0")}
                 </span>
@@ -485,10 +459,7 @@ export function SeasonOverlapOverlay({
               key={item.label}
               className="flex items-center gap-1.5 text-[10px] text-text-muted"
             >
-              <span
-                className={cn("h-2.5 w-2.5 rounded", DAY_TONE[item.kind])}
-                aria-hidden="true"
-              />
+              <span className={cn("h-2.5 w-2.5 rounded", DAY_TONE[item.kind])} aria-hidden="true" />
               {ar ? item.labelAr : item.label}
             </span>
           ))}
@@ -501,10 +472,7 @@ export function SeasonOverlapOverlay({
         </p>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
           {p.fixes.map((fix, index) => (
-            <div
-              key={fix.title}
-              className="rounded-xl border border-border-subtle p-3.5"
-            >
+            <div key={fix.title} className="rounded-xl border border-border-subtle p-3.5">
               <p className="text-[13px] font-semibold text-text-primary">
                 {ar ? fix.titleAr : fix.title}
               </p>

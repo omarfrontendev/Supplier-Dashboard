@@ -339,7 +339,6 @@ export const contractFinalSchema = (m: Messages, childMaxAge: number = CHILD_MAX
     if (!basics.currency) issue("basics", m.currency);
 
     const split = draft.weekPricing === "weekday_weekend";
-    if (split && basics.weekendDays.length === 0) issue("basics", m.weekend);
 
     const releaseNeedsSla =
       Boolean(draft.policies?.enabled) && draft.policies?.release?.afterRelease === "on_request";

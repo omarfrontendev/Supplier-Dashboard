@@ -39,6 +39,8 @@ export function PricingFields({ modelLocked = false }: { modelLocked?: boolean }
   );
 
   const split = weekPricing === "weekday_weekend";
+  // The split needs the contract's own weekend (Contract basics) to know which nights are weekend nights.
+  const hasWeekend = basics.weekendDays.length > 0;
   const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
   const modelName = (model: PricingModel) =>
     model === "base_supplements" ? t.modelSupplements : t.modelFixed;
@@ -82,12 +84,15 @@ export function PricingFields({ modelLocked = false }: { modelLocked?: boolean }
         onChange={(next) => dispatch(setWeekPricing(next as WeekPricing))}
         options={[
           { value: "one_price", label: t.weekOne },
-          { value: "weekday_weekend", label: t.weekSplit },
+          { value: "weekday_weekend", label: t.weekSplit, disabled: !hasWeekend },
         ]}
       />
       <p className="mt-2 text-xs leading-relaxed text-text-muted">
         {split ? t.weekHint : t.weekOneHint}
       </p>
+      {!hasWeekend && (
+        <p className="mt-1 text-xs leading-relaxed text-text-muted">{t.weekSplitNeedsWeekend}</p>
+      )}
 
       {pricingModel === "base_supplements" && (
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

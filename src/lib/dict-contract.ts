@@ -264,6 +264,8 @@ export const contractEn = {
     weekTitle: "How the week is priced",
     weekOne: "One price all week",
     weekSplit: "Weekday & weekend",
+    weekSplitNeedsWeekend:
+      "Set the weekend days in Contract basics to price weekdays and weekends separately.",
     weekHint:
       "Two rates: one for weekdays, one for the weekend days you set in Contract basics. Single nights can still be overridden in the rate calendar.",
     colSupplement: "Supplement on the base",
@@ -663,7 +665,6 @@ export const contractEn = {
         endDate: "Enter the end date",
         endAfterStart: "End date must be after the start date",
         currency: "Select the currency",
-        weekend: "Pick at least one weekend day",
         sla: "SLA must be between {min} and {max} minutes",
         baseRoom: "Select the base room",
         weekdayBase: "Enter the weekday base cost",
@@ -1204,6 +1205,8 @@ export const contractAr: typeof contractEn = {
     weekTitle: "كيف يُسعَّر الأسبوع",
     weekOne: "سعر واحد طوال الأسبوع",
     weekSplit: "أيام الأسبوع ونهايته",
+    weekSplitNeedsWeekend:
+      "حدد أيام نهاية الأسبوع في أساسيات العقد لتسعير أيام الأسبوع ونهايته بشكل منفصل.",
     weekHint:
       "سعران: واحد لأيام الأسبوع وآخر لأيام نهاية الأسبوع التي حددتها في أساسيات العقد. ويمكن تجاوز ليالٍ منفردة في تقويم الأسعار.",
     colSupplement: "الإضافة على الأساس",
@@ -1600,7 +1603,6 @@ export const contractAr: typeof contractEn = {
         endDate: "اختر تاريخ النهاية",
         endAfterStart: "يجب أن يكون تاريخ النهاية بعد تاريخ البداية",
         currency: "اختر العملة",
-        weekend: "اختر يومًا واحدًا على الأقل لنهاية الأسبوع",
         sla: "يجب أن تكون مهلة الرد بين {min} و{max} دقيقة",
         baseRoom: "اختر الغرفة الأساسية",
         weekdayBase: "اكتب السعر الأساسي لأيام الأسبوع",

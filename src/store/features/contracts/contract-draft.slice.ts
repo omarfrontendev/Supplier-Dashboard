@@ -73,6 +73,20 @@ const initialState: ContractDraftState = {
   seasons: [],
 };
 
+/**
+ * "Weekday & weekend" needs the contract's own weekend days to know which nights
+ * are weekend nights. With none set, the draft falls back to one price all week.
+ */
+const weekPricingFor = (weekPricing: WeekPricing, weekendDays: readonly unknown[]): WeekPricing =>
+  weekPricing === "weekday_weekend" && weekendDays.length === 0 ? "one_price" : weekPricing;
+
+const clearWeekendPrices = (state: ContractDraftState) => {
+  state.baseSupplements.weekendBaseCost = "";
+  state.fixedRooms.forEach((room) => {
+    room.weekendPrice = "";
+  });
+};
+
 export const sameFixedOffer = (
   a: Pick<FixedPriceRoom, "roomId" | "view">,
   b: Pick<FixedPriceRoom, "roomId" | "view">,
@@ -82,10 +96,14 @@ export const contractDraftSlice = createSlice({
   name: "contractDraft",
   initialState,
   reducers: {
-    resetDraft: (_state, action: PayloadAction<Partial<ContractBasics> | undefined>) => ({
-      ...initialState,
-      basics: { ...initialState.basics, ...action.payload },
-    }),
+    resetDraft: (_state, action: PayloadAction<Partial<ContractBasics> | undefined>) => {
+      const basics = { ...initialState.basics, ...action.payload };
+      return {
+        ...initialState,
+        basics,
+        weekPricing: weekPricingFor(initialState.weekPricing, basics.weekendDays),
+      };
+    },
 
     loadContract: (
       _state,
@@ -95,21 +113,27 @@ export const contractDraftSlice = createSlice({
           pricingModel: PricingModel;
         } & Partial<Omit<ContractDraftState, "basics" | "pricingModel">>
       >,
-    ) => ({
-      ...initialState,
-      basics: { ...initialState.basics, ...action.payload.basics },
-      pricingModel: action.payload.pricingModel,
-      inventory: action.payload.inventory ?? initialState.inventory,
-      weekPricing: action.payload.weekPricing ?? initialState.weekPricing,
-      baseSupplements: action.payload.baseSupplements ?? emptyBaseSupplements(),
-      fixedRooms: action.payload.fixedRooms ?? [],
-      roomVariationsEdited: action.payload.roomVariationsEdited ?? false,
-      children: action.payload.children ?? initialState.children,
-      meals: action.payload.meals ?? emptyMeals(),
-      policies: action.payload.policies ?? initialState.policies,
-      restrictions: action.payload.restrictions ?? initialState.restrictions,
-      seasons: action.payload.seasons ?? [],
-    }),
+    ) => {
+      const basics = { ...initialState.basics, ...action.payload.basics };
+      return {
+        ...initialState,
+        basics,
+        pricingModel: action.payload.pricingModel,
+        inventory: action.payload.inventory ?? initialState.inventory,
+        weekPricing: weekPricingFor(
+          action.payload.weekPricing ?? initialState.weekPricing,
+          basics.weekendDays,
+        ),
+        baseSupplements: action.payload.baseSupplements ?? emptyBaseSupplements(),
+        fixedRooms: action.payload.fixedRooms ?? [],
+        roomVariationsEdited: action.payload.roomVariationsEdited ?? false,
+        children: action.payload.children ?? initialState.children,
+        meals: action.payload.meals ?? emptyMeals(),
+        policies: action.payload.policies ?? initialState.policies,
+        restrictions: action.payload.restrictions ?? initialState.restrictions,
+        seasons: action.payload.seasons ?? [],
+      };
+    },
 
     saveSeason: (state, action: PayloadAction<SeasonRule>) => {
       const index = state.seasons.findIndex((season) => season.id === action.payload.id);
@@ -158,6 +182,11 @@ export const contractDraftSlice = createSlice({
         next.slaExpiryAction = "auto_reject";
       }
       state.basics = next;
+      const weekPricing = weekPricingFor(state.weekPricing, next.weekendDays);
+      if (weekPricing !== state.weekPricing) {
+        state.weekPricing = weekPricing;
+        clearWeekendPrices(state);
+      }
     },
 
     setPricingModel: (state, action: PayloadAction<PricingModel>) => {
@@ -177,13 +206,8 @@ export const contractDraftSlice = createSlice({
     },
 
     setWeekPricing: (state, action: PayloadAction<WeekPricing>) => {
-      state.weekPricing = action.payload;
-      if (action.payload === "one_price") {
-        state.baseSupplements.weekendBaseCost = "";
-        state.fixedRooms.forEach((room) => {
-          room.weekendPrice = "";
-        });
-      }
+      state.weekPricing = weekPricingFor(action.payload, state.basics.weekendDays);
+      if (state.weekPricing === "one_price") clearWeekendPrices(state);
     },
 
     updateInventory: (state, action: PayloadAction<Partial<InventoryDraft>>) => {

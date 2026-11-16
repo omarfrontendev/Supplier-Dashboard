@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import {
   DatePicker,
@@ -64,17 +64,9 @@ export function DateField(props: DayProps | RangeProps) {
   const { lang } = useLanguage();
   const ar = lang === "ar";
   const mode = props.mode ?? "day";
+  // Only the field's own button opens or closes the panel; clicks elsewhere
+  // (inside the calendar or anywhere on the page) leave it as it is.
   const [open, setOpen] = useState(false);
-  const holder = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (event: MouseEvent) => {
-      if (!holder.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [open]);
 
   const range = mode === "range" ? (props.value as DayRange) : null;
   const shown = range
@@ -96,7 +88,7 @@ export function DateField(props: DayProps | RangeProps) {
         : undefined;
 
   return (
-    <div className={cn("w-full", props.className)} ref={holder}>
+    <div className={cn("w-full", props.className)}>
       {props.label && (
         <span className="mb-2 block text-[13px] font-medium leading-[15px] text-text-primary">
           {props.label}

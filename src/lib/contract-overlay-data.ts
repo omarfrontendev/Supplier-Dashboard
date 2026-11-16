@@ -529,9 +529,9 @@ export const weekendPanel = {
     { label: "Fri", labelAr: "الجمعة" },
   ],
   selected: ["Thu", "Fri"],
-  note: "Thu · Fri selected - the Saudi weekend. Seasons and restrictions can still target single weekdays.",
+  note: "Thu · Fri is the Saudi weekend. Leave every day off to price the whole week the same. Seasons and restrictions can still target single weekdays.",
   noteAr:
-    "الخميس والجمعة مختاران - نهاية الأسبوع السعودية. ويمكن للمواسم والقيود استهداف أيام مفردة.",
+    "الخميس والجمعة نهاية الأسبوع السعودية. اترك كل الأيام دون تحديد لتسعير الأسبوع كله بسعر واحد. ويمكن للمواسم والقيود استهداف أيام مفردة.",
   cancel: "Cancel",
   cancelAr: "إلغاء",
   confirm: "Add Weekend",
