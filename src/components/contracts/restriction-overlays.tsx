@@ -34,10 +34,13 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 function DayChips({
   label,
+  days: shown = WEEKDAYS,
   closed,
   onToggle,
 }: {
   label: string;
+  /** The days offered — every day by default, the contract's weekend days for Weekend days only. */
+  days?: Weekday[];
   closed: Weekday[];
   onToggle: (day: Weekday) => void;
 }) {
@@ -47,7 +50,7 @@ function DayChips({
     <div className="mt-3">
       <p className="text-[12.5px] font-medium text-text-primary">{label}</p>
       <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label={label}>
-        {WEEKDAYS.map((day) => {
+        {shown.map((day) => {
           const on = closed.includes(day);
           return (
             <button
@@ -133,6 +136,14 @@ export function RestrictionDrawer({
   const toggle = (list: Weekday[], day: Weekday) =>
     list.includes(day) ? list.filter((item) => item !== day) : [...list, day];
   const ordered = (list: Weekday[]) => WEEKDAYS.filter((day) => list.includes(day));
+  /* Weekend days only offers the contract's own weekend days (Contract
+     basics), never the whole week; it follows that setting as it changes. */
+  const weekendList = ordered(weekendDays);
+  const noWeekendDays = weekendOnly && weekendList.length === 0;
+  const shownDays = weekendOnly ? weekendList : WEEKDAYS;
+  /* Days picked under Every day stay in state when switching, but only
+     the days on show are saved. */
+  const savedDays = (list: Weekday[]) => ordered(list).filter((day) => shownDays.includes(day));
 
   const draftRule = (): RestrictionRule => ({
     id: initial?.id ?? "",
@@ -173,8 +184,8 @@ export function RestrictionDrawer({
       endDate,
       minNights,
       appliesOn: weekendOnly ? "weekend_only" : "every_day",
-      closedCheckIn: ordered(closedIn),
-      closedCheckOut: ordered(closedOut),
+      closedCheckIn: savedDays(closedIn),
+      closedCheckOut: savedDays(closedOut),
       active,
     };
     const found = restrictionIssues(
@@ -183,6 +194,7 @@ export function RestrictionDrawer({
       f.v,
       (day) => readableDay(day, lang),
     );
+    if (noWeekendDays) found.unshift(t.weekendEmpty);
     const conflict = restrictionConflict(rule, others, f.v, describe);
     if (conflict) {
       found.push(conflict);
@@ -342,17 +354,31 @@ export function RestrictionDrawer({
 
       <div className="mt-5">
         <FieldLabel>{r.daysLabel[k]}</FieldLabel>
-        <p className="mt-1.5 text-[11px] leading-4 text-text-muted">{t.closedHint}</p>
-        <DayChips
-          label={t.closedInLabel}
-          closed={closedIn}
-          onToggle={(day) => setClosedIn((prev) => toggle(prev, day))}
-        />
-        <DayChips
-          label={t.closedOutLabel}
-          closed={closedOut}
-          onToggle={(day) => setClosedOut((prev) => toggle(prev, day))}
-        />
+        {noWeekendDays ? (
+          <p
+            role="alert"
+            className="mt-1.5 flex items-start gap-2 rounded-[10px] bg-status-warning-bg px-3 py-2.5 text-[12px] leading-[1.45] text-status-warning"
+          >
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {t.weekendEmpty}
+          </p>
+        ) : (
+          <>
+            <p className="mt-1.5 text-[11px] leading-4 text-text-muted">{t.closedHint}</p>
+            <DayChips
+              label={t.closedInLabel}
+              days={shownDays}
+              closed={closedIn}
+              onToggle={(day) => setClosedIn((prev) => toggle(prev, day))}
+            />
+            <DayChips
+              label={t.closedOutLabel}
+              days={shownDays}
+              closed={closedOut}
+              onToggle={(day) => setClosedOut((prev) => toggle(prev, day))}
+            />
+          </>
+        )}
       </div>
 
       <div className="mt-5 border-t border-border-subtle pt-4">

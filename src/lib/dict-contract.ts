@@ -721,6 +721,8 @@ export const contractEn = {
         termMissing: "Set the contract term in Contract basics first.",
         weekendOnly: "Weekend days only · {days}",
         weekendNotSet: "Weekend days only · set them in Contract basics",
+        weekendEmpty:
+          "This contract has no weekend days. Set them in Contract basics to use Weekend days only.",
         wholeContract: "Whole contract",
         overline: "RESTRICTIONS",
         discardTitle: "Discard your changes to this restriction?",
@@ -1661,6 +1663,8 @@ export const contractAr: typeof contractEn = {
         termMissing: "حدّد مدة العقد في أساسيات العقد أولًا.",
         weekendOnly: "نهاية الأسبوع فقط · {days}",
         weekendNotSet: "نهاية الأسبوع فقط · حدّدها في أساسيات العقد",
+        weekendEmpty:
+          "لا توجد أيام نهاية أسبوع في هذا العقد. حدّدها في أساسيات العقد لاستخدام نهاية الأسبوع فقط.",
         wholeContract: "كامل العقد",
         overline: "القيود",
         discardTitle: "هل تتجاهل تعديلاتك على هذا القيد؟",
