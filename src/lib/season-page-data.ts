@@ -118,6 +118,36 @@ export const seasonPage = {
     "The season's base room price and room supplements open once the contract's room prices are saved. Meal plan prices per season aren't available yet.",
     "سعر الغرفة الأساس وفروق الغرف للموسم تُفتح بعد حفظ أسعار غرف العقد. وأسعار الوجبات لكل موسم غير متاحة بعد."
   ),
+  roomsTitle: t("Room prices", "أسعار الغرف"),
+  roomsLead: t(
+    "Only the rooms already in the contract. Leave a price empty to keep the contract price.",
+    "الغرف الموجودة في العقد فقط. اترك السعر فارغًا ليبقى سعر العقد."
+  ),
+  baseRow: t("Base room · {room}", "الغرفة الأساس · {room}"),
+  colRoom: t("Room", "الغرفة"),
+  colContractSupplement: t("Contract supplement", "فرق العقد"),
+  colSeasonSupplement: t("Season supplement", "فرق الموسم"),
+  colSeasonWeekday: t("Season · weekday", "الموسم · وسط الأسبوع"),
+  colSeasonWeekend: t("Season · weekend", "الموسم · نهاية الأسبوع"),
+  colSeasonRate: t("Season price", "سعر الموسم"),
+  mealsTitle: t("Meal plans", "خطط الوجبات"),
+  mealsBody: t(
+    "The season can change the price of a meal plan the contract already has. It can't add a new one.",
+    "يمكن للموسم تغيير سعر خطة وجبات موجودة في العقد فقط، ولا يضيف خطة جديدة."
+  ),
+  colMeal: t("Meal plan", "خطة الوجبات"),
+  noRooms: t(
+    "Add rooms to the contract first, then price them for this season.",
+    "أضف الغرف للعقد أولًا، ثم سعّرها لهذا الموسم."
+  ),
+  badPrice: t(
+    "Season prices must be 0 or more, with two decimals at most.",
+    "أسعار الموسم يجب أن تكون ٠ أو أكثر، بمنزلتين عشريتين كحد أقصى."
+  ),
+  bothWeekly: t(
+    "Enter both the weekday and the weekend price, or leave both empty.",
+    "أدخل سعر وسط الأسبوع ونهاية الأسبوع معًا، أو اترك الاثنين فارغين."
+  ),
   childrenTitle: t("Extra children", "الأطفال الإضافيون"),
   childrenBody: t(
     "Leave a price empty to keep the contract price. Ages always come from the contract.",

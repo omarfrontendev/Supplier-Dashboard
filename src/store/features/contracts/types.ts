@@ -222,6 +222,30 @@ export interface SeasonIssue {
   message: string;
 }
 
+export interface SeasonRoomPrices {
+  supplement: string;
+  weekday: string;
+  weekend: string;
+  meals: Record<string, string>;
+}
+
+export interface SeasonPricingDraft {
+  baseWeekday: string;
+  baseWeekend: string;
+  rooms: Record<string, SeasonRoomPrices>;
+  meals: Record<string, string>;
+}
+
+export const emptySeasonPricing = (): SeasonPricingDraft => ({
+  baseWeekday: "",
+  baseWeekend: "",
+  rooms: {},
+  meals: {},
+});
+
+export const seasonRoomKey = (roomId: number, view: string | null) =>
+  `${roomId}|${view ?? "no_view"}`;
+
 export interface SeasonRule {
   id: string;
   name: string;
@@ -229,6 +253,7 @@ export interface SeasonRule {
   endDate: string;
   color: string;
   childPrices: SeasonChildPrices;
+  pricing: SeasonPricingDraft;
   cancellation: CancellationPolicy | null;
   keptPricing: Record<string, unknown> | null;
   issues: SeasonIssue[];

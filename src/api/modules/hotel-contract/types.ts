@@ -401,9 +401,29 @@ export type ContractInventoryRules =
 
 export type SeasonChildPrices = Partial<Record<keyof ContractChildPricing, number>>;
 
+export interface SeasonRateApi {
+  amount?: number;
+  weekday?: number;
+  weekend?: number;
+}
+
+export interface SeasonMealPriceApi {
+  type: string;
+  price: number;
+}
+
+export interface SeasonRoomApi {
+  roomId: number;
+  view: string;
+  rate?: SeasonRateApi;
+  supplement?: number;
+  mealPlans?: SeasonMealPriceApi[];
+}
+
 export interface ContractSeasonPricing {
-  baseRate?: unknown;
-  rooms?: unknown[];
+  baseRate?: SeasonRateApi;
+  rooms?: SeasonRoomApi[];
+  mealPlans?: SeasonMealPriceApi[];
   childPrices?: SeasonChildPrices;
 }
 
@@ -424,7 +444,7 @@ export interface ContractSeason extends Omit<
   contractId: number;
   nights: number;
   issues: { code: string; message: string }[];
-  pricing: { baseRate: unknown | null; rooms: unknown[]; childPrices: SeasonChildPrices } | null;
+  pricing: ContractSeasonPricing | null;
   cancellationPolicy: ContractCancellationPolicy | null;
   effectiveCancellationPolicy: ContractCancellationPolicy | null;
   cancellationPolicySource: "season" | "contract" | null;

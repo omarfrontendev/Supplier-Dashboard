@@ -15,6 +15,9 @@ import type {
   ContractRestrictionInput,
   ContractSeason,
   ContractSeasonInput,
+  ContractSeasonPricing,
+  SeasonRateApi,
+  SeasonRoomApi,
   ContractInventoryRules,
   ContractWeekPricing,
   CreateHotelContractBody,
@@ -41,8 +44,11 @@ import {
   type ReleasePolicy,
   type RestrictionRule,
   type RoomView,
+  type SeasonPricingDraft,
   type SeasonRule,
   type Weekday,
+  emptySeasonPricing,
+  seasonRoomKey,
 } from "./types";
 
 const bookingToApi: Record<BookingType, ApiBookingType> = {
@@ -1023,7 +1029,84 @@ export const cancellationChanged = (draft: ContractDraftState, contract: Supplie
   cancellationKey(toCancellationPolicy(draft)) !==
   cancellationKey(contract.cancellationPolicy ?? null);
 
-export function toSeasons({ seasons }: ContractDraftState): ContractSeasonInput[] {
+const seasonRate = (weekday: string, weekend: string, split: boolean): SeasonRateApi | null => {
+  const day = toAmount(weekday);
+  if (!split) return day === null ? null : { amount: day };
+  const end = toAmount(weekend);
+  return day === null || end === null ? null : { weekday: day, weekend: end };
+};
+
+const mealPrices = (meals: Record<string, string>) =>
+  Object.entries(meals)
+    .filter(([, price]) => toAmount(price) !== null)
+    .map(([type, price]) => ({ type, price: toAmount(price)! }))
+    .sort((a, b) => a.type.localeCompare(b.type));
+
+export function seasonPricingToApi(
+  pricing: SeasonPricingDraft,
+  pricingModel: PricingModel,
+  split: boolean,
+): Omit<ContractSeasonPricing, "childPrices"> {
+  const out: Omit<ContractSeasonPricing, "childPrices"> = {};
+  if (pricingModel === "base_supplements") {
+    const baseRate = seasonRate(pricing.baseWeekday, pricing.baseWeekend, split);
+    if (baseRate) out.baseRate = baseRate;
+    const meals = mealPrices(pricing.meals);
+    if (meals.length > 0) out.mealPlans = meals;
+  }
+  const rooms = Object.entries(pricing.rooms)
+    .flatMap(([key, room]): SeasonRoomApi[] => {
+      const [roomId, view] = key.split("|");
+      if (pricingModel === "base_supplements") {
+        const supplement = toAmount(room.supplement);
+        return supplement === null
+          ? []
+          : [{ roomId: Number(roomId), view: view!, supplement }];
+      }
+      const rate = seasonRate(room.weekday, room.weekend, split);
+      const meals = mealPrices(room.meals);
+      if (!rate && meals.length === 0) return [];
+      return [
+        {
+          roomId: Number(roomId),
+          view: view!,
+          ...(rate ? { rate } : {}),
+          ...(meals.length > 0 ? { mealPlans: meals } : {}),
+        },
+      ];
+    })
+    .sort((a, b) => `${a.roomId}|${a.view}`.localeCompare(`${b.roomId}|${b.view}`));
+  if (rooms.length > 0) out.rooms = rooms;
+  return out;
+}
+
+const rateText = (value: number | undefined) => (value === undefined ? "" : String(Number(value)));
+
+export function seasonPricingFromApi(pricing: ContractSeasonPricing | null | undefined) {
+  const draft = emptySeasonPricing();
+  const base = pricing?.baseRate;
+  if (base) {
+    draft.baseWeekday = rateText(base.amount ?? base.weekday);
+    draft.baseWeekend = rateText(base.weekend ?? base.amount);
+  }
+  for (const meal of pricing?.mealPlans ?? []) draft.meals[meal.type] = rateText(meal.price);
+  for (const room of pricing?.rooms ?? []) {
+    draft.rooms[seasonRoomKey(room.roomId, room.view)] = {
+      supplement: rateText(room.supplement),
+      weekday: rateText(room.rate?.amount ?? room.rate?.weekday),
+      weekend: rateText(room.rate?.weekend ?? room.rate?.amount),
+      meals: Object.fromEntries((room.mealPlans ?? []).map((meal) => [meal.type, rateText(meal.price)])),
+    };
+  }
+  return draft;
+}
+
+export function toSeasons({
+  seasons,
+  pricingModel,
+  weekPricing,
+}: Pick<ContractDraftState, "seasons" | "pricingModel" | "weekPricing">): ContractSeasonInput[] {
+  const split = weekPricing === "weekday_weekend";
   return seasons.map((season) => {
     const childPrices = Object.fromEntries(
       CHILD_RULES.filter((key) => toAmount(season.childPrices[key]) !== null).map((key) => [
@@ -1032,7 +1115,7 @@ export function toSeasons({ seasons }: ContractDraftState): ContractSeasonInput[
       ]),
     );
     const pricing = {
-      ...(season.keptPricing ?? {}),
+      ...seasonPricingToApi(season.pricing ?? emptySeasonPricing(), pricingModel, split),
       ...(Object.keys(childPrices).length > 0 ? { childPrices } : {}),
     };
     return {
@@ -1050,12 +1133,6 @@ export function seasonsFromContract(saved: ContractSeason[]): SeasonRule[] {
   return [...saved]
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
     .map((season) => {
-      const baseRate = season.pricing?.baseRate ?? null;
-      const rooms = season.pricing?.rooms ?? [];
-      const kept = {
-        ...(baseRate ? { baseRate } : {}),
-        ...(rooms.length > 0 ? { rooms } : {}),
-      };
       const prices = season.pricing?.childPrices ?? {};
       return {
         id: `saved-${season.id}`,
@@ -1069,8 +1146,9 @@ export function seasonsFromContract(saved: ContractSeason[]): SeasonRule[] {
           shared_bed: prices.shared_bed === undefined ? "" : String(Number(prices.shared_bed)),
           extra_bed: prices.extra_bed === undefined ? "" : String(Number(prices.extra_bed)),
         },
+        pricing: seasonPricingFromApi(season.pricing),
         cancellation: cancellationFromContract(season.cancellationPolicy),
-        keptPricing: Object.keys(kept).length > 0 ? kept : null,
+        keptPricing: null,
         issues: season.issues ?? [],
       };
     });
@@ -1083,6 +1161,9 @@ const seasonKey = (season: ContractSeasonInput) =>
     season.endDate.slice(0, 10),
     season.color.toUpperCase(),
     CHILD_RULES.map((key) => season.pricing?.childPrices?.[key] ?? null),
+    season.pricing?.baseRate ?? null,
+    season.pricing?.mealPlans ?? null,
+    season.pricing?.rooms ?? null,
     cancellationKey(season.cancellationPolicy ?? null),
   ]);
 

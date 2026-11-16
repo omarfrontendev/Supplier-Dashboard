@@ -3,6 +3,10 @@ import { AlertTriangle, CalendarDays, Check, Trash2 } from "lucide-react";
 
 import { CancellationDrawer } from "@/components/contracts/policy-overlays";
 import { Band, Part } from "@/components/contracts/season-page";
+import {
+  SeasonRoomPrices,
+  seasonPricingIssues,
+} from "@/components/contracts/season-room-prices";
 import { policyLines } from "@/components/contracts/contract-form/policies-summary";
 import { seasonIssues, seasonOverlap } from "@/components/contracts/contract-form/schema";
 import { AmountInput, formatAmount } from "@/components/contracts/contract-form/shared";
@@ -19,6 +23,8 @@ import { toAmount } from "@/store/features/contracts/contract-payload";
 import {
   CHILD_RULES,
   SEASON_COLOURS,
+  emptySeasonPricing,
+  type ContractDraftState,
   SEASON_NAME_MAX,
   type CancellationPolicy,
   type ChildRules,
@@ -32,6 +38,7 @@ const emptySeason = (): SeasonRule => ({
   endDate: "",
   color: SEASON_COLOURS[0],
   childPrices: { sharing_parents: "", shared_bed: "", extra_bed: "" },
+  pricing: emptySeasonPricing(),
   cancellation: null,
   keptPricing: null,
   issues: [],
@@ -61,6 +68,9 @@ export function SeasonEditor({
   currency,
   contractChildren,
   contractPolicy,
+  contract,
+  roomName,
+  mealName,
   onSave,
   onRemove,
   onClose,
@@ -72,6 +82,12 @@ export function SeasonEditor({
   currency: string | null;
   contractChildren: ChildRules;
   contractPolicy: CancellationPolicy | null;
+  contract: Pick<
+    ContractDraftState,
+    "pricingModel" | "weekPricing" | "baseSupplements" | "fixedRooms" | "meals"
+  >;
+  roomName: (roomId: number, view: string | null) => string;
+  mealName: (plan: string) => string;
   onSave: (season: SeasonRule) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
@@ -80,8 +96,10 @@ export function SeasonEditor({
   const k = lang === "ar" ? "ar" : "en";
   const p = seasonPage;
   const f = c.builder.form;
-  const [draft, setDraft] = useState<SeasonRule>(() => season ?? emptySeason());
-  const [start] = useState(() => JSON.stringify(season ?? draft));
+  const [draft, setDraft] = useState<SeasonRule>(() =>
+    season ? { ...season, pricing: season.pricing ?? emptySeasonPricing() } : emptySeason(),
+  );
+  const [start] = useState(() => JSON.stringify(draft));
   const [tried, setTried] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -89,7 +107,10 @@ export function SeasonEditor({
 
   const day = (key: string) => readableDay(key, lang);
   const dirty = JSON.stringify(draft) !== start;
-  const issues = seasonIssues(draft, others, term, f.v, day);
+  const issues = [
+    ...seasonIssues(draft, others, term, f.v, day),
+    ...seasonPricingIssues(draft.pricing, contract, lang),
+  ];
   const overlap = seasonOverlap(draft, others);
   const shown = tried ? issues : overlap ? issues.filter((message) => message.includes(overlap.season.name)) : [];
   const locked = useMemo(() => nightsOf(others), [others]);
@@ -199,9 +220,15 @@ export function SeasonEditor({
       </Band>
 
       <Band label={p.sectionPrices[k]}>
-        <p className="rounded-[10px] bg-surface-subtle px-3.5 py-2.5 text-[12px] leading-5 text-text-secondary">
-          {p.pricingPending[k]}
-        </p>
+        <SeasonRoomPrices
+          pricing={draft.pricing}
+          contract={contract}
+          currency={currency}
+          lang={lang}
+          roomName={roomName}
+          mealName={mealName}
+          onChange={(pricing) => update({ pricing })}
+        />
         <Part title={p.childrenTitle[k]} body={p.childrenBody[k]}>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-sm">

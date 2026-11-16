@@ -2505,6 +2505,9 @@ export function ContractBuilder({
           currency={basics.currency}
           contractChildren={draft.children}
           contractPolicy={draft.policies.enabled ? draft.policies.cancellation : null}
+          contract={draft}
+          roomName={roomName}
+          mealName={formatMealPlan}
           onSave={(season) => {
             dispatch(saveSeason(season));
             notify.success(
