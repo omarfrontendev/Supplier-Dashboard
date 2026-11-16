@@ -27,7 +27,7 @@ import {
 import { roomViewOptions } from "@/lib/contracts/room-views";
 import { ROOM_SIZES } from "@/lib/room-sizes";
 import { ContractRoomSelect } from "./room-select";
-import { AmountInput, RoomTick, useAppDispatch, useContractDraft } from "./shared";
+import { RoomTick, useAppDispatch, useContractDraft } from "./shared";
 
 export function mealOptionsFrom(
   metadata: HotelContractsMetadataData | undefined,
@@ -61,8 +61,7 @@ export function AddRoomDialog({
   const { c, lang } = useLanguage();
   const f = c.builder.form;
   const dispatch = useAppDispatch();
-  const { basics, fixedRooms, baseSupplements } = useContractDraft();
-  const currencySuffix = basics.currency ? { suffix: basics.currency } : {};
+  const { fixedRooms, baseSupplements } = useContractDraft();
   const [roomId, setRoomId] = useState("");
   const [roomSizeId, setRoomSizeId] = useState<number | null>(null);
   const [view, setView] = useState<RoomView | "">("");
@@ -76,11 +75,8 @@ export function AddRoomDialog({
     const meal = meals[option.value];
     return meal ? [meal] : [];
   });
-  const mealPriceMissing = pickedMeals.some(
-    (meal) => meal.plan !== "room_only" && meal.price.trim() === "",
-  );
   const fixedSelection =
-    hasMealPlan && roomId !== "" && view !== "" && pickedMeals.length > 0 && !mealPriceMissing
+    hasMealPlan && roomId !== "" && view !== "" && pickedMeals.length > 0
       ? { roomId: Number(roomId), view, meals: pickedMeals }
       : null;
   const supplementSelection =
@@ -205,7 +201,7 @@ export function AddRoomDialog({
               </div>
             ) : (
               <Table
-                head={["", t.colMeal, t.colBasis, t.colPrice]}
+                head={["", t.colMeal, t.colBasis]}
                 rows={mealOptions.map((option) => {
                   const meal = meals[option.value];
                   const included = option.value === "room_only";
@@ -232,27 +228,9 @@ export function AddRoomDialog({
                         ]}
                       />
                     ),
-                    included ? (
-                      <span key="included" className="text-sm font-medium text-brand-deep">
-                        {t.included}
-                      </span>
-                    ) : (
-                      <AmountInput
-                        key="price"
-                        aria-label={`${option.label} · ${t.colPrice}`}
-                        {...currencySuffix}
-                        className="max-w-[160px]"
-                        disabled={!meal}
-                        value={meal?.price ?? ""}
-                        onValue={(value) => editMeal(option.value, { price: value })}
-                      />
-                    ),
                   ];
                 })}
               />
-            )}
-            {mealPriceMissing && (
-              <p className="mt-2 text-[12.5px] text-status-danger">{f.v.mealPrice}</p>
             )}
           </div>
         )}

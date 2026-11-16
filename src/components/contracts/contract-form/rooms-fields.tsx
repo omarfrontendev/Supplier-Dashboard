@@ -102,7 +102,6 @@ export function RoomsFields({
     const mealLabel = new Map(
       mealOptionsFrom(metadata, lang).map((option) => [option.value, option.label]),
     );
-    const t = f.mealsTable;
     return (
       <>
         <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
@@ -130,13 +129,6 @@ export function RoomsFields({
                   {row.meals.map((meal) => (
                     <li key={meal.plan} className="text-sm text-text-primary">
                       {mealLabel.get(meal.plan) ?? meal.plan}
-                      {meal.plan !== "room_only" && (
-                        <span className="text-text-muted">
-                          {` · +${money(toAmount(meal.price))} ${
-                            meal.basis === "per_person" ? t.perPerson : t.perRoom
-                          }`}
-                        </span>
-                      )}
                     </li>
                   ))}
                 </ul>,
