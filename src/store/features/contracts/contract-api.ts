@@ -76,8 +76,10 @@ const weekdayFromApi = Object.fromEntries(
 ) as Record<string, Weekday>;
 
 const apiWeekPricing = (draft: ContractDraftState): ContractWeekPricing | null => {
-  if (draft.weekPricing === "one_price") return { mode: "same_all_week" };
-  if (draft.basics.weekendDays.length === 0) return null;
+  // No weekend days means every night is priced the same; never invent default days.
+  if (draft.weekPricing === "one_price" || draft.basics.weekendDays.length === 0) {
+    return { mode: "same_all_week" };
+  }
   return {
     mode: "weekday_weekend",
     weekendDays: draft.basics.weekendDays.map((day) => weekdayToApi[day]),

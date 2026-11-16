@@ -209,7 +209,7 @@ export function ChoiceRow({
 }: {
   value: string;
   onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; disabled?: boolean }>;
   disabled?: boolean;
 }) {
   return (
@@ -219,7 +219,7 @@ export function ChoiceRow({
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
-          disabled={disabled}
+          disabled={disabled || option.disabled}
           className={cn(
             "rounded-lg border px-3.5 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
             value === option.value
